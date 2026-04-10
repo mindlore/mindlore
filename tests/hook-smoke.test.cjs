@@ -24,16 +24,15 @@ describe('Hook Smoke Tests', () => {
   });
 
   test('all hooks should have valid syntax', () => {
+    const vm = require('vm');
+
     for (const hook of expectedHooks) {
       const hookPath = path.join(HOOKS_DIR, hook);
       const content = fs.readFileSync(hookPath, 'utf8');
 
-      // Should not throw on require
+      // Compile without executing — catches syntax errors without running main()
       expect(() => {
-        // Clear from cache first
-        delete require.cache[require.resolve(hookPath)];
-        // This will throw if syntax is invalid
-        require(hookPath);
+        new vm.Script(content, { filename: hookPath });
       }).not.toThrow();
     }
   });

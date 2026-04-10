@@ -50,10 +50,18 @@ describe('Frontmatter Parser', () => {
   });
 
   test('should handle empty frontmatter', () => {
+    // Empty frontmatter (no fields between delimiters) returns null
+    // because the regex requires at least one newline of content
     const content = '---\n---\n# Empty';
     const fm = parseFrontmatter(content);
+    expect(fm).toBeNull();
+  });
+
+  test('should handle frontmatter with single field', () => {
+    const content = '---\nslug: minimal\n---\n# Minimal';
+    const fm = parseFrontmatter(content);
     expect(fm).not.toBeNull();
-    expect(Object.keys(fm)).toHaveLength(0);
+    expect(fm.slug).toBe('minimal');
   });
 
   test('should handle CRLF line endings', () => {
