@@ -13,7 +13,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `npx mindlore init` — idempotent setup (dirs, templates, DB, hook registration)
 - 7 CC lifecycle hooks: session-focus, search, index, fts5-sync, session-end, pre-compact, post-compact
 - 2 skills: `/mindlore-ingest`, `/mindlore-health`
-- 4 scripts: init, fts5-index, fts5-search, health-check (16-point structural audit)
+- 5 scripts: init, uninstall, fts5-index, fts5-search, health-check (16-point structural audit)
 - 5 test suites (23 tests): fts5, dedup, init, frontmatter, hook-smoke
 - CI: GitHub Actions matrix (3 OS x 2 Node versions) with npm cache
 - ESLint v9 flat config

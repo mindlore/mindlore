@@ -13,6 +13,7 @@ const fs = require('fs');
 const path = require('path');
 
 const { DB_NAME } = require('./lib/constants.cjs');
+const { openDatabase } = require('../hooks/lib/mindlore-common.cjs');
 const MAX_RESULTS = 3;
 
 // ── Helpers ────────────────────────────────────────────────────────────
@@ -46,15 +47,11 @@ function main() {
     process.exit(1);
   }
 
-  let Database;
-  try {
-    Database = require('better-sqlite3');
-  } catch (_err) {
+  const db = openDatabase(dbPath, { readonly: true });
+  if (!db) {
     console.error('  better-sqlite3 not installed.');
     process.exit(1);
   }
-
-  const db = new Database(dbPath, { readonly: true });
 
   try {
     // Sanitize query for FTS5 (escape special chars)

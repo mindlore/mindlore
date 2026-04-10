@@ -7,7 +7,7 @@
  * After context compaction, re-inject session context:
  * 1. Read INDEX.md
  * 2. Read latest delta
- * 3. Inject via stderr (same as session-focus)
+ * 3. Inject via stdout (same as session-focus)
  *
  * This ensures the agent has knowledge context after compaction.
  */

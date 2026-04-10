@@ -13,7 +13,7 @@
 
 const fs = require('fs');
 const path = require('path');
-const { MINDLORE_DIR, DB_NAME, sha256, requireDatabase, getAllMdFiles } = require('./lib/mindlore-common.cjs');
+const { MINDLORE_DIR, DB_NAME, sha256, openDatabase, getAllMdFiles } = require('./lib/mindlore-common.cjs');
 
 function main() {
   // Read stdin to check if this is a .mindlore/ file change
@@ -41,11 +41,8 @@ function main() {
   const dbPath = path.join(baseDir, DB_NAME);
   if (!fs.existsSync(dbPath)) return;
 
-  const Database = requireDatabase();
-  if (!Database) return;
-
-  const db = new Database(dbPath);
-  db.pragma('journal_mode = WAL');
+  const db = openDatabase(dbPath);
+  if (!db) return;
 
   const mdFiles = getAllMdFiles(baseDir);
   let synced = 0;

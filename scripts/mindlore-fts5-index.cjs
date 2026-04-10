@@ -13,7 +13,7 @@ const path = require('path');
 // ── Constants ──────────────────────────────────────────────────────────
 
 const { DB_NAME } = require('./lib/constants.cjs');
-const { sha256, getAllMdFiles } = require('../hooks/lib/mindlore-common.cjs');
+const { sha256, getAllMdFiles, openDatabase } = require('../hooks/lib/mindlore-common.cjs');
 
 // ── Main ───────────────────────────────────────────────────────────────
 
@@ -26,16 +26,11 @@ function main() {
     process.exit(1);
   }
 
-  let Database;
-  try {
-    Database = require('better-sqlite3');
-  } catch (_err) {
+  const db = openDatabase(dbPath);
+  if (!db) {
     console.error('  better-sqlite3 not installed. Run: npm install better-sqlite3');
     process.exit(1);
   }
-
-  const db = new Database(dbPath);
-  db.pragma('journal_mode = WAL');
 
   // Prepare statements
   const getHash = db.prepare('SELECT content_hash FROM file_hashes WHERE path = ?');

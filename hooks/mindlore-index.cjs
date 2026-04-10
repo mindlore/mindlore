@@ -10,7 +10,7 @@
 
 const fs = require('fs');
 const path = require('path');
-const { MINDLORE_DIR, DB_NAME, SKIP_FILES, sha256, requireDatabase } = require('./lib/mindlore-common.cjs');
+const { MINDLORE_DIR, DB_NAME, SKIP_FILES, sha256, openDatabase } = require('./lib/mindlore-common.cjs');
 
 function main() {
   let input = '';
@@ -43,13 +43,10 @@ function main() {
 
   if (!fs.existsSync(dbPath)) return;
 
-  const Database = requireDatabase();
-  if (!Database) return;
-
   if (!fs.existsSync(filePath)) {
     // File was deleted — remove from index
-    const db = new Database(dbPath);
-    db.pragma('journal_mode = WAL');
+    const db = openDatabase(dbPath);
+    if (!db) return;
     try {
       db.prepare('DELETE FROM mindlore_fts WHERE path = ?').run(filePath);
       db.prepare('DELETE FROM file_hashes WHERE path = ?').run(filePath);
@@ -62,8 +59,8 @@ function main() {
   const content = fs.readFileSync(filePath, 'utf8').replace(/\r\n/g, '\n');
   const hash = sha256(content);
 
-  const db = new Database(dbPath);
-  db.pragma('journal_mode = WAL');
+  const db = openDatabase(dbPath);
+  if (!db) return;
 
   try {
     // Check if content changed

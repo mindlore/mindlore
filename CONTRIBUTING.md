@@ -43,7 +43,7 @@ Types: `feat`, `fix`, `test`, `docs`, `chore`, `refactor`
 
 ## Code Style
 
-- ESLint enforced (see `.eslintrc.cjs`)
+- ESLint enforced (see `eslint.config.cjs`)
 - 2-space indentation
 - `prefer-const`, `no-var`, `eqeqeq`
 - No unused variables (prefix with `_` if intentional)

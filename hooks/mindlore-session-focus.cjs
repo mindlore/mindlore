@@ -5,7 +5,7 @@
  * mindlore-session-focus — SessionStart hook
  *
  * Injects last delta file content + INDEX.md into session context.
- * Fires once at session start via stderr additionalContext.
+ * Fires once at session start via stdout additionalContext.
  */
 
 const fs = require('fs');
