@@ -14,7 +14,7 @@ const path = require('path');
 
 // ── Constants ──────────────────────────────────────────────────────────
 
-const { MINDLORE_DIR, DB_NAME, DIRECTORIES } = require('./lib/constants.cjs');
+const { MINDLORE_DIR, DB_NAME, DIRECTORIES, homedir } = require('./lib/constants.cjs');
 
 const TEMPLATE_FILES = ['INDEX.md', 'log.md'];
 
@@ -124,7 +124,7 @@ function createDatabase(baseDir) {
 
 function mergeHooks(packageRoot) {
   const settingsPath = path.join(
-    require('./lib/constants.cjs').homedir(),
+    homedir(),
     '.claude',
     'settings.json'
   );
@@ -241,35 +241,25 @@ function addSchemaToProjectDocs() {
 
 // ── Step 6: Register skills ────────────────────────────────────────────
 
-function registerSkills(packageRoot) {
-  const homeDir = require('./lib/constants.cjs').homedir();
-  const skillsDir = path.join(homeDir, '.claude', 'skills');
+function registerSkills(packageRoot, plugin) {
+  const skillsDir = path.join(homedir(), '.claude', 'skills');
   ensureDir(skillsDir);
 
-  const pluginPath = path.join(packageRoot, 'plugin.json');
-  if (!fs.existsSync(pluginPath)) return 0;
-
-  const plugin = JSON.parse(fs.readFileSync(pluginPath, 'utf8'));
   if (!plugin.skills || plugin.skills.length === 0) return 0;
 
   let added = 0;
   for (const skill of plugin.skills) {
-    const skillName = skill.name;
     const skillSrcDir = path.join(packageRoot, path.dirname(skill.path));
-    const skillDestDir = path.join(skillsDir, skillName);
+    const skillDestDir = path.join(skillsDir, skill.name);
 
-    // Skip if already exists
-    if (fs.existsSync(skillDestDir)) continue;
-
-    // Copy skill directory (Windows-safe, no symlinks)
     ensureDir(skillDestDir);
-    const srcFiles = fs.readdirSync(skillSrcDir);
-    for (const file of srcFiles) {
-      const srcFile = path.join(skillSrcDir, file);
-      const destFile = path.join(skillDestDir, file);
-      if (fs.statSync(srcFile).isFile()) {
-        fs.copyFileSync(srcFile, destFile);
-      }
+    const entries = fs.readdirSync(skillSrcDir, { withFileTypes: true });
+    for (const entry of entries) {
+      if (!entry.isFile()) continue;
+      fs.copyFileSync(
+        path.join(skillSrcDir, entry.name),
+        path.join(skillDestDir, entry.name)
+      );
     }
     added++;
   }
@@ -282,9 +272,8 @@ function registerSkills(packageRoot) {
 function ensureBetterSqlite3() {
   try {
     require('better-sqlite3');
-    return true; // Already available
+    return true;
   } catch (_err) {
-    // Try to install
     try {
       const { execSync } = require('child_process');
       log('Installing better-sqlite3 (native dependency)...');
@@ -294,7 +283,7 @@ function ensureBetterSqlite3() {
         timeout: 120000,
       });
       return true;
-    } catch (installErr) {
+    } catch (_installErr) {
       log('WARNING: Could not install better-sqlite3. FTS5 search disabled.');
       log('  Run manually: npm install better-sqlite3');
       return false;
@@ -354,11 +343,20 @@ function main() {
       : 'All templates already in place'
   );
 
-  // Step 3: Database
+  // Step 3: better-sqlite3 (before DB creation so it's available)
+  ensureBetterSqlite3();
+
+  // Step 4: Database
   const dbCreated = createDatabase(baseDir);
   log(dbCreated ? 'Created FTS5 database' : 'Database already exists');
 
-  // Step 4: Hooks
+  // Read plugin.json once for hooks + skills
+  const pluginPath = path.join(packageRoot, 'plugin.json');
+  const plugin = fs.existsSync(pluginPath)
+    ? JSON.parse(fs.readFileSync(pluginPath, 'utf8'))
+    : {};
+
+  // Step 5: Hooks
   const hooksAdded = mergeHooks(packageRoot);
   if (typeof hooksAdded === 'number' && hooksAdded > 0) {
     log(`Registered ${hooksAdded} hooks in ~/.claude/settings.json`);
@@ -366,7 +364,7 @@ function main() {
     log('Hooks already registered (or settings.json not found)');
   }
 
-  // Step 5: SCHEMA.md in projectDocFiles
+  // Step 6: SCHEMA.md in projectDocFiles
   const schemaAdded = addSchemaToProjectDocs();
   log(
     schemaAdded
@@ -374,16 +372,13 @@ function main() {
       : 'SCHEMA.md already in project settings'
   );
 
-  // Step 6: Skills
-  const skillsAdded = registerSkills(packageRoot);
+  // Step 7: Skills
+  const skillsAdded = registerSkills(packageRoot, plugin);
   log(
     skillsAdded > 0
       ? `Registered ${skillsAdded} skills in ~/.claude/skills/`
       : 'Skills already registered'
   );
-
-  // Step 7: better-sqlite3
-  ensureBetterSqlite3();
 
   // Step 8: .gitignore
   const gitignoreAdded = addToGitignore();
