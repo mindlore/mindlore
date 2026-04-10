@@ -239,7 +239,70 @@ function addSchemaToProjectDocs() {
   return false;
 }
 
-// ── Step 6: Add .mindlore/ to .gitignore ───────────────────────────────
+// ── Step 6: Register skills ────────────────────────────────────────────
+
+function registerSkills(packageRoot) {
+  const homeDir = require('./lib/constants.cjs').homedir();
+  const skillsDir = path.join(homeDir, '.claude', 'skills');
+  ensureDir(skillsDir);
+
+  const pluginPath = path.join(packageRoot, 'plugin.json');
+  if (!fs.existsSync(pluginPath)) return 0;
+
+  const plugin = JSON.parse(fs.readFileSync(pluginPath, 'utf8'));
+  if (!plugin.skills || plugin.skills.length === 0) return 0;
+
+  let added = 0;
+  for (const skill of plugin.skills) {
+    const skillName = skill.name;
+    const skillSrcDir = path.join(packageRoot, path.dirname(skill.path));
+    const skillDestDir = path.join(skillsDir, skillName);
+
+    // Skip if already exists
+    if (fs.existsSync(skillDestDir)) continue;
+
+    // Copy skill directory (Windows-safe, no symlinks)
+    ensureDir(skillDestDir);
+    const srcFiles = fs.readdirSync(skillSrcDir);
+    for (const file of srcFiles) {
+      const srcFile = path.join(skillSrcDir, file);
+      const destFile = path.join(skillDestDir, file);
+      if (fs.statSync(srcFile).isFile()) {
+        fs.copyFileSync(srcFile, destFile);
+      }
+    }
+    added++;
+  }
+
+  return added;
+}
+
+// ── Step 7: Install better-sqlite3 if needed ──────────────────────────
+
+function ensureBetterSqlite3() {
+  try {
+    require('better-sqlite3');
+    return true; // Already available
+  } catch (_err) {
+    // Try to install
+    try {
+      const { execSync } = require('child_process');
+      log('Installing better-sqlite3 (native dependency)...');
+      execSync('npm install better-sqlite3 --no-save', {
+        cwd: process.cwd(),
+        stdio: 'pipe',
+        timeout: 120000,
+      });
+      return true;
+    } catch (installErr) {
+      log('WARNING: Could not install better-sqlite3. FTS5 search disabled.');
+      log('  Run manually: npm install better-sqlite3');
+      return false;
+    }
+  }
+}
+
+// ── Step 8: Add .mindlore/ to .gitignore ───────────────────────────────
 
 function addToGitignore() {
   const gitignorePath = path.join(process.cwd(), '.gitignore');
@@ -311,7 +374,18 @@ function main() {
       : 'SCHEMA.md already in project settings'
   );
 
-  // Step 6: .gitignore
+  // Step 6: Skills
+  const skillsAdded = registerSkills(packageRoot);
+  log(
+    skillsAdded > 0
+      ? `Registered ${skillsAdded} skills in ~/.claude/skills/`
+      : 'Skills already registered'
+  );
+
+  // Step 7: better-sqlite3
+  ensureBetterSqlite3();
+
+  // Step 8: .gitignore
   const gitignoreAdded = addToGitignore();
   log(
     gitignoreAdded
