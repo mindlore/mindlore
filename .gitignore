@@ -1,0 +1,12 @@
+node_modules/
+*.db
+.env
+.env.*
+dist/
+*.log
+.mindlore/
+coverage/
+.DS_Store
+Thumbs.db
+*.tgz
+.claude/

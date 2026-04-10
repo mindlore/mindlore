@@ -1,0 +1,55 @@
+{
+  "name": "mindlore",
+  "version": "0.0.1",
+  "description": "AI-native knowledge system for Claude Code",
+  "type": "commonjs",
+  "bin": {
+    "mindlore": "scripts/init.cjs"
+  },
+  "scripts": {
+    "test": "jest --config jest.config.cjs",
+    "lint": "eslint scripts/ hooks/ tests/",
+    "health": "node scripts/mindlore-health-check.cjs",
+    "index": "node scripts/mindlore-fts5-index.cjs",
+    "search": "node scripts/mindlore-fts5-search.cjs"
+  },
+  "keywords": [
+    "claude-code",
+    "knowledge-base",
+    "second-brain",
+    "ai-native",
+    "fts5",
+    "karpathy",
+    "llm",
+    "wiki"
+  ],
+  "author": "omrfc",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/mindlore/mindlore.git"
+  },
+  "bugs": {
+    "url": "https://github.com/mindlore/mindlore/issues"
+  },
+  "homepage": "https://github.com/mindlore/mindlore#readme",
+  "engines": {
+    "node": ">=20.0.0"
+  },
+  "dependencies": {
+    "better-sqlite3": "^11.0.0"
+  },
+  "devDependencies": {
+    "eslint": "^9.0.0",
+    "jest": "^29.7.0",
+    "globals": "^15.0.0"
+  },
+  "files": [
+    "scripts/",
+    "hooks/",
+    "skills/",
+    "templates/",
+    "SCHEMA.md",
+    "plugin.json"
+  ]
+}

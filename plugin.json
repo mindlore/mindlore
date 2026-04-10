@@ -1,0 +1,47 @@
+{
+  "name": "mindlore",
+  "description": "AI-native knowledge system for Claude Code. Persistent, searchable, evolving knowledge base with FTS5.",
+  "version": "0.0.1",
+  "skills": [
+    {
+      "name": "mindlore-ingest",
+      "path": "skills/mindlore-ingest/SKILL.md",
+      "description": "Add new knowledge sources (URL, text, file, PDF, GitHub repo)"
+    },
+    {
+      "name": "mindlore-health",
+      "path": "skills/mindlore-health/SKILL.md",
+      "description": "Run 16-point structural health check on .mindlore/ knowledge base"
+    }
+  ],
+  "hooks": [
+    {
+      "event": "SessionStart",
+      "script": "hooks/mindlore-session-focus.cjs"
+    },
+    {
+      "event": "UserPromptSubmit",
+      "script": "hooks/mindlore-search.cjs"
+    },
+    {
+      "event": "FileChanged",
+      "script": "hooks/mindlore-index.cjs"
+    },
+    {
+      "event": "FileChanged",
+      "script": "hooks/mindlore-fts5-sync.cjs"
+    },
+    {
+      "event": "SessionEnd",
+      "script": "hooks/mindlore-session-end.cjs"
+    },
+    {
+      "event": "PreCompact",
+      "script": "hooks/mindlore-pre-compact.cjs"
+    },
+    {
+      "event": "PostCompact",
+      "script": "hooks/mindlore-post-compact.cjs"
+    }
+  ]
+}
