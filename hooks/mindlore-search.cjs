@@ -119,7 +119,7 @@ function main() {
     }
 
     if (output.length > 0) {
-      process.stderr.write(
+      process.stdout.write(
         `[Mindlore Search: ${keywords.join(', ')}]\n${output.join('\n')}\n`
       );
     }

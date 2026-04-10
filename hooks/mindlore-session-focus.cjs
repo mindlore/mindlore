@@ -35,7 +35,7 @@ function main() {
   }
 
   if (output.length > 0) {
-    process.stderr.write(output.join('\n\n') + '\n');
+    process.stdout.write(output.join('\n\n') + '\n');
   }
 }
 

@@ -42,7 +42,7 @@ function main() {
     fs.appendFileSync(logPath, entry, 'utf8');
   }
 
-  process.stderr.write('[Mindlore: pre-compact FTS5 flush complete]\n');
+  process.stdout.write('[Mindlore: pre-compact FTS5 flush complete]\n');
 }
 
 main();

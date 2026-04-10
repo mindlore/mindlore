@@ -84,7 +84,7 @@ function main() {
   }
 
   if (synced > 0) {
-    process.stderr.write(`[Mindlore FTS5 Sync: ${synced} files re-indexed]\n`);
+    process.stdout.write(`[Mindlore FTS5 Sync: ${synced} files re-indexed]\n`);
   }
 }
 
