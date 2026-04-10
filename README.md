@@ -103,9 +103,51 @@ Also suggests installing:
 - **markitdown** — better web/document extraction (URL, DOCX, YouTube)
 - **context-mode** — token savings for large sessions
 
+## How It Works
+
+Mindlore operates through Claude Code lifecycle hooks — invisible background scripts
+that fire automatically as you work. No commands to run, no workflow changes.
+
+```
+                          ┌─────────────────────────────┐
+                          │     Claude Code Session      │
+                          └──────────────┬──────────────┘
+                                         │
+  ┌──────────────────────────────────────┼──────────────────────────────────────┐
+  │                                      │                                      │
+  ▼                                      ▼                                      ▼
+SESSION START                      DURING SESSION                         SESSION END
+  │                                      │                                      │
+  ├─ session-focus hook            ├─ search hook                         ├─ session-end hook
+  │  reads INDEX.md + last delta   │  FTS5 query on every prompt          │  writes delta to diary/
+  │  injects into context          │  top 3 results injected              │
+  │                                │                                      │
+  │                                ├─ index + fts5-sync hooks             │
+  │                                │  file changes → FTS5 update          │
+  │                                │                                      │
+  │                                ├─ /mindlore-ingest skill              │
+  │                                │  URL → raw/ → sources/ → FTS5       │
+  │                                │                                      │
+  └────────────────────────────────┴──────────────────────────────────────┘
+                                         │
+                          ┌──────────────┴──────────────┐
+                          │       NEXT SESSION           │
+                          │  session-focus injects delta  │
+                          │  → knowledge compounds       │
+                          └─────────────────────────────┘
+```
+
+**Key design decisions:**
+
+- **Hooks are global** — registered in `~/.claude/settings.json`, active in all projects
+- **Data is per-project** — `.mindlore/` lives in each project directory
+- **No `.mindlore/`?** — hooks silently skip, zero overhead
+- **FTS5 search** — SQLite full-text search with BM25 ranking, no external services
+- **Content-hash dedup** — SHA256 prevents re-indexing unchanged files
+
 ## Hooks
 
-Mindlore works through 7 Claude Code lifecycle hooks (v0.1):
+7 Claude Code lifecycle hooks (v0.1):
 
 | Event | Hook | What it does |
 |-------|------|-------------|
@@ -116,6 +158,19 @@ Mindlore works through 7 Claude Code lifecycle hooks (v0.1):
 | SessionEnd | session-end | Write delta to diary/ |
 | PreCompact | pre-compact | FTS5 flush before compaction |
 | PostCompact | post-compact | Re-inject context |
+
+## Uninstall
+
+Remove Mindlore from your system:
+
+```bash
+npx mindlore uninstall
+```
+
+This removes:
+- Hooks from `~/.claude/settings.json`
+- Skills from `~/.claude/skills/`
+- Optionally: `.mindlore/` project data (asks for confirmation)
 
 ## Inspired By
 

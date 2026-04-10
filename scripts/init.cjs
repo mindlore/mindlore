@@ -315,9 +315,15 @@ function main() {
   const args = process.argv.slice(2);
   const command = args[0];
 
+  if (command === 'uninstall') {
+    require('./uninstall.cjs');
+    return;
+  }
+
   if (command && command !== 'init') {
     console.log(`Unknown command: ${command}`);
     console.log('Usage: npx mindlore init [--recommended]');
+    console.log('       npx mindlore uninstall [--all]');
     process.exit(1);
   }
 
