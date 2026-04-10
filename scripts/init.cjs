@@ -171,15 +171,23 @@ function mergeHooks(packageRoot) {
     const hookScript = path.join(packageRoot, hook.script);
     const hookName = path.basename(hook.script, '.cjs');
 
-    const exists = settings.hooks[event].some((h) => {
-      const cmd = typeof h === 'string' ? h : h.command || '';
-      return cmd.includes(hookName);
+    const exists = settings.hooks[event].some((entry) => {
+      // CC format: each entry is { hooks: [{ type, command }] }
+      if (entry.hooks && Array.isArray(entry.hooks)) {
+        return entry.hooks.some((h) => (h.command || '').includes(hookName));
+      }
+      // Legacy flat format check
+      return (entry.command || '').includes(hookName);
     });
 
     if (!exists) {
       settings.hooks[event].push({
-        type: 'command',
-        command: `node "${hookScript}"`,
+        hooks: [
+          {
+            type: 'command',
+            command: `node "${hookScript}"`,
+          },
+        ],
       });
       added++;
     }
