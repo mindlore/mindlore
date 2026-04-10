@@ -35,7 +35,10 @@ tests/      # Jest test suites
 - Content-hash dedup: SHA256, skip unchanged files on re-index
 - Frontmatter: 9 types = 9 directories (see SCHEMA.md)
 - Hook prefix: `mindlore-` (avoid collisions with user hooks)
+- Hooks inject via `stdout` (CC ignores stderr for additionalContext)
+- Shared modules: `hooks/lib/mindlore-common.cjs`, `scripts/lib/constants.cjs`, `tests/helpers/db.cjs`
 - `plugin.json` for CC plugin manifest (npx skills add)
+- Uninstall: `npx mindlore uninstall [--all]`
 
 ## Hooks (v0.1)
 
@@ -63,5 +66,5 @@ npm test                    # all suites
 npx jest tests/fts5.test.cjs  # specific suite
 ```
 
-5 active suites in v0.1: fts5, dedup, init, frontmatter, hook-smoke.
+8 active suites in v0.1: fts5, dedup, init, frontmatter, hook-smoke, uninstall, search-hook, session-focus.
 compounding.test.cjs is v0.2 (skipped in v0.1).

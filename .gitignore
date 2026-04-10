@@ -10,3 +10,4 @@ coverage/
 Thumbs.db
 *.tgz
 .claude/
+.test-mindlore-*
