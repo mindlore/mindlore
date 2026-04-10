@@ -10,34 +10,10 @@
 
 const fs = require('fs');
 const path = require('path');
-const crypto = require('crypto');
-
 // ── Constants ──────────────────────────────────────────────────────────
 
-const SKIP_FILES = new Set(['INDEX.md', 'SCHEMA.md', 'log.md']);
-const DB_NAME = 'mindlore.db';
-
-// ── Helpers ────────────────────────────────────────────────────────────
-
-function sha256(content) {
-  return crypto.createHash('sha256').update(content, 'utf8').digest('hex');
-}
-
-function getAllMdFiles(dir) {
-  const results = [];
-  if (!fs.existsSync(dir)) return results;
-
-  const entries = fs.readdirSync(dir, { withFileTypes: true });
-  for (const entry of entries) {
-    const fullPath = path.join(dir, entry.name);
-    if (entry.isDirectory()) {
-      results.push(...getAllMdFiles(fullPath));
-    } else if (entry.name.endsWith('.md') && !SKIP_FILES.has(entry.name)) {
-      results.push(fullPath);
-    }
-  }
-  return results;
-}
+const { DB_NAME } = require('./lib/constants.cjs');
+const { sha256, getAllMdFiles } = require('../hooks/lib/mindlore-common.cjs');
 
 // ── Main ───────────────────────────────────────────────────────────────
 
@@ -115,11 +91,12 @@ function main() {
   const existingPaths = new Set(mdFiles);
   let removed = 0;
 
+  const deleteHash = db.prepare('DELETE FROM file_hashes WHERE path = ?');
   const cleanupTransaction = db.transaction(() => {
     for (const row of allIndexed) {
       if (!existingPaths.has(row.path)) {
         deleteFts.run(row.path);
-        db.prepare('DELETE FROM file_hashes WHERE path = ?').run(row.path);
+        deleteHash.run(row.path);
         removed++;
       }
     }

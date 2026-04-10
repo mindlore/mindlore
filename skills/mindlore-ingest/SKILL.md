@@ -46,7 +46,7 @@ User shares a URL, text, file, or says "kaynak ekle", "source ingest", "bu linki
 4. Update relevant domain page(s) in `.mindlore/domains/` (max 2)
 5. Update `.mindlore/INDEX.md` stats line
 6. Append entry to `.mindlore/log.md`
-7. Run FTS5 re-index: `node scripts/mindlore-fts5-index.cjs`
+7. Run FTS5 re-index: `npm run index`
 
 ### Text Mode
 1. User pastes text directly

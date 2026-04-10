@@ -10,15 +10,7 @@
 
 const fs = require('fs');
 const path = require('path');
-const crypto = require('crypto');
-
-const MINDLORE_DIR = '.mindlore';
-const DB_NAME = 'mindlore.db';
-const SKIP_FILES = new Set(['INDEX.md', 'SCHEMA.md', 'log.md']);
-
-function sha256(content) {
-  return crypto.createHash('sha256').update(content, 'utf8').digest('hex');
-}
+const { MINDLORE_DIR, DB_NAME, SKIP_FILES, sha256, requireDatabase } = require('./lib/mindlore-common.cjs');
 
 function main() {
   let input = '';
@@ -50,28 +42,20 @@ function main() {
   const dbPath = path.join(baseDir, DB_NAME);
 
   if (!fs.existsSync(dbPath)) return;
+
+  const Database = requireDatabase();
+  if (!Database) return;
+
   if (!fs.existsSync(filePath)) {
     // File was deleted — remove from index
-    let Database;
-    try {
-      Database = require('better-sqlite3');
-    } catch (_err) {
-      return;
-    }
     const db = new Database(dbPath);
+    db.pragma('journal_mode = WAL');
     try {
       db.prepare('DELETE FROM mindlore_fts WHERE path = ?').run(filePath);
       db.prepare('DELETE FROM file_hashes WHERE path = ?').run(filePath);
     } finally {
       db.close();
     }
-    return;
-  }
-
-  let Database;
-  try {
-    Database = require('better-sqlite3');
-  } catch (_err) {
     return;
   }
 

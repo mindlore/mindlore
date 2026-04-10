@@ -11,24 +11,10 @@
 
 const fs = require('fs');
 const path = require('path');
-const { execSync } = require('child_process');
 
 // ── Constants ──────────────────────────────────────────────────────────
 
-const MINDLORE_DIR = '.mindlore';
-const DB_NAME = 'mindlore.db';
-
-const DIRECTORIES = [
-  'raw',
-  'sources',
-  'domains',
-  'analyses',
-  'insights',
-  'connections',
-  'learnings',
-  'diary',
-  'decisions',
-];
+const { MINDLORE_DIR, DB_NAME, DIRECTORIES } = require('./lib/constants.cjs');
 
 const TEMPLATE_FILES = ['INDEX.md', 'log.md'];
 
@@ -138,7 +124,7 @@ function createDatabase(baseDir) {
 
 function mergeHooks(packageRoot) {
   const settingsPath = path.join(
-    process.env.HOME || process.env.USERPROFILE || '~',
+    require('./lib/constants.cjs').homedir(),
     '.claude',
     'settings.json'
   );

@@ -8,7 +8,7 @@
   },
   "scripts": {
     "test": "jest --config jest.config.cjs",
-    "lint": "eslint scripts/ hooks/ tests/",
+    "lint": "eslint -c eslint.config.cjs scripts/ hooks/ tests/",
     "health": "node scripts/mindlore-health-check.cjs",
     "index": "node scripts/mindlore-fts5-index.cjs",
     "search": "node scripts/mindlore-fts5-search.cjs"

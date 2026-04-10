@@ -14,29 +14,7 @@ const path = require('path');
 
 // ── Constants ──────────────────────────────────────────────────────────
 
-const DIRECTORIES = [
-  'raw',
-  'sources',
-  'domains',
-  'analyses',
-  'insights',
-  'connections',
-  'learnings',
-  'diary',
-  'decisions',
-];
-
-const TYPE_TO_DIR = {
-  raw: 'raw',
-  source: 'sources',
-  domain: 'domains',
-  analysis: 'analyses',
-  insight: 'insights',
-  connection: 'connections',
-  learning: 'learnings',
-  decision: 'decisions',
-  diary: 'diary',
-};
+const { DIRECTORIES, TYPE_TO_DIR } = require('./lib/constants.cjs');
 
 // ── Helpers ────────────────────────────────────────────────────────────
 
@@ -63,20 +41,9 @@ function parseFrontmatter(content) {
   return fm;
 }
 
+// Health check needs ALL .md files (no skip), so pass empty set
 function getAllMdFiles(dir) {
-  const results = [];
-  if (!fs.existsSync(dir)) return results;
-
-  const entries = fs.readdirSync(dir, { withFileTypes: true });
-  for (const entry of entries) {
-    const fullPath = path.join(dir, entry.name);
-    if (entry.isDirectory()) {
-      results.push(...getAllMdFiles(fullPath));
-    } else if (entry.name.endsWith('.md')) {
-      results.push(fullPath);
-    }
-  }
-  return results;
+  return require('../hooks/lib/mindlore-common.cjs').getAllMdFiles(dir, new Set());
 }
 
 // ── Checks ─────────────────────────────────────────────────────────────

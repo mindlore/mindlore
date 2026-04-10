@@ -12,9 +12,8 @@
 const fs = require('fs');
 const path = require('path');
 
-const DB_NAME = 'mindlore.db';
+const { DB_NAME } = require('./lib/constants.cjs');
 const MAX_RESULTS = 3;
-const SNIPPET_LENGTH = 200;
 
 // ── Helpers ────────────────────────────────────────────────────────────
 
@@ -28,29 +27,6 @@ function extractHeadings(content, maxHeadings) {
     }
   }
   return headings;
-}
-
-function extractSnippet(content, query, length) {
-  // Try to find the query term in content for context
-  const lowerContent = content.toLowerCase();
-  const lowerQuery = query.toLowerCase().split(/\s+/)[0];
-  const idx = lowerContent.indexOf(lowerQuery);
-
-  if (idx !== -1) {
-    const start = Math.max(0, idx - 50);
-    const end = Math.min(content.length, idx + length);
-    let snippet = content.slice(start, end).replace(/\n/g, ' ').trim();
-    if (start > 0) snippet = '...' + snippet;
-    if (end < content.length) snippet = snippet + '...';
-    return snippet;
-  }
-
-  // Fallback: first N characters after frontmatter
-  const fmEnd = content.indexOf('---', content.indexOf('---') + 3);
-  const bodyStart = fmEnd !== -1 ? fmEnd + 3 : 0;
-  const body = content.slice(bodyStart).trim();
-  const snippet = body.slice(0, length).replace(/\n/g, ' ').trim();
-  return snippet.length < body.length ? snippet + '...' : snippet;
 }
 
 // ── Main ───────────────────────────────────────────────────────────────

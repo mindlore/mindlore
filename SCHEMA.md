@@ -89,7 +89,7 @@ Add new knowledge. Flow: capture → raw/ → process → sources/ → update do
 - PDF mode: CC Read tool (max 20 pages/request) → raw/ → summarize → sources/
 - **markitdown is NOT used for PDF** — quality is poor. Use CC Read tool or Marker/Chandra (v0.3+)
 
-### 4.2 Query (skill: /mindlore-query, v0.2)
+### 4.2 Query (skill: /mindlore-query, v0.2 — PLANNED, not yet implemented)
 
 Search and retrieve knowledge. Four modes:
 - `search`: FTS5 keyword search, return top 3 matches with snippets
@@ -107,7 +107,7 @@ Run 16-point structural check:
 - Orphan file detection (files not in FTS5)
 - Frontmatter validation (type-directory cross-reference)
 
-### 4.4 Log (skill: /mindlore-log, v0.2)
+### 4.4 Log (skill: /mindlore-log, v0.2 — PLANNED, not yet implemented)
 
 Session logging with four modes:
 - `log`: Write session/task record to diary/
@@ -115,17 +115,17 @@ Session logging with four modes:
 - `status`: Recent N sessions summary, trends, open items
 - `save`: Structured delta + log.md append + wiki update
 
-### 4.5 Decide (skill: /mindlore-decide, v0.2)
+### 4.5 Decide (skill: /mindlore-decide, v0.2 — PLANNED, not yet implemented)
 
 Record decisions with context, options considered, rationale, and outcome.
 Supports `supersedes` chain for decision evolution.
 
-### 4.6 Evolve (skill: /mindlore-evolve, v0.3)
+### 4.6 Evolve (skill: /mindlore-evolve, v0.3 — PLANNED, not yet implemented)
 
 Schema co-evolution. Scan domains + sources, suggest structural updates.
 Run monthly or after major changes.
 
-### 4.7 Explore (skill: /mindlore-explore, v0.3)
+### 4.7 Explore (skill: /mindlore-explore, v0.3 — PLANNED, not yet implemented)
 
 Discover unexpected connections between sources. Cross-reference analysis.
 

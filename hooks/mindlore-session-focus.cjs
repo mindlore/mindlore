@@ -10,33 +10,7 @@
 
 const fs = require('fs');
 const path = require('path');
-
-const MINDLORE_DIR = '.mindlore';
-
-function findMindloreDir() {
-  // Check project dir first, then global
-  const projectDir = path.join(process.cwd(), MINDLORE_DIR);
-  if (fs.existsSync(projectDir)) return projectDir;
-
-  const homeDir = process.env.HOME || process.env.USERPROFILE || '';
-  const globalDir = path.join(homeDir, MINDLORE_DIR);
-  if (fs.existsSync(globalDir)) return globalDir;
-
-  return null;
-}
-
-function getLatestDelta(diaryDir) {
-  if (!fs.existsSync(diaryDir)) return null;
-
-  const deltas = fs
-    .readdirSync(diaryDir)
-    .filter((f) => f.startsWith('delta-') && f.endsWith('.md'))
-    .sort()
-    .reverse();
-
-  if (deltas.length === 0) return null;
-  return path.join(diaryDir, deltas[0]);
-}
+const { findMindloreDir, getLatestDelta } = require('./lib/mindlore-common.cjs');
 
 function main() {
   const baseDir = findMindloreDir();

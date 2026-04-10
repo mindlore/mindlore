@@ -9,45 +9,22 @@
 
 const fs = require('fs');
 const path = require('path');
-const crypto = require('crypto');
-const Database = require('better-sqlite3');
+const { sha256, createTestDb, setupTestDir, teardownTestDir } = require('./helpers/db.cjs');
 
 const TEST_DIR = path.join(__dirname, '..', '.test-mindlore-compounding');
 const DB_PATH = path.join(TEST_DIR, 'mindlore.db');
 
-function sha256(content) {
-  return crypto.createHash('sha256').update(content, 'utf8').digest('hex');
-}
-
-function setupDb() {
-  const db = new Database(DB_PATH);
-  db.pragma('journal_mode = WAL');
-  db.exec(`
-    CREATE VIRTUAL TABLE IF NOT EXISTS mindlore_fts
-    USING fts5(path, content, tokenize='unicode61');
-  `);
-  db.exec(`
-    CREATE TABLE IF NOT EXISTS file_hashes (
-      path TEXT PRIMARY KEY,
-      content_hash TEXT NOT NULL,
-      last_indexed TEXT NOT NULL
-    );
-  `);
-  return db;
-}
-
 beforeEach(() => {
-  fs.mkdirSync(path.join(TEST_DIR, 'sources'), { recursive: true });
-  fs.mkdirSync(path.join(TEST_DIR, 'insights'), { recursive: true });
+  setupTestDir(TEST_DIR, ['sources', 'insights']);
 });
 
 afterEach(() => {
-  fs.rmSync(TEST_DIR, { recursive: true, force: true });
+  teardownTestDir(TEST_DIR);
 });
 
 describe('Knowledge Compounding', () => {
   test('writeback → reindex → query should find the new content', () => {
-    const db = setupDb();
+    const db = createTestDb(DB_PATH);
 
     // Step 1: Index an existing source
     const sourcePath = path.join(TEST_DIR, 'sources', 'react-hooks.md');

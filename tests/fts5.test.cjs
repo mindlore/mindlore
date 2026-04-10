@@ -1,36 +1,20 @@
 'use strict';
 
-const fs = require('fs');
 const path = require('path');
 const Database = require('better-sqlite3');
+const { createTestDb, setupTestDir, teardownTestDir } = require('./helpers/db.cjs');
 
 const TEST_DIR = path.join(__dirname, '..', '.test-mindlore-fts5');
 const DB_PATH = path.join(TEST_DIR, 'mindlore.db');
 
 beforeEach(() => {
-  // Create fresh test directory and database
-  fs.mkdirSync(TEST_DIR, { recursive: true });
-  fs.mkdirSync(path.join(TEST_DIR, 'sources'), { recursive: true });
-
-  const db = new Database(DB_PATH);
-  db.pragma('journal_mode = WAL');
-  db.exec(`
-    CREATE VIRTUAL TABLE IF NOT EXISTS mindlore_fts
-    USING fts5(path, content, tokenize='unicode61');
-  `);
-  db.exec(`
-    CREATE TABLE IF NOT EXISTS file_hashes (
-      path TEXT PRIMARY KEY,
-      content_hash TEXT NOT NULL,
-      last_indexed TEXT NOT NULL
-    );
-  `);
+  setupTestDir(TEST_DIR, ['sources']);
+  const db = createTestDb(DB_PATH);
   db.close();
 });
 
 afterEach(() => {
-  // Clean up test directory
-  fs.rmSync(TEST_DIR, { recursive: true, force: true });
+  teardownTestDir(TEST_DIR);
 });
 
 describe('FTS5 Database', () => {

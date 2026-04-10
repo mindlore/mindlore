@@ -13,31 +13,7 @@
 
 const fs = require('fs');
 const path = require('path');
-const crypto = require('crypto');
-
-const MINDLORE_DIR = '.mindlore';
-const DB_NAME = 'mindlore.db';
-const SKIP_FILES = new Set(['INDEX.md', 'SCHEMA.md', 'log.md']);
-
-function sha256(content) {
-  return crypto.createHash('sha256').update(content, 'utf8').digest('hex');
-}
-
-function getAllMdFiles(dir) {
-  const results = [];
-  if (!fs.existsSync(dir)) return results;
-
-  const entries = fs.readdirSync(dir, { withFileTypes: true });
-  for (const entry of entries) {
-    const fullPath = path.join(dir, entry.name);
-    if (entry.isDirectory()) {
-      results.push(...getAllMdFiles(fullPath));
-    } else if (entry.name.endsWith('.md') && !SKIP_FILES.has(entry.name)) {
-      results.push(fullPath);
-    }
-  }
-  return results;
-}
+const { MINDLORE_DIR, DB_NAME, sha256, requireDatabase, getAllMdFiles } = require('./lib/mindlore-common.cjs');
 
 function main() {
   // Read stdin to check if this is a .mindlore/ file change
@@ -56,8 +32,8 @@ function main() {
     filePath = input;
   }
 
-  // Only trigger on .mindlore/ changes
-  if (filePath && !filePath.includes(MINDLORE_DIR)) return;
+  // Only trigger on .mindlore/ changes (empty filePath = skip)
+  if (!filePath || !filePath.includes(MINDLORE_DIR)) return;
 
   const baseDir = path.join(process.cwd(), MINDLORE_DIR);
   if (!fs.existsSync(baseDir)) return;
@@ -65,12 +41,8 @@ function main() {
   const dbPath = path.join(baseDir, DB_NAME);
   if (!fs.existsSync(dbPath)) return;
 
-  let Database;
-  try {
-    Database = require('better-sqlite3');
-  } catch (_err) {
-    return;
-  }
+  const Database = requireDatabase();
+  if (!Database) return;
 
   const db = new Database(dbPath);
   db.pragma('journal_mode = WAL');

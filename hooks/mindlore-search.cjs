@@ -10,22 +10,10 @@
 
 const fs = require('fs');
 const path = require('path');
+const { findMindloreDir, DB_NAME, requireDatabase } = require('./lib/mindlore-common.cjs');
 
-const MINDLORE_DIR = '.mindlore';
-const DB_NAME = 'mindlore.db';
 const MAX_RESULTS = 3;
 const MIN_QUERY_LENGTH = 3;
-
-function findMindloreDir() {
-  const projectDir = path.join(process.cwd(), MINDLORE_DIR);
-  if (fs.existsSync(projectDir)) return projectDir;
-
-  const homeDir = process.env.HOME || process.env.USERPROFILE || '';
-  const globalDir = path.join(homeDir, MINDLORE_DIR);
-  if (fs.existsSync(globalDir)) return globalDir;
-
-  return null;
-}
 
 function extractKeywords(text) {
   // Remove common stop words and short words
@@ -92,15 +80,11 @@ function main() {
   const dbPath = path.join(baseDir, DB_NAME);
   if (!fs.existsSync(dbPath)) return;
 
-  let Database;
-  try {
-    Database = require('better-sqlite3');
-  } catch (_err) {
-    return; // Silently skip if not available
-  }
-
   const keywords = extractKeywords(userMessage);
   if (keywords.length === 0) return;
+
+  const Database = requireDatabase();
+  if (!Database) return;
 
   const db = new Database(dbPath, { readonly: true });
 

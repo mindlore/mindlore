@@ -50,8 +50,6 @@ describe('Frontmatter Parser', () => {
   });
 
   test('should handle empty frontmatter', () => {
-    // Empty frontmatter (no fields between delimiters) returns null
-    // because the regex requires at least one newline of content
     const content = '---\n---\n# Empty';
     const fm = parseFrontmatter(content);
     expect(fm).toBeNull();
@@ -73,22 +71,10 @@ describe('Frontmatter Parser', () => {
   });
 
   test('should validate type-directory mapping', () => {
-    const TYPE_TO_DIR = {
-      raw: 'raw',
-      source: 'sources',
-      domain: 'domains',
-      analysis: 'analyses',
-      insight: 'insights',
-      connection: 'connections',
-      learning: 'learnings',
-      decision: 'decisions',
-      diary: 'diary',
-    };
+    const { TYPE_TO_DIR } = require('../scripts/lib/constants.cjs');
 
-    // 9 types = 9 directories
     expect(Object.keys(TYPE_TO_DIR)).toHaveLength(9);
 
-    // Each type maps to a unique directory
     const dirs = new Set(Object.values(TYPE_TO_DIR));
     expect(dirs.size).toBe(9);
   });

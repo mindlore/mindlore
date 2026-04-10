@@ -11,19 +11,7 @@
 
 const fs = require('fs');
 const path = require('path');
-
-const MINDLORE_DIR = '.mindlore';
-
-function findMindloreDir() {
-  const projectDir = path.join(process.cwd(), MINDLORE_DIR);
-  if (fs.existsSync(projectDir)) return projectDir;
-
-  const homeDir = process.env.HOME || process.env.USERPROFILE || '';
-  const globalDir = path.join(homeDir, MINDLORE_DIR);
-  if (fs.existsSync(globalDir)) return globalDir;
-
-  return null;
-}
+const { findMindloreDir } = require('./lib/mindlore-common.cjs');
 
 function main() {
   const baseDir = findMindloreDir();
