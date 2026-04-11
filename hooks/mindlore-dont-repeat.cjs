@@ -20,6 +20,25 @@ const path = require('path');
 const os = require('os');
 const { findMindloreDir } = require('./lib/mindlore-common.cjs');
 
+// Mtime-keyed pattern cache — avoids re-reading files on every Write/Edit
+const patternCache = new Map(); // key: filePath → { mtime, patterns[] }
+
+function getCachedPatterns(filePath) {
+  try {
+    const stat = fs.statSync(filePath);
+    const mtimeMs = stat.mtimeMs;
+    const cached = patternCache.get(filePath);
+    if (cached && cached.mtimeMs === mtimeMs) return cached.patterns;
+
+    const content = fs.readFileSync(filePath, 'utf8');
+    const patterns = extractNegativePatterns(content);
+    patternCache.set(filePath, { mtimeMs, patterns });
+    return patterns;
+  } catch (_err) {
+    return [];
+  }
+}
+
 function extractNegativePatterns(content) {
   const patterns = [];
   const lines = content.split('\n');
@@ -124,40 +143,27 @@ function main() {
 
       if (allContent.trim().length < 10) return process.exit(0);
 
-      // Load patterns from all sources
+      // Load patterns from all sources (mtime-cached)
       const allPatterns = [];
       const cwd = process.cwd();
 
-      // 1. Global lessons (~/.claude/lessons/global.md)
+      // 1. Global lessons
       const globalLessons = path.join(os.homedir(), '.claude', 'lessons', 'global.md');
-      if (fs.existsSync(globalLessons)) {
-        try {
-          allPatterns.push(...extractNegativePatterns(fs.readFileSync(globalLessons, 'utf8')));
-        } catch { /* skip */ }
-      }
+      allPatterns.push(...getCachedPatterns(globalLessons));
 
       // 2. Project LESSONS.md
-      const projectLessons = path.join(cwd, 'LESSONS.md');
-      if (fs.existsSync(projectLessons)) {
-        try {
-          allPatterns.push(...extractNegativePatterns(fs.readFileSync(projectLessons, 'utf8')));
-        } catch { /* skip */ }
-      }
+      allPatterns.push(...getCachedPatterns(path.join(cwd, 'LESSONS.md')));
 
       // 3. Mindlore learnings/ directory
       const mindloreDir = findMindloreDir();
       if (mindloreDir) {
         const learningsDir = path.join(mindloreDir, 'learnings');
-        if (fs.existsSync(learningsDir)) {
-          try {
-            const files = fs.readdirSync(learningsDir).filter(f => f.endsWith('.md'));
-            for (const file of files) {
-              try {
-                allPatterns.push(...extractNegativePatterns(fs.readFileSync(path.join(learningsDir, file), 'utf8')));
-              } catch { /* skip */ }
-            }
-          } catch { /* skip */ }
-        }
+        try {
+          const files = fs.readdirSync(learningsDir).filter(f => f.endsWith('.md'));
+          for (const file of files) {
+            allPatterns.push(...getCachedPatterns(path.join(learningsDir, file)));
+          }
+        } catch (_err) { /* learnings/ doesn't exist yet */ }
       }
 
       if (allPatterns.length === 0) return process.exit(0);
