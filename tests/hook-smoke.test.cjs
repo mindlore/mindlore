@@ -55,11 +55,11 @@ describe('Hook Smoke Tests', () => {
     }
   });
 
-  test('hook count should match v0.1 plan (7 hooks)', () => {
+  test('hook count should match plan (8 hooks: 7 v0.1 + 1 v0.2)', () => {
     const hookFiles = fs
       .readdirSync(HOOKS_DIR)
       .filter((f) => f.startsWith('mindlore-') && f.endsWith('.cjs'));
 
-    expect(hookFiles).toHaveLength(7);
+    expect(hookFiles).toHaveLength(8);
   });
 });
