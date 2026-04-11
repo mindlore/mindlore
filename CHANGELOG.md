@@ -5,6 +5,35 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.1.0] - 2026-04-11
+
+### Added
+- FTS5 schema upgrade: 2 columns → 7 (path, slug, description, type, category, title, content)
+- Porter unicode61 tokenizer for stemming (running→run, çalışma→çalış)
+- Rich search injection: `[Mindlore: category/title] description` format
+- Per-keyword scoring with `MIN_KEYWORD_HITS=2` (false positive reduction)
+- ~70 TR+EN stop words for noise filtering
+- Auto-migration: `init.cjs` detects old 2-col schema, upgrades in place
+- `SQL_FTS_INSERT` constant in shared module (eliminates 4-place drift risk)
+- `extractHeadings()` + `parseFrontmatter()` shared in `mindlore-common.cjs`
+- `extractFtsMetadata()` utility for frontmatter → FTS field mapping
+- SCHEMA.md: `description`, `raw_slug`, `status` optional fields
+- 3 new test suites: search-hook, session-focus, uninstall (8 total, 39 tests)
+- `npx mindlore uninstall [--all]` command
+- GitHub Actions: `release.yml` workflow (CHANGELOG extraction → GitHub Release)
+
+### Fixed
+- Hook stdout injection (CC ignores stderr for additionalContext)
+- Stop word drift: centralized list, removed dead code
+- `db.prepare()` hoisted outside loops for performance
+- `fts5-sync.cjs`: skip redundant single `.md` re-index
+
+### Changed
+- `publish.yml`: GitHub Release creation moved to dedicated `release.yml`
+- Health check INDEX limit: 30 → 60 entries
+- Health check validates 7-column FTS5 schema
+- README updated with 7-col search description
+
 ## [0.0.1] - 2026-04-10
 
 ### Added
