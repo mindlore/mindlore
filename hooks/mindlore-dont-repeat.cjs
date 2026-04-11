@@ -20,11 +20,46 @@ const path = require('path');
 const os = require('os');
 const { findMindloreDir } = require('./lib/mindlore-common.cjs');
 
-// CC hooks spawn as new processes — module-level cache doesn't persist.
-// Direct read is fine: typically 2-5 small files per invocation.
-function loadPatterns(filePath) {
+/**
+ * File-persisted pattern cache — survives across process invocations.
+ * Cache file: .mindlore/diary/_pattern-cache.json
+ * Each entry keyed by source file path, stores mtimeMs + extracted patterns.
+ * On hit: skip readFile+parse. On miss: read, parse, update cache.
+ */
+function getCachePath() {
+  const dir = findMindloreDir();
+  if (!dir) return null;
+  return path.join(dir, 'diary', '_pattern-cache.json');
+}
+
+function readCache() {
+  const cachePath = getCachePath();
+  if (!cachePath) return {};
   try {
-    return extractNegativePatterns(fs.readFileSync(filePath, 'utf8'));
+    return JSON.parse(fs.readFileSync(cachePath, 'utf8'));
+  } catch (_err) {
+    return {};
+  }
+}
+
+function writeCache(cache) {
+  const cachePath = getCachePath();
+  if (!cachePath) return;
+  try {
+    fs.writeFileSync(cachePath, JSON.stringify(cache), 'utf8');
+  } catch (_err) { /* diary dir may not exist */ }
+}
+
+function loadPatterns(filePath, cache) {
+  try {
+    const stat = fs.statSync(filePath);
+    const mtimeMs = stat.mtimeMs;
+    const cached = cache[filePath];
+    if (cached && cached.mtimeMs === mtimeMs) return cached.patterns;
+
+    const patterns = extractNegativePatterns(fs.readFileSync(filePath, 'utf8'));
+    cache[filePath] = { mtimeMs, patterns };
+    return patterns;
   } catch (_err) {
     return [];
   }
@@ -134,16 +169,17 @@ function main() {
 
       if (allContent.trim().length < 10) return process.exit(0);
 
-      // Load patterns from all sources (mtime-cached)
+      // Load patterns from all sources (file-persisted mtime cache)
+      const cache = readCache();
       const allPatterns = [];
       const cwd = process.cwd();
 
       // 1. Global lessons
       const globalLessons = path.join(os.homedir(), '.claude', 'lessons', 'global.md');
-      allPatterns.push(...loadPatterns(globalLessons));
+      allPatterns.push(...loadPatterns(globalLessons, cache));
 
       // 2. Project LESSONS.md
-      allPatterns.push(...loadPatterns(path.join(cwd, 'LESSONS.md')));
+      allPatterns.push(...loadPatterns(path.join(cwd, 'LESSONS.md'), cache));
 
       // 3. Mindlore learnings/ directory
       const mindloreDir = findMindloreDir();
@@ -152,10 +188,13 @@ function main() {
         try {
           const files = fs.readdirSync(learningsDir).filter(f => f.endsWith('.md'));
           for (const file of files) {
-            allPatterns.push(...loadPatterns(path.join(learningsDir, file)));
+            allPatterns.push(...loadPatterns(path.join(learningsDir, file), cache));
           }
         } catch (_err) { /* learnings/ doesn't exist yet */ }
       }
+
+      // Persist updated cache for next invocation
+      writeCache(cache);
 
       if (allPatterns.length === 0) return process.exit(0);
 
