@@ -20,20 +20,11 @@ const path = require('path');
 const os = require('os');
 const { findMindloreDir } = require('./lib/mindlore-common.cjs');
 
-// Mtime-keyed pattern cache — avoids re-reading files on every Write/Edit
-const patternCache = new Map(); // key: filePath → { mtime, patterns[] }
-
-function getCachedPatterns(filePath) {
+// CC hooks spawn as new processes — module-level cache doesn't persist.
+// Direct read is fine: typically 2-5 small files per invocation.
+function loadPatterns(filePath) {
   try {
-    const stat = fs.statSync(filePath);
-    const mtimeMs = stat.mtimeMs;
-    const cached = patternCache.get(filePath);
-    if (cached && cached.mtimeMs === mtimeMs) return cached.patterns;
-
-    const content = fs.readFileSync(filePath, 'utf8');
-    const patterns = extractNegativePatterns(content);
-    patternCache.set(filePath, { mtimeMs, patterns });
-    return patterns;
+    return extractNegativePatterns(fs.readFileSync(filePath, 'utf8'));
   } catch (_err) {
     return [];
   }
@@ -149,10 +140,10 @@ function main() {
 
       // 1. Global lessons
       const globalLessons = path.join(os.homedir(), '.claude', 'lessons', 'global.md');
-      allPatterns.push(...getCachedPatterns(globalLessons));
+      allPatterns.push(...loadPatterns(globalLessons));
 
       // 2. Project LESSONS.md
-      allPatterns.push(...getCachedPatterns(path.join(cwd, 'LESSONS.md')));
+      allPatterns.push(...loadPatterns(path.join(cwd, 'LESSONS.md')));
 
       // 3. Mindlore learnings/ directory
       const mindloreDir = findMindloreDir();
@@ -161,7 +152,7 @@ function main() {
         try {
           const files = fs.readdirSync(learningsDir).filter(f => f.endsWith('.md'));
           for (const file of files) {
-            allPatterns.push(...getCachedPatterns(path.join(learningsDir, file)));
+            allPatterns.push(...loadPatterns(path.join(learningsDir, file)));
           }
         } catch (_err) { /* learnings/ doesn't exist yet */ }
       }
