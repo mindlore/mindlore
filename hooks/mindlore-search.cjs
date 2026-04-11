@@ -127,7 +127,7 @@ function main() {
 
     // Build rich inject output
     const metaStmt = db.prepare(
-      'SELECT slug, description, category, title FROM mindlore_fts WHERE path = ?'
+      'SELECT slug, description, category, title, tags FROM mindlore_fts WHERE path = ?'
     );
 
     const output = [];
@@ -146,8 +146,9 @@ function main() {
       const description = meta.description || '';
 
       const headingStr = headings.length > 0 ? `\nBasliklar: ${headings.join(', ')}` : '';
+      const tagsStr = meta.tags ? `\nTags: ${meta.tags}` : '';
       output.push(
-        `[Mindlore: ${category}/${title}] ${description}\nDosya: ${relativePath}${headingStr}`
+        `[Mindlore: ${category}/${title}] ${description}\nDosya: ${relativePath}${tagsStr}${headingStr}`
       );
     }
 
