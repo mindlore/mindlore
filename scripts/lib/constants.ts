@@ -20,6 +20,15 @@ export const DIRECTORIES = [
 
 export const SKIP_FILES = new Set(['INDEX.md', 'SCHEMA.md', 'log.md']);
 
+export const FTS5_COLUMNS = ['path', 'slug', 'description', 'type', 'category', 'title', 'content', 'tags', 'quality', 'date_captured'] as const;
+export type FtsColumn = typeof FTS5_COLUMNS[number];
+
+export const FRONTMATTER_TYPES = ['raw', 'source', 'domain', 'analysis', 'diary', 'decision', 'insight', 'connection', 'learning'] as const;
+export type FrontmatterType = typeof FRONTMATTER_TYPES[number];
+
+export const QUALITY_VALUES = ['high', 'medium', 'low'] as const;
+export type QualityValue = typeof QUALITY_VALUES[number];
+
 export const TYPE_TO_DIR: Record<string, string> = {
   raw: 'raw',
   source: 'sources',
@@ -106,16 +115,19 @@ export function resolveHookCommon(callerDir: string): string {
 
 /**
  * Check if markitdown (Python) is installed.
- * Optional dependency for rich web/doc/YouTube extraction.
+ * Memoized — spawns child process only once per session.
  */
+let markitdownCached: boolean | null = null;
 export function hasMarkitdown(): boolean {
+  if (markitdownCached !== null) return markitdownCached;
   try {
     const { execSync } = require('child_process') as typeof import('child_process');
     execSync('markitdown --version', { stdio: 'pipe', timeout: 5000 });
-    return true;
+    markitdownCached = true;
   } catch (_err) {
-    return false;
+    markitdownCached = false;
   }
+  return markitdownCached;
 }
 
 /**

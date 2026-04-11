@@ -14,6 +14,9 @@ const sharedRules = {
 
 module.exports = [
   {
+    ignores: ['**/*.d.ts'],
+  },
+  {
     files: ['**/*.cjs'],
     languageOptions: {
       ecmaVersion: 2022,

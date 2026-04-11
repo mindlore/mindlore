@@ -28,6 +28,18 @@ with YAML frontmatter. Search is powered by FTS5 (SQLite full-text search).
 └── mindlore.db     # FTS5 search database (SQLite)
 ```
 
+### Global Scope (v0.3)
+
+Mindlore supports two scopes:
+- **Project scope:** `.mindlore/` in the current working directory (project-specific knowledge)
+- **Global scope:** `~/.mindlore/` in the user's home directory (cross-project knowledge)
+
+Rules:
+- `getActiveMindloreDir()` resolves scope: project if exists, otherwise global
+- Search is layered: project results first, global results second
+- Skills accept `--global` (force global) and `--all` (both scopes) flags
+- `npx mindlore init --global` creates `~/.mindlore/` with git repo for auto-sync
+
 ### Directory Rules
 
 - Each directory corresponds to exactly one frontmatter `type` value
@@ -143,7 +155,7 @@ Discover unexpected connections between sources. Cross-reference analysis.
 - Max results: 3 per query (BM25 ranking)
 - Hook injects: file path + first 2 headings
 
-### FTS5 Columns (9-col schema, v0.2)
+### FTS5 Columns (10-col schema, v0.3)
 
 | Column | Indexed | Source |
 |--------|---------|--------|
@@ -155,7 +167,8 @@ Discover unexpected connections between sources. Cross-reference analysis.
 | `title` | Yes | Frontmatter title or first heading |
 | `content` | Yes | Markdown body (sans frontmatter) |
 | `tags` | Yes | Frontmatter tags (comma-separated) |
-| `quality` | UNINDEXED | Frontmatter quality (NULL until 50+ sources) |
+| `quality` | UNINDEXED | Frontmatter quality (high/medium/low) |
+| `date_captured` | UNINDEXED | Frontmatter date_captured or date |
 
 ### Search Flow (UserPromptSubmit hook)
 

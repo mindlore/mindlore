@@ -76,7 +76,7 @@ npm test                    # all suites
 npx jest tests/fts5.test.cjs  # specific suite
 ```
 
-16 active suites in v0.3: fts5, dedup, init, frontmatter, hook-smoke, uninstall, search-hook, session-focus, compounding, decision, read-guard, log, global-layer, cwd-changed, dont-repeat, post-read.
+18 active suites in v0.3: fts5, dedup, init, frontmatter, hook-smoke, uninstall, search-hook, session-focus, compounding, decision, read-guard, log, global-layer, cwd-changed, dont-repeat, post-read, upgrade, schemas.
 
 ## Planlama Referansları
 
