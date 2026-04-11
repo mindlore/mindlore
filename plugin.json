@@ -70,6 +70,15 @@
     {
       "event": "CwdChanged",
       "script": "hooks/mindlore-cwd-changed.cjs"
+    },
+    {
+      "event": "PostToolUse",
+      "script": "hooks/mindlore-post-read.cjs"
+    },
+    {
+      "event": "PreToolUse",
+      "script": "hooks/mindlore-dont-repeat.cjs",
+      "if": "Write|Edit"
     }
   ]
 }

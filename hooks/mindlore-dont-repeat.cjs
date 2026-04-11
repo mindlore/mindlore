@@ -97,7 +97,7 @@ function main() {
       const data = JSON.parse(input || '{}');
       const toolName = data.tool_name || '';
 
-      if (!['Write', 'Edit', 'FileWrite', 'FileEdit'].includes(toolName)) {
+      if (!['Write', 'Edit'].includes(toolName)) {
         return process.exit(0);
       }
 
@@ -116,11 +116,10 @@ function main() {
         return process.exit(0);
       }
 
-      // Collect content being written
+      // Collect content being written (skip old_string — that's code being removed, not added)
       const allContent = [
         toolInput.content || '',
         toolInput.new_string || '',
-        toolInput.old_string || ''
       ].join('\n');
 
       if (allContent.trim().length < 10) return process.exit(0);

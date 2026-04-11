@@ -40,7 +40,7 @@ tests/      # Jest test suites
 - `plugin.json` for CC plugin manifest (npx skills add)
 - Uninstall: `npx mindlore uninstall [--all]`
 
-## Hooks (v0.2)
+## Hooks (v0.3)
 
 | Event | Hook | Purpose |
 |-------|------|---------|
@@ -49,10 +49,13 @@ tests/      # Jest test suites
 | UserPromptSubmit | mindlore-decision-detector | TR+EN decision signal detection |
 | FileChanged | mindlore-index | Sync changed .md to FTS5 |
 | FileChanged | mindlore-fts5-sync | Incremental re-index |
-| SessionEnd | mindlore-session-end | Structured delta (commits, files, reads) |
+| SessionEnd | mindlore-session-end | Structured delta + global git sync |
 | PreCompact | mindlore-pre-compact | Delta + FTS5 flush |
 | PostCompact | mindlore-post-compact | Re-inject context |
-| PreToolUse (Read) | mindlore-read-guard | Repeated-read warning |
+| PreToolUse (Read) | mindlore-read-guard | Repeated-read warning + token display |
+| PostToolUse (Read) | mindlore-post-read | Token estimation per file read |
+| PreToolUse (Write\|Edit) | mindlore-dont-repeat | LESSONS/learnings rule enforcement |
+| CwdChanged | mindlore-cwd-changed | Scope detection + _scope.json write |
 
 ## Skills (v0.2)
 
@@ -71,7 +74,7 @@ npm test                    # all suites
 npx jest tests/fts5.test.cjs  # specific suite
 ```
 
-12 active suites in v0.2: fts5, dedup, init, frontmatter, hook-smoke, uninstall, search-hook, session-focus, compounding, decision, read-guard, log.
+16 active suites in v0.3: fts5, dedup, init, frontmatter, hook-smoke, uninstall, search-hook, session-focus, compounding, decision, read-guard, log, global-layer, cwd-changed, dont-repeat, post-read.
 
 ## Planlama Referansları
 
