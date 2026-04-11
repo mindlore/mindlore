@@ -1,7 +1,7 @@
 {
   "name": "mindlore",
   "description": "AI-native knowledge system for Claude Code. Persistent, searchable, evolving knowledge base with FTS5.",
-  "version": "0.0.1",
+  "version": "0.2.0",
   "skills": [
     {
       "name": "mindlore-ingest",
@@ -11,7 +11,22 @@
     {
       "name": "mindlore-health",
       "path": "skills/mindlore-health/SKILL.md",
-      "description": "Run 16-point structural health check on .mindlore/ knowledge base"
+      "description": "Run 18-point structural health check on .mindlore/ knowledge base"
+    },
+    {
+      "name": "mindlore-query",
+      "path": "skills/mindlore-query/SKILL.md",
+      "description": "Search, ask, stats, brief — compounding knowledge pipeline"
+    },
+    {
+      "name": "mindlore-log",
+      "path": "skills/mindlore-log/SKILL.md",
+      "description": "Session logging, pattern extraction, wiki updates"
+    },
+    {
+      "name": "mindlore-decide",
+      "path": "skills/mindlore-decide/SKILL.md",
+      "description": "Record and list decisions with context, alternatives, rationale"
     }
   ],
   "hooks": [
@@ -22,6 +37,10 @@
     {
       "event": "UserPromptSubmit",
       "script": "hooks/mindlore-search.cjs"
+    },
+    {
+      "event": "UserPromptSubmit",
+      "script": "hooks/mindlore-decision-detector.cjs"
     },
     {
       "event": "FileChanged",
@@ -42,6 +61,11 @@
     {
       "event": "PostCompact",
       "script": "hooks/mindlore-post-compact.cjs"
+    },
+    {
+      "event": "PreToolUse",
+      "script": "hooks/mindlore-read-guard.cjs",
+      "if": "Read"
     }
   ]
 }
