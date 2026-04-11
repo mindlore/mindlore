@@ -55,7 +55,7 @@ function main() {
   // Warn on repeated reads (2nd+ time)
   if (count > 1) {
     const basename = path.basename(filePath);
-    process.stderr.write(`[Mindlore: ${basename} bu session'da ${count}. kez okunuyor. Değişiklik yoksa tekrar okumayı atlayabilirsin.]\n`);
+    process.stdout.write(`[Mindlore: ${basename} bu session'da ${count}. kez okunuyor. Değişiklik yoksa tekrar okumayı atlayabilirsin.]\n`);
   }
 }
 
