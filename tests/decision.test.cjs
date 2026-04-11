@@ -5,26 +5,27 @@ const fs = require('fs');
 const { execSync } = require('child_process');
 const { setupTestDir, teardownTestDir } = require('./helpers/db.cjs');
 
-const TEST_DIR = path.join(__dirname, '..', '.test-mindlore-decision');
+// Test structure: PROJECT_DIR/.mindlore/ (findMindloreDir looks for .mindlore/ in CWD)
+const PROJECT_DIR = path.join(__dirname, '..', '.test-project-decision');
+const MINDLORE_DIR = path.join(PROJECT_DIR, '.mindlore');
 const HOOK_PATH = path.join(__dirname, '..', 'hooks', 'mindlore-decision-detector.cjs');
 
 beforeEach(() => {
-  setupTestDir(TEST_DIR, ['decisions', 'diary']);
-  // Create minimal INDEX.md so findMindloreDir can work
-  fs.writeFileSync(path.join(TEST_DIR, 'INDEX.md'), '# Index\n', 'utf8');
+  setupTestDir(MINDLORE_DIR, ['decisions', 'diary']);
+  fs.writeFileSync(path.join(MINDLORE_DIR, 'INDEX.md'), '# Index\n', 'utf8');
 });
 
 afterEach(() => {
-  teardownTestDir(TEST_DIR);
+  teardownTestDir(PROJECT_DIR);
 });
 
-function runDetector(input, cwd) {
+function runDetector(input) {
   try {
     const result = execSync(`node "${HOOK_PATH}"`, {
       input,
       encoding: 'utf8',
       timeout: 5000,
-      cwd: cwd || path.join(TEST_DIR, '..'),
+      cwd: PROJECT_DIR,
       env: { ...process.env },
     });
     return result.trim();
