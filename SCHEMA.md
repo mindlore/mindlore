@@ -143,14 +143,70 @@ Discover unexpected connections between sources. Cross-reference analysis.
 - Max results: 3 per query (BM25 ranking)
 - Hook injects: file path + first 2 headings
 
+### FTS5 Columns (9-col schema, v0.2)
+
+| Column | Indexed | Source |
+|--------|---------|--------|
+| `path` | UNINDEXED | File system path |
+| `slug` | Yes | Frontmatter slug |
+| `description` | Yes | Frontmatter description |
+| `type` | UNINDEXED | Frontmatter type |
+| `category` | Yes | Parent directory name |
+| `title` | Yes | Frontmatter title or first heading |
+| `content` | Yes | Markdown body (sans frontmatter) |
+| `tags` | Yes | Frontmatter tags (comma-separated) |
+| `quality` | UNINDEXED | Frontmatter quality (NULL until 50+ sources) |
+
 ### Search Flow (UserPromptSubmit hook)
 
 1. Extract keywords from user prompt
 2. Query FTS5 with BM25 ranking
-3. Return max 3 results as stderr additionalContext
+3. Return max 3 results as stdout additionalContext
 4. Agent reads full file only if needed (progressive disclosure)
 
-## 6. Compounding
+## 6. Wiki vs Diary (Writeback Target Rules)
+
+Knowledge goes to one of two layers. The agent MUST pick the correct one.
+
+### Wiki Layer (permanent knowledge)
+
+Directories: `sources/`, `domains/`, `analyses/`, `insights/`, `connections/`, `learnings/`
+
+- Persists across sessions — reference value
+- Indexed by FTS5, discoverable via search hook
+- Updated by ingest, query writeback, reflect, evolve
+- Content should be factual, sourced, and reusable
+
+### Diary Layer (session-scoped logs)
+
+Directories: `diary/`, `decisions/`
+
+- Session-specific: deltas, logs, decision snapshots
+- diary/ entries get `archived: true` after reflect processes them
+- decisions/ are permanent but session-originated (context + rationale)
+- Patterns extracted from diary → moved to `learnings/` (wiki layer)
+
+### Selection Rule
+
+| Content Type | Target | Example |
+|-------------|--------|---------|
+| Ingested source summary | `sources/` | URL or text summary |
+| Topic wiki page | `domains/` | Consolidated knowledge on a subject |
+| Multi-source synthesis | `analyses/` | Comparison table, architecture decision |
+| Short Q&A answer | `insights/` | Query writeback (<200 lines) |
+| Cross-reference finding | `connections/` | Link between 2+ unrelated sources |
+| Persistent rule/lesson | `learnings/` | YAPMA/BEST PRACTICE from reflect |
+| Session log/delta | `diary/` | What happened this session |
+| Decision record | `decisions/` | Why X was chosen over Y |
+| Raw capture | `raw/` | Immutable original (URL dump, paste) |
+
+### Anti-patterns
+
+- Do NOT write session-specific notes to `insights/` — use `diary/`
+- Do NOT write permanent rules to `diary/` — use `learnings/`
+- Do NOT write decision rationale to `analyses/` — use `decisions/`
+
+## 7. Compounding
 
 Knowledge compounds when outputs become inputs:
 
@@ -173,7 +229,7 @@ Offer to save when:
 - Large synthesis (200+ lines, 3+ sources) → analyses/
 - Cross-cutting link → connections/
 
-## 7. Learnings
+## 8. Learnings
 
 Persistent rules extracted from reflect operations.
 Organized by topic: `git.md`, `testing.md`, `security.md`, etc.
@@ -201,7 +257,7 @@ tags: [testing, jest, mock]
 - Use `YAPMA:` / `BEST PRACTICE:` / `KRITIK:` prefixes
 - Reflect skill proposes, user approves before writing
 
-## 8. Naming Conventions
+## 9. Naming Conventions
 
 ### Files
 
