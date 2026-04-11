@@ -5,6 +5,41 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.3.0] - 2026-04-12
+
+### Added
+- **Global layer:** `~/.mindlore/` global scope with layered search (project first, global second)
+- **3 new hooks:** `mindlore-cwd-changed` (scope detection), `mindlore-post-read` (token estimation), `mindlore-dont-repeat` (LESSONS rule enforcement with file-persisted cache)
+- **2 new skills:** `mindlore-evolve` (knowledge schema co-evolution), `mindlore-explore` (undirected connection discovery)
+- **FTS5 10th column:** `date_captured` (UNINDEXED) with 9→10 auto-migration
+- **`insertFtsRow()` object API:** replaces 10 positional params across all indexing paths
+- **Zod frontmatter validation:** 9 schemas (`scripts/lib/schemas.ts`) + `validateFrontmatter()`
+- **Type safety:** `FTS5_COLUMNS`, `FRONTMATTER_TYPES`, `QUALITY_VALUES` const tuples, `hooks/lib/types.d.ts`
+- **Version-aware init:** `.mindlore/.version` + `.pkg-version` written on init, session-focus warns on mismatch
+- **`--global` / `--all` flags:** init, uninstall, fts5-search, all 7 skills scope-aware
+- **Git auto-sync:** session-end hook auto-commits + pushes `~/.mindlore/` (graceful offline fail)
+- **`hasMarkitdown()` / `hasYoutubeTranscript()`:** optional dependency detection helpers (memoized)
+- **11 new test suites:** global-layer, cwd-changed, dont-repeat, post-read, upgrade, schemas, quality-populate, reflect, e2e-pipeline, evolve, explore (23 total, 116 tests)
+
+### Changed
+- All 5 existing skills updated with Scope section (`getActiveMindloreDir()` logic)
+- `mindlore-search.cjs` refactored for layered search via `getAllDbs()`, N+1 DB fix
+- `mindlore-log` reflect mode upgraded to LLM-driven pattern extraction (v0.3)
+- `mindlore-ingest` skill: YouTube fallback chain, quality heuristic (always assign, never null)
+- `mindlore-read-guard` updated: token display, number→object format upgrade
+- `mindlore-session-end`: global git sync added
+- `mindlore-session-focus`: version mismatch warning (flat file compare, no JSON parse)
+- `extractFtsMetadata()` returns `dateCaptured` field
+- Test helper `insertFts()` delegates to shared `insertFtsRow()`, uses `FtsEntry` interface
+- Hook count: 9 → 12, Skill count: 5 → 7, FTS5 columns: 9 → 10
+- `plugin.json`: 3 new hook entries + 2 new skill entries
+
+### Fixed
+- `mindlore-read-guard`: PreToolUse stdout → JSON `additionalContext` format (was plain text)
+- `mindlore-fts5-sync`: removed unused stdout write (FileChanged swallows stdout)
+- README: removed duplicate License + Node.js badges
+- `mindlore-dont-repeat`: removed non-existent `FileWrite`/`FileEdit` tool names, skip `old_string` scanning
+
 ## [0.2.1] - 2026-04-11
 
 ### Changed

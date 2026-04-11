@@ -150,19 +150,22 @@ SESSION START                      DURING SESSION                         SESSIO
 
 ## Hooks
 
-9 Claude Code lifecycle hooks (v0.2):
+12 Claude Code lifecycle hooks (v0.3):
 
 | Event | Hook | What it does |
 |-------|------|-------------|
-| SessionStart | session-focus | Injects last delta + INDEX |
-| UserPromptSubmit | search | FTS5 search, top 3 results + tags |
+| SessionStart | session-focus | Injects last delta + INDEX + version check |
+| UserPromptSubmit | search | FTS5 layered search (project + global) |
 | UserPromptSubmit | decision-detector | TR+EN decision signal detection |
 | FileChanged | index | Sync changed files to FTS5 |
 | FileChanged | fts5-sync | Incremental batch re-index |
-| SessionEnd | session-end | Structured delta (commits, files, reads) |
+| SessionEnd | session-end | Structured delta + global git sync |
 | PreCompact | pre-compact | FTS5 flush before compaction |
 | PostCompact | post-compact | Re-inject context |
-| PreToolUse (Read) | read-guard | Repeated-read warning |
+| PreToolUse (Read) | read-guard | Repeated-read warning + token display |
+| PostToolUse (Read) | post-read | Token estimation per file read |
+| PreToolUse (Write\|Edit) | dont-repeat | LESSONS/learnings rule enforcement |
+| CwdChanged | cwd-changed | Scope detection + _scope.json write |
 
 ## Uninstall
 
