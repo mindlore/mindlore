@@ -1,6 +1,12 @@
 # Mindlore
 
-AI-native knowledge system for [Claude Code](https://claude.ai/claude-code).
+![CI](https://github.com/mindlore/mindlore/actions/workflows/ci.yml/badge.svg)
+[![npm](https://img.shields.io/npm/v/mindlore)](https://www.npmjs.com/package/mindlore)
+![Node](https://img.shields.io/node/v/mindlore)
+![License](https://img.shields.io/badge/license-MIT-blue)
+![Zero Telemetry](https://img.shields.io/badge/telemetry-zero-brightgreen)
+
+> AI-native knowledge system for [Claude Code](https://claude.ai/claude-code)
 
 Persistent, searchable, evolving knowledge base that compounds across sessions.
 
