@@ -86,14 +86,22 @@ function extractFtsMetadata(meta, body, filePath, baseDir) {
     const headingMatch = body.match(/^#\s+(.+)/m);
     title = headingMatch ? headingMatch[1].trim() : path.basename(filePath, '.md');
   }
-  return { slug, description, type, category, title };
+  let tags = '';
+  if (meta.tags) {
+    tags = Array.isArray(meta.tags) ? meta.tags.join(', ') : String(meta.tags);
+  }
+  const quality = meta.quality !== undefined && meta.quality !== null ? meta.quality : null;
+  return { slug, description, type, category, title, tags, quality };
 }
 
 /**
  * Shared SQL constants to prevent drift across indexing paths.
  */
+const SQL_FTS_CREATE =
+  "CREATE VIRTUAL TABLE IF NOT EXISTS mindlore_fts USING fts5(path UNINDEXED, slug, description, type UNINDEXED, category, title, content, tags, quality UNINDEXED, tokenize='porter unicode61')";
+
 const SQL_FTS_INSERT =
-  'INSERT INTO mindlore_fts (path, slug, description, type, category, title, content) VALUES (?, ?, ?, ?, ?, ?, ?)';
+  'INSERT INTO mindlore_fts (path, slug, description, type, category, title, content, tags, quality) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)';
 
 /**
  * Extract headings (h1-h3) from markdown content.
@@ -154,6 +162,7 @@ module.exports = {
   sha256,
   parseFrontmatter,
   extractFtsMetadata,
+  SQL_FTS_CREATE,
   SQL_FTS_INSERT,
   extractHeadings,
   requireDatabase,

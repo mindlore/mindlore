@@ -67,9 +67,9 @@ function main() {
 
         // Update FTS5
         const { meta, body } = parseFrontmatter(content);
-        const { slug, description, type, category, title } = extractFtsMetadata(meta, body, filePath, baseDir);
+        const { slug, description, type, category, title, tags, quality } = extractFtsMetadata(meta, body, filePath, baseDir);
         deleteFts.run(filePath);
-        insertFts.run(filePath, slug, description, type, category, title, body);
+        insertFts.run(filePath, slug, description, type, category, title, body, tags, quality);
 
         // Update hash
         upsertHash.run(filePath, hash, now);

@@ -79,6 +79,17 @@ describe('Frontmatter Parser', () => {
     expect(dirs.size).toBe(9);
   });
 
+  test('should extract tags for FTS5 indexing', () => {
+    const { parseFrontmatter: parse, extractFtsMetadata } = require('../hooks/lib/mindlore-common.cjs');
+
+    const content = '---\nslug: tagged\ntype: source\ntags: [security, hooks, fts5]\n---\n# Tagged Doc\n\nContent.';
+    const { meta, body } = parse(content);
+    const result = extractFtsMetadata(meta, body, '/test/sources/tagged.md', '/test');
+
+    expect(result.tags).toBe('security, hooks, fts5');
+    expect(result.quality).toBeNull();
+  });
+
   test('should handle values containing colons', () => {
     const content = '---\nsource_url: https://example.com/path\nslug: test\n---\n';
     const fm = parseFrontmatter(content);

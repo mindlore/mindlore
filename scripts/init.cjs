@@ -15,6 +15,7 @@ const path = require('path');
 // ── Constants ──────────────────────────────────────────────────────────
 
 const { MINDLORE_DIR, DB_NAME, DIRECTORIES, homedir } = require('./lib/constants.cjs');
+const { SQL_FTS_CREATE } = require('../hooks/lib/mindlore-common.cjs');
 
 const TEMPLATE_FILES = ['INDEX.md', 'log.md'];
 
@@ -91,13 +92,16 @@ function migrateDatabase(dbPath, Database) {
     const info = db.pragma('table_info(mindlore_fts)');
     const columns = info.map((r) => r.name);
     if (!columns.includes('slug') || !columns.includes('description')) {
-      log('Upgrading FTS5 schema (2 → 7 columns, porter stemmer)...');
+      log('Upgrading FTS5 schema (2 → 9 columns, porter stemmer)...');
       db.exec('DROP TABLE IF EXISTS mindlore_fts');
-      db.exec(`
-        CREATE VIRTUAL TABLE mindlore_fts
-        USING fts5(path UNINDEXED, slug, description, type UNINDEXED, category, title, content, tokenize='porter unicode61');
-      `);
-      // Clear hashes so full re-index happens
+      db.exec(SQL_FTS_CREATE);
+      db.exec('DELETE FROM file_hashes');
+      db.close();
+      return true;
+    } else if (!columns.includes('tags')) {
+      log('Upgrading FTS5 schema (7 → 9 columns, +tags +quality)...');
+      db.exec('DROP TABLE IF EXISTS mindlore_fts');
+      db.exec(SQL_FTS_CREATE);
       db.exec('DELETE FROM file_hashes');
       db.close();
       return true;
@@ -105,10 +109,7 @@ function migrateDatabase(dbPath, Database) {
   } catch (_err) {
     // table_info fails on FTS5 virtual tables in some versions — recreate
     db.exec('DROP TABLE IF EXISTS mindlore_fts');
-    db.exec(`
-      CREATE VIRTUAL TABLE mindlore_fts
-      USING fts5(path UNINDEXED, slug, description, type UNINDEXED, category, title, content, tokenize='porter unicode61');
-    `);
+    db.exec(SQL_FTS_CREATE);
     db.exec('DELETE FROM file_hashes');
     db.close();
     return true;
@@ -143,10 +144,7 @@ function createDatabase(baseDir) {
   const db = new Database(dbPath);
   db.pragma('journal_mode = WAL');
 
-  db.exec(`
-    CREATE VIRTUAL TABLE IF NOT EXISTS mindlore_fts
-    USING fts5(path UNINDEXED, slug, description, type UNINDEXED, category, title, content, tokenize='porter unicode61');
-  `);
+  db.exec(SQL_FTS_CREATE);
 
   db.exec(`
     CREATE TABLE IF NOT EXISTS file_hashes (

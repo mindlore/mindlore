@@ -101,4 +101,36 @@ describe('FTS5 Database', () => {
 
     db.close();
   });
+
+  test('should index and search by tags column', () => {
+    const db = new Database(DB_PATH);
+
+    insertFts(db, path.join(TEST_DIR, 'sources', 'tagged-doc.md'), 'tagged-doc', 'A doc with tags', 'source', 'sources', 'Tagged Doc', '# Tagged\n\nContent here.', 'security, hooks, fts5');
+
+    // Search by tag keyword
+    const results = db
+      .prepare(
+        `SELECT path, tags FROM mindlore_fts
+         WHERE tags MATCH ?
+         ORDER BY rank
+         LIMIT 3`
+      )
+      .all('security');
+
+    expect(results).toHaveLength(1);
+    expect(results[0].tags).toBe('security, hooks, fts5');
+
+    db.close();
+  });
+
+  test('should accept null quality column', () => {
+    const db = new Database(DB_PATH);
+
+    insertFts(db, path.join(TEST_DIR, 'sources', 'no-quality.md'), 'no-quality', 'No quality set', 'source', 'sources', 'No Quality', '# Test\n\nContent.', '', null);
+
+    const result = db.prepare('SELECT quality FROM mindlore_fts WHERE path = ?').get(path.join(TEST_DIR, 'sources', 'no-quality.md'));
+    expect(result.quality).toBeFalsy();
+
+    db.close();
+  });
 });

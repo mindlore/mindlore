@@ -72,11 +72,11 @@ function main() {
 
     // Parse frontmatter for rich FTS5 columns
     const { meta, body } = parseFrontmatter(content);
-    const { slug, description, type, category, title } = extractFtsMetadata(meta, body, filePath, baseDir);
+    const { slug, description, type, category, title, tags, quality } = extractFtsMetadata(meta, body, filePath, baseDir);
 
     // Update FTS5
     db.prepare('DELETE FROM mindlore_fts WHERE path = ?').run(filePath);
-    db.prepare(SQL_FTS_INSERT).run(filePath, slug, description, type, category, title, body);
+    db.prepare(SQL_FTS_INSERT).run(filePath, slug, description, type, category, title, body, tags, quality);
 
     // Update hash
     db.prepare(

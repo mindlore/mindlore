@@ -13,13 +13,12 @@ function sha256(content) {
   return crypto.createHash('sha256').update(content, 'utf8').digest('hex');
 }
 
+const { SQL_FTS_CREATE, SQL_FTS_INSERT } = require('../../hooks/lib/mindlore-common.cjs');
+
 function createTestDb(dbPath) {
   const db = new Database(dbPath);
   db.pragma('journal_mode = WAL');
-  db.exec(`
-    CREATE VIRTUAL TABLE IF NOT EXISTS mindlore_fts
-    USING fts5(path UNINDEXED, slug, description, type UNINDEXED, category, title, content, tokenize='porter unicode61');
-  `);
+  db.exec(SQL_FTS_CREATE);
   db.exec(`
     CREATE TABLE IF NOT EXISTS file_hashes (
       path TEXT PRIMARY KEY,
@@ -30,13 +29,11 @@ function createTestDb(dbPath) {
   return db;
 }
 
-const { SQL_FTS_INSERT } = require('../../hooks/lib/mindlore-common.cjs');
-
 /**
- * Helper: insert into 7-column FTS5 table.
+ * Helper: insert into 9-column FTS5 table.
  */
-function insertFts(db, filePath, slug, description, type, category, title, content) {
-  db.prepare(SQL_FTS_INSERT).run(filePath, slug || '', description || '', type || '', category || '', title || '', content || '');
+function insertFts(db, filePath, slug, description, type, category, title, content, tags, quality) {
+  db.prepare(SQL_FTS_INSERT).run(filePath, slug || '', description || '', type || '', category || '', title || '', content || '', tags || '', quality || null);
 }
 
 function setupTestDir(testDir, subdirs) {

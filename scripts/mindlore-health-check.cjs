@@ -148,24 +148,30 @@ class HealthChecker {
           .prepare('SELECT count(*) as cnt FROM file_hashes')
           .get();
 
-        // Verify 7-column schema (slug, description, type, category, title, content + path)
-        let schemaOk = true;
+        // Verify 9-column schema (slug, description, type, category, title, content, tags, quality + path)
+        let schemaVersion = 0;
         try {
-          db.prepare('SELECT slug, description, category, title FROM mindlore_fts LIMIT 0').run();
+          db.prepare('SELECT tags, quality FROM mindlore_fts LIMIT 0').run();
+          schemaVersion = 9;
         } catch (_err) {
-          schemaOk = false;
+          try {
+            db.prepare('SELECT slug, description, category, title FROM mindlore_fts LIMIT 0').run();
+            schemaVersion = 7;
+          } catch (_err2) {
+            schemaVersion = 2;
+          }
         }
 
-        if (!schemaOk) {
+        if (schemaVersion < 9) {
           return {
             warn: true,
-            detail: `${result.cnt} indexed, ${hashResult.cnt} hashes — OLD SCHEMA (run: npx mindlore init to upgrade)`,
+            detail: `${result.cnt} indexed, ${hashResult.cnt} hashes — ${schemaVersion}-col schema (run: npx mindlore init to upgrade to 9-col)`,
           };
         }
 
         return {
           ok: true,
-          detail: `${result.cnt} indexed, ${hashResult.cnt} hashes, 7-col schema`,
+          detail: `${result.cnt} indexed, ${hashResult.cnt} hashes, 9-col schema`,
         };
       } catch (err) {
         return { ok: false, detail: `FTS5 error: ${err.message}` };

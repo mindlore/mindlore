@@ -74,9 +74,9 @@ function main() {
         if (existing && existing.content_hash === hash) continue;
 
         const { meta, body } = parseFrontmatter(content);
-        const { slug, description, type, category, title } = extractFtsMetadata(meta, body, file, baseDir);
+        const { slug, description, type, category, title, tags, quality } = extractFtsMetadata(meta, body, file, baseDir);
         deleteFts.run(file);
-        insertFts.run(file, slug, description, type, category, title, body);
+        insertFts.run(file, slug, description, type, category, title, body, tags, quality);
         upsertHash.run(file, hash, now);
         synced++;
       }
