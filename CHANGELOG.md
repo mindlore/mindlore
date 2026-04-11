@@ -5,6 +5,20 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.2.1] - 2026-04-11
+
+### Changed
+- Migrate scripts (6) and tests (12 suites + 1 helper) from CJS to TypeScript
+- Hooks (10 files) remain `.cjs` — CC requires CJS hook scripts
+- Add `tsconfig.json`, `ts-jest`, `typescript-eslint` build infrastructure
+- `package.json` bin/scripts now point to `dist/` (compiled output)
+- CI pipeline: added `typecheck` and `build` steps before lint/test
+- Shared types (`Settings`, `HookEntry`, `isContentFile`) extracted to `constants.ts`
+- `resolveHookCommon()` helper for dist/ vs src/ hook path resolution
+
+### Fixed
+- `read-guard` hook: `stderr` → `stdout` (CC only injects stdout as additionalContext)
+
 ## [0.2.0] - 2026-04-11
 
 ### Added
