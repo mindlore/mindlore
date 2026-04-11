@@ -478,10 +478,12 @@ function main(): void {
     log('  See: https://github.com/context-mode/context-mode');
   }
 
-  // Step 10: Write .version file
+  // Step 10: Write .version + .pkg-version (flat string for fast session-focus comparison)
   const packageJson = JSON.parse(fs.readFileSync(path.join(packageRoot, 'package.json'), 'utf8')) as { version: string };
   const versionPath = path.join(baseDir, '.version');
+  const pkgVersionPath = path.join(baseDir, '.pkg-version');
   fs.writeFileSync(versionPath, packageJson.version, 'utf8');
+  fs.writeFileSync(pkgVersionPath, packageJson.version, 'utf8');
   log(`Version: ${packageJson.version}`);
 
   console.log('\n  Done! Start with: /mindlore-ingest\n');
