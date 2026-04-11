@@ -10,9 +10,6 @@
 
 Persistent, searchable, evolving knowledge base that compounds across sessions.
 
-[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
-[![Node.js](https://img.shields.io/badge/Node.js-20%2B-green.svg)](https://nodejs.org)
-
 ## Why
 
 Claude Code forgets everything between sessions. Your corrections, discoveries, and decisions vanish. Mindlore gives Claude a persistent memory:
