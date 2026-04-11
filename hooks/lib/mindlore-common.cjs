@@ -14,14 +14,50 @@ const MINDLORE_DIR = '.mindlore';
 const DB_NAME = 'mindlore.db';
 const SKIP_FILES = new Set(['INDEX.md', 'SCHEMA.md', 'log.md']);
 
+/**
+ * Compute global .mindlore/ path at call time.
+ * Separate function so os.homedir() is evaluated lazily (testable).
+ */
+function globalDir() {
+  return path.join(os.homedir(), MINDLORE_DIR);
+}
+
+// Convenience export — snapshot at load time for simple references.
+const GLOBAL_MINDLORE_DIR = globalDir();
+
 function findMindloreDir() {
   const projectDir = path.join(process.cwd(), MINDLORE_DIR);
   if (fs.existsSync(projectDir)) return projectDir;
 
-  const globalDir = path.join(os.homedir(), MINDLORE_DIR);
-  if (fs.existsSync(globalDir)) return globalDir;
+  const gDir = globalDir();
+  if (fs.existsSync(gDir)) return gDir;
 
   return null;
+}
+
+/**
+ * Always returns a .mindlore/ path — project if exists, otherwise global.
+ * Unlike findMindloreDir, never returns null.
+ */
+function getActiveMindloreDir() {
+  const projectDir = path.join(process.cwd(), MINDLORE_DIR);
+  if (fs.existsSync(projectDir)) return projectDir;
+  return globalDir();
+}
+
+/**
+ * Return all existing mindlore DB paths (project first, global second).
+ * Used for layered search: project results ranked higher.
+ */
+function getAllDbs() {
+  const dbs = [];
+  const projectDb = path.join(process.cwd(), MINDLORE_DIR, DB_NAME);
+  const gDb = path.join(globalDir(), DB_NAME);
+
+  if (fs.existsSync(projectDb)) dbs.push(projectDb);
+  if (fs.existsSync(gDb) && gDb !== projectDb) dbs.push(gDb);
+
+  return dbs;
 }
 
 function getLatestDelta(diaryDir) {
@@ -179,9 +215,13 @@ function readHookStdin(fields) {
 
 module.exports = {
   MINDLORE_DIR,
+  GLOBAL_MINDLORE_DIR,
+  globalDir,
   DB_NAME,
   SKIP_FILES,
   findMindloreDir,
+  getActiveMindloreDir,
+  getAllDbs,
   getLatestDelta,
   sha256,
   parseFrontmatter,

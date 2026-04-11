@@ -10,7 +10,7 @@
 
 const fs = require('fs');
 const path = require('path');
-const { findMindloreDir, DB_NAME, requireDatabase, extractHeadings, readHookStdin } = require('./lib/mindlore-common.cjs');
+const { getAllDbs, requireDatabase, extractHeadings, readHookStdin } = require('./lib/mindlore-common.cjs');
 
 const MAX_RESULTS = 3;
 const MIN_QUERY_WORDS = 3;
@@ -59,30 +59,20 @@ function extractKeywords(text) {
   return [...new Set(words)].slice(0, 8);
 }
 
-function main() {
-  const userMessage = readHookStdin(['prompt', 'content', 'message', 'query']);
-  if (!userMessage || userMessage.length < MIN_QUERY_WORDS) return;
-
-  const baseDir = findMindloreDir();
-  if (!baseDir) return;
-
-  const dbPath = path.join(baseDir, DB_NAME);
-  if (!fs.existsSync(dbPath)) return;
-
-  const keywords = extractKeywords(userMessage);
-  if (keywords.length < MIN_QUERY_WORDS) return;
-
-  const Database = requireDatabase();
-  if (!Database) return;
-
+/**
+ * Search a single DB and return scored results with their baseDir.
+ */
+function searchDb(dbPath, keywords, Database) {
+  const baseDir = path.dirname(dbPath);
   const db = new Database(dbPath, { readonly: true });
+  const results = [];
 
   try {
-    // Per-keyword scoring (like old knowledge-search.cjs)
-    // Count how many keywords match each document
     const allPaths = db.prepare('SELECT DISTINCT path FROM mindlore_fts').all();
-    const scores = [];
     const matchStmt = db.prepare('SELECT rank FROM mindlore_fts WHERE path = ? AND mindlore_fts MATCH ?');
+    const metaStmt = db.prepare(
+      'SELECT slug, description, category, title, tags FROM mindlore_fts WHERE path = ?'
+    );
 
     for (const row of allPaths) {
       let hits = 0;
@@ -101,50 +91,81 @@ function main() {
       }
 
       if (hits >= MIN_KEYWORD_HITS) {
-        scores.push({ path: row.path, hits, totalRank });
+        const meta = metaStmt.get(row.path) || {};
+        results.push({ path: row.path, hits, totalRank, baseDir, meta });
       }
-    }
-
-    // Sort: most keyword hits first, then best rank
-    scores.sort((a, b) => b.hits - a.hits || a.totalRank - b.totalRank);
-    const relevant = scores.slice(0, MAX_RESULTS);
-
-    if (relevant.length === 0) return;
-
-    // Build rich inject output
-    const metaStmt = db.prepare(
-      'SELECT slug, description, category, title, tags FROM mindlore_fts WHERE path = ?'
-    );
-
-    const output = [];
-    for (const r of relevant) {
-      const meta = metaStmt.get(r.path) || {};
-      const relativePath = path.relative(baseDir, r.path).replace(/\\/g, '/');
-
-      let headings = [];
-      if (fs.existsSync(r.path)) {
-        const content = fs.readFileSync(r.path, 'utf8');
-        headings = extractHeadings(content, 5);
-      }
-
-      const category = meta.category || path.dirname(relativePath).split('/')[0];
-      const title = meta.title || meta.slug || path.basename(r.path, '.md');
-      const description = meta.description || '';
-
-      const headingStr = headings.length > 0 ? `\nBasliklar: ${headings.join(', ')}` : '';
-      const tagsStr = meta.tags ? `\nTags: ${meta.tags}` : '';
-      output.push(
-        `[Mindlore: ${category}/${title}] ${description}\nDosya: ${relativePath}${tagsStr}${headingStr}`
-      );
-    }
-
-    if (output.length > 0) {
-      process.stdout.write(output.join('\n\n') + '\n');
     }
   } catch (_err) {
     // FTS5 query error — silently skip
   } finally {
     db.close();
+  }
+
+  return results;
+}
+
+function main() {
+  const userMessage = readHookStdin(['prompt', 'content', 'message', 'query']);
+  if (!userMessage || userMessage.length < MIN_QUERY_WORDS) return;
+
+  const dbPaths = getAllDbs();
+  if (dbPaths.length === 0) return;
+
+  const keywords = extractKeywords(userMessage);
+  if (keywords.length < MIN_QUERY_WORDS) return;
+
+  const Database = requireDatabase();
+  if (!Database) return;
+
+  // Layered search: project DB first, global DB second
+  // Project results appear first in output (higher priority)
+  const allScores = [];
+  for (const dbPath of dbPaths) {
+    allScores.push(...searchDb(dbPath, keywords, Database));
+  }
+
+  // Sort: most keyword hits first, then best rank
+  allScores.sort((a, b) => b.hits - a.hits || a.totalRank - b.totalRank);
+
+  // Deduplicate by full path (project version wins — appears first in sort)
+  const seen = new Set();
+  const unique = [];
+  for (const r of allScores) {
+    const normalized = path.resolve(r.path);
+    if (!seen.has(normalized)) {
+      seen.add(normalized);
+      unique.push(r);
+    }
+  }
+
+  const relevant = unique.slice(0, MAX_RESULTS);
+  if (relevant.length === 0) return;
+
+  // Build rich inject output
+  const output = [];
+  for (const r of relevant) {
+    const meta = r.meta || {};
+    const relativePath = path.relative(r.baseDir, r.path).replace(/\\/g, '/');
+
+    let headings = [];
+    if (fs.existsSync(r.path)) {
+      const content = fs.readFileSync(r.path, 'utf8');
+      headings = extractHeadings(content, 5);
+    }
+
+    const category = meta.category || path.dirname(relativePath).split('/')[0];
+    const title = meta.title || meta.slug || path.basename(r.path, '.md');
+    const description = meta.description || '';
+
+    const headingStr = headings.length > 0 ? `\nBasliklar: ${headings.join(', ')}` : '';
+    const tagsStr = meta.tags ? `\nTags: ${meta.tags}` : '';
+    output.push(
+      `[Mindlore: ${category}/${title}] ${description}\nDosya: ${relativePath}${tagsStr}${headingStr}`
+    );
+  }
+
+  if (output.length > 0) {
+    process.stdout.write(output.join('\n\n') + '\n');
   }
 }
 

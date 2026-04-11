@@ -96,4 +96,34 @@ describe('mindlore init', () => {
     const content = fs.readFileSync(testFile, 'utf8');
     expect(content).toContain('# Test');
   });
+
+  test('--global should create ~/.mindlore/ instead of project .mindlore/', () => {
+    const globalDir = path.join(TEST_PROJECT, '.mindlore');
+    const env = { ...process.env, HOME: TEST_PROJECT, USERPROFILE: TEST_PROJECT };
+
+    execSync(`node "${INIT_SCRIPT}" init --global`, {
+      cwd: TEST_PROJECT,
+      stdio: 'pipe',
+      env,
+    });
+
+    expect(fs.existsSync(globalDir)).toBe(true);
+
+    const expectedDirs = [
+      'raw', 'sources', 'domains', 'analyses', 'insights',
+      'connections', 'learnings', 'diary', 'decisions',
+    ];
+
+    for (const dir of expectedDirs) {
+      expect(fs.existsSync(path.join(globalDir, dir))).toBe(true);
+    }
+
+    // Global mode should NOT create .gitignore entry in project
+    const gitignorePath = path.join(TEST_PROJECT, '.gitignore');
+    if (fs.existsSync(gitignorePath)) {
+      const gitignore = fs.readFileSync(gitignorePath, 'utf8');
+      // .gitignore should not have been modified by --global
+      expect(gitignore).not.toContain('.mindlore/');
+    }
+  });
 });

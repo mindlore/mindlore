@@ -3,14 +3,14 @@
 /**
  * mindlore init — Initialize .mindlore/ knowledge base in current project.
  *
- * Usage: npx mindlore init [--recommended]
+ * Usage: npx mindlore init [--recommended] [--global]
  *
  * Idempotent: running again does not destroy existing data.
  */
 
 import fs from 'fs';
 import path from 'path';
-import { MINDLORE_DIR, DB_NAME, DIRECTORIES, homedir, resolveHookCommon } from './lib/constants.js';
+import { MINDLORE_DIR, GLOBAL_MINDLORE_DIR, DB_NAME, DIRECTORIES, homedir, log, resolveHookCommon } from './lib/constants.js';
 import type { Settings } from './lib/constants.js';
 
  
@@ -36,10 +36,6 @@ interface PluginManifest {
 }
 
 // ── Helpers ────────────────────────────────────────────────────────────
-
-function log(msg: string): void {
-  console.log(`  ${msg}`);
-}
 
 function resolvePackageRoot(): string {
   // When compiled to dist/scripts/, go up two levels to reach package root
@@ -109,6 +105,12 @@ interface PragmaRow {
   name: string;
 }
 
+function resetSchema(db: import('better-sqlite3').Database): void {
+  db.exec('DROP TABLE IF EXISTS mindlore_fts');
+  db.exec(SQL_FTS_CREATE);
+  db.exec('DELETE FROM file_hashes');
+}
+
 function migrateDatabase(dbPath: string, DatabaseCtor: typeof import('better-sqlite3')): boolean {
   const db = new DatabaseCtor(dbPath);
   try {
@@ -116,23 +118,17 @@ function migrateDatabase(dbPath: string, DatabaseCtor: typeof import('better-sql
     const columns = info.map((r) => r.name);
     if (!columns.includes('slug') || !columns.includes('description')) {
       log('Upgrading FTS5 schema (2 → 9 columns, porter stemmer)...');
-      db.exec('DROP TABLE IF EXISTS mindlore_fts');
-      db.exec(SQL_FTS_CREATE);
-      db.exec('DELETE FROM file_hashes');
+      resetSchema(db);
       db.close();
       return true;
     } else if (!columns.includes('tags')) {
       log('Upgrading FTS5 schema (7 → 9 columns, +tags +quality)...');
-      db.exec('DROP TABLE IF EXISTS mindlore_fts');
-      db.exec(SQL_FTS_CREATE);
-      db.exec('DELETE FROM file_hashes');
+      resetSchema(db);
       db.close();
       return true;
     }
   } catch (_err) {
-    db.exec('DROP TABLE IF EXISTS mindlore_fts');
-    db.exec(SQL_FTS_CREATE);
-    db.exec('DELETE FROM file_hashes');
+    resetSchema(db);
     db.close();
     return true;
   }
@@ -142,21 +138,6 @@ function migrateDatabase(dbPath: string, DatabaseCtor: typeof import('better-sql
 
 function createDatabase(baseDir: string): boolean {
   const dbPath = path.join(baseDir, DB_NAME);
-  if (fs.existsSync(dbPath)) {
-    let DatabaseCtor: typeof import('better-sqlite3');
-    try {
-      DatabaseCtor = require('better-sqlite3');
-    } catch (_err) {
-      return false;
-    }
-    const migrated = migrateDatabase(dbPath, DatabaseCtor);
-    if (migrated) {
-      log('FTS5 schema upgraded — run index to rebuild');
-    } else {
-      log('Database already exists, schema OK');
-    }
-    return migrated;
-  }
 
   let DatabaseCtor: typeof import('better-sqlite3');
   try {
@@ -165,6 +146,16 @@ function createDatabase(baseDir: string): boolean {
     log('WARNING: better-sqlite3 not installed. Run: npm install better-sqlite3');
     log('Database creation skipped — run mindlore init again after installing.');
     return false;
+  }
+
+  if (fs.existsSync(dbPath)) {
+    const migrated = migrateDatabase(dbPath, DatabaseCtor);
+    if (migrated) {
+      log('FTS5 schema upgraded — run index to rebuild');
+    } else {
+      log('Database already exists, schema OK');
+    }
+    return migrated;
   }
 
   const db = new DatabaseCtor(dbPath);
@@ -377,16 +368,20 @@ function main(): void {
 
   if (command && command !== 'init') {
     console.log(`Unknown command: ${command}`);
-    console.log('Usage: npx mindlore init [--recommended]');
-    console.log('       npx mindlore uninstall [--all]');
+    console.log('Usage: npx mindlore init [--recommended] [--global]');
+    console.log('       npx mindlore uninstall [--all] [--global]');
     process.exit(1);
   }
 
   const isRecommended = args.includes('--recommended');
+  const isGlobal = args.includes('--global');
   const packageRoot = resolvePackageRoot();
-  const baseDir = path.join(process.cwd(), MINDLORE_DIR);
+  const baseDir = isGlobal
+    ? GLOBAL_MINDLORE_DIR
+    : path.join(process.cwd(), MINDLORE_DIR);
 
-  console.log('\n  Mindlore — AI-native knowledge system\n');
+  const scopeLabel = isGlobal ? 'global (~/.mindlore/)' : 'project (.mindlore/)';
+  console.log(`\n  Mindlore — AI-native knowledge system [${scopeLabel}]\n`);
 
   // Step 1: Directories
   const dirsCreated = createDirectories(baseDir);
@@ -425,13 +420,15 @@ function main(): void {
     log('Hooks already registered (or settings.json not found)');
   }
 
-  // Step 6: SCHEMA.md in projectDocFiles
-  const schemaAdded = addSchemaToProjectDocs();
-  log(
-    schemaAdded
-      ? 'Added SCHEMA.md to project settings'
-      : 'SCHEMA.md already in project settings',
-  );
+  // Step 6: SCHEMA.md in projectDocFiles (project mode only)
+  if (!isGlobal) {
+    const schemaAdded = addSchemaToProjectDocs();
+    log(
+      schemaAdded
+        ? 'Added SCHEMA.md to project settings'
+        : 'SCHEMA.md already in project settings',
+    );
+  }
 
   // Step 7: Skills
   const skillsAdded = registerSkills(packageRoot, plugin);
@@ -441,13 +438,15 @@ function main(): void {
       : 'Skills already registered',
   );
 
-  // Step 8: .gitignore
-  const gitignoreAdded = addToGitignore();
-  log(
-    gitignoreAdded
-      ? 'Added .mindlore/ to .gitignore'
-      : '.mindlore/ already in .gitignore',
-  );
+  // Step 8: .gitignore (project mode only — global dir has its own repo)
+  if (!isGlobal) {
+    const gitignoreAdded = addToGitignore();
+    log(
+      gitignoreAdded
+        ? 'Added .mindlore/ to .gitignore'
+        : '.mindlore/ already in .gitignore',
+    );
+  }
 
   // Recommended profile tips
   if (isRecommended) {

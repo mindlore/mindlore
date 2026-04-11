@@ -3,19 +3,15 @@
 /**
  * mindlore uninstall — Remove Mindlore hooks, skills, and optionally project data.
  *
- * Usage: npx mindlore uninstall [--all]
+ * Usage: npx mindlore uninstall [--all] [--global]
  *
  * --all: also remove .mindlore/ project data (without flag, only hooks + skills)
  */
 
 import fs from 'fs';
 import path from 'path';
-import { homedir } from './lib/constants.js';
+import { homedir, log, GLOBAL_MINDLORE_DIR } from './lib/constants.js';
 import type { Settings } from './lib/constants.js';
-
-function log(msg: string): void {
-  console.log(`  ${msg}`);
-}
 
 // ── Remove hooks from settings.json ────────────────────────────────────
 
@@ -139,8 +135,10 @@ function removeProjectData(): boolean {
 function main(): void {
   const args = process.argv.slice(2);
   const removeAll = args.includes('--all');
+  const isGlobal = args.includes('--global');
 
-  console.log('\n  Mindlore — Uninstall\n');
+  const scopeLabel = isGlobal ? 'global (~/.mindlore/)' : 'project (.mindlore/)';
+  console.log(`\n  Mindlore — Uninstall [${scopeLabel}]\n`);
 
   // Hooks
   const hooksRemoved = removeHooks();
@@ -166,16 +164,25 @@ function main(): void {
       : 'No project doc references found',
   );
 
-  // Project data (only with --all)
+  // Data removal (only with --all)
   if (removeAll) {
-    const dataRemoved = removeProjectData();
-    log(
-      dataRemoved
-        ? 'Removed .mindlore/ project data'
-        : 'No .mindlore/ directory found',
-    );
+    if (isGlobal) {
+      if (fs.existsSync(GLOBAL_MINDLORE_DIR)) {
+        fs.rmSync(GLOBAL_MINDLORE_DIR, { recursive: true, force: true });
+        log('Removed ~/.mindlore/ global data');
+      } else {
+        log('No ~/.mindlore/ directory found');
+      }
+    } else {
+      const dataRemoved = removeProjectData();
+      log(
+        dataRemoved
+          ? 'Removed .mindlore/ project data'
+          : 'No .mindlore/ directory found',
+      );
+    }
   } else {
-    log('.mindlore/ project data kept (use --all to remove)');
+    log(`${isGlobal ? '~/.mindlore/' : '.mindlore/'} data kept (use --all to remove)`);
   }
 
   console.log('\n  Done! Mindlore has been uninstalled.\n');
