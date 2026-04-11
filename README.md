@@ -1,4 +1,6 @@
-# Mindlore
+<p align="center">
+  <img src="assets/mindlore-logo.png" alt="Mindlore" width="400">
+</p>
 
 ![CI](https://github.com/mindlore/mindlore/actions/workflows/ci.yml/badge.svg)
 [![npm](https://img.shields.io/npm/v/mindlore)](https://www.npmjs.com/package/mindlore)
@@ -122,7 +124,7 @@ that fire automatically as you work. No commands to run, no workflow changes.
 SESSION START                      DURING SESSION                         SESSION END
   │                                      │                                      │
   ├─ session-focus hook            ├─ search hook                         ├─ session-end hook
-  │  reads INDEX.md + last delta   │  7-col FTS5 + porter stemmer         │  writes delta to diary/
+  │  reads INDEX.md + last delta   │  10-col FTS5 + porter stemmer        │  writes delta to diary/
   │  injects into context          │  per-keyword scoring, top 3 injected │
   │                                │                                      │
   │                                ├─ index + fts5-sync hooks             │
@@ -143,7 +145,8 @@ SESSION START                      DURING SESSION                         SESSIO
 **Key design decisions:**
 
 - **Hooks are global** — registered in `~/.claude/settings.json`, active in all projects
-- **Data is per-project** — `.mindlore/` lives in each project directory
+- **Two scopes** — project `.mindlore/` (per-project) + global `~/.mindlore/` (cross-project)
+- **Layered search** — project results first, global second, max 3 injected
 - **No `.mindlore/`?** — hooks silently skip, zero overhead
 - **FTS5 search** — SQLite full-text search with BM25 ranking, no external services
 - **Content-hash dedup** — SHA256 prevents re-indexing unchanged files
