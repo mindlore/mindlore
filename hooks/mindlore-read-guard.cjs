@@ -4,7 +4,7 @@
 /**
  * mindlore-read-guard — PreToolUse hook (if: "Read")
  *
- * OpenWolf repeated-read pattern: detects files read multiple times
+ * Repeated-read detection: detects files read multiple times
  * in the same session and emits a soft warning.
  * Does NOT block (exit 0) — advisory only.
  *
@@ -46,8 +46,24 @@ function main() {
   }
 
   const normalizedPath = path.resolve(filePath);
-  const count = (reads[normalizedPath] || 0) + 1;
-  reads[normalizedPath] = count;
+  const existing = reads[normalizedPath];
+
+  // Support both old format (number) and new format (object with tokens)
+  let count, tokens;
+  if (typeof existing === 'number') {
+    count = existing + 1;
+    tokens = 0;
+    reads[normalizedPath] = { count, tokens: 0, chars: 0 };
+  } else if (existing && typeof existing === 'object') {
+    count = (existing.count || 0) + 1;
+    tokens = existing.tokens || 0;
+    existing.count = count;
+    reads[normalizedPath] = existing;
+  } else {
+    count = 1;
+    tokens = 0;
+    reads[normalizedPath] = { count, tokens: 0, chars: 0 };
+  }
 
   // Write updated reads
   fs.writeFileSync(readsPath, JSON.stringify(reads, null, 2), 'utf8');
@@ -55,10 +71,12 @@ function main() {
   // Warn on repeated reads (2nd+ time)
   if (count > 1) {
     const basename = path.basename(filePath);
+    const tokenInfo = tokens > 0 ? ` (~${tokens} token)` : '';
+    const totalWaste = tokens > 0 ? ` Toplam tekrar: ~${tokens * (count - 1)} token.` : '';
     process.stdout.write(JSON.stringify({
       hookSpecificOutput: {
         hookEventName: 'PreToolUse',
-        additionalContext: `[Mindlore: ${basename} bu session'da ${count}. kez okunuyor. Değişiklik yoksa tekrar okumayı atlayabilirsin.]`
+        additionalContext: `[Mindlore: ${basename}${tokenInfo} bu session'da ${count}. kez okunuyor.${totalWaste} Değişiklik yoksa tekrar okumayı atlayabilirsin.]`
       }
     }));
   }
