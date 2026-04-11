@@ -5,6 +5,40 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.2.0] - 2026-04-11
+
+### Added
+- FTS5 schema upgrade: 7 → 9 columns (+`tags` indexed, +`quality` UNINDEXED placeholder)
+- `SQL_FTS_CREATE` shared constant (eliminates 5-place DDL drift risk)
+- `readHookStdin()` shared utility (replaces 5 inline stdin parsers)
+- `/mindlore-query` skill: 4 modes (search, ask, stats, brief) with full compounding pipeline
+- `/mindlore-log` skill: 4 modes (log, reflect, status, save) for session memory
+- `/mindlore-decide` skill: record + list decisions with supersedes chain
+- `mindlore-decision-detector` hook: TR+EN decision signal detection (28 signals)
+- `mindlore-read-guard` hook: OpenWolf repeated-read pattern (PreToolUse/Read)
+- Structured session delta: commits, changed files, read stats (session-end v2)
+- SCHEMA.md Section 6: Wiki vs Diary writeback target rules with anti-patterns
+- SCHEMA.md: FTS5 9-column table documentation
+- Health check +2: stale deltas (30+ days), conflicting analyses
+- Ingest skill: 6-point post-ingest quality gate checklist
+- Search hook: tags column injected in output
+- Auto-migration: init detects 7-col → 9-col, upgrades in place
+- 4 new test suites: decision, read-guard, log, compounding (was skipped)
+- 16 new tests (39 → 55 total)
+
+### Changed
+- Health check: 16 → 18 checks
+- Hooks: 7 → 9 (decision-detector, read-guard)
+- Skills: 2 → 5 (query, log, decide)
+- Test suites: 8 → 12
+- plugin.json: updated with all v0.2 hooks and skills
+- `health-check`: uses shared `parseFrontmatter` (was local duplicate)
+- `health-check`: explicit ok/warn return (was ambiguous `ok: undefined`)
+- `read-guard`: path-safe `.mindlore/` filter (was fragile string includes)
+
+### Fixed
+- `quality` field: null-safe check (`!== undefined && !== null` instead of `|| null`)
+
 ## [0.1.0] - 2026-04-11
 
 ### Added

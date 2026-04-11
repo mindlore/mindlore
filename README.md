@@ -44,7 +44,7 @@ To add your first source:
 | Skill | Version | Description |
 |-------|---------|-------------|
 | `/mindlore-ingest` | v0.1 | Add knowledge sources (URL, text, file, PDF) |
-| `/mindlore-health` | v0.1 | 16-point structural health check |
+| `/mindlore-health` | v0.1 | 18-point structural health check |
 | `/mindlore-query` | v0.2 | Search and retrieve knowledge (4 modes) |
 | `/mindlore-log` | v0.2 | Session logging with reflect and status |
 | `/mindlore-decide` | v0.2 | Decision records with supersedes chain |
@@ -147,17 +147,19 @@ SESSION START                      DURING SESSION                         SESSIO
 
 ## Hooks
 
-7 Claude Code lifecycle hooks (v0.1):
+9 Claude Code lifecycle hooks (v0.2):
 
 | Event | Hook | What it does |
 |-------|------|-------------|
 | SessionStart | session-focus | Injects last delta + INDEX |
-| UserPromptSubmit | search | FTS5 search, top 3 results |
+| UserPromptSubmit | search | FTS5 search, top 3 results + tags |
+| UserPromptSubmit | decision-detector | TR+EN decision signal detection |
 | FileChanged | index | Sync changed files to FTS5 |
 | FileChanged | fts5-sync | Incremental batch re-index |
-| SessionEnd | session-end | Write delta to diary/ |
+| SessionEnd | session-end | Structured delta (commits, files, reads) |
 | PreCompact | pre-compact | FTS5 flush before compaction |
 | PostCompact | post-compact | Re-inject context |
+| PreToolUse (Read) | read-guard | Repeated-read warning |
 
 ## Uninstall
 
