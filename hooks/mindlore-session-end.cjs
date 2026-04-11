@@ -12,7 +12,7 @@
 const fs = require('fs');
 const path = require('path');
 const { execSync } = require('child_process');
-const { findMindloreDir } = require('./lib/mindlore-common.cjs');
+const { findMindloreDir, globalDir } = require('./lib/mindlore-common.cjs');
 
 function formatDate(date) {
   const y = date.getFullYear();
@@ -128,6 +128,48 @@ function main() {
   if (fs.existsSync(logPath)) {
     const logEntry = `| ${now.toISOString().slice(0, 10)} | session-end | delta-${dateStr}.md |\n`;
     fs.appendFileSync(logPath, logEntry, 'utf8');
+  }
+
+  // Git auto-commit + push for global ~/.mindlore/ only
+  syncGlobalRepo();
+}
+
+/**
+ * Auto-commit and push ~/.mindlore/ if it has a .git directory.
+ * Only runs for the global scope — project .mindlore/ is in the project's own git.
+ * Push failure is graceful (offline support).
+ */
+function syncGlobalRepo() {
+  const gDir = globalDir();
+  const gitDir = path.join(gDir, '.git');
+  if (!fs.existsSync(gitDir)) return;
+
+  try {
+    // Check for changes
+    const status = execSync('git status --porcelain', {
+      cwd: gDir,
+      encoding: 'utf8',
+      timeout: 5000,
+    }).trim();
+
+    if (!status) return; // nothing to commit
+
+    execSync('git add -A', { cwd: gDir, timeout: 5000, stdio: 'pipe' });
+    const now = new Date().toISOString().slice(0, 19);
+    execSync(`git commit -m "mindlore auto-sync ${now}"`, {
+      cwd: gDir,
+      timeout: 10000,
+      stdio: 'pipe',
+    });
+
+    // Push — graceful fail if no remote or offline
+    try {
+      execSync('git push', { cwd: gDir, timeout: 15000, stdio: 'pipe' });
+    } catch (_pushErr) {
+      // Offline or no remote — silently continue
+    }
+  } catch (_err) {
+    // Git not available or commit failed — silently continue
   }
 }
 

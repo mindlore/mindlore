@@ -448,6 +448,26 @@ function main(): void {
     );
   }
 
+  // Step 9: Global mode — init git repo + show private repo guide
+  if (isGlobal) {
+    const gitDir = path.join(baseDir, '.git');
+    if (!fs.existsSync(gitDir)) {
+      try {
+        const { execSync } = require('child_process') as typeof import('child_process');
+        execSync('git init', { cwd: baseDir, stdio: 'pipe', timeout: 10000 });
+        log('Initialized git repo in ~/.mindlore/');
+      } catch (_err) {
+        log('WARNING: Could not init git repo. Install git for auto-sync.');
+      }
+    } else {
+      log('Git repo already initialized');
+    }
+    console.log('\n  Optional: Create a private repo for backup:');
+    log('  gh repo create mindlore-data --private');
+    log('  cd ~/.mindlore && git remote add origin <url>');
+    log('  Session-end hook will auto-commit + push.\n');
+  }
+
   // Recommended profile tips
   if (isRecommended) {
     console.log('\n  Recommended setup:');

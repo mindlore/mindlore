@@ -66,6 +66,10 @@
       "event": "PreToolUse",
       "script": "hooks/mindlore-read-guard.cjs",
       "if": "Read"
+    },
+    {
+      "event": "CwdChanged",
+      "script": "hooks/mindlore-cwd-changed.cjs"
     }
   ]
 }

@@ -72,9 +72,8 @@ function main() {
     db.close();
   }
 
-  if (synced > 0) {
-    process.stdout.write(`[Mindlore FTS5 Sync: ${synced} files re-indexed]\n`);
-  }
+  // FileChanged event stdout'u yutulur — log gerekiyorsa dosyaya yaz
+  // process.stdout.write kaldırıldı (kimse görmüyor)
 }
 
 main();
