@@ -13,24 +13,10 @@
 
 const fs = require('fs');
 const path = require('path');
-const { MINDLORE_DIR, DB_NAME, sha256, openDatabase, getAllMdFiles, parseFrontmatter, extractFtsMetadata, SQL_FTS_INSERT } = require('./lib/mindlore-common.cjs');
+const { MINDLORE_DIR, DB_NAME, sha256, openDatabase, getAllMdFiles, parseFrontmatter, extractFtsMetadata, SQL_FTS_INSERT, readHookStdin } = require('./lib/mindlore-common.cjs');
 
 function main() {
-  // Read stdin to check if this is a .mindlore/ file change
-  let input = '';
-  try {
-    input = fs.readFileSync(0, 'utf8').trim();
-  } catch (_err) {
-    // No stdin — skip
-  }
-
-  let filePath = '';
-  try {
-    const parsed = JSON.parse(input);
-    filePath = parsed.path || parsed.file_path || '';
-  } catch (_err) {
-    filePath = input;
-  }
+  const filePath = readHookStdin(['path', 'file_path']);
 
   // Only trigger on .mindlore/ changes (empty filePath = skip)
   if (!filePath || !filePath.includes(MINDLORE_DIR)) return;

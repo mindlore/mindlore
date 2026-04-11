@@ -15,35 +15,19 @@ const path = require('path');
 // ── Constants ──────────────────────────────────────────────────────────
 
 const { DIRECTORIES, TYPE_TO_DIR } = require('./lib/constants.cjs');
+const { parseFrontmatter: _parseFm, getAllMdFiles: _getAllMd } = require('../hooks/lib/mindlore-common.cjs');
 
 // ── Helpers ────────────────────────────────────────────────────────────
 
+// Wrapper: shared parseFrontmatter returns { meta, body }, health-check expects flat object or null
 function parseFrontmatter(content) {
-  const match = content.match(/^---\r?\n([\s\S]*?)\r?\n---/);
-  if (!match) return null;
-
-  const fm = {};
-  const lines = match[1].split('\n');
-  for (const line of lines) {
-    const colonIdx = line.indexOf(':');
-    if (colonIdx === -1) continue;
-    const key = line.slice(0, colonIdx).trim();
-    let value = line.slice(colonIdx + 1).trim();
-    // Handle arrays
-    if (value.startsWith('[') && value.endsWith(']')) {
-      value = value
-        .slice(1, -1)
-        .split(',')
-        .map((s) => s.trim());
-    }
-    fm[key] = value;
-  }
-  return fm;
+  const { meta } = _parseFm(content);
+  return Object.keys(meta).length > 0 ? meta : null;
 }
 
 // Health check needs ALL .md files (no skip), so pass empty set
 function getAllMdFiles(dir) {
-  return require('../hooks/lib/mindlore-common.cjs').getAllMdFiles(dir, new Set());
+  return _getAllMd(dir, new Set());
 }
 
 // ── Checks ─────────────────────────────────────────────────────────────
@@ -285,11 +269,10 @@ class HealthChecker {
           detail: `${mdFiles.length} files validated`,
         };
       }
-      return {
-        ok: wrongDir > 0 ? false : undefined,
-        warn: wrongDir === 0,
-        detail: issues.join(', '),
-      };
+      if (wrongDir > 0) {
+        return { ok: false, detail: issues.join(', ') };
+      }
+      return { warn: true, detail: issues.join(', ') };
     });
   }
 

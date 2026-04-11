@@ -153,6 +153,30 @@ function getAllMdFiles(dir, skip) {
   return results;
 }
 
+/**
+ * Read CC hook stdin and parse JSON envelope.
+ * Returns the value of the first matching field, or raw text as fallback.
+ * @param {string[]} fields - Priority-ordered field names to extract
+ */
+function readHookStdin(fields) {
+  let input = '';
+  try {
+    input = fs.readFileSync(0, 'utf8').trim();
+  } catch (_err) {
+    return '';
+  }
+  if (!input) return '';
+  try {
+    const parsed = JSON.parse(input);
+    for (const f of fields) {
+      if (parsed[f]) return parsed[f];
+    }
+  } catch (_err) {
+    // plain text
+  }
+  return input;
+}
+
 module.exports = {
   MINDLORE_DIR,
   DB_NAME,
@@ -162,6 +186,7 @@ module.exports = {
   sha256,
   parseFrontmatter,
   extractFtsMetadata,
+  readHookStdin,
   SQL_FTS_CREATE,
   SQL_FTS_INSERT,
   extractHeadings,

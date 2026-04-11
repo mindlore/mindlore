@@ -14,34 +14,20 @@
 
 const fs = require('fs');
 const path = require('path');
-const { findMindloreDir } = require('./lib/mindlore-common.cjs');
+const { findMindloreDir, readHookStdin } = require('./lib/mindlore-common.cjs');
 
 function main() {
   const baseDir = findMindloreDir();
   if (!baseDir) return;
 
-  let input = '';
-  try {
-    input = fs.readFileSync(0, 'utf8').trim();
-  } catch (_err) {
-    return;
-  }
-
-  // Parse file_path from CC PreToolUse stdin
-  let filePath = '';
-  try {
-    const parsed = JSON.parse(input);
-    filePath = parsed.file_path || parsed.path || '';
-  } catch (_err) {
-    filePath = input;
-  }
-
+  const filePath = readHookStdin(['file_path', 'path']);
   if (!filePath) return;
 
   // Only track CWD-relative files, skip .mindlore/ internals
   const cwd = process.cwd();
-  if (!path.resolve(filePath).startsWith(cwd)) return;
-  if (filePath.includes('.mindlore')) return;
+  const resolved = path.resolve(filePath);
+  if (!resolved.startsWith(cwd)) return;
+  if (resolved.startsWith(path.resolve(baseDir))) return;
 
   // Load or create session reads tracker
   const diaryDir = path.join(baseDir, 'diary');

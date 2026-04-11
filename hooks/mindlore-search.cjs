@@ -10,7 +10,7 @@
 
 const fs = require('fs');
 const path = require('path');
-const { findMindloreDir, DB_NAME, requireDatabase, extractHeadings } = require('./lib/mindlore-common.cjs');
+const { findMindloreDir, DB_NAME, requireDatabase, extractHeadings, readHookStdin } = require('./lib/mindlore-common.cjs');
 
 const MAX_RESULTS = 3;
 const MIN_QUERY_WORDS = 3;
@@ -60,21 +60,7 @@ function extractKeywords(text) {
 }
 
 function main() {
-  let input = '';
-  try {
-    input = fs.readFileSync(0, 'utf8');
-  } catch (_err) {
-    return;
-  }
-
-  let userMessage = '';
-  try {
-    const parsed = JSON.parse(input);
-    userMessage = parsed.prompt || parsed.content || parsed.message || parsed.query || input;
-  } catch (_err) {
-    userMessage = input;
-  }
-
+  const userMessage = readHookStdin(['prompt', 'content', 'message', 'query']);
   if (!userMessage || userMessage.length < MIN_QUERY_WORDS) return;
 
   const baseDir = findMindloreDir();

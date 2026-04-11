@@ -9,8 +9,7 @@
  * Does NOT block (exit 0) — advisory only.
  */
 
-const fs = require('fs');
-const { findMindloreDir } = require('./lib/mindlore-common.cjs');
+const { findMindloreDir, readHookStdin } = require('./lib/mindlore-common.cjs');
 
 const SIGNALS_TR = [
   'karar verdik', 'karar verildi', 'kararlastirdik', 'kararlaştırdık',
@@ -40,22 +39,7 @@ function main() {
   const baseDir = findMindloreDir();
   if (!baseDir) return;
 
-  let input = '';
-  try {
-    input = fs.readFileSync(0, 'utf8').trim();
-  } catch (_err) {
-    return;
-  }
-
-  // Parse CC UserPromptSubmit stdin (may be JSON with prompt field or plain text)
-  let userText = input;
-  try {
-    const parsed = JSON.parse(input);
-    userText = parsed.prompt || parsed.content || parsed.message || input;
-  } catch (_err) {
-    // plain text input
-  }
-
+  const userText = readHookStdin(['prompt', 'content', 'message']);
   if (!userText || userText.length < 10) return;
 
   const signal = detectDecision(userText);
