@@ -119,8 +119,8 @@ that fire automatically as you work. No commands to run, no workflow changes.
 SESSION START                      DURING SESSION                         SESSION END
   │                                      │                                      │
   ├─ session-focus hook            ├─ search hook                         ├─ session-end hook
-  │  reads INDEX.md + last delta   │  FTS5 query on every prompt          │  writes delta to diary/
-  │  injects into context          │  top 3 results injected              │
+  │  reads INDEX.md + last delta   │  7-col FTS5 + porter stemmer         │  writes delta to diary/
+  │  injects into context          │  per-keyword scoring, top 3 injected │
   │                                │                                      │
   │                                ├─ index + fts5-sync hooks             │
   │                                │  file changes → FTS5 update          │

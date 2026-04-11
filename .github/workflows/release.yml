@@ -1,0 +1,70 @@
+name: Create GitHub Release
+
+on:
+  workflow_run:
+    workflows: ["Publish to npm"]
+    types:
+      - completed
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    if: ${{ github.event.workflow_run.conclusion == 'success' && startsWith(github.event.workflow_run.head_branch, 'v') }}
+    steps:
+      - name: Validate tag format
+        id: tag
+        env:
+          RAW_BRANCH: ${{ github.event.workflow_run.head_branch }}
+        run: |
+          if [[ ! "$RAW_BRANCH" =~ ^v[0-9]+\.[0-9]+\.[0-9]+(-[a-zA-Z0-9.]+)?$ ]]; then
+            echo "::error::Invalid tag format: $RAW_BRANCH"
+            exit 1
+          fi
+          echo "name=$RAW_BRANCH" >> "$GITHUB_OUTPUT"
+
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ steps.tag.outputs.name }}
+
+      - name: Extract release notes from CHANGELOG
+        id: notes
+        env:
+          TAG_NAME: ${{ steps.tag.outputs.name }}
+        run: |
+          VERSION="${TAG_NAME#v}"
+          NOTES=$(awk -v ver="$VERSION" '
+            $0 ~ "^## \\[" ver "\\]" { found=1; next }
+            found && /^## \[/ { exit }
+            found { print }
+          ' CHANGELOG.md)
+
+          if [ -n "$NOTES" ]; then
+            echo "$NOTES" > release-notes.md
+          else
+            echo "Release $TAG_NAME" > release-notes.md
+          fi
+
+      - name: Determine pre-release
+        id: prerelease
+        env:
+          TAG_NAME: ${{ steps.tag.outputs.name }}
+        run: |
+          VERSION="${TAG_NAME#v}"
+          if [[ "$VERSION" == 0.* ]]; then
+            echo "flag=--prerelease" >> "$GITHUB_OUTPUT"
+          else
+            echo "flag=" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Create GitHub Release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAG_NAME: ${{ steps.tag.outputs.name }}
+        run: |
+          gh release create "$TAG_NAME" \
+            --title "$TAG_NAME" \
+            --notes-file release-notes.md \
+            ${{ steps.prerelease.outputs.flag }}
