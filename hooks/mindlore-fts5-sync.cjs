@@ -35,7 +35,7 @@ function main() {
   if (!db) return;
 
   const mdFiles = getAllMdFiles(baseDir);
-  let synced = 0;
+
 
   const getHash = db.prepare('SELECT content_hash FROM file_hashes WHERE path = ?');
   const deleteFts = db.prepare('DELETE FROM mindlore_fts WHERE path = ?');
@@ -64,7 +64,6 @@ function main() {
         deleteFts.run(file);
         insertFts.run(file, slug, description, type, category, title, body, tags, quality);
         upsertHash.run(file, hash, now);
-        synced++;
       }
     });
     transaction();

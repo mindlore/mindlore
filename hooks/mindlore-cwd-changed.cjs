@@ -15,26 +15,30 @@
 
 const fs = require('fs');
 const path = require('path');
-const { MINDLORE_DIR, globalDir } = require('./lib/mindlore-common.cjs');
+const { findMindloreDir, globalDir } = require('./lib/mindlore-common.cjs');
 
 function main() {
   const cwd = process.cwd();
-  const projectDir = path.join(cwd, MINDLORE_DIR);
-  const gDir = globalDir();
+  const activeDir = findMindloreDir();
+  const scope = !activeDir ? 'none' : activeDir.startsWith(globalDir()) ? 'global' : 'project';
 
-  const hasProject = fs.existsSync(projectDir);
-  const hasGlobal = fs.existsSync(gDir);
-
-  const scope = hasProject ? 'project' : hasGlobal ? 'global' : 'none';
-  const activeDir = hasProject ? projectDir : hasGlobal ? gDir : null;
-
-  // Write scope state for session-focus to pick up
   if (activeDir) {
     const diaryDir = path.join(activeDir, 'diary');
     if (!fs.existsSync(diaryDir)) {
       fs.mkdirSync(diaryDir, { recursive: true });
     }
+
+    // Dirty-check: skip write if scope hasn't changed
     const scopePath = path.join(diaryDir, '_scope.json');
+    if (fs.existsSync(scopePath)) {
+      try {
+        const existing = JSON.parse(fs.readFileSync(scopePath, 'utf8'));
+        if (existing.cwd === cwd && existing.scope === scope) return;
+      } catch (_err) {
+        // corrupt file — overwrite
+      }
+    }
+
     fs.writeFileSync(scopePath, JSON.stringify({
       scope,
       dir: activeDir,
@@ -43,7 +47,6 @@ function main() {
     }, null, 2), 'utf8');
   }
 
-  // User-facing message via stderr (Claude won't see this)
   if (scope === 'none') {
     process.stderr.write(`[Mindlore] Bu projede mindlore kurulu degil. npx mindlore init calistirin.\n`);
   } else {
