@@ -94,9 +94,20 @@ Only update the stats line: increment source count and total count.
 N source, N analysis, N total
 ```
 
-## Post-Ingest Verification
+## Post-Ingest Quality Gate
 
-After ingest, run health check:
+After every ingest, verify all 6 checkpoints before reporting success:
+
+1. **raw/ file exists** — immutable capture written with frontmatter (slug, type, source_url)
+2. **sources/ summary exists** — processed summary with full frontmatter (slug, type, title, tags, quality, description)
+3. **INDEX.md updated** — stats line incremented, Recent section has new entry
+4. **Domain updated** — if relevant domain exists, new finding added (max 1 domain per ingest)
+5. **log.md entry** — append `| {date} | ingest | {slug}.md |`
+6. **FTS5 indexed** — FileChanged hook auto-triggers, but verify: `node scripts/mindlore-fts5-search.cjs "{keyword}"` returns the new file
+
+If any checkpoint fails, fix it before reporting "ingest complete". Do NOT skip steps.
+
+Optional: run full health check for structural integrity:
 ```bash
 node scripts/mindlore-health-check.cjs
 ```

@@ -293,6 +293,68 @@ class HealthChecker {
     });
   }
 
+  // Check 17: Stale deltas (30+ days without archived: true)
+  checkStaleDeltas() {
+    this.check('Stale deltas', () => {
+      const diaryDir = path.join(this.baseDir, 'diary');
+      if (!fs.existsSync(diaryDir)) return { ok: true, detail: 'no diary dir' };
+
+      const now = Date.now();
+      const thirtyDays = 30 * 24 * 60 * 60 * 1000;
+      let stale = 0;
+
+      const files = fs.readdirSync(diaryDir).filter((f) => f.startsWith('delta-') && f.endsWith('.md'));
+      for (const file of files) {
+        const fullPath = path.join(diaryDir, file);
+        const content = fs.readFileSync(fullPath, 'utf8').replace(/\r\n/g, '\n');
+        const fm = parseFrontmatter(content);
+        if (fm && fm.archived === 'true') continue;
+
+        const stat = fs.statSync(fullPath);
+        if (now - stat.mtimeMs > thirtyDays) stale++;
+      }
+
+      if (stale === 0) return { ok: true, detail: `${files.length} deltas, none stale` };
+      return { warn: true, detail: `${stale} deltas older than 30 days without archived flag — run /mindlore-log reflect` };
+    });
+  }
+
+  // Check 18: Conflicting analyses (same tags, different confidence)
+  checkConflictingAnalyses() {
+    this.check('Conflicting analyses', () => {
+      const analysesDir = path.join(this.baseDir, 'analyses');
+      if (!fs.existsSync(analysesDir)) return { ok: true, detail: 'no analyses dir' };
+
+      const files = fs.readdirSync(analysesDir).filter((f) => f.endsWith('.md'));
+      if (files.length < 2) return { ok: true, detail: `${files.length} analyses, no conflict possible` };
+
+      const tagMap = {};
+      for (const file of files) {
+        const content = fs.readFileSync(path.join(analysesDir, file), 'utf8').replace(/\r\n/g, '\n');
+        const fm = parseFrontmatter(content);
+        if (!fm || !fm.tags || !fm.confidence) continue;
+
+        const tags = Array.isArray(fm.tags) ? fm.tags : String(fm.tags).split(',').map((t) => t.trim());
+        for (const tag of tags) {
+          if (!tagMap[tag]) tagMap[tag] = [];
+          tagMap[tag].push({ file, confidence: fm.confidence });
+        }
+      }
+
+      const conflicts = [];
+      for (const [tag, entries] of Object.entries(tagMap)) {
+        if (entries.length < 2) continue;
+        const confidences = new Set(entries.map((e) => e.confidence));
+        if (confidences.size > 1) {
+          conflicts.push(`${tag}: ${entries.map((e) => `${e.file}(${e.confidence})`).join(' vs ')}`);
+        }
+      }
+
+      if (conflicts.length === 0) return { ok: true, detail: `${files.length} analyses, no conflicts` };
+      return { warn: true, detail: `${conflicts.length} tag conflicts: ${conflicts.slice(0, 2).join('; ')}` };
+    });
+  }
+
   // ── Run all ────────────────────────────────────────────────────────
 
   run() {
@@ -302,6 +364,8 @@ class HealthChecker {
     this.checkDatabase();
     this.checkOrphans();
     this.checkFrontmatter();
+    this.checkStaleDeltas();
+    this.checkConflictingAnalyses();
     return this;
   }
 
