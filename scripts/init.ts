@@ -1,5 +1,4 @@
 #!/usr/bin/env node
-'use strict';
 
 /**
  * mindlore init — Initialize .mindlore/ knowledge base in current project.
@@ -9,29 +8,50 @@
  * Idempotent: running again does not destroy existing data.
  */
 
-const fs = require('fs');
-const path = require('path');
+import fs from 'fs';
+import path from 'path';
+import { MINDLORE_DIR, DB_NAME, DIRECTORIES, homedir, resolveHookCommon } from './lib/constants.js';
+import type { Settings } from './lib/constants.js';
 
-// ── Constants ──────────────────────────────────────────────────────────
-
-const { MINDLORE_DIR, DB_NAME, DIRECTORIES, homedir } = require('./lib/constants.cjs');
-const { SQL_FTS_CREATE } = require('../hooks/lib/mindlore-common.cjs');
+ 
+const { SQL_FTS_CREATE } = require(resolveHookCommon(__dirname)) as {
+  SQL_FTS_CREATE: string;
+};
 
 const TEMPLATE_FILES = ['INDEX.md', 'log.md'];
 
+interface PluginHook {
+  event: string;
+  script: string;
+}
+
+interface PluginSkill {
+  name: string;
+  path: string;
+}
+
+interface PluginManifest {
+  hooks?: PluginHook[];
+  skills?: PluginSkill[];
+}
+
 // ── Helpers ────────────────────────────────────────────────────────────
 
-function log(msg) {
+function log(msg: string): void {
   console.log(`  ${msg}`);
 }
 
-function resolvePackageRoot() {
-  // When installed globally via npm, __dirname is inside the package
-  // Look for templates/ relative to this script
-  return path.resolve(__dirname, '..');
+function resolvePackageRoot(): string {
+  // When compiled to dist/scripts/, go up two levels to reach package root
+  // When running as .ts (ts-jest), go up one level
+  const candidate = path.resolve(__dirname, '..');
+  if (fs.existsSync(path.join(candidate, 'package.json'))) {
+    return candidate;
+  }
+  return path.resolve(__dirname, '..', '..');
 }
 
-function ensureDir(dirPath) {
+function ensureDir(dirPath: string): boolean {
   if (!fs.existsSync(dirPath)) {
     fs.mkdirSync(dirPath, { recursive: true });
     return true;
@@ -41,7 +61,7 @@ function ensureDir(dirPath) {
 
 // ── Step 1: Create .mindlore/ directories ──────────────────────────────
 
-function createDirectories(baseDir) {
+function createDirectories(baseDir: string): number {
   let created = 0;
   for (const dir of DIRECTORIES) {
     if (ensureDir(path.join(baseDir, dir))) {
@@ -53,7 +73,7 @@ function createDirectories(baseDir) {
 
 // ── Step 2: Copy template files ────────────────────────────────────────
 
-function copyTemplates(baseDir, packageRoot) {
+function copyTemplates(baseDir: string, packageRoot: string): number {
   const templatesDir = path.join(packageRoot, 'templates');
   let copied = 0;
 
@@ -85,11 +105,14 @@ function copyTemplates(baseDir, packageRoot) {
 
 // ── Step 3: Create FTS5 database ───────────────────────────────────────
 
-function migrateDatabase(dbPath, Database) {
-  const db = new Database(dbPath);
+interface PragmaRow {
+  name: string;
+}
+
+function migrateDatabase(dbPath: string, DatabaseCtor: typeof import('better-sqlite3')): boolean {
+  const db = new DatabaseCtor(dbPath);
   try {
-    // Check if FTS5 table has the new schema (7 columns with slug, description, etc.)
-    const info = db.pragma('table_info(mindlore_fts)');
+    const info = db.pragma('table_info(mindlore_fts)') as PragmaRow[];
     const columns = info.map((r) => r.name);
     if (!columns.includes('slug') || !columns.includes('description')) {
       log('Upgrading FTS5 schema (2 → 9 columns, porter stemmer)...');
@@ -107,7 +130,6 @@ function migrateDatabase(dbPath, Database) {
       return true;
     }
   } catch (_err) {
-    // table_info fails on FTS5 virtual tables in some versions — recreate
     db.exec('DROP TABLE IF EXISTS mindlore_fts');
     db.exec(SQL_FTS_CREATE);
     db.exec('DELETE FROM file_hashes');
@@ -118,12 +140,16 @@ function migrateDatabase(dbPath, Database) {
   return false;
 }
 
-function createDatabase(baseDir) {
+function createDatabase(baseDir: string): boolean {
   const dbPath = path.join(baseDir, DB_NAME);
   if (fs.existsSync(dbPath)) {
-    let Database;
-    try { Database = require('better-sqlite3'); } catch (_err) { return false; }
-    const migrated = migrateDatabase(dbPath, Database);
+    let DatabaseCtor: typeof import('better-sqlite3');
+    try {
+      DatabaseCtor = require('better-sqlite3');
+    } catch (_err) {
+      return false;
+    }
+    const migrated = migrateDatabase(dbPath, DatabaseCtor);
     if (migrated) {
       log('FTS5 schema upgraded — run index to rebuild');
     } else {
@@ -132,16 +158,16 @@ function createDatabase(baseDir) {
     return migrated;
   }
 
-  let Database;
+  let DatabaseCtor: typeof import('better-sqlite3');
   try {
-    Database = require('better-sqlite3');
+    DatabaseCtor = require('better-sqlite3');
   } catch (_err) {
     log('WARNING: better-sqlite3 not installed. Run: npm install better-sqlite3');
     log('Database creation skipped — run mindlore init again after installing.');
     return false;
   }
 
-  const db = new Database(dbPath);
+  const db = new DatabaseCtor(dbPath);
   db.pragma('journal_mode = WAL');
 
   db.exec(SQL_FTS_CREATE);
@@ -160,12 +186,8 @@ function createDatabase(baseDir) {
 
 // ── Step 4: Merge hooks into settings.json ─────────────────────────────
 
-function mergeHooks(packageRoot) {
-  const settingsPath = path.join(
-    homedir(),
-    '.claude',
-    'settings.json'
-  );
+function mergeHooks(packageRoot: string): number | false {
+  const settingsPath = path.join(homedir(), '.claude', 'settings.json');
 
   if (!fs.existsSync(settingsPath)) {
     log('WARNING: ~/.claude/settings.json not found. Hooks not registered.');
@@ -173,23 +195,22 @@ function mergeHooks(packageRoot) {
     return false;
   }
 
-  let settings;
+  let settings: Settings;
   try {
     const raw = fs.readFileSync(settingsPath, 'utf8');
-    settings = JSON.parse(raw);
+    settings = JSON.parse(raw) as Settings;
   } catch (_err) {
     log('WARNING: Could not parse settings.json. Hooks not registered.');
     return false;
   }
 
-  // Read plugin.json for hook definitions
   const pluginPath = path.join(packageRoot, 'plugin.json');
   if (!fs.existsSync(pluginPath)) {
     log('WARNING: plugin.json not found. Hooks not registered.');
     return false;
   }
 
-  const plugin = JSON.parse(fs.readFileSync(pluginPath, 'utf8'));
+  const plugin = JSON.parse(fs.readFileSync(pluginPath, 'utf8')) as PluginManifest;
   if (!plugin.hooks || plugin.hooks.length === 0) {
     return false;
   }
@@ -205,17 +226,14 @@ function mergeHooks(packageRoot) {
       settings.hooks[event] = [];
     }
 
-    // Check if this hook already exists (by script path containing 'mindlore-')
     const hookScript = path.join(packageRoot, hook.script);
     const hookName = path.basename(hook.script, '.cjs');
 
     const exists = settings.hooks[event].some((entry) => {
-      // CC format: each entry is { hooks: [{ type, command }] }
       if (entry.hooks && Array.isArray(entry.hooks)) {
-        return entry.hooks.some((h) => (h.command || '').includes(hookName));
+        return entry.hooks.some((h) => (h.command ?? '').includes(hookName));
       }
-      // Legacy flat format check
-      return (entry.command || '').includes(hookName);
+      return (entry.command ?? '').includes(hookName);
     });
 
     if (!exists) {
@@ -232,7 +250,6 @@ function mergeHooks(packageRoot) {
   }
 
   if (added > 0) {
-    // Backup before writing
     const backupPath = settingsPath + '.mindlore-backup';
     if (!fs.existsSync(backupPath)) {
       fs.copyFileSync(settingsPath, backupPath);
@@ -245,14 +262,14 @@ function mergeHooks(packageRoot) {
 
 // ── Step 5: Add SCHEMA.md to projectDocFiles ───────────────────────────
 
-function addSchemaToProjectDocs() {
+function addSchemaToProjectDocs(): boolean {
   const projectSettingsDir = path.join(process.cwd(), '.claude');
   const projectSettingsPath = path.join(projectSettingsDir, 'settings.json');
 
-  let settings = {};
+  let settings: Settings = {};
   if (fs.existsSync(projectSettingsPath)) {
     try {
-      settings = JSON.parse(fs.readFileSync(projectSettingsPath, 'utf8'));
+      settings = JSON.parse(fs.readFileSync(projectSettingsPath, 'utf8')) as Settings;
     } catch (_err) {
       settings = {};
     }
@@ -270,7 +287,7 @@ function addSchemaToProjectDocs() {
     fs.writeFileSync(
       projectSettingsPath,
       JSON.stringify(settings, null, 2),
-      'utf8'
+      'utf8',
     );
     return true;
   }
@@ -279,7 +296,7 @@ function addSchemaToProjectDocs() {
 
 // ── Step 6: Register skills ────────────────────────────────────────────
 
-function registerSkills(packageRoot, plugin) {
+function registerSkills(packageRoot: string, plugin: PluginManifest): number {
   const skillsDir = path.join(homedir(), '.claude', 'skills');
   ensureDir(skillsDir);
 
@@ -296,7 +313,7 @@ function registerSkills(packageRoot, plugin) {
       if (!entry.isFile()) continue;
       fs.copyFileSync(
         path.join(skillSrcDir, entry.name),
-        path.join(skillDestDir, entry.name)
+        path.join(skillDestDir, entry.name),
       );
     }
     added++;
@@ -307,13 +324,13 @@ function registerSkills(packageRoot, plugin) {
 
 // ── Step 7: Install better-sqlite3 if needed ──────────────────────────
 
-function ensureBetterSqlite3() {
+function ensureBetterSqlite3(): boolean {
   try {
     require('better-sqlite3');
     return true;
   } catch (_err) {
     try {
-      const { execSync } = require('child_process');
+      const { execSync } = require('child_process') as typeof import('child_process');
       log('Installing better-sqlite3 (native dependency)...');
       execSync('npm install better-sqlite3 --no-save', {
         cwd: process.cwd(),
@@ -331,7 +348,7 @@ function ensureBetterSqlite3() {
 
 // ── Step 8: Add .mindlore/ to .gitignore ───────────────────────────────
 
-function addToGitignore() {
+function addToGitignore(): boolean {
   const gitignorePath = path.join(process.cwd(), '.gitignore');
   const entry = '.mindlore/';
 
@@ -349,12 +366,12 @@ function addToGitignore() {
 
 // ── Main ───────────────────────────────────────────────────────────────
 
-function main() {
+function main(): void {
   const args = process.argv.slice(2);
   const command = args[0];
 
   if (command === 'uninstall') {
-    require('./uninstall.cjs');
+    require('./uninstall.js');
     return;
   }
 
@@ -376,7 +393,7 @@ function main() {
   log(
     dirsCreated > 0
       ? `Created ${dirsCreated} directories in ${MINDLORE_DIR}/`
-      : 'All directories already exist'
+      : 'All directories already exist',
   );
 
   // Step 2: Templates
@@ -384,7 +401,7 @@ function main() {
   log(
     filesCopied > 0
       ? `Copied ${filesCopied} template files`
-      : 'All templates already in place'
+      : 'All templates already in place',
   );
 
   // Step 3: better-sqlite3 (before DB creation so it's available)
@@ -396,8 +413,8 @@ function main() {
 
   // Read plugin.json once for hooks + skills
   const pluginPath = path.join(packageRoot, 'plugin.json');
-  const plugin = fs.existsSync(pluginPath)
-    ? JSON.parse(fs.readFileSync(pluginPath, 'utf8'))
+  const plugin: PluginManifest = fs.existsSync(pluginPath)
+    ? JSON.parse(fs.readFileSync(pluginPath, 'utf8')) as PluginManifest
     : {};
 
   // Step 5: Hooks
@@ -413,7 +430,7 @@ function main() {
   log(
     schemaAdded
       ? 'Added SCHEMA.md to project settings'
-      : 'SCHEMA.md already in project settings'
+      : 'SCHEMA.md already in project settings',
   );
 
   // Step 7: Skills
@@ -421,7 +438,7 @@ function main() {
   log(
     skillsAdded > 0
       ? `Registered ${skillsAdded} skills in ~/.claude/skills/`
-      : 'Skills already registered'
+      : 'Skills already registered',
   );
 
   // Step 8: .gitignore
@@ -429,7 +446,7 @@ function main() {
   log(
     gitignoreAdded
       ? 'Added .mindlore/ to .gitignore'
-      : '.mindlore/ already in .gitignore'
+      : '.mindlore/ already in .gitignore',
   );
 
   // Recommended profile tips

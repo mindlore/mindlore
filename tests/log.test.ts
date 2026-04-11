@@ -1,8 +1,12 @@
-'use strict';
+import path from 'path';
+import fs from 'fs';
+import { setupTestDir, teardownTestDir } from './helpers/db.js';
 
-const path = require('path');
-const fs = require('fs');
-const { setupTestDir, teardownTestDir } = require('./helpers/db.cjs');
+// Hook remains .cjs — import via require with type cast
+ 
+const { parseFrontmatter } = require('../hooks/lib/mindlore-common.cjs') as {
+  parseFrontmatter: (raw: string) => { meta: Record<string, string>; body: string };
+};
 
 const TEST_DIR = path.join(__dirname, '..', '.test-mindlore-log');
 
@@ -26,8 +30,8 @@ describe('Log Skill Structures', () => {
       '',
       '# Testing Learnings',
       '',
-      '- YAPMA: Error handling testinde mock\'u dolayli tetikleme',
-      '- BEST PRACTICE: Side-effect\'li moduller eklerken TUM test\'lerde mock ekle',
+      "- YAPMA: Error handling testinde mock'u dolayli tetikleme",
+      "- BEST PRACTICE: Side-effect'li moduller eklerken TUM test'lerde mock ekle",
       '',
     ].join('\n');
 
@@ -56,24 +60,21 @@ describe('Log Skill Structures', () => {
     const filePath = path.join(TEST_DIR, 'diary', 'delta-2026-04-10-1200.md');
     fs.writeFileSync(filePath, content, 'utf8');
 
-    const { parseFrontmatter } = require('../hooks/lib/mindlore-common.cjs');
     const { meta } = parseFrontmatter(fs.readFileSync(filePath, 'utf8'));
-    expect(meta.archived).toBe('true');
-    expect(meta.type).toBe('diary');
+    expect(meta['archived']).toBe('true');
+    expect(meta['type']).toBe('diary');
   });
 
   test('diary directory should accept delta and note files', () => {
-    // Delta file
     fs.writeFileSync(
       path.join(TEST_DIR, 'diary', 'delta-2026-04-10-1200.md'),
       '---\nslug: delta-2026-04-10-1200\ntype: diary\ndate: 2026-04-10\n---\n# Delta\n',
-      'utf8'
+      'utf8',
     );
-    // Note file
     fs.writeFileSync(
       path.join(TEST_DIR, 'diary', 'note-2026-04-10-1530.md'),
       '---\nslug: note-2026-04-10-1530\ntype: diary\ndate: 2026-04-10\n---\n# Note\n',
-      'utf8'
+      'utf8',
     );
 
     const files = fs.readdirSync(path.join(TEST_DIR, 'diary'));

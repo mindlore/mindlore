@@ -1,26 +1,29 @@
 #!/usr/bin/env node
-'use strict';
 
 /**
  * mindlore-fts5-search — Search .mindlore/ knowledge base via FTS5.
  *
- * Usage: node scripts/mindlore-fts5-search.cjs "query" [path-to-mindlore-dir]
+ * Usage: node dist/scripts/mindlore-fts5-search.js "query" [path-to-mindlore-dir]
  *
  * Returns top 3 results ranked by BM25 with file path and snippet.
  */
 
-const fs = require('fs');
-const path = require('path');
+import fs from 'fs';
+import path from 'path';
+import { DB_NAME, resolveHookCommon } from './lib/constants.js';
 
-const { DB_NAME } = require('./lib/constants.cjs');
-const { openDatabase } = require('../hooks/lib/mindlore-common.cjs');
+ 
+const { openDatabase } = require(resolveHookCommon(__dirname)) as {
+  openDatabase: (dbPath: string, opts?: { readonly: boolean }) => import('better-sqlite3').Database | null;
+};
+
 const MAX_RESULTS = 3;
 
 // ── Helpers ────────────────────────────────────────────────────────────
 
-function extractHeadings(content, maxHeadings) {
+function extractHeadings(content: string, maxHeadings: number): string[] {
   const lines = content.split('\n');
-  const headings = [];
+  const headings: string[] = [];
   for (const line of lines) {
     if (line.startsWith('#')) {
       headings.push(line.replace(/^#+\s*/, '').trim());
@@ -32,14 +35,20 @@ function extractHeadings(content, maxHeadings) {
 
 // ── Main ───────────────────────────────────────────────────────────────
 
-function main() {
+interface SearchResult {
+  path: string;
+  snippet: string;
+  rank: number;
+}
+
+function main(): void {
   const query = process.argv[2];
   if (!query) {
-    console.error('Usage: node mindlore-fts5-search.cjs "query" [mindlore-dir]');
+    console.error('Usage: node mindlore-fts5-search.js "query" [mindlore-dir]');
     process.exit(1);
   }
 
-  const baseDir = process.argv[3] || path.join(process.cwd(), '.mindlore');
+  const baseDir = process.argv[3] ?? path.join(process.cwd(), '.mindlore');
   const dbPath = path.join(baseDir, DB_NAME);
 
   if (!fs.existsSync(dbPath)) {
@@ -54,7 +63,6 @@ function main() {
   }
 
   try {
-    // Sanitize query for FTS5 (escape special chars)
     const sanitized = query.replace(/['"(){}[\]*:^~!]/g, ' ').trim();
     if (!sanitized) {
       console.log('  No valid search terms.');
@@ -68,9 +76,9 @@ function main() {
          FROM mindlore_fts
          WHERE mindlore_fts MATCH ?
          ORDER BY rank
-         LIMIT ?`
+         LIMIT ?`,
       )
-      .all(sanitized, MAX_RESULTS);
+      .all(sanitized, MAX_RESULTS) as SearchResult[];
 
     if (results.length === 0) {
       console.log(`  No results for: "${query}"`);
@@ -81,11 +89,11 @@ function main() {
 
     for (let i = 0; i < results.length; i++) {
       const r = results[i];
+      if (!r) continue;
       const relativePath = path.relative(baseDir, r.path);
       const fileName = path.basename(r.path, '.md');
 
-      // Try to get headings from the actual file
-      let headings = [];
+      let headings: string[] = [];
       if (fs.existsSync(r.path)) {
         const content = fs.readFileSync(r.path, 'utf8');
         headings = extractHeadings(content, 2);
@@ -99,16 +107,16 @@ function main() {
       console.log('');
     }
   } catch (err) {
-    // FTS5 query syntax error — try simpler query
-    if (err.message.includes('fts5')) {
+    const message = err instanceof Error ? err.message : String(err);
+    if (message.includes('fts5')) {
       const words = query.split(/\s+/).filter((w) => w.length >= 2);
       if (words.length > 0) {
         console.error(`  Search syntax error. Try simpler terms: ${words.join(' ')}`);
       } else {
-        console.error(`  Search error: ${err.message}`);
+        console.error(`  Search error: ${message}`);
       }
     } else {
-      console.error(`  Error: ${err.message}`);
+      console.error(`  Error: ${message}`);
     }
     process.exit(1);
   } finally {

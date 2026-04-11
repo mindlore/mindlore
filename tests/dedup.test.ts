@@ -1,8 +1,6 @@
-'use strict';
-
-const path = require('path');
-const Database = require('better-sqlite3');
-const { sha256, createTestDb, insertFts, setupTestDir, teardownTestDir } = require('./helpers/db.cjs');
+import path from 'path';
+import Database from 'better-sqlite3';
+import { sha256, createTestDb, insertFts, setupTestDir, teardownTestDir } from './helpers/db.js';
 
 const TEST_DIR = path.join(__dirname, '..', '.test-mindlore-dedup');
 const DB_PATH = path.join(TEST_DIR, 'mindlore.db');
@@ -25,14 +23,14 @@ describe('Content-Hash Dedup', () => {
     const hash = sha256(content);
     const filePath = path.join(TEST_DIR, 'test.md');
 
-    insertFts(db, filePath, 'test-doc', 'Some content here', 'source', 'sources', 'Test', content);
+    insertFts(db, filePath, 'test-doc', 'Some content here', 'source', 'sources', 'Test', content, '', null);
     db.prepare(
-      'INSERT INTO file_hashes (path, content_hash, last_indexed) VALUES (?, ?, ?)'
+      'INSERT INTO file_hashes (path, content_hash, last_indexed) VALUES (?, ?, ?)',
     ).run(filePath, hash, new Date().toISOString());
 
     const result = db
       .prepare('SELECT content_hash FROM file_hashes WHERE path = ?')
-      .get(filePath);
+      .get(filePath) as { content_hash: string };
     expect(result.content_hash).toBe(hash);
 
     db.close();
@@ -45,21 +43,21 @@ describe('Content-Hash Dedup', () => {
     const hash = sha256(content);
     const filePath = path.join(TEST_DIR, 'unchanged.md');
 
-    insertFts(db, filePath, 'unchanged-doc', 'This content does not change', 'source', 'sources', 'Unchanged', content);
+    insertFts(db, filePath, 'unchanged-doc', 'This content does not change', 'source', 'sources', 'Unchanged', content, '', null);
     db.prepare(
-      'INSERT INTO file_hashes (path, content_hash, last_indexed) VALUES (?, ?, ?)'
+      'INSERT INTO file_hashes (path, content_hash, last_indexed) VALUES (?, ?, ?)',
     ).run(filePath, hash, '2026-01-01T00:00:00Z');
 
     const existing = db
       .prepare('SELECT content_hash FROM file_hashes WHERE path = ?')
-      .get(filePath);
+      .get(filePath) as { content_hash: string };
     const newHash = sha256(content);
 
     expect(existing.content_hash).toBe(newHash);
 
     const count = db
       .prepare('SELECT count(*) as cnt FROM mindlore_fts WHERE path = ?')
-      .get(filePath);
+      .get(filePath) as { cnt: number };
     expect(count.cnt).toBe(1);
 
     db.close();
@@ -72,31 +70,28 @@ describe('Content-Hash Dedup', () => {
     const modified = '# Modified\n\nSecond version with changes.';
     const filePath = path.join(TEST_DIR, 'changing.md');
 
-    // Index original
     const originalHash = sha256(original);
-    insertFts(db, filePath, 'changing-doc', 'First version', 'source', 'sources', 'Original', original);
+    insertFts(db, filePath, 'changing-doc', 'First version', 'source', 'sources', 'Original', original, '', null);
     db.prepare(
-      'INSERT INTO file_hashes (path, content_hash, last_indexed) VALUES (?, ?, ?)'
+      'INSERT INTO file_hashes (path, content_hash, last_indexed) VALUES (?, ?, ?)',
     ).run(filePath, originalHash, '2026-01-01T00:00:00Z');
 
-    // Check modified content
     const modifiedHash = sha256(modified);
     const existing = db
       .prepare('SELECT content_hash FROM file_hashes WHERE path = ?')
-      .get(filePath);
+      .get(filePath) as { content_hash: string };
 
     expect(existing.content_hash).not.toBe(modifiedHash);
 
-    // Perform re-index
     db.prepare('DELETE FROM mindlore_fts WHERE path = ?').run(filePath);
-    insertFts(db, filePath, 'changing-doc', 'Second version with changes', 'source', 'sources', 'Modified', modified);
+    insertFts(db, filePath, 'changing-doc', 'Second version with changes', 'source', 'sources', 'Modified', modified, '', null);
     db.prepare(
-      `UPDATE file_hashes SET content_hash = ?, last_indexed = ? WHERE path = ?`
+      'UPDATE file_hashes SET content_hash = ?, last_indexed = ? WHERE path = ?',
     ).run(modifiedHash, new Date().toISOString(), filePath);
 
     const results = db
       .prepare('SELECT path FROM mindlore_fts WHERE mindlore_fts MATCH ?')
-      .all('changes');
+      .all('changes') as Array<{ path: string }>;
     expect(results).toHaveLength(1);
 
     db.close();

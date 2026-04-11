@@ -1,47 +1,72 @@
 #!/usr/bin/env node
-'use strict';
 
 /**
- * mindlore-health-check — 16-point structural health check for .mindlore/
+ * mindlore-health-check — 18-point structural health check for .mindlore/
  *
- * Usage: node scripts/mindlore-health-check.cjs [path-to-mindlore-dir]
+ * Usage: node dist/scripts/mindlore-health-check.js [path-to-mindlore-dir]
  *
  * Exit codes: 0 = healthy, 1 = issues found
  */
 
-const fs = require('fs');
-const path = require('path');
+import fs from 'fs';
+import path from 'path';
+import { DIRECTORIES, TYPE_TO_DIR, DB_NAME, resolveHookCommon, isContentFile } from './lib/constants.js';
 
-// ── Constants ──────────────────────────────────────────────────────────
-
-const { DIRECTORIES, TYPE_TO_DIR } = require('./lib/constants.cjs');
-const { parseFrontmatter: _parseFm, getAllMdFiles: _getAllMd } = require('../hooks/lib/mindlore-common.cjs');
+ 
+const {
+  parseFrontmatter: _parseFm,
+  getAllMdFiles: _getAllMd,
+} = require(resolveHookCommon(__dirname)) as {
+  parseFrontmatter: (content: string) => { meta: Record<string, string>; body: string };
+  getAllMdFiles: (dir: string, skipFiles?: Set<string>) => string[];
+};
 
 // ── Helpers ────────────────────────────────────────────────────────────
 
-// Wrapper: shared parseFrontmatter returns { meta, body }, health-check expects flat object or null
-function parseFrontmatter(content) {
+interface FrontmatterData {
+  slug?: string;
+  type?: string;
+  tags?: string | string[];
+  confidence?: string;
+  archived?: string;
+  [key: string]: unknown;
+}
+
+function parseFrontmatter(content: string): FrontmatterData | null {
   const { meta } = _parseFm(content);
   return Object.keys(meta).length > 0 ? meta : null;
 }
 
-// Health check needs ALL .md files (no skip), so pass empty set
-function getAllMdFiles(dir) {
+function getAllMdFiles(dir: string): string[] {
   return _getAllMd(dir, new Set());
 }
 
 // ── Checks ─────────────────────────────────────────────────────────────
 
+interface CheckResult {
+  ok?: boolean;
+  warn?: boolean;
+  detail: string;
+}
+
+interface ReportEntry {
+  name: string;
+  status: 'PASS' | 'WARN' | 'FAIL';
+  detail: string;
+}
+
 class HealthChecker {
-  constructor(baseDir) {
+  private baseDir: string;
+  private results: ReportEntry[] = [];
+  private passed = 0;
+  private failed = 0;
+  private warnings = 0;
+
+  constructor(baseDir: string) {
     this.baseDir = baseDir;
-    this.results = [];
-    this.passed = 0;
-    this.failed = 0;
-    this.warnings = 0;
   }
 
-  check(name, fn) {
+  check(name: string, fn: () => CheckResult): void {
     try {
       const result = fn();
       if (result.ok) {
@@ -56,12 +81,12 @@ class HealthChecker {
       }
     } catch (err) {
       this.failed++;
-      this.results.push({ name, status: 'FAIL', detail: err.message });
+      const message = err instanceof Error ? err.message : String(err);
+      this.results.push({ name, status: 'FAIL', detail: message });
     }
   }
 
-  // Check 1-9: Directory existence
-  checkDirectories() {
+  checkDirectories(): void {
     for (const dir of DIRECTORIES) {
       this.check(`Directory: ${dir}/`, () => {
         const dirPath = path.join(this.baseDir, dir);
@@ -73,8 +98,7 @@ class HealthChecker {
     }
   }
 
-  // Check 10: SCHEMA.md parseable
-  checkSchema() {
+  checkSchema(): void {
     this.check('SCHEMA.md', () => {
       const schemaPath = path.join(this.baseDir, 'SCHEMA.md');
       if (!fs.existsSync(schemaPath)) {
@@ -91,8 +115,7 @@ class HealthChecker {
     });
   }
 
-  // Check 11: INDEX.md format
-  checkIndex() {
+  checkIndex(): void {
     this.check('INDEX.md format', () => {
       const indexPath = path.join(this.baseDir, 'INDEX.md');
       if (!fs.existsSync(indexPath)) {
@@ -110,15 +133,14 @@ class HealthChecker {
     });
   }
 
-  // Check 12: Database integrity
-  checkDatabase() {
+  checkDatabase(): void {
     this.check('mindlore.db FTS5', () => {
-      const dbPath = path.join(this.baseDir, 'mindlore.db');
+      const dbPath = path.join(this.baseDir, DB_NAME);
       if (!fs.existsSync(dbPath)) {
         return { ok: false, detail: 'database missing' };
       }
 
-      let Database;
+      let Database: typeof import('better-sqlite3');
       try {
         Database = require('better-sqlite3');
       } catch (_err) {
@@ -127,12 +149,11 @@ class HealthChecker {
 
       const db = new Database(dbPath, { readonly: true });
       try {
-        const result = db.prepare('SELECT count(*) as cnt FROM mindlore_fts').get();
+        const result = db.prepare('SELECT count(*) as cnt FROM mindlore_fts').get() as { cnt: number };
         const hashResult = db
           .prepare('SELECT count(*) as cnt FROM file_hashes')
-          .get();
+          .get() as { cnt: number };
 
-        // Verify 9-column schema (slug, description, type, category, title, content, tags, quality + path)
         let schemaVersion = 0;
         try {
           db.prepare('SELECT tags, quality FROM mindlore_fts LIMIT 0').run();
@@ -158,45 +179,40 @@ class HealthChecker {
           detail: `${result.cnt} indexed, ${hashResult.cnt} hashes, 9-col schema`,
         };
       } catch (err) {
-        return { ok: false, detail: `FTS5 error: ${err.message}` };
+        const message = err instanceof Error ? err.message : String(err);
+        return { ok: false, detail: `FTS5 error: ${message}` };
       } finally {
         db.close();
       }
     });
   }
 
-  // Check 13: Orphan files (in .mindlore/ but not in FTS5)
-  checkOrphans() {
+  checkOrphans(): void {
     this.check('Orphan files', () => {
-      const dbPath = path.join(this.baseDir, 'mindlore.db');
+      const dbPath = path.join(this.baseDir, DB_NAME);
       if (!fs.existsSync(dbPath)) {
         return { warn: true, detail: 'no database, cannot check' };
       }
 
-      let Database;
+      let Database: typeof import('better-sqlite3');
       try {
         Database = require('better-sqlite3');
       } catch (_err) {
         return { warn: true, detail: 'better-sqlite3 not available' };
       }
 
-      const mdFiles = getAllMdFiles(this.baseDir).filter(
-        (f) =>
-          !f.endsWith('INDEX.md') &&
-          !f.endsWith('SCHEMA.md') &&
-          !f.endsWith('log.md')
-      );
+      const mdFiles = getAllMdFiles(this.baseDir).filter(isContentFile);
 
       const db = new Database(dbPath, { readonly: true });
       try {
-        const indexed = new Set();
-        const rows = db.prepare('SELECT path FROM file_hashes').all();
+        const indexed = new Set<string>();
+        const rows = db.prepare('SELECT path FROM file_hashes').all() as Array<{ path: string }>;
         for (const row of rows) {
           indexed.add(path.resolve(row.path));
         }
 
         const orphans = mdFiles.filter(
-          (f) => !indexed.has(path.resolve(f))
+          (f) => !indexed.has(path.resolve(f)),
         );
 
         if (orphans.length === 0) {
@@ -218,15 +234,9 @@ class HealthChecker {
     });
   }
 
-  // Check 14-16: Frontmatter validation
-  checkFrontmatter() {
+  checkFrontmatter(): void {
     this.check('Frontmatter: slug + type', () => {
-      const mdFiles = getAllMdFiles(this.baseDir).filter(
-        (f) =>
-          !f.endsWith('INDEX.md') &&
-          !f.endsWith('SCHEMA.md') &&
-          !f.endsWith('log.md')
-      );
+      const mdFiles = getAllMdFiles(this.baseDir).filter(isContentFile);
 
       let missingSlug = 0;
       let missingType = 0;
@@ -248,7 +258,6 @@ class HealthChecker {
           continue;
         }
 
-        // Check type-directory match
         const expectedDir = TYPE_TO_DIR[fm.type];
         if (expectedDir) {
           const parentDir = path.basename(path.dirname(file));
@@ -258,7 +267,7 @@ class HealthChecker {
         }
       }
 
-      const issues = [];
+      const issues: string[] = [];
       if (missingSlug > 0) issues.push(`${missingSlug} missing slug`);
       if (missingType > 0) issues.push(`${missingType} missing type`);
       if (wrongDir > 0) issues.push(`${wrongDir} type-dir mismatch`);
@@ -276,8 +285,7 @@ class HealthChecker {
     });
   }
 
-  // Check 17: Stale deltas (30+ days without archived: true)
-  checkStaleDeltas() {
+  checkStaleDeltas(): void {
     this.check('Stale deltas', () => {
       const diaryDir = path.join(this.baseDir, 'diary');
       if (!fs.existsSync(diaryDir)) return { ok: true, detail: 'no diary dir' };
@@ -302,8 +310,7 @@ class HealthChecker {
     });
   }
 
-  // Check 18: Conflicting analyses (same tags, different confidence)
-  checkConflictingAnalyses() {
+  checkConflictingAnalyses(): void {
     this.check('Conflicting analyses', () => {
       const analysesDir = path.join(this.baseDir, 'analyses');
       if (!fs.existsSync(analysesDir)) return { ok: true, detail: 'no analyses dir' };
@@ -311,22 +318,23 @@ class HealthChecker {
       const files = fs.readdirSync(analysesDir).filter((f) => f.endsWith('.md'));
       if (files.length < 2) return { ok: true, detail: `${files.length} analyses, no conflict possible` };
 
-      const tagMap = {};
+      const tagMap: Record<string, Array<{ file: string; confidence: string }>> = {};
       for (const file of files) {
         const content = fs.readFileSync(path.join(analysesDir, file), 'utf8').replace(/\r\n/g, '\n');
         const fm = parseFrontmatter(content);
-        if (!fm || !fm.tags || !fm.confidence) continue;
+        if (!fm?.tags || !fm.confidence) continue;
 
         const tags = Array.isArray(fm.tags) ? fm.tags : String(fm.tags).split(',').map((t) => t.trim());
         for (const tag of tags) {
           if (!tagMap[tag]) tagMap[tag] = [];
-          tagMap[tag].push({ file, confidence: fm.confidence });
+          const entries = tagMap[tag];
+          if (entries) entries.push({ file, confidence: String(fm.confidence) });
         }
       }
 
-      const conflicts = [];
+      const conflicts: string[] = [];
       for (const [tag, entries] of Object.entries(tagMap)) {
-        if (entries.length < 2) continue;
+        if (!entries || entries.length < 2) continue;
         const confidences = new Set(entries.map((e) => e.confidence));
         if (confidences.size > 1) {
           conflicts.push(`${tag}: ${entries.map((e) => `${e.file}(${e.confidence})`).join(' vs ')}`);
@@ -338,9 +346,7 @@ class HealthChecker {
     });
   }
 
-  // ── Run all ────────────────────────────────────────────────────────
-
-  run() {
+  run(): this {
     this.checkDirectories();
     this.checkSchema();
     this.checkIndex();
@@ -352,7 +358,7 @@ class HealthChecker {
     return this;
   }
 
-  report() {
+  report(): boolean {
     console.log('\n  Mindlore Health Check\n');
 
     for (const r of this.results) {
@@ -363,7 +369,7 @@ class HealthChecker {
 
     const total = this.passed + this.failed + this.warnings;
     console.log(
-      `\n  Score: ${this.passed}/${total} passed, ${this.warnings} warnings, ${this.failed} failed\n`
+      `\n  Score: ${this.passed}/${total} passed, ${this.warnings} warnings, ${this.failed} failed\n`,
     );
 
     return this.failed === 0;
@@ -372,8 +378,8 @@ class HealthChecker {
 
 // ── Main ───────────────────────────────────────────────────────────────
 
-function main() {
-  const baseDir = process.argv[2] || path.join(process.cwd(), '.mindlore');
+function main(): void {
+  const baseDir = process.argv[2] ?? path.join(process.cwd(), '.mindlore');
 
   if (!fs.existsSync(baseDir)) {
     console.error(`  .mindlore/ not found at: ${baseDir}`);

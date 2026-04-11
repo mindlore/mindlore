@@ -1,13 +1,11 @@
-'use strict';
-
-const fs = require('fs');
-const path = require('path');
-const { execSync } = require('child_process');
+import fs from 'fs';
+import path from 'path';
+import { execSync } from 'child_process';
 
 const TEST_DIR = path.join(__dirname, '..', '.test-mindlore-session-focus');
 const HOOK_PATH = path.join(__dirname, '..', 'hooks', 'mindlore-session-focus.cjs');
 
-function createMindloreDir() {
+function createMindloreDir(): string {
   const mindloreDir = path.join(TEST_DIR, '.mindlore');
   fs.mkdirSync(path.join(mindloreDir, 'diary'), { recursive: true });
 
@@ -19,7 +17,7 @@ function createMindloreDir() {
   return mindloreDir;
 }
 
-function createDelta(mindloreDir, name, content) {
+function createDelta(mindloreDir: string, name: string, content: string): void {
   fs.writeFileSync(
     path.join(mindloreDir, 'diary', name),
     content

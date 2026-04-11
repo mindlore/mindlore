@@ -1,5 +1,4 @@
 #!/usr/bin/env node
-'use strict';
 
 /**
  * mindlore uninstall — Remove Mindlore hooks, skills, and optionally project data.
@@ -9,17 +8,18 @@
  * --all: also remove .mindlore/ project data (without flag, only hooks + skills)
  */
 
-const fs = require('fs');
-const path = require('path');
-const { homedir } = require('./lib/constants.cjs');
+import fs from 'fs';
+import path from 'path';
+import { homedir } from './lib/constants.js';
+import type { Settings } from './lib/constants.js';
 
-function log(msg) {
+function log(msg: string): void {
   console.log(`  ${msg}`);
 }
 
 // ── Remove hooks from settings.json ────────────────────────────────────
 
-function removeHooks() {
+function removeHooks(): number {
   const settingsPath = path.join(homedir(), '.claude', 'settings.json');
 
   if (!fs.existsSync(settingsPath)) {
@@ -27,9 +27,9 @@ function removeHooks() {
     return 0;
   }
 
-  let settings;
+  let settings: Settings;
   try {
-    settings = JSON.parse(fs.readFileSync(settingsPath, 'utf8'));
+    settings = JSON.parse(fs.readFileSync(settingsPath, 'utf8')) as Settings;
   } catch (_err) {
     log('Could not parse settings.json, skipping hooks');
     return 0;
@@ -43,12 +43,11 @@ function removeHooks() {
     if (!Array.isArray(entries)) continue;
 
     const filtered = entries.filter((entry) => {
-      const hooks = entry.hooks || [];
+      const hooks = entry.hooks ?? [];
       const hasMindlore = hooks.some(
-        (h) => (h.command || '').includes('mindlore-')
+        (h) => (h.command ?? '').includes('mindlore-'),
       );
-      // Also check flat format (legacy)
-      const flatMindlore = (entry.command || '').includes('mindlore-');
+      const flatMindlore = (entry.command ?? '').includes('mindlore-');
 
       if (hasMindlore || flatMindlore) {
         removed++;
@@ -59,7 +58,6 @@ function removeHooks() {
 
     settings.hooks[event] = filtered;
 
-    // Clean up empty arrays
     if (settings.hooks[event].length === 0) {
       delete settings.hooks[event];
     }
@@ -74,7 +72,7 @@ function removeHooks() {
 
 // ── Remove skills from ~/.claude/skills/ ───────────────────────────────
 
-function removeSkills() {
+function removeSkills(): number {
   const skillsDir = path.join(homedir(), '.claude', 'skills');
   if (!fs.existsSync(skillsDir)) return 0;
 
@@ -94,13 +92,13 @@ function removeSkills() {
 
 // ── Remove SCHEMA.md from projectDocFiles ──────────────────────────────
 
-function removeFromProjectDocs() {
+function removeFromProjectDocs(): boolean {
   const projectSettingsPath = path.join(process.cwd(), '.claude', 'settings.json');
   if (!fs.existsSync(projectSettingsPath)) return false;
 
-  let settings;
+  let settings: Settings;
   try {
-    settings = JSON.parse(fs.readFileSync(projectSettingsPath, 'utf8'));
+    settings = JSON.parse(fs.readFileSync(projectSettingsPath, 'utf8')) as Settings;
   } catch (_err) {
     return false;
   }
@@ -109,14 +107,14 @@ function removeFromProjectDocs() {
 
   const before = settings.projectDocFiles.length;
   settings.projectDocFiles = settings.projectDocFiles.filter(
-    (p) => !p.includes('mindlore')
+    (p) => !p.includes('mindlore'),
   );
 
   if (settings.projectDocFiles.length < before) {
     fs.writeFileSync(
       projectSettingsPath,
       JSON.stringify(settings, null, 2),
-      'utf8'
+      'utf8',
     );
     return true;
   }
@@ -125,7 +123,7 @@ function removeFromProjectDocs() {
 
 // ── Remove .mindlore/ project data ─────────────────────────────────────
 
-function removeProjectData() {
+function removeProjectData(): boolean {
   const mindloreDir = path.join(process.cwd(), '.mindlore');
   if (!fs.existsSync(mindloreDir)) {
     log('No .mindlore/ directory in current project');
@@ -138,7 +136,7 @@ function removeProjectData() {
 
 // ── Main ───────────────────────────────────────────────────────────────
 
-function main() {
+function main(): void {
   const args = process.argv.slice(2);
   const removeAll = args.includes('--all');
 
@@ -149,7 +147,7 @@ function main() {
   log(
     hooksRemoved > 0
       ? `Removed ${hooksRemoved} hooks from ~/.claude/settings.json`
-      : 'No hooks found'
+      : 'No hooks found',
   );
 
   // Skills
@@ -157,7 +155,7 @@ function main() {
   log(
     skillsRemoved > 0
       ? `Removed ${skillsRemoved} skills from ~/.claude/skills/`
-      : 'No skills found'
+      : 'No skills found',
   );
 
   // Project doc files
@@ -165,7 +163,7 @@ function main() {
   log(
     docsRemoved
       ? 'Removed SCHEMA.md from project settings'
-      : 'No project doc references found'
+      : 'No project doc references found',
   );
 
   // Project data (only with --all)
@@ -174,7 +172,7 @@ function main() {
     log(
       dataRemoved
         ? 'Removed .mindlore/ project data'
-        : 'No .mindlore/ directory found'
+        : 'No .mindlore/ directory found',
     );
   } else {
     log('.mindlore/ project data kept (use --all to remove)');

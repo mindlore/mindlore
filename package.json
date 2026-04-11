@@ -4,14 +4,19 @@
   "description": "AI-native knowledge system for Claude Code",
   "type": "commonjs",
   "bin": {
-    "mindlore": "scripts/init.cjs"
+    "mindlore": "dist/scripts/init.js"
   },
   "scripts": {
+    "build": "tsc",
+    "prebuild": "node -e \"require('fs').rmSync('dist',{recursive:true,force:true})\"",
+    "pretest": "npm run build",
     "test": "jest --config jest.config.cjs",
     "lint": "eslint -c eslint.config.cjs scripts/ hooks/ tests/",
-    "health": "node scripts/mindlore-health-check.cjs",
-    "index": "node scripts/mindlore-fts5-index.cjs",
-    "search": "node scripts/mindlore-fts5-search.cjs"
+    "typecheck": "tsc --noEmit",
+    "prepublishOnly": "npm run build",
+    "health": "node dist/scripts/mindlore-health-check.js",
+    "index": "node dist/scripts/mindlore-fts5-index.js",
+    "search": "node dist/scripts/mindlore-fts5-search.js"
   },
   "keywords": [
     "claude-code",
@@ -40,12 +45,19 @@
     "better-sqlite3": "^11.0.0"
   },
   "devDependencies": {
+    "@types/better-sqlite3": "^7.6.13",
+    "@types/jest": "^30.0.0",
+    "@types/node": "^25.6.0",
+    "@typescript-eslint/eslint-plugin": "^8.58.1",
+    "@typescript-eslint/parser": "^8.58.1",
     "eslint": "^9.0.0",
+    "globals": "^15.0.0",
     "jest": "^29.7.0",
-    "globals": "^15.0.0"
+    "ts-jest": "^29.4.9",
+    "typescript": "^6.0.2"
   },
   "files": [
-    "scripts/",
+    "dist/",
     "hooks/",
     "skills/",
     "templates/",

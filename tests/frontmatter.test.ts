@@ -1,26 +1,47 @@
-'use strict';
+import { TYPE_TO_DIR } from '../scripts/lib/constants.js';
+
+ 
+const { parseFrontmatter: parse, extractFtsMetadata } = require('../hooks/lib/mindlore-common.cjs') as {
+  parseFrontmatter: (content: string) => { meta: Record<string, string | string[]>; body: string };
+  extractFtsMetadata: (
+    meta: Record<string, string | string[]>,
+    body: string,
+    filePath: string,
+    baseDir: string,
+  ) => { slug: string; description: string; type: string; category: string; title: string; tags: string; quality: string | null };
+};
+
+interface Frontmatter {
+  slug?: string;
+  type?: string;
+  title?: string;
+  tags?: string[];
+  source_url?: string;
+  [key: string]: unknown;
+}
 
 describe('Frontmatter Parser', () => {
-  function parseFrontmatter(content) {
+  function parseFrontmatter(content: string): Frontmatter | null {
     const match = content.match(/^---\r?\n([\s\S]*?)\r?\n---/);
-    if (!match) return null;
+    if (!match?.[1]) return null;
 
-    const fm = {};
+    const fm: Record<string, unknown> = {};
     const lines = match[1].split('\n');
     for (const line of lines) {
       const colonIdx = line.indexOf(':');
       if (colonIdx === -1) continue;
       const key = line.slice(0, colonIdx).trim();
-      let value = line.slice(colonIdx + 1).trim();
-      if (value.startsWith('[') && value.endsWith(']')) {
-        value = value
+      const rawValue = line.slice(colonIdx + 1).trim();
+      if (rawValue.startsWith('[') && rawValue.endsWith(']')) {
+        fm[key] = rawValue
           .slice(1, -1)
           .split(',')
           .map((s) => s.trim());
+      } else {
+        fm[key] = rawValue;
       }
-      fm[key] = value;
     }
-    return fm;
+    return Object.keys(fm).length > 0 ? (fm as Frontmatter) : null;
   }
 
   test('should parse valid frontmatter', () => {
@@ -37,10 +58,10 @@ describe('Frontmatter Parser', () => {
 
     const fm = parseFrontmatter(content);
     expect(fm).not.toBeNull();
-    expect(fm.slug).toBe('my-source');
-    expect(fm.type).toBe('source');
-    expect(fm.title).toBe('My Source');
-    expect(fm.tags).toEqual(['typescript', 'node']);
+    expect(fm!.slug).toBe('my-source');
+    expect(fm!.type).toBe('source');
+    expect(fm!.title).toBe('My Source');
+    expect(fm!.tags).toEqual(['typescript', 'node']);
   });
 
   test('should return null for missing frontmatter', () => {
@@ -59,20 +80,18 @@ describe('Frontmatter Parser', () => {
     const content = '---\nslug: minimal\n---\n# Minimal';
     const fm = parseFrontmatter(content);
     expect(fm).not.toBeNull();
-    expect(fm.slug).toBe('minimal');
+    expect(fm!.slug).toBe('minimal');
   });
 
   test('should handle CRLF line endings', () => {
     const content = '---\r\nslug: test\r\ntype: raw\r\n---\r\n# Test';
     const fm = parseFrontmatter(content);
     expect(fm).not.toBeNull();
-    expect(fm.slug).toBe('test');
-    expect(fm.type).toBe('raw');
+    expect(fm!.slug).toBe('test');
+    expect(fm!.type).toBe('raw');
   });
 
   test('should validate type-directory mapping', () => {
-    const { TYPE_TO_DIR } = require('../scripts/lib/constants.cjs');
-
     expect(Object.keys(TYPE_TO_DIR)).toHaveLength(9);
 
     const dirs = new Set(Object.values(TYPE_TO_DIR));
@@ -80,8 +99,6 @@ describe('Frontmatter Parser', () => {
   });
 
   test('should extract tags for FTS5 indexing', () => {
-    const { parseFrontmatter: parse, extractFtsMetadata } = require('../hooks/lib/mindlore-common.cjs');
-
     const content = '---\nslug: tagged\ntype: source\ntags: [security, hooks, fts5]\n---\n# Tagged Doc\n\nContent.';
     const { meta, body } = parse(content);
     const result = extractFtsMetadata(meta, body, '/test/sources/tagged.md', '/test');
@@ -94,6 +111,6 @@ describe('Frontmatter Parser', () => {
     const content = '---\nsource_url: https://example.com/path\nslug: test\n---\n';
     const fm = parseFrontmatter(content);
     expect(fm).not.toBeNull();
-    expect(fm.source_url).toBe('https://example.com/path');
+    expect(fm!.source_url).toBe('https://example.com/path');
   });
 });

@@ -1,5 +1,3 @@
-'use strict';
-
 /**
  * Compounding test — v0.2 integration test
  *
@@ -7,9 +5,9 @@
  * Skipped in v0.1 (configured in jest.config.cjs testPathIgnorePatterns).
  */
 
-const fs = require('fs');
-const path = require('path');
-const { sha256, createTestDb, insertFts, setupTestDir, teardownTestDir } = require('./helpers/db.cjs');
+import fs from 'fs';
+import path from 'path';
+import { sha256, createTestDb, insertFts, setupTestDir, teardownTestDir } from './helpers/db.js';
 
 const TEST_DIR = path.join(__dirname, '..', '.test-mindlore-compounding');
 const DB_PATH = path.join(TEST_DIR, 'mindlore.db');
@@ -22,6 +20,10 @@ afterEach(() => {
   teardownTestDir(TEST_DIR);
 });
 
+interface FtsPathRow {
+  path: string;
+}
+
 describe('Knowledge Compounding', () => {
   test('writeback → reindex → query should find the new content', () => {
     const db = createTestDb(DB_PATH);
@@ -31,7 +33,7 @@ describe('Knowledge Compounding', () => {
     const sourceContent = '---\nslug: react-hooks\ntype: source\n---\n# React Hooks\n\nUseEffect cleanup patterns.';
     fs.writeFileSync(sourcePath, sourceContent);
 
-    insertFts(db, sourcePath, 'react-hooks', 'UseEffect cleanup patterns', 'source', 'sources', 'React Hooks', sourceContent);
+    insertFts(db, sourcePath, 'react-hooks', 'UseEffect cleanup patterns', 'source', 'sources', 'React Hooks', sourceContent, '', null);
     db.prepare(
       'INSERT INTO file_hashes (path, content_hash, last_indexed) VALUES (?, ?, ?)'
     ).run(sourcePath, sha256(sourceContent), new Date().toISOString());
@@ -43,7 +45,7 @@ describe('Knowledge Compounding', () => {
     fs.writeFileSync(insightPath, insightContent);
 
     // Step 3: Reindex (simulates the hook)
-    insertFts(db, insightPath, 'react-cleanup', 'Avoid memory leaks with useEffect cleanup', 'insight', 'insights', 'React Cleanup Pattern', insightContent);
+    insertFts(db, insightPath, 'react-cleanup', 'Avoid memory leaks with useEffect cleanup', 'insight', 'insights', 'React Cleanup Pattern', insightContent, '', null);
     db.prepare(
       'INSERT INTO file_hashes (path, content_hash, last_indexed) VALUES (?, ?, ?)'
     ).run(insightPath, sha256(insightContent), new Date().toISOString());
@@ -56,7 +58,7 @@ describe('Knowledge Compounding', () => {
          ORDER BY rank
          LIMIT 3`
       )
-      .all('memory leaks cleanup');
+      .all('memory leaks cleanup') as FtsPathRow[];
 
     expect(results.length).toBeGreaterThan(0);
     expect(results.some((r) => r.path.includes('react-cleanup'))).toBe(true);

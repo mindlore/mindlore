@@ -1,24 +1,50 @@
 #!/usr/bin/env node
-'use strict';
 
 /**
  * mindlore-fts5-index — Full re-index of .mindlore/ into FTS5 database.
  *
  * Scans all .md files, computes SHA256 content-hash, skips unchanged files.
- * Usage: node scripts/mindlore-fts5-index.cjs [path-to-mindlore-dir]
+ * Usage: node dist/scripts/mindlore-fts5-index.js [path-to-mindlore-dir]
  */
 
-const fs = require('fs');
-const path = require('path');
-// ── Constants ──────────────────────────────────────────────────────────
+import fs from 'fs';
+import path from 'path';
+import { DB_NAME, resolveHookCommon } from './lib/constants.js';
 
-const { DB_NAME } = require('./lib/constants.cjs');
-const { sha256, getAllMdFiles, openDatabase, parseFrontmatter, extractFtsMetadata, SQL_FTS_INSERT } = require('../hooks/lib/mindlore-common.cjs');
+ 
+const {
+  sha256,
+  getAllMdFiles,
+  openDatabase,
+  parseFrontmatter,
+  extractFtsMetadata,
+  SQL_FTS_INSERT,
+} = require(resolveHookCommon(__dirname)) as {
+  sha256: (content: string) => string;
+  getAllMdFiles: (dir: string) => string[];
+  openDatabase: (dbPath: string) => import('better-sqlite3').Database | null;
+  parseFrontmatter: (content: string) => { meta: Record<string, string>; body: string };
+  extractFtsMetadata: (
+    meta: Record<string, string>,
+    body: string,
+    filePath: string,
+    baseDir: string,
+  ) => {
+    slug: string;
+    description: string;
+    type: string;
+    category: string;
+    title: string;
+    tags: string;
+    quality: string | null;
+  };
+  SQL_FTS_INSERT: string;
+};
 
 // ── Main ───────────────────────────────────────────────────────────────
 
-function main() {
-  const baseDir = process.argv[2] || path.join(process.cwd(), '.mindlore');
+function main(): void {
+  const baseDir = process.argv[2] ?? path.join(process.cwd(), '.mindlore');
   const dbPath = path.join(baseDir, DB_NAME);
 
   if (!fs.existsSync(dbPath)) {
@@ -32,7 +58,6 @@ function main() {
     process.exit(1);
   }
 
-  // Prepare statements
   const getHash = db.prepare('SELECT content_hash FROM file_hashes WHERE path = ?');
   const upsertHash = db.prepare(`
     INSERT INTO file_hashes (path, content_hash, last_indexed)
@@ -44,8 +69,7 @@ function main() {
   const deleteFts = db.prepare('DELETE FROM mindlore_fts WHERE path = ?');
   const insertFts = db.prepare(SQL_FTS_INSERT);
 
-  // Get all .md files
-  const mdFiles = getAllMdFiles(baseDir);
+  const mdFiles = getAllMdFiles(baseDir) as string[];
   let indexed = 0;
   let skipped = 0;
   let errors = 0;
@@ -58,24 +82,23 @@ function main() {
         const content = fs.readFileSync(filePath, 'utf8').replace(/\r\n/g, '\n');
         const hash = sha256(content);
 
-        // Check if content changed
-        const existing = getHash.get(filePath);
+        const existing = getHash.get(filePath) as { content_hash: string } | undefined;
         if (existing && existing.content_hash === hash) {
           skipped++;
           continue;
         }
 
-        // Update FTS5
         const { meta, body } = parseFrontmatter(content);
-        const { slug, description, type, category, title, tags, quality } = extractFtsMetadata(meta, body, filePath, baseDir);
+        const { slug, description, type, category, title, tags, quality } =
+          extractFtsMetadata(meta, body, filePath, baseDir);
         deleteFts.run(filePath);
         insertFts.run(filePath, slug, description, type, category, title, body, tags, quality);
 
-        // Update hash
         upsertHash.run(filePath, hash, now);
         indexed++;
       } catch (err) {
-        console.error(`  Error indexing ${path.basename(filePath)}: ${err.message}`);
+        const message = err instanceof Error ? err.message : String(err);
+        console.error(`  Error indexing ${path.basename(filePath)}: ${message}`);
         errors++;
       }
     }
@@ -83,8 +106,7 @@ function main() {
 
   transaction();
 
-  // Clean up entries for deleted files
-  const allIndexed = db.prepare('SELECT path FROM file_hashes').all();
+  const allIndexed = db.prepare('SELECT path FROM file_hashes').all() as Array<{ path: string }>;
   const existingPaths = new Set(mdFiles);
   let removed = 0;
 
@@ -103,7 +125,7 @@ function main() {
   db.close();
 
   console.log(
-    `\n  FTS5 Index: ${indexed} indexed, ${skipped} unchanged, ${removed} removed, ${errors} errors\n`
+    `\n  FTS5 Index: ${indexed} indexed, ${skipped} unchanged, ${removed} removed, ${errors} errors\n`,
   );
 
   process.exit(errors > 0 ? 1 : 0);

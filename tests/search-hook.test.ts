@@ -1,8 +1,6 @@
-'use strict';
-
-const path = require('path');
-const Database = require('better-sqlite3');
-const { createTestDb, insertFts, setupTestDir, teardownTestDir } = require('./helpers/db.cjs');
+import path from 'path';
+import Database from 'better-sqlite3';
+import { createTestDb, insertFts, setupTestDir, teardownTestDir } from './helpers/db.js';
 
 const TEST_DIR = path.join(__dirname, '..', '.test-mindlore-search');
 const DB_PATH = path.join(TEST_DIR, 'mindlore.db');
@@ -12,9 +10,9 @@ beforeEach(() => {
 
   const db = createTestDb(DB_PATH);
 
-  insertFts(db, path.join(TEST_DIR, 'sources', 'react-hooks.md'), 'react-hooks', 'useEffect cleanup patterns for memory leak prevention', 'source', 'sources', 'React Hooks Guide', '---\nslug: react-hooks\ntype: source\n---\n# React Hooks Guide\n\nuseEffect cleanup patterns for memory leak prevention.');
-  insertFts(db, path.join(TEST_DIR, 'sources', 'typescript-generics.md'), 'typescript-generics', 'Advanced generic patterns for type-safe APIs', 'source', 'sources', 'TypeScript Generics', '---\nslug: typescript-generics\ntype: source\n---\n# TypeScript Generics\n\nAdvanced generic patterns for type-safe APIs.');
-  insertFts(db, path.join(TEST_DIR, 'domains', 'security.md'), 'security', 'SSH hardening firewall rules audit checks', 'domain', 'domains', 'Security', '---\nslug: security\ntype: domain\n---\n# Security\n\nSSH hardening, firewall rules, audit checks.');
+  insertFts(db, path.join(TEST_DIR, 'sources', 'react-hooks.md'), 'react-hooks', 'useEffect cleanup patterns for memory leak prevention', 'source', 'sources', 'React Hooks Guide', '---\nslug: react-hooks\ntype: source\n---\n# React Hooks Guide\n\nuseEffect cleanup patterns for memory leak prevention.', '', null);
+  insertFts(db, path.join(TEST_DIR, 'sources', 'typescript-generics.md'), 'typescript-generics', 'Advanced generic patterns for type-safe APIs', 'source', 'sources', 'TypeScript Generics', '---\nslug: typescript-generics\ntype: source\n---\n# TypeScript Generics\n\nAdvanced generic patterns for type-safe APIs.', '', null);
+  insertFts(db, path.join(TEST_DIR, 'domains', 'security.md'), 'security', 'SSH hardening firewall rules audit checks', 'domain', 'domains', 'Security', '---\nslug: security\ntype: domain\n---\n# Security\n\nSSH hardening, firewall rules, audit checks.', '', null);
 
   db.close();
 });
@@ -25,7 +23,7 @@ afterEach(() => {
 
 describe('Search Hook — Keyword Extraction', () => {
   // Inline the extractKeywords logic for testing
-  function extractKeywords(text) {
+  function extractKeywords(text: string): string[] {
     const stopWords = new Set([
       'the', 'a', 'an', 'is', 'are', 'was', 'were', 'be', 'been', 'being',
       'have', 'has', 'had', 'do', 'does', 'did', 'will', 'would', 'could',
@@ -84,8 +82,13 @@ describe('Search Hook — Keyword Extraction', () => {
   });
 });
 
+interface FtsRow {
+  path: string;
+  rank: number;
+}
+
 describe('Search Hook — FTS5 Query', () => {
-  function queryFts(query) {
+  function queryFts(query: string): FtsRow[] {
     const db = new Database(DB_PATH, { readonly: true });
     try {
       return db
@@ -94,7 +97,7 @@ describe('Search Hook — FTS5 Query', () => {
            WHERE mindlore_fts MATCH ?
            ORDER BY rank LIMIT 3`
         )
-        .all(query);
+        .all(query) as FtsRow[];
     } finally {
       db.close();
     }
@@ -103,7 +106,7 @@ describe('Search Hook — FTS5 Query', () => {
   test('should find matching documents via FTS5', () => {
     const results = queryFts('react hooks');
     expect(results.length).toBeGreaterThan(0);
-    expect(results[0].path).toContain('react-hooks');
+    expect(results[0]?.path).toContain('react-hooks');
   });
 
   test('should return empty for non-matching query', () => {
@@ -114,7 +117,7 @@ describe('Search Hook — FTS5 Query', () => {
   test('should rank more relevant documents higher', () => {
     const results = queryFts('security');
     expect(results.length).toBeGreaterThan(0);
-    expect(results[0].path).toContain('security');
+    expect(results[0]?.path).toContain('security');
   });
 
   test('should handle OR queries across multiple keywords', () => {

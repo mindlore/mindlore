@@ -1,11 +1,8 @@
-'use strict';
+import path from 'path';
+import fs from 'fs';
+import { execSync } from 'child_process';
+import { setupTestDir, teardownTestDir } from './helpers/db.js';
 
-const path = require('path');
-const fs = require('fs');
-const { execSync } = require('child_process');
-const { setupTestDir, teardownTestDir } = require('./helpers/db.cjs');
-
-// Test structure: PROJECT_DIR/.mindlore/ (findMindloreDir looks for .mindlore/ in CWD)
 const PROJECT_DIR = path.join(__dirname, '..', '.test-project-decision');
 const MINDLORE_DIR = path.join(PROJECT_DIR, '.mindlore');
 const HOOK_PATH = path.join(__dirname, '..', 'hooks', 'mindlore-decision-detector.cjs');
@@ -19,7 +16,7 @@ afterEach(() => {
   teardownTestDir(PROJECT_DIR);
 });
 
-function runDetector(input) {
+function runDetector(input: string): string {
   try {
     const result = execSync(`node "${HOOK_PATH}"`, {
       input,
@@ -30,7 +27,8 @@ function runDetector(input) {
     });
     return result.trim();
   } catch (err) {
-    return (err.stdout || '').trim();
+    const e = err as { stdout?: string };
+    return (e.stdout ?? '').trim();
   }
 }
 
@@ -42,7 +40,7 @@ describe('Decision Detector Hook', () => {
   });
 
   test('should detect English decision signal', () => {
-    const output = runDetector("We decided to use SQLite instead of PostgreSQL");
+    const output = runDetector('We decided to use SQLite instead of PostgreSQL');
     expect(output).toContain('Karar sinyali');
     expect(output).toContain('decided');
   });
