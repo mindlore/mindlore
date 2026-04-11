@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="assets/mindlore-logo.png" alt="Mindlore" width="400">
+  <img src="assets/mindlore-logo.png" alt="Mindlore" width="320">
 </p>
 
 ![CI](https://github.com/mindlore/mindlore/actions/workflows/ci.yml/badge.svg)
