@@ -57,7 +57,7 @@ tests/      # Jest test suites
 | PreToolUse (Write\|Edit) | mindlore-dont-repeat | LESSONS/learnings rule enforcement |
 | CwdChanged | mindlore-cwd-changed | Scope detection + _scope.json write |
 
-## Skills (v0.2)
+## Skills (v0.3)
 
 | Skill | Purpose |
 |-------|---------|
@@ -66,6 +66,8 @@ tests/      # Jest test suites
 | /mindlore-query | Search, ask, stats, brief — compounding pipeline |
 | /mindlore-log | Session logging, reflect, status, wiki save |
 | /mindlore-decide | Record and list decisions with supersedes chain |
+| /mindlore-evolve | Knowledge schema co-evolution — scan + suggest updates |
+| /mindlore-explore | Discover unexpected connections between sources |
 
 ## Testing
 

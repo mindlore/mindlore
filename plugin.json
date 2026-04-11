@@ -27,6 +27,16 @@
       "name": "mindlore-decide",
       "path": "skills/mindlore-decide/SKILL.md",
       "description": "Record and list decisions with context, alternatives, rationale"
+    },
+    {
+      "name": "mindlore-evolve",
+      "path": "skills/mindlore-evolve/SKILL.md",
+      "description": "Knowledge schema co-evolution — scan domains+sources, suggest updates"
+    },
+    {
+      "name": "mindlore-explore",
+      "path": "skills/mindlore-explore/SKILL.md",
+      "description": "Discover unexpected connections between knowledge sources"
     }
   ],
   "hooks": [
