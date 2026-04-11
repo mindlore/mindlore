@@ -116,10 +116,10 @@ class HealthChecker {
       }
       const content = fs.readFileSync(indexPath, 'utf8');
       const lines = content.trim().split('\n');
-      if (lines.length > 30) {
+      if (lines.length > 60) {
         return {
           warn: true,
-          detail: `${lines.length} lines (should be ~15-20, consider trimming)`,
+          detail: `${lines.length} lines (should be ~15-60, consider trimming)`,
         };
       }
       return { ok: true, detail: `${lines.length} lines` };
@@ -147,9 +147,25 @@ class HealthChecker {
         const hashResult = db
           .prepare('SELECT count(*) as cnt FROM file_hashes')
           .get();
+
+        // Verify 7-column schema (slug, description, type, category, title, content + path)
+        let schemaOk = true;
+        try {
+          db.prepare('SELECT slug, description, category, title FROM mindlore_fts LIMIT 0').run();
+        } catch (_err) {
+          schemaOk = false;
+        }
+
+        if (!schemaOk) {
+          return {
+            warn: true,
+            detail: `${result.cnt} indexed, ${hashResult.cnt} hashes — OLD SCHEMA (run: npx mindlore init to upgrade)`,
+          };
+        }
+
         return {
           ok: true,
-          detail: `${result.cnt} indexed, ${hashResult.cnt} hashes`,
+          detail: `${result.cnt} indexed, ${hashResult.cnt} hashes, 7-col schema`,
         };
       } catch (err) {
         return { ok: false, detail: `FTS5 error: ${err.message}` };

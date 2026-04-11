@@ -4,59 +4,62 @@
 /**
  * mindlore-search — UserPromptSubmit hook
  *
- * Extracts keywords from user prompt, searches FTS5, injects top 3 results.
- * Results: file path + first 2 headings via stderr additionalContext.
+ * Extracts keywords from user prompt, searches FTS5 with per-keyword scoring,
+ * injects top results with description + headings (matching old knowledge system quality).
  */
 
 const fs = require('fs');
 const path = require('path');
-const { findMindloreDir, DB_NAME, requireDatabase } = require('./lib/mindlore-common.cjs');
+const { findMindloreDir, DB_NAME, requireDatabase, extractHeadings } = require('./lib/mindlore-common.cjs');
 
 const MAX_RESULTS = 3;
-const MIN_QUERY_LENGTH = 3;
+const MIN_QUERY_WORDS = 3;
+const MIN_KEYWORD_HITS = 2;
+
+// Extended stop words (~70 TR + EN) matching old knowledge system
+const STOP_WORDS = new Set([
+  // English
+  'the', 'a', 'an', 'is', 'are', 'was', 'were', 'be', 'been', 'being',
+  'have', 'has', 'had', 'do', 'does', 'did', 'will', 'would', 'could',
+  'should', 'may', 'might', 'can', 'shall', 'to', 'of', 'in', 'for',
+  'on', 'with', 'at', 'by', 'from', 'as', 'into', 'through', 'during',
+  'it', 'its', 'this', 'that', 'these', 'those', 'what', 'which', 'who',
+  'whom', 'how', 'when', 'where', 'why', 'not', 'no', 'nor', 'so',
+  'if', 'or', 'but', 'all', 'each', 'every', 'both', 'few', 'more',
+  'most', 'other', 'some', 'such', 'only', 'own', 'same', 'than',
+  'and', 'about', 'between', 'after', 'before', 'above', 'below',
+  'up', 'down', 'out', 'very', 'just', 'also', 'now', 'then',
+  'here', 'there', 'too', 'yet', 'my', 'your', 'his', 'her', 'our',
+  'their', 'me', 'him', 'us', 'them', 'i', 'you', 'he', 'she', 'we', 'they',
+  // Turkish
+  'bir', 'bu', 'su', 'ne', 'nasil', 'neden', 'var', 'yok', 'mi', 'mu',
+  'ile', 'icin', 'de', 'da', 've', 'veya', 'ama', 'ise', 'hem',
+  'bakalim', 'gel', 'git', 'yap', 'et', 'al', 'ver',
+  'evet', 'hayir', 'tamam', 'ok', 'oldu', 'olur', 'dur',
+  'simdi', 'sonra', 'once', 'hemen', 'biraz',
+  'lan', 'ya', 'ki', 'abi', 'hadi', 'hey', 'selam',
+  'olarak', 'olan', 'gibi', 'kadar', 'daha', 'cok', 'hem',
+  'bunu', 'buna', 'icinde', 'uzerinde', 'arasinda',
+  'sonucu', 'tarafindan', 'zaten', 'gayet',
+  'acaba', 'nedir', 'midir', 'mudur',
+  // Generic technical (appears everywhere, not distinctive)
+  'hook', 'file', 'dosya', 'kullan', 'ekle', 'yaz', 'oku', 'calistir',
+  'kontrol', 'test', 'check', 'run', 'add', 'update', 'config',
+  'setup', 'install', 'start', 'stop', 'create', 'delete', 'remove', 'set',
+  'get', 'list', 'show', 'view', 'open', 'close', 'save', 'load',
+]);
 
 function extractKeywords(text) {
-  // Remove common stop words and short words
-  const stopWords = new Set([
-    'the', 'a', 'an', 'is', 'are', 'was', 'were', 'be', 'been', 'being',
-    'have', 'has', 'had', 'do', 'does', 'did', 'will', 'would', 'could',
-    'should', 'may', 'might', 'can', 'shall', 'to', 'of', 'in', 'for',
-    'on', 'with', 'at', 'by', 'from', 'as', 'into', 'about', 'between',
-    'through', 'after', 'before', 'above', 'below', 'up', 'down', 'out',
-    'and', 'but', 'or', 'nor', 'not', 'so', 'yet', 'both', 'either',
-    'neither', 'each', 'every', 'all', 'any', 'few', 'more', 'most',
-    'other', 'some', 'such', 'no', 'only', 'own', 'same', 'than', 'too',
-    'very', 'just', 'also', 'now', 'then', 'here', 'there', 'when',
-    'where', 'why', 'how', 'what', 'which', 'who', 'whom', 'this',
-    'that', 'these', 'those', 'it', 'its', 'my', 'your', 'his', 'her',
-    'our', 'their', 'me', 'him', 'us', 'them', 'i', 'you', 'he', 'she',
-    'we', 'they', 'bu', 'su', 'bir', 'de', 'da', 've', 'ile', 'icin',
-    'var', 'mi', 'ne', 'nasil', 'nedir', 'evet', 'hayir',
-  ]);
-
   const words = text
     .toLowerCase()
-    .replace(/[^a-z0-9\u00e7\u011f\u0131\u00f6\u015f\u00fc\s-]/g, ' ')
+    .replace(/[^\w\s\u00e7\u011f\u0131\u00f6\u015f\u00fc-]/g, ' ')
     .split(/\s+/)
-    .filter((w) => w.length >= MIN_QUERY_LENGTH && !stopWords.has(w));
+    .filter((w) => w.length >= 3 && !STOP_WORDS.has(w) && !/^\d+$/.test(w));
 
-  // Deduplicate and limit
-  return [...new Set(words)].slice(0, 5);
-}
-
-function extractHeadings(content, max) {
-  const headings = [];
-  for (const line of content.split('\n')) {
-    if (line.startsWith('#')) {
-      headings.push(line.replace(/^#+\s*/, '').trim());
-      if (headings.length >= max) break;
-    }
-  }
-  return headings;
+  return [...new Set(words)].slice(0, 8);
 }
 
 function main() {
-  // Read user prompt from stdin
   let input = '';
   try {
     input = fs.readFileSync(0, 'utf8');
@@ -67,12 +70,12 @@ function main() {
   let userMessage = '';
   try {
     const parsed = JSON.parse(input);
-    userMessage = parsed.content || parsed.message || parsed.query || input;
+    userMessage = parsed.prompt || parsed.content || parsed.message || parsed.query || input;
   } catch (_err) {
     userMessage = input;
   }
 
-  if (!userMessage || userMessage.length < MIN_QUERY_LENGTH) return;
+  if (!userMessage || userMessage.length < MIN_QUERY_WORDS) return;
 
   const baseDir = findMindloreDir();
   if (!baseDir) return;
@@ -81,7 +84,7 @@ function main() {
   if (!fs.existsSync(dbPath)) return;
 
   const keywords = extractKeywords(userMessage);
-  if (keywords.length === 0) return;
+  if (keywords.length < MIN_QUERY_WORDS) return;
 
   const Database = requireDatabase();
   if (!Database) return;
@@ -89,39 +92,67 @@ function main() {
   const db = new Database(dbPath, { readonly: true });
 
   try {
-    // Build FTS5 query — OR between keywords
-    const ftsQuery = keywords.join(' OR ');
+    // Per-keyword scoring (like old knowledge-search.cjs)
+    // Count how many keywords match each document
+    const allPaths = db.prepare('SELECT DISTINCT path FROM mindlore_fts').all();
+    const scores = [];
+    const matchStmt = db.prepare('SELECT rank FROM mindlore_fts WHERE path = ? AND mindlore_fts MATCH ?');
 
-    const results = db
-      .prepare(
-        `SELECT path, rank
-         FROM mindlore_fts
-         WHERE mindlore_fts MATCH ?
-         ORDER BY rank
-         LIMIT ?`
-      )
-      .all(ftsQuery, MAX_RESULTS);
+    for (const row of allPaths) {
+      let hits = 0;
+      let totalRank = 0;
 
-    if (results.length === 0) return;
-
-    const output = [];
-    for (const r of results) {
-      const relativePath = path.relative(baseDir, r.path);
-      let headings = [];
-
-      if (fs.existsSync(r.path)) {
-        const content = fs.readFileSync(r.path, 'utf8');
-        headings = extractHeadings(content, 2);
+      for (const kw of keywords) {
+        try {
+          const r = matchStmt.get(row.path, '"' + kw + '"');
+          if (r) {
+            hits++;
+            totalRank += r.rank;
+          }
+        } catch (_err) {
+          // FTS5 query error for this keyword — skip
+        }
       }
 
-      const headingStr = headings.length > 0 ? ` — ${headings.join(', ')}` : '';
-      output.push(`${relativePath}${headingStr}`);
+      if (hits >= MIN_KEYWORD_HITS) {
+        scores.push({ path: row.path, hits, totalRank });
+      }
+    }
+
+    // Sort: most keyword hits first, then best rank
+    scores.sort((a, b) => b.hits - a.hits || a.totalRank - b.totalRank);
+    const relevant = scores.slice(0, MAX_RESULTS);
+
+    if (relevant.length === 0) return;
+
+    // Build rich inject output
+    const metaStmt = db.prepare(
+      'SELECT slug, description, category, title FROM mindlore_fts WHERE path = ?'
+    );
+
+    const output = [];
+    for (const r of relevant) {
+      const meta = metaStmt.get(r.path) || {};
+      const relativePath = path.relative(baseDir, r.path).replace(/\\/g, '/');
+
+      let headings = [];
+      if (fs.existsSync(r.path)) {
+        const content = fs.readFileSync(r.path, 'utf8');
+        headings = extractHeadings(content, 5);
+      }
+
+      const category = meta.category || path.dirname(relativePath).split('/')[0];
+      const title = meta.title || meta.slug || path.basename(r.path, '.md');
+      const description = meta.description || '';
+
+      const headingStr = headings.length > 0 ? `\nBasliklar: ${headings.join(', ')}` : '';
+      output.push(
+        `[Mindlore: ${category}/${title}] ${description}\nDosya: ${relativePath}${headingStr}`
+      );
     }
 
     if (output.length > 0) {
-      process.stdout.write(
-        `[Mindlore Search: ${keywords.join(', ')}]\n${output.join('\n')}\n`
-      );
+      process.stdout.write(output.join('\n\n') + '\n');
     }
   } catch (_err) {
     // FTS5 query error — silently skip

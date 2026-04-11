@@ -13,7 +13,7 @@
 
 const fs = require('fs');
 const path = require('path');
-const { MINDLORE_DIR, DB_NAME, sha256, openDatabase, getAllMdFiles } = require('./lib/mindlore-common.cjs');
+const { MINDLORE_DIR, DB_NAME, sha256, openDatabase, getAllMdFiles, parseFrontmatter, extractFtsMetadata, SQL_FTS_INSERT } = require('./lib/mindlore-common.cjs');
 
 function main() {
   // Read stdin to check if this is a .mindlore/ file change
@@ -35,6 +35,10 @@ function main() {
   // Only trigger on .mindlore/ changes (empty filePath = skip)
   if (!filePath || !filePath.includes(MINDLORE_DIR)) return;
 
+  // Skip if this is a single .md file change — mindlore-index.cjs handles those.
+  // This hook is for bulk changes (git pull, manual batch edits).
+  if (filePath.endsWith('.md')) return;
+
   const baseDir = path.join(process.cwd(), MINDLORE_DIR);
   if (!fs.existsSync(baseDir)) return;
 
@@ -49,7 +53,7 @@ function main() {
 
   const getHash = db.prepare('SELECT content_hash FROM file_hashes WHERE path = ?');
   const deleteFts = db.prepare('DELETE FROM mindlore_fts WHERE path = ?');
-  const insertFts = db.prepare('INSERT INTO mindlore_fts (path, content) VALUES (?, ?)');
+  const insertFts = db.prepare(SQL_FTS_INSERT);
   const upsertHash = db.prepare(`
     INSERT INTO file_hashes (path, content_hash, last_indexed)
     VALUES (?, ?, ?)
@@ -69,8 +73,10 @@ function main() {
         const existing = getHash.get(file);
         if (existing && existing.content_hash === hash) continue;
 
+        const { meta, body } = parseFrontmatter(content);
+        const { slug, description, type, category, title } = extractFtsMetadata(meta, body, file, baseDir);
         deleteFts.run(file);
-        insertFts.run(file, content);
+        insertFts.run(file, slug, description, type, category, title, body);
         upsertHash.run(file, hash, now);
         synced++;
       }

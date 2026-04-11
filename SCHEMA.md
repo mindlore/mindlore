@@ -59,14 +59,14 @@ tags: [tag1, tag2]
 
 | Type | Required Fields | Optional |
 |------|----------------|----------|
-| `raw` | slug, type, source_url | tags |
-| `source` | slug, type, title, tags, quality, source_url, ingested | date_captured |
-| `domain` | slug, type, title, tags | — |
-| `analysis` | slug, type, title, tags, confidence, sources_used | — |
-| `insight` | slug, type, title, tags | sources_used |
-| `connection` | slug, type, title, tags | sources_used |
-| `learning` | slug, type, title, tags | — |
-| `decision` | slug, type, title, tags | supersedes, status |
+| `raw` | slug, type, source_url | tags, description |
+| `source` | slug, type, title, tags, quality, source_url, ingested | date_captured, description, raw_slug |
+| `domain` | slug, type, title, tags | description, status |
+| `analysis` | slug, type, title, tags, confidence, sources_used | description |
+| `insight` | slug, type, title, tags | sources_used, description |
+| `connection` | slug, type, title, tags | sources_used, description |
+| `learning` | slug, type, title, tags | description |
+| `decision` | slug, type, title, tags | supersedes, status, description |
 | `diary` | slug, type, date | — (hook adds automatically) |
 
 ### Field Value Rules
@@ -77,6 +77,9 @@ tags: [tag1, tag2]
 - `sources_used`: list of slugs referenced in the analysis
 - `supersedes`: slug of the decision this one replaces
 - `date`: ISO 8601 date (YYYY-MM-DD)
+- `description`: one-line summary (15-30 words). Used in FTS5 search and inject output. Optional but strongly recommended for search quality
+- `raw_slug`: slug of the raw/ file this source was processed from (source→raw traceability)
+- `status`: `stub` | `active` | `archived` (domain maturity indicator)
 
 ## 4. Seven Operations
 

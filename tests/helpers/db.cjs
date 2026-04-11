@@ -18,7 +18,7 @@ function createTestDb(dbPath) {
   db.pragma('journal_mode = WAL');
   db.exec(`
     CREATE VIRTUAL TABLE IF NOT EXISTS mindlore_fts
-    USING fts5(path, content, tokenize='unicode61');
+    USING fts5(path UNINDEXED, slug, description, type UNINDEXED, category, title, content, tokenize='porter unicode61');
   `);
   db.exec(`
     CREATE TABLE IF NOT EXISTS file_hashes (
@@ -28,6 +28,15 @@ function createTestDb(dbPath) {
     );
   `);
   return db;
+}
+
+const { SQL_FTS_INSERT } = require('../../hooks/lib/mindlore-common.cjs');
+
+/**
+ * Helper: insert into 7-column FTS5 table.
+ */
+function insertFts(db, filePath, slug, description, type, category, title, content) {
+  db.prepare(SQL_FTS_INSERT).run(filePath, slug || '', description || '', type || '', category || '', title || '', content || '');
 }
 
 function setupTestDir(testDir, subdirs) {
@@ -45,6 +54,7 @@ function teardownTestDir(testDir) {
 module.exports = {
   sha256,
   createTestDb,
+  insertFts,
   setupTestDir,
   teardownTestDir,
 };

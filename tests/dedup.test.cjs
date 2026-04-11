@@ -2,7 +2,7 @@
 
 const path = require('path');
 const Database = require('better-sqlite3');
-const { sha256, createTestDb, setupTestDir, teardownTestDir } = require('./helpers/db.cjs');
+const { sha256, createTestDb, insertFts, setupTestDir, teardownTestDir } = require('./helpers/db.cjs');
 
 const TEST_DIR = path.join(__dirname, '..', '.test-mindlore-dedup');
 const DB_PATH = path.join(TEST_DIR, 'mindlore.db');
@@ -25,10 +25,7 @@ describe('Content-Hash Dedup', () => {
     const hash = sha256(content);
     const filePath = path.join(TEST_DIR, 'test.md');
 
-    db.prepare('INSERT INTO mindlore_fts (path, content) VALUES (?, ?)').run(
-      filePath,
-      content
-    );
+    insertFts(db, filePath, 'test-doc', 'Some content here', 'source', 'sources', 'Test', content);
     db.prepare(
       'INSERT INTO file_hashes (path, content_hash, last_indexed) VALUES (?, ?, ?)'
     ).run(filePath, hash, new Date().toISOString());
@@ -48,10 +45,7 @@ describe('Content-Hash Dedup', () => {
     const hash = sha256(content);
     const filePath = path.join(TEST_DIR, 'unchanged.md');
 
-    db.prepare('INSERT INTO mindlore_fts (path, content) VALUES (?, ?)').run(
-      filePath,
-      content
-    );
+    insertFts(db, filePath, 'unchanged-doc', 'This content does not change', 'source', 'sources', 'Unchanged', content);
     db.prepare(
       'INSERT INTO file_hashes (path, content_hash, last_indexed) VALUES (?, ?, ?)'
     ).run(filePath, hash, '2026-01-01T00:00:00Z');
@@ -80,10 +74,7 @@ describe('Content-Hash Dedup', () => {
 
     // Index original
     const originalHash = sha256(original);
-    db.prepare('INSERT INTO mindlore_fts (path, content) VALUES (?, ?)').run(
-      filePath,
-      original
-    );
+    insertFts(db, filePath, 'changing-doc', 'First version', 'source', 'sources', 'Original', original);
     db.prepare(
       'INSERT INTO file_hashes (path, content_hash, last_indexed) VALUES (?, ?, ?)'
     ).run(filePath, originalHash, '2026-01-01T00:00:00Z');
@@ -98,10 +89,7 @@ describe('Content-Hash Dedup', () => {
 
     // Perform re-index
     db.prepare('DELETE FROM mindlore_fts WHERE path = ?').run(filePath);
-    db.prepare('INSERT INTO mindlore_fts (path, content) VALUES (?, ?)').run(
-      filePath,
-      modified
-    );
+    insertFts(db, filePath, 'changing-doc', 'Second version with changes', 'source', 'sources', 'Modified', modified);
     db.prepare(
       `UPDATE file_hashes SET content_hash = ?, last_indexed = ? WHERE path = ?`
     ).run(modifiedHash, new Date().toISOString(), filePath);

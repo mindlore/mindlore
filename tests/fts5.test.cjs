@@ -2,7 +2,7 @@
 
 const path = require('path');
 const Database = require('better-sqlite3');
-const { createTestDb, setupTestDir, teardownTestDir } = require('./helpers/db.cjs');
+const { createTestDb, insertFts, setupTestDir, teardownTestDir } = require('./helpers/db.cjs');
 
 const TEST_DIR = path.join(__dirname, '..', '.test-mindlore-fts5');
 const DB_PATH = path.join(TEST_DIR, 'mindlore.db');
@@ -24,10 +24,7 @@ describe('FTS5 Database', () => {
     const testContent = '# Test Source\n\nThis is about TypeScript and Node.js performance.';
     const testPath = path.join(TEST_DIR, 'sources', 'test-source.md');
 
-    db.prepare('INSERT INTO mindlore_fts (path, content) VALUES (?, ?)').run(
-      testPath,
-      testContent
-    );
+    insertFts(db, testPath, 'test-source', 'TypeScript and Node.js performance', 'source', 'sources', 'Test Source', testContent);
 
     const result = db.prepare('SELECT count(*) as cnt FROM mindlore_fts').get();
     expect(result.cnt).toBe(1);
@@ -41,10 +38,7 @@ describe('FTS5 Database', () => {
     const testPath = path.join(TEST_DIR, 'sources', 'typescript-guide.md');
     const content = '# TypeScript Guide\n\nTypeScript provides static typing for JavaScript applications.';
 
-    db.prepare('INSERT INTO mindlore_fts (path, content) VALUES (?, ?)').run(
-      testPath,
-      content
-    );
+    insertFts(db, testPath, 'typescript-guide', 'TypeScript static typing for JavaScript', 'source', 'sources', 'TypeScript Guide', content);
 
     const results = db
       .prepare(
@@ -65,10 +59,7 @@ describe('FTS5 Database', () => {
     const db = new Database(DB_PATH);
 
     const testPath = path.join(TEST_DIR, 'sources', 'python-guide.md');
-    db.prepare('INSERT INTO mindlore_fts (path, content) VALUES (?, ?)').run(
-      testPath,
-      '# Python Guide\n\nPython is great for data science.'
-    );
+    insertFts(db, testPath, 'python-guide', 'Python for data science', 'source', 'sources', 'Python Guide', '# Python Guide\n\nPython is great for data science.');
 
     const results = db
       .prepare(
@@ -88,15 +79,9 @@ describe('FTS5 Database', () => {
     const db = new Database(DB_PATH);
 
     // Insert two documents — one more relevant
-    db.prepare('INSERT INTO mindlore_fts (path, content) VALUES (?, ?)').run(
-      path.join(TEST_DIR, 'sources', 'hooks-overview.md'),
-      '# Hooks Overview\n\nHooks are lifecycle callbacks.'
-    );
+    insertFts(db, path.join(TEST_DIR, 'sources', 'hooks-overview.md'), 'hooks-overview', 'Hooks lifecycle callbacks overview', 'source', 'sources', 'Hooks Overview', '# Hooks Overview\n\nHooks are lifecycle callbacks.');
 
-    db.prepare('INSERT INTO mindlore_fts (path, content) VALUES (?, ?)').run(
-      path.join(TEST_DIR, 'sources', 'hooks-deep-dive.md'),
-      '# Hooks Deep Dive\n\nHooks hooks hooks. PreToolUse hooks, PostToolUse hooks, SessionStart hooks.'
-    );
+    insertFts(db, path.join(TEST_DIR, 'sources', 'hooks-deep-dive.md'), 'hooks-deep-dive', 'Deep dive into hooks patterns', 'source', 'sources', 'Hooks Deep Dive', '# Hooks Deep Dive\n\nHooks hooks hooks. PreToolUse hooks, PostToolUse hooks, SessionStart hooks.');
 
     const results = db
       .prepare(

@@ -84,11 +84,51 @@ function copyTemplates(baseDir, packageRoot) {
 
 // ── Step 3: Create FTS5 database ───────────────────────────────────────
 
+function migrateDatabase(dbPath, Database) {
+  const db = new Database(dbPath);
+  try {
+    // Check if FTS5 table has the new schema (7 columns with slug, description, etc.)
+    const info = db.pragma('table_info(mindlore_fts)');
+    const columns = info.map((r) => r.name);
+    if (!columns.includes('slug') || !columns.includes('description')) {
+      log('Upgrading FTS5 schema (2 → 7 columns, porter stemmer)...');
+      db.exec('DROP TABLE IF EXISTS mindlore_fts');
+      db.exec(`
+        CREATE VIRTUAL TABLE mindlore_fts
+        USING fts5(path UNINDEXED, slug, description, type UNINDEXED, category, title, content, tokenize='porter unicode61');
+      `);
+      // Clear hashes so full re-index happens
+      db.exec('DELETE FROM file_hashes');
+      db.close();
+      return true;
+    }
+  } catch (_err) {
+    // table_info fails on FTS5 virtual tables in some versions — recreate
+    db.exec('DROP TABLE IF EXISTS mindlore_fts');
+    db.exec(`
+      CREATE VIRTUAL TABLE mindlore_fts
+      USING fts5(path UNINDEXED, slug, description, type UNINDEXED, category, title, content, tokenize='porter unicode61');
+    `);
+    db.exec('DELETE FROM file_hashes');
+    db.close();
+    return true;
+  }
+  db.close();
+  return false;
+}
+
 function createDatabase(baseDir) {
   const dbPath = path.join(baseDir, DB_NAME);
   if (fs.existsSync(dbPath)) {
-    log('Database already exists, skipping');
-    return false;
+    let Database;
+    try { Database = require('better-sqlite3'); } catch (_err) { return false; }
+    const migrated = migrateDatabase(dbPath, Database);
+    if (migrated) {
+      log('FTS5 schema upgraded — run index to rebuild');
+    } else {
+      log('Database already exists, schema OK');
+    }
+    return migrated;
   }
 
   let Database;
@@ -105,7 +145,7 @@ function createDatabase(baseDir) {
 
   db.exec(`
     CREATE VIRTUAL TABLE IF NOT EXISTS mindlore_fts
-    USING fts5(path, content, tokenize='unicode61');
+    USING fts5(path UNINDEXED, slug, description, type UNINDEXED, category, title, content, tokenize='porter unicode61');
   `);
 
   db.exec(`

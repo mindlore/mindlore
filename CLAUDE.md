@@ -68,3 +68,11 @@ npx jest tests/fts5.test.cjs  # specific suite
 
 8 active suites in v0.1: fts5, dedup, init, frontmatter, hook-smoke, uninstall, search-hook, session-focus.
 compounding.test.cjs is v0.2 (skipped in v0.1).
+
+## Planlama Referansları
+
+Yeni versiyon planlarken bu dosyalara bakılmalı:
+
+- **Sentez:** `~/.claude/knowledge/analyses/2026-04-08-second-brain-architecture-decision.md` — 30+ karar, implementasyon durumu tablosu (YAPILDI/BEKLİYOR), versiyon roadmap
+- **Plan:** `~/.claude/plans/elegant-juggling-balloon.md` — v0.0.1 implementasyon detayları, düzeltilen buglar, v0.1.0 kalan 6 madde
+- **MEMORY:** `~/.claude/projects/C--Users-Omrfc-Documents-kastell/memory/MEMORY.md` — Mindlore bölümü, sonraki session yönlendirmesi

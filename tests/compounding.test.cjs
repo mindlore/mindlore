@@ -9,7 +9,7 @@
 
 const fs = require('fs');
 const path = require('path');
-const { sha256, createTestDb, setupTestDir, teardownTestDir } = require('./helpers/db.cjs');
+const { sha256, createTestDb, insertFts, setupTestDir, teardownTestDir } = require('./helpers/db.cjs');
 
 const TEST_DIR = path.join(__dirname, '..', '.test-mindlore-compounding');
 const DB_PATH = path.join(TEST_DIR, 'mindlore.db');
@@ -31,10 +31,7 @@ describe('Knowledge Compounding', () => {
     const sourceContent = '---\nslug: react-hooks\ntype: source\n---\n# React Hooks\n\nUseEffect cleanup patterns.';
     fs.writeFileSync(sourcePath, sourceContent);
 
-    db.prepare('INSERT INTO mindlore_fts (path, content) VALUES (?, ?)').run(
-      sourcePath,
-      sourceContent
-    );
+    insertFts(db, sourcePath, 'react-hooks', 'UseEffect cleanup patterns', 'source', 'sources', 'React Hooks', sourceContent);
     db.prepare(
       'INSERT INTO file_hashes (path, content_hash, last_indexed) VALUES (?, ?, ?)'
     ).run(sourcePath, sha256(sourceContent), new Date().toISOString());
@@ -46,10 +43,7 @@ describe('Knowledge Compounding', () => {
     fs.writeFileSync(insightPath, insightContent);
 
     // Step 3: Reindex (simulates the hook)
-    db.prepare('INSERT INTO mindlore_fts (path, content) VALUES (?, ?)').run(
-      insightPath,
-      insightContent
-    );
+    insertFts(db, insightPath, 'react-cleanup', 'Avoid memory leaks with useEffect cleanup', 'insight', 'insights', 'React Cleanup Pattern', insightContent);
     db.prepare(
       'INSERT INTO file_hashes (path, content_hash, last_indexed) VALUES (?, ?, ?)'
     ).run(insightPath, sha256(insightContent), new Date().toISOString());

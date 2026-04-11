@@ -2,7 +2,7 @@
 
 const path = require('path');
 const Database = require('better-sqlite3');
-const { createTestDb, setupTestDir, teardownTestDir } = require('./helpers/db.cjs');
+const { createTestDb, insertFts, setupTestDir, teardownTestDir } = require('./helpers/db.cjs');
 
 const TEST_DIR = path.join(__dirname, '..', '.test-mindlore-search');
 const DB_PATH = path.join(TEST_DIR, 'mindlore.db');
@@ -12,18 +12,9 @@ beforeEach(() => {
 
   const db = createTestDb(DB_PATH);
 
-  db.prepare('INSERT INTO mindlore_fts (path, content) VALUES (?, ?)').run(
-    path.join(TEST_DIR, 'sources', 'react-hooks.md'),
-    '---\nslug: react-hooks\ntype: source\n---\n# React Hooks Guide\n\nuseEffect cleanup patterns for memory leak prevention.'
-  );
-  db.prepare('INSERT INTO mindlore_fts (path, content) VALUES (?, ?)').run(
-    path.join(TEST_DIR, 'sources', 'typescript-generics.md'),
-    '---\nslug: typescript-generics\ntype: source\n---\n# TypeScript Generics\n\nAdvanced generic patterns for type-safe APIs.'
-  );
-  db.prepare('INSERT INTO mindlore_fts (path, content) VALUES (?, ?)').run(
-    path.join(TEST_DIR, 'domains', 'security.md'),
-    '---\nslug: security\ntype: domain\n---\n# Security\n\nSSH hardening, firewall rules, audit checks.'
-  );
+  insertFts(db, path.join(TEST_DIR, 'sources', 'react-hooks.md'), 'react-hooks', 'useEffect cleanup patterns for memory leak prevention', 'source', 'sources', 'React Hooks Guide', '---\nslug: react-hooks\ntype: source\n---\n# React Hooks Guide\n\nuseEffect cleanup patterns for memory leak prevention.');
+  insertFts(db, path.join(TEST_DIR, 'sources', 'typescript-generics.md'), 'typescript-generics', 'Advanced generic patterns for type-safe APIs', 'source', 'sources', 'TypeScript Generics', '---\nslug: typescript-generics\ntype: source\n---\n# TypeScript Generics\n\nAdvanced generic patterns for type-safe APIs.');
+  insertFts(db, path.join(TEST_DIR, 'domains', 'security.md'), 'security', 'SSH hardening firewall rules audit checks', 'domain', 'domains', 'Security', '---\nslug: security\ntype: domain\n---\n# Security\n\nSSH hardening, firewall rules, audit checks.');
 
   db.close();
 });

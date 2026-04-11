@@ -13,7 +13,7 @@ const path = require('path');
 // ── Constants ──────────────────────────────────────────────────────────
 
 const { DB_NAME } = require('./lib/constants.cjs');
-const { sha256, getAllMdFiles, openDatabase } = require('../hooks/lib/mindlore-common.cjs');
+const { sha256, getAllMdFiles, openDatabase, parseFrontmatter, extractFtsMetadata, SQL_FTS_INSERT } = require('../hooks/lib/mindlore-common.cjs');
 
 // ── Main ───────────────────────────────────────────────────────────────
 
@@ -42,7 +42,7 @@ function main() {
       last_indexed = excluded.last_indexed
   `);
   const deleteFts = db.prepare('DELETE FROM mindlore_fts WHERE path = ?');
-  const insertFts = db.prepare('INSERT INTO mindlore_fts (path, content) VALUES (?, ?)');
+  const insertFts = db.prepare(SQL_FTS_INSERT);
 
   // Get all .md files
   const mdFiles = getAllMdFiles(baseDir);
@@ -66,8 +66,10 @@ function main() {
         }
 
         // Update FTS5
+        const { meta, body } = parseFrontmatter(content);
+        const { slug, description, type, category, title } = extractFtsMetadata(meta, body, filePath, baseDir);
         deleteFts.run(filePath);
-        insertFts.run(filePath, content);
+        insertFts.run(filePath, slug, description, type, category, title, body);
 
         // Update hash
         upsertHash.run(filePath, hash, now);
