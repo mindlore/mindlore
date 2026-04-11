@@ -25,8 +25,12 @@ User shares a URL, text, file, or says "kaynak ekle", "source ingest", "bu linki
 
 ### URL Mode
 1. Extract content from URL:
-   - If `markitdown` is available: `markitdown <url>` (best quality, zero tokens)
+   - If `markitdown` is available (`hasMarkitdown()`): `markitdown <url>` (best quality, zero tokens)
    - Else: use `WebFetch` or `ctx_fetch_and_index`
+   - **YouTube URL** detected (`youtube.com` or `youtu.be`):
+     1. markitdown installed → `markitdown <url>` (includes transcript)
+     2. Else youtube-transcript npm → `hasYoutubeTranscript()` check
+     3. Else → ask user to paste transcript manually
 2. Save raw capture to `.mindlore/raw/` with frontmatter:
    ```yaml
    ---
@@ -83,9 +87,12 @@ The sources/ file should contain:
 
 ## Quality Assessment
 
-- `high`: Primary source, authoritative, detailed, directly relevant
-- `medium`: Useful but secondary, partial coverage, or tangentially relevant
-- `low`: Reference only, outdated, or low signal-to-noise
+Assign quality automatically during ingest using this heuristic:
+- `high`: Official docs (anthropic, github docs, MDN), primary research, authoritative references
+- `medium`: Blog posts, tutorials, conference talks, X threads with substance
+- `low`: Raw notes, text pastes, quick captures, low signal-to-noise
+
+LLM may override the heuristic based on content analysis. Always set quality — never leave it null.
 
 ## Domain Update Rules
 

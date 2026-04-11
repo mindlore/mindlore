@@ -22,7 +22,7 @@ describe('FTS5 Database', () => {
     const testContent = '# Test Source\n\nThis is about TypeScript and Node.js performance.';
     const testPath = path.join(TEST_DIR, 'sources', 'test-source.md');
 
-    insertFts(db, testPath, 'test-source', 'TypeScript and Node.js performance', 'source', 'sources', 'Test Source', testContent, '', null);
+    insertFts(db, { path: testPath, slug: 'test-source', description: 'TypeScript and Node.js performance', type: 'source', category: 'sources', title: 'Test Source', content: testContent, tags: '', quality: null });
 
     const result = db.prepare('SELECT count(*) as cnt FROM mindlore_fts').get() as { cnt: number };
     expect(result.cnt).toBe(1);
@@ -36,7 +36,7 @@ describe('FTS5 Database', () => {
     const testPath = path.join(TEST_DIR, 'sources', 'typescript-guide.md');
     const content = '# TypeScript Guide\n\nTypeScript provides static typing for JavaScript applications.';
 
-    insertFts(db, testPath, 'typescript-guide', 'TypeScript static typing for JavaScript', 'source', 'sources', 'TypeScript Guide', content, '', null);
+    insertFts(db, { path: testPath, slug: 'typescript-guide', description: 'TypeScript static typing for JavaScript', type: 'source', category: 'sources', title: 'TypeScript Guide', content, tags: '', quality: null });
 
     const results = db
       .prepare(
@@ -57,7 +57,7 @@ describe('FTS5 Database', () => {
     const db = new Database(DB_PATH);
 
     const testPath = path.join(TEST_DIR, 'sources', 'python-guide.md');
-    insertFts(db, testPath, 'python-guide', 'Python for data science', 'source', 'sources', 'Python Guide', '# Python Guide\n\nPython is great for data science.', '', null);
+    insertFts(db, { path: testPath, slug: 'python-guide', description: 'Python for data science', type: 'source', category: 'sources', title: 'Python Guide', content: '# Python Guide\n\nPython is great for data science.', tags: '', quality: null });
 
     const results = db
       .prepare(
@@ -76,9 +76,9 @@ describe('FTS5 Database', () => {
   test('should rank results by BM25 relevance', () => {
     const db = new Database(DB_PATH);
 
-    insertFts(db, path.join(TEST_DIR, 'sources', 'hooks-overview.md'), 'hooks-overview', 'Hooks lifecycle callbacks overview', 'source', 'sources', 'Hooks Overview', '# Hooks Overview\n\nHooks are lifecycle callbacks.', '', null);
+    insertFts(db, { path: path.join(TEST_DIR, 'sources', 'hooks-overview.md'), slug: 'hooks-overview', description: 'Hooks lifecycle callbacks overview', type: 'source', category: 'sources', title: 'Hooks Overview', content: '# Hooks Overview\n\nHooks are lifecycle callbacks.', tags: '', quality: null });
 
-    insertFts(db, path.join(TEST_DIR, 'sources', 'hooks-deep-dive.md'), 'hooks-deep-dive', 'Deep dive into hooks patterns', 'source', 'sources', 'Hooks Deep Dive', '# Hooks Deep Dive\n\nHooks hooks hooks. PreToolUse hooks, PostToolUse hooks, SessionStart hooks.', '', null);
+    insertFts(db, { path: path.join(TEST_DIR, 'sources', 'hooks-deep-dive.md'), slug: 'hooks-deep-dive', description: 'Deep dive into hooks patterns', type: 'source', category: 'sources', title: 'Hooks Deep Dive', content: '# Hooks Deep Dive\n\nHooks hooks hooks. PreToolUse hooks, PostToolUse hooks, SessionStart hooks.', tags: '', quality: null });
 
     const results = db
       .prepare(
@@ -101,7 +101,7 @@ describe('FTS5 Database', () => {
   test('should index and search by tags column', () => {
     const db = new Database(DB_PATH);
 
-    insertFts(db, path.join(TEST_DIR, 'sources', 'tagged-doc.md'), 'tagged-doc', 'A doc with tags', 'source', 'sources', 'Tagged Doc', '# Tagged\n\nContent here.', 'security, hooks, fts5', null);
+    insertFts(db, { path: path.join(TEST_DIR, 'sources', 'tagged-doc.md'), slug: 'tagged-doc', description: 'A doc with tags', type: 'source', category: 'sources', title: 'Tagged Doc', content: '# Tagged\n\nContent here.', tags: 'security, hooks, fts5', quality: null });
 
     const results = db
       .prepare(
@@ -121,7 +121,7 @@ describe('FTS5 Database', () => {
   test('should accept null quality column', () => {
     const db = new Database(DB_PATH);
 
-    insertFts(db, path.join(TEST_DIR, 'sources', 'no-quality.md'), 'no-quality', 'No quality set', 'source', 'sources', 'No Quality', '# Test\n\nContent.', '', null);
+    insertFts(db, { path: path.join(TEST_DIR, 'sources', 'no-quality.md'), slug: 'no-quality', description: 'No quality set', type: 'source', category: 'sources', title: 'No Quality', content: '# Test\n\nContent.', tags: '', quality: null });
 
     const result = db.prepare('SELECT quality FROM mindlore_fts WHERE path = ?').get(path.join(TEST_DIR, 'sources', 'no-quality.md')) as { quality: string | null };
     expect(result.quality).toBeFalsy();

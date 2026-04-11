@@ -38,19 +38,28 @@ date: 2026-04-11
 
 ### reflect
 
-Scan old deltas, extract patterns, write to learnings/.
+LLM-driven pattern extraction from diary deltas → persistent learnings.
 
-**Flow (v0.2 — basic):**
-1. Read all non-archived delta files in `diary/` (no `archived: true` frontmatter)
-2. Present summary to user: "Found N unprocessed deltas spanning DATE1 to DATE2"
-3. For each delta, extract: repeated topics, recurring decisions, common file changes
-4. Propose learnings to user: "I found these patterns: ..."
-5. User approves → write to `learnings/{topic}.md` (append if exists, create if not)
-6. Format: `YAPMA:` / `BEST PRACTICE:` / `KRITIK:` prefixed rules
-7. Mark processed deltas: add `archived: true` to their frontmatter
-8. Append to `log.md`: `| {date} | reflect | {N} deltas processed, {M} learnings written |`
+**Flow (v0.3 — LLM-driven):**
+1. Read last N non-archived delta files in `diary/` (no `archived: true` frontmatter)
+2. Present summary: "Found N unprocessed deltas spanning DATE1 to DATE2"
+3. LLM analyzes deltas for repeating patterns:
+   - Recurring topics/themes across sessions
+   - Repeated decisions (same choice made multiple times)
+   - Common mistakes or friction points
+   - Workflow patterns that worked well
+4. Categorize found patterns by topic (git, testing, architecture, etc.)
+5. Present findings to user with proposed learnings
+6. User approves → write to `learnings/{topic}.md` (append if exists, create if not)
+7. Format: `YAPMA:` / `BEST PRACTICE:` / `KRITIK:` prefixed rules
+8. Update relevant domain page if pattern relates to an existing domain
+9. Mark processed deltas: add `archived: true` to their frontmatter
+10. Append to `log.md`: `| {date} | reflect | {N} deltas processed, {M} learnings written |`
 
-**Important:** Do NOT auto-extract patterns. Present findings, user approves. This is v0.2 basic mode — automated pattern extraction deferred to v0.2.1.
+**Rules:**
+- NEVER write learnings without user approval
+- Group related patterns into existing topic files (don't create one file per pattern)
+- Reflect scans both project + global diary/ in `--all` mode
 
 ### status
 

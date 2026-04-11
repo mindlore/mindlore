@@ -127,17 +127,37 @@ function extractFtsMetadata(meta, body, filePath, baseDir) {
     tags = Array.isArray(meta.tags) ? meta.tags.join(', ') : String(meta.tags);
   }
   const quality = meta.quality !== undefined && meta.quality !== null ? meta.quality : null;
-  return { slug, description, type, category, title, tags, quality };
+  const dateCaptured = meta.date_captured || meta.date || null;
+  return { slug, description, type, category, title, tags, quality, dateCaptured };
 }
 
 /**
  * Shared SQL constants to prevent drift across indexing paths.
  */
 const SQL_FTS_CREATE =
-  "CREATE VIRTUAL TABLE IF NOT EXISTS mindlore_fts USING fts5(path UNINDEXED, slug, description, type UNINDEXED, category, title, content, tags, quality UNINDEXED, tokenize='porter unicode61')";
+  "CREATE VIRTUAL TABLE IF NOT EXISTS mindlore_fts USING fts5(path UNINDEXED, slug, description, type UNINDEXED, category, title, content, tags, quality UNINDEXED, date_captured UNINDEXED, tokenize='porter unicode61')";
 
 const SQL_FTS_INSERT =
-  'INSERT INTO mindlore_fts (path, slug, description, type, category, title, content, tags, quality) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)';
+  'INSERT INTO mindlore_fts (path, slug, description, type, category, title, content, tags, quality, date_captured) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)';
+
+/**
+ * Insert a row into FTS5 using an object parameter (replaces positional args).
+ */
+function insertFtsRow(db, entry) {
+  const stmt = db.prepare(SQL_FTS_INSERT);
+  stmt.run(
+    entry.path || '',
+    entry.slug || '',
+    entry.description || '',
+    entry.type || '',
+    entry.category || '',
+    entry.title || '',
+    entry.content || '',
+    entry.tags || '',
+    entry.quality || null,
+    entry.dateCaptured || null,
+  );
+}
 
 /**
  * Extract headings (h1-h3) from markdown content.
@@ -229,6 +249,7 @@ module.exports = {
   readHookStdin,
   SQL_FTS_CREATE,
   SQL_FTS_INSERT,
+  insertFtsRow,
   extractHeadings,
   requireDatabase,
   openDatabase,

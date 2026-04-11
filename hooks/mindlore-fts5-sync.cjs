@@ -13,7 +13,7 @@
 
 const fs = require('fs');
 const path = require('path');
-const { MINDLORE_DIR, DB_NAME, sha256, openDatabase, getAllMdFiles, parseFrontmatter, extractFtsMetadata, SQL_FTS_INSERT, readHookStdin } = require('./lib/mindlore-common.cjs');
+const { MINDLORE_DIR, DB_NAME, sha256, openDatabase, getAllMdFiles, parseFrontmatter, extractFtsMetadata, insertFtsRow, readHookStdin } = require('./lib/mindlore-common.cjs');
 
 function main() {
   const filePath = readHookStdin(['path', 'file_path']);
@@ -39,7 +39,6 @@ function main() {
 
   const getHash = db.prepare('SELECT content_hash FROM file_hashes WHERE path = ?');
   const deleteFts = db.prepare('DELETE FROM mindlore_fts WHERE path = ?');
-  const insertFts = db.prepare(SQL_FTS_INSERT);
   const upsertHash = db.prepare(`
     INSERT INTO file_hashes (path, content_hash, last_indexed)
     VALUES (?, ?, ?)
@@ -60,9 +59,9 @@ function main() {
         if (existing && existing.content_hash === hash) continue;
 
         const { meta, body } = parseFrontmatter(content);
-        const { slug, description, type, category, title, tags, quality } = extractFtsMetadata(meta, body, file, baseDir);
+        const { slug, description, type, category, title, tags, quality, dateCaptured } = extractFtsMetadata(meta, body, file, baseDir);
         deleteFts.run(file);
-        insertFts.run(file, slug, description, type, category, title, body, tags, quality);
+        insertFtsRow(db, { path: file, slug, description, type, category, title, content: body, tags, quality, dateCaptured });
         upsertHash.run(file, hash, now);
       }
     });

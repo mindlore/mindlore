@@ -103,3 +103,30 @@ export function resolveHookCommon(callerDir: string): string {
   if (fs.existsSync(candidate)) return candidate;
   return path.resolve(callerDir, '..', '..', 'hooks', 'lib', 'mindlore-common.cjs');
 }
+
+/**
+ * Check if markitdown (Python) is installed.
+ * Optional dependency for rich web/doc/YouTube extraction.
+ */
+export function hasMarkitdown(): boolean {
+  try {
+    const { execSync } = require('child_process') as typeof import('child_process');
+    execSync('markitdown --version', { stdio: 'pipe', timeout: 5000 });
+    return true;
+  } catch (_err) {
+    return false;
+  }
+}
+
+/**
+ * Check if youtube-transcript npm package is available.
+ * Optional fallback for YouTube transcript extraction when markitdown is absent.
+ */
+export function hasYoutubeTranscript(): boolean {
+  try {
+    require.resolve('youtube-transcript');
+    return true;
+  } catch (_err) {
+    return false;
+  }
+}

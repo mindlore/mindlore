@@ -5,9 +5,9 @@ import Database from 'better-sqlite3';
 
 // Hook'lar .cjs kalıyor — SQL constants'ları oradan import ediyoruz
  
-const { SQL_FTS_CREATE, SQL_FTS_INSERT } = require('../../hooks/lib/mindlore-common.cjs') as {
+const { SQL_FTS_CREATE, insertFtsRow } = require('../../hooks/lib/mindlore-common.cjs') as {
   SQL_FTS_CREATE: string;
-  SQL_FTS_INSERT: string;
+  insertFtsRow: (db: Database.Database, entry: Record<string, unknown>) => void;
 };
 
 export function sha256(content: string): string {
@@ -28,29 +28,22 @@ export function createTestDb(dbPath: string): Database.Database {
   return db;
 }
 
-export function insertFts(
-  db: Database.Database,
-  filePath: string,
-  slug: string,
-  description: string,
-  type: string,
-  category: string,
-  title: string,
-  content: string,
-  tags: string,
-  quality: string | null,
-): void {
-  db.prepare(SQL_FTS_INSERT).run(
-    filePath,
-    slug || '',
-    description || '',
-    type || '',
-    category || '',
-    title || '',
-    content || '',
-    tags || '',
-    quality || null,
-  );
+export interface FtsEntry {
+  [key: string]: string | null | undefined;
+  path: string;
+  slug?: string;
+  description?: string;
+  type?: string;
+  category?: string;
+  title?: string;
+  content?: string;
+  tags?: string;
+  quality?: string | null;
+  dateCaptured?: string | null;
+}
+
+export function insertFts(db: Database.Database, entry: FtsEntry): void {
+  insertFtsRow(db, entry);
 }
 
 export function setupTestDir(testDir: string, subdirs?: string[]): void {

@@ -10,9 +10,9 @@ beforeEach(() => {
 
   const db = createTestDb(DB_PATH);
 
-  insertFts(db, path.join(TEST_DIR, 'sources', 'react-hooks.md'), 'react-hooks', 'useEffect cleanup patterns for memory leak prevention', 'source', 'sources', 'React Hooks Guide', '---\nslug: react-hooks\ntype: source\n---\n# React Hooks Guide\n\nuseEffect cleanup patterns for memory leak prevention.', '', null);
-  insertFts(db, path.join(TEST_DIR, 'sources', 'typescript-generics.md'), 'typescript-generics', 'Advanced generic patterns for type-safe APIs', 'source', 'sources', 'TypeScript Generics', '---\nslug: typescript-generics\ntype: source\n---\n# TypeScript Generics\n\nAdvanced generic patterns for type-safe APIs.', '', null);
-  insertFts(db, path.join(TEST_DIR, 'domains', 'security.md'), 'security', 'SSH hardening firewall rules audit checks', 'domain', 'domains', 'Security', '---\nslug: security\ntype: domain\n---\n# Security\n\nSSH hardening, firewall rules, audit checks.', '', null);
+  insertFts(db, { path: path.join(TEST_DIR, 'sources', 'react-hooks.md'), slug: 'react-hooks', description: 'useEffect cleanup patterns for memory leak prevention', type: 'source', category: 'sources', title: 'React Hooks Guide', content: '---\nslug: react-hooks\ntype: source\n---\n# React Hooks Guide\n\nuseEffect cleanup patterns for memory leak prevention.', tags: '', quality: null });
+  insertFts(db, { path: path.join(TEST_DIR, 'sources', 'typescript-generics.md'), slug: 'typescript-generics', description: 'Advanced generic patterns for type-safe APIs', type: 'source', category: 'sources', title: 'TypeScript Generics', content: '---\nslug: typescript-generics\ntype: source\n---\n# TypeScript Generics\n\nAdvanced generic patterns for type-safe APIs.', tags: '', quality: null });
+  insertFts(db, { path: path.join(TEST_DIR, 'domains', 'security.md'), slug: 'security', description: 'SSH hardening firewall rules audit checks', type: 'domain', category: 'domains', title: 'Security', content: '---\nslug: security\ntype: domain\n---\n# Security\n\nSSH hardening, firewall rules, audit checks.', tags: '', quality: null });
 
   db.close();
 });

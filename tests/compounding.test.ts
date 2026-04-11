@@ -33,7 +33,7 @@ describe('Knowledge Compounding', () => {
     const sourceContent = '---\nslug: react-hooks\ntype: source\n---\n# React Hooks\n\nUseEffect cleanup patterns.';
     fs.writeFileSync(sourcePath, sourceContent);
 
-    insertFts(db, sourcePath, 'react-hooks', 'UseEffect cleanup patterns', 'source', 'sources', 'React Hooks', sourceContent, '', null);
+    insertFts(db, { path: sourcePath, slug: 'react-hooks', description: 'UseEffect cleanup patterns', type: 'source', category: 'sources', title: 'React Hooks', content: sourceContent, tags: '', quality: null });
     db.prepare(
       'INSERT INTO file_hashes (path, content_hash, last_indexed) VALUES (?, ?, ?)'
     ).run(sourcePath, sha256(sourceContent), new Date().toISOString());
@@ -45,7 +45,7 @@ describe('Knowledge Compounding', () => {
     fs.writeFileSync(insightPath, insightContent);
 
     // Step 3: Reindex (simulates the hook)
-    insertFts(db, insightPath, 'react-cleanup', 'Avoid memory leaks with useEffect cleanup', 'insight', 'insights', 'React Cleanup Pattern', insightContent, '', null);
+    insertFts(db, { path: insightPath, slug: 'react-cleanup', description: 'Avoid memory leaks with useEffect cleanup', type: 'insight', category: 'insights', title: 'React Cleanup Pattern', content: insightContent, tags: '', quality: null });
     db.prepare(
       'INSERT INTO file_hashes (path, content_hash, last_indexed) VALUES (?, ?, ?)'
     ).run(insightPath, sha256(insightContent), new Date().toISOString());

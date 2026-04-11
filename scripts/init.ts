@@ -126,6 +126,11 @@ function migrateDatabase(dbPath: string, DatabaseCtor: typeof import('better-sql
       resetSchema(db);
       db.close();
       return true;
+    } else if (!columns.includes('date_captured')) {
+      log('Upgrading FTS5 schema (9 → 10 columns, +date_captured)...');
+      resetSchema(db);
+      db.close();
+      return true;
     }
   } catch (_err) {
     resetSchema(db);

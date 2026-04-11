@@ -23,7 +23,7 @@ describe('Content-Hash Dedup', () => {
     const hash = sha256(content);
     const filePath = path.join(TEST_DIR, 'test.md');
 
-    insertFts(db, filePath, 'test-doc', 'Some content here', 'source', 'sources', 'Test', content, '', null);
+    insertFts(db, { path: filePath, slug: 'test-doc', description: 'Some content here', type: 'source', category: 'sources', title: 'Test', content, tags: '', quality: null });
     db.prepare(
       'INSERT INTO file_hashes (path, content_hash, last_indexed) VALUES (?, ?, ?)',
     ).run(filePath, hash, new Date().toISOString());
@@ -43,7 +43,7 @@ describe('Content-Hash Dedup', () => {
     const hash = sha256(content);
     const filePath = path.join(TEST_DIR, 'unchanged.md');
 
-    insertFts(db, filePath, 'unchanged-doc', 'This content does not change', 'source', 'sources', 'Unchanged', content, '', null);
+    insertFts(db, { path: filePath, slug: 'unchanged-doc', description: 'This content does not change', type: 'source', category: 'sources', title: 'Unchanged', content, tags: '', quality: null });
     db.prepare(
       'INSERT INTO file_hashes (path, content_hash, last_indexed) VALUES (?, ?, ?)',
     ).run(filePath, hash, '2026-01-01T00:00:00Z');
@@ -71,7 +71,7 @@ describe('Content-Hash Dedup', () => {
     const filePath = path.join(TEST_DIR, 'changing.md');
 
     const originalHash = sha256(original);
-    insertFts(db, filePath, 'changing-doc', 'First version', 'source', 'sources', 'Original', original, '', null);
+    insertFts(db, { path: filePath, slug: 'changing-doc', description: 'First version', type: 'source', category: 'sources', title: 'Original', content: original, tags: '', quality: null });
     db.prepare(
       'INSERT INTO file_hashes (path, content_hash, last_indexed) VALUES (?, ?, ?)',
     ).run(filePath, originalHash, '2026-01-01T00:00:00Z');
@@ -84,7 +84,7 @@ describe('Content-Hash Dedup', () => {
     expect(existing.content_hash).not.toBe(modifiedHash);
 
     db.prepare('DELETE FROM mindlore_fts WHERE path = ?').run(filePath);
-    insertFts(db, filePath, 'changing-doc', 'Second version with changes', 'source', 'sources', 'Modified', modified, '', null);
+    insertFts(db, { path: filePath, slug: 'changing-doc', description: 'Second version with changes', type: 'source', category: 'sources', title: 'Modified', content: modified, tags: '', quality: null });
     db.prepare(
       'UPDATE file_hashes SET content_hash = ?, last_indexed = ? WHERE path = ?',
     ).run(modifiedHash, new Date().toISOString(), filePath);

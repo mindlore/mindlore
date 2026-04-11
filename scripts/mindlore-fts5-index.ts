@@ -18,7 +18,7 @@ const {
   openDatabase,
   parseFrontmatter,
   extractFtsMetadata,
-  SQL_FTS_INSERT,
+  insertFtsRow,
 } = require(resolveHookCommon(__dirname)) as {
   sha256: (content: string) => string;
   getAllMdFiles: (dir: string) => string[];
@@ -37,8 +37,13 @@ const {
     title: string;
     tags: string;
     quality: string | null;
+    dateCaptured: string | null;
   };
-  SQL_FTS_INSERT: string;
+  insertFtsRow: (db: import('better-sqlite3').Database, entry: {
+    path: string; slug?: string; description?: string; type?: string;
+    category?: string; title?: string; content?: string; tags?: string;
+    quality?: string | null; dateCaptured?: string | null;
+  }) => void;
 };
 
 // ── Main ───────────────────────────────────────────────────────────────
@@ -67,7 +72,6 @@ function main(): void {
       last_indexed = excluded.last_indexed
   `);
   const deleteFts = db.prepare('DELETE FROM mindlore_fts WHERE path = ?');
-  const insertFts = db.prepare(SQL_FTS_INSERT);
 
   const mdFiles = getAllMdFiles(baseDir) as string[];
   let indexed = 0;
@@ -89,10 +93,10 @@ function main(): void {
         }
 
         const { meta, body } = parseFrontmatter(content);
-        const { slug, description, type, category, title, tags, quality } =
+        const { slug, description, type, category, title, tags, quality, dateCaptured } =
           extractFtsMetadata(meta, body, filePath, baseDir);
         deleteFts.run(filePath);
-        insertFts.run(filePath, slug, description, type, category, title, body, tags, quality);
+        insertFtsRow(db, { path: filePath, slug, description, type, category, title, content: body, tags, quality, dateCaptured });
 
         upsertHash.run(filePath, hash, now);
         indexed++;

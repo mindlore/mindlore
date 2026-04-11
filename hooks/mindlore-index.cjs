@@ -10,7 +10,7 @@
 
 const fs = require('fs');
 const path = require('path');
-const { MINDLORE_DIR, DB_NAME, SKIP_FILES, sha256, openDatabase, parseFrontmatter, extractFtsMetadata, SQL_FTS_INSERT, readHookStdin } = require('./lib/mindlore-common.cjs');
+const { MINDLORE_DIR, DB_NAME, SKIP_FILES, sha256, openDatabase, parseFrontmatter, extractFtsMetadata, insertFtsRow, readHookStdin } = require('./lib/mindlore-common.cjs');
 
 function main() {
   const filePath = readHookStdin(['path', 'file_path']);
@@ -58,11 +58,11 @@ function main() {
 
     // Parse frontmatter for rich FTS5 columns
     const { meta, body } = parseFrontmatter(content);
-    const { slug, description, type, category, title, tags, quality } = extractFtsMetadata(meta, body, filePath, baseDir);
+    const { slug, description, type, category, title, tags, quality, dateCaptured } = extractFtsMetadata(meta, body, filePath, baseDir);
 
     // Update FTS5
     db.prepare('DELETE FROM mindlore_fts WHERE path = ?').run(filePath);
-    db.prepare(SQL_FTS_INSERT).run(filePath, slug, description, type, category, title, body, tags, quality);
+    insertFtsRow(db, { path: filePath, slug, description, type, category, title, content: body, tags, quality, dateCaptured });
 
     // Update hash
     db.prepare(
