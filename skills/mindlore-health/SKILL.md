@@ -9,6 +9,14 @@ allowed-tools: [Bash, Read]
 
 Run the 16-point structural health check on the `.mindlore/` knowledge base.
 
+## Scope
+
+Determine target using `getActiveMindloreDir()` logic:
+- Default (no flag): check project `.mindlore/`, fall back to global
+- `--global`: check only `~/.mindlore/`
+- `--all`: check both project + global scopes, report each separately
+- Never hardcode `.mindlore/` path — always resolve dynamically
+
 ## Trigger
 
 User says "health check", "mindlore health", "bilgi sistemi kontrol", "saglik kontrolu".

@@ -2,6 +2,14 @@
 
 Record and list decisions in the `.mindlore/decisions/` directory.
 
+## Scope
+
+Determine target using `getActiveMindloreDir()` logic:
+- If CWD has `.mindlore/` → write to project scope
+- Otherwise → write to global `~/.mindlore/`
+- List mode: shows decisions from active scope (use `--all` for both)
+- Never hardcode `.mindlore/` path — always resolve dynamically
+
 ## Trigger
 
 User says `/mindlore-decide record` or `/mindlore-decide list`.

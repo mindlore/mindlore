@@ -2,6 +2,14 @@
 
 Search, ask, analyze, and retrieve knowledge from `.mindlore/`.
 
+## Scope
+
+Determine search scope using `getActiveMindloreDir()` / `getAllDbs()` logic:
+- Default (no flag): search project `.mindlore/` DB, fall back to global
+- `--global`: search only `~/.mindlore/` DB
+- `--all`: search both project + global DBs, project results first
+- Never hardcode `.mindlore/` path — always resolve dynamically
+
 ## Trigger
 
 `/mindlore-query <mode> [query]` where mode is `search`, `ask`, `stats`, or `brief`.

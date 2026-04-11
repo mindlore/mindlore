@@ -9,6 +9,14 @@ allowed-tools: [Read, Write, Edit, Bash, Grep, Glob, Agent, WebFetch]
 
 Add a new knowledge source to the `.mindlore/` knowledge base.
 
+## Scope
+
+Determine target directory using `getActiveMindloreDir()` logic:
+- If CWD has `.mindlore/` → write to project scope
+- Otherwise → write to global `~/.mindlore/`
+- `--global` flag: force write to `~/.mindlore/` even if project scope exists
+- Never hardcode `.mindlore/` path — always resolve dynamically
+
 ## Trigger
 
 User shares a URL, text, file, or says "kaynak ekle", "source ingest", "bu linki kaydet", "knowledge ingest".

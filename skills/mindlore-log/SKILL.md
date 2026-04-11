@@ -2,6 +2,14 @@
 
 Session logging, pattern extraction, and wiki updates.
 
+## Scope
+
+Determine target using `getActiveMindloreDir()` logic:
+- If CWD has `.mindlore/` → write to project scope
+- Otherwise → write to global `~/.mindlore/`
+- Reflect mode: scans both project + global diary/ for patterns
+- Never hardcode `.mindlore/` path — always resolve dynamically
+
 ## Trigger
 
 `/mindlore-log <mode>` where mode is `log`, `reflect`, `status`, or `save`.

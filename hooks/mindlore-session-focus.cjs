@@ -34,6 +34,23 @@ function main() {
     output.push(`[Mindlore Delta: ${deltaName}]\n${deltaContent}`);
   }
 
+  // Version check: warn if installed mindlore is newer than .mindlore/.version
+  const versionPath = path.join(baseDir, '.version');
+  if (fs.existsSync(versionPath)) {
+    try {
+      const installed = fs.readFileSync(versionPath, 'utf8').trim();
+      // Find package.json by walking up from this hook file
+      const hookDir = __dirname;
+      const pkgPath = path.resolve(hookDir, '..', 'package.json');
+      if (fs.existsSync(pkgPath)) {
+        const pkg = JSON.parse(fs.readFileSync(pkgPath, 'utf8'));
+        if (pkg.version && pkg.version !== installed) {
+          output.push(`[Mindlore: Guncelleme mevcut (${installed} → ${pkg.version}). \`npx mindlore init\` calistirin.]`);
+        }
+      }
+    } catch (_err) { /* skip */ }
+  }
+
   if (output.length > 0) {
     process.stdout.write(output.join('\n\n') + '\n');
   }
