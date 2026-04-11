@@ -68,3 +68,12 @@ jobs:
             --title "$TAG_NAME" \
             --notes-file release-notes.md \
             ${{ steps.prerelease.outputs.flag }}
+
+      - name: Sync .github profile
+        continue-on-error: true
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh api repos/mindlore/.github/dispatches \
+            --method POST \
+            --field event_type=cli-release
