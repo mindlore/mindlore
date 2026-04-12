@@ -20,6 +20,15 @@ export const DIRECTORIES = [
 
 export const SKIP_FILES = new Set(['INDEX.md', 'SCHEMA.md', 'log.md']);
 
+export const CONFIG_FILE = 'config.json';
+
+export const DEFAULT_MODELS: Record<string, string> = {
+  ingest: 'haiku',
+  evolve: 'sonnet',
+  explore: 'sonnet',
+  default: 'haiku',
+} as const;
+
 export const FTS5_COLUMNS = ['path', 'slug', 'description', 'type', 'category', 'title', 'content', 'tags', 'quality', 'date_captured'] as const;
 export type FtsColumn = typeof FTS5_COLUMNS[number];
 
@@ -28,6 +37,21 @@ export type FrontmatterType = typeof FRONTMATTER_TYPES[number];
 
 export const QUALITY_VALUES = ['high', 'medium', 'low'] as const;
 export type QualityValue = typeof QUALITY_VALUES[number];
+
+/**
+ * Heuristic rules for auto-assigning quality based on source_type.
+ * Used by quality-populate script and ingest skill.
+ */
+export const QUALITY_HEURISTICS: Record<string, QualityValue> = {
+  'github-repo': 'high',
+  'docs': 'high',
+  'blog': 'medium',
+  'video': 'medium',
+  'x-thread': 'medium',
+  'text-paste': 'low',
+  'snippet': 'low',
+  'forum': 'low',
+};
 
 export const TYPE_TO_DIR: Record<string, string> = {
   raw: 'raw',

@@ -97,6 +97,78 @@ describe('mindlore init', () => {
     expect(content).toContain('# Test');
   });
 
+  test('should create config.json with model defaults', () => {
+    execSync(`node "${INIT_SCRIPT}" init`, {
+      cwd: TEST_PROJECT,
+      stdio: 'pipe',
+      env: { ...process.env, HOME: TEST_PROJECT, USERPROFILE: TEST_PROJECT },
+    });
+
+    const configPath = path.join(TEST_PROJECT, '.mindlore', 'config.json');
+    expect(fs.existsSync(configPath)).toBe(true);
+
+    const config = JSON.parse(fs.readFileSync(configPath, 'utf8'));
+    expect(config.models).toBeDefined();
+    expect(config.models.ingest).toBe('haiku');
+    expect(config.models.evolve).toBe('sonnet');
+    expect(config.models.explore).toBe('sonnet');
+    expect(config.models.default).toBe('haiku');
+  });
+
+  test('should preserve existing config.json models on re-init', () => {
+    const env = { ...process.env, HOME: TEST_PROJECT, USERPROFILE: TEST_PROJECT };
+
+    execSync(`node "${INIT_SCRIPT}" init`, {
+      cwd: TEST_PROJECT,
+      stdio: 'pipe',
+      env,
+    });
+
+    // User overrides ingest model
+    const configPath = path.join(TEST_PROJECT, '.mindlore', 'config.json');
+    const config = JSON.parse(fs.readFileSync(configPath, 'utf8'));
+    config.models.ingest = 'sonnet';
+    fs.writeFileSync(configPath, JSON.stringify(config, null, 2) + '\n', 'utf8');
+
+    // Re-run init
+    execSync(`node "${INIT_SCRIPT}" init`, {
+      cwd: TEST_PROJECT,
+      stdio: 'pipe',
+      env,
+    });
+
+    // User override should be preserved
+    const updated = JSON.parse(fs.readFileSync(configPath, 'utf8'));
+    expect(updated.models.ingest).toBe('sonnet');
+  });
+
+  test('should add models to existing config.json without models field', () => {
+    const env = { ...process.env, HOME: TEST_PROJECT, USERPROFILE: TEST_PROJECT };
+
+    execSync(`node "${INIT_SCRIPT}" init`, {
+      cwd: TEST_PROJECT,
+      stdio: 'pipe',
+      env,
+    });
+
+    // Simulate config without models (e.g. from older version)
+    const configPath = path.join(TEST_PROJECT, '.mindlore', 'config.json');
+    fs.writeFileSync(configPath, JSON.stringify({ version: '0.3.0', customField: true }, null, 2) + '\n', 'utf8');
+
+    // Re-run init
+    execSync(`node "${INIT_SCRIPT}" init`, {
+      cwd: TEST_PROJECT,
+      stdio: 'pipe',
+      env,
+    });
+
+    const updated = JSON.parse(fs.readFileSync(configPath, 'utf8'));
+    expect(updated.models).toBeDefined();
+    expect(updated.models.ingest).toBe('haiku');
+    // Custom field should be preserved
+    expect(updated.customField).toBe(true);
+  });
+
   test('--global should create ~/.mindlore/ instead of project .mindlore/', () => {
     const globalDir = path.join(TEST_PROJECT, '.mindlore');
     const env = { ...process.env, HOME: TEST_PROJECT, USERPROFILE: TEST_PROJECT };

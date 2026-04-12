@@ -16,7 +16,8 @@
     "prepublishOnly": "npm run build",
     "health": "node dist/scripts/mindlore-health-check.js",
     "index": "node dist/scripts/mindlore-fts5-index.js",
-    "search": "node dist/scripts/mindlore-fts5-search.js"
+    "search": "node dist/scripts/mindlore-fts5-search.js",
+    "quality": "node dist/scripts/quality-populate.js"
   },
   "keywords": [
     "claude-code",

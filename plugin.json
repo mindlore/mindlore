@@ -89,6 +89,11 @@
       "event": "PreToolUse",
       "script": "hooks/mindlore-dont-repeat.cjs",
       "if": "Write|Edit"
+    },
+    {
+      "event": "PreToolUse",
+      "script": "hooks/mindlore-model-router.cjs",
+      "if": "Agent"
     }
   ]
 }

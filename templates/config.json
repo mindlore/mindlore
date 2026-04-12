@@ -1,0 +1,9 @@
+{
+  "version": "0.3.1",
+  "models": {
+    "ingest": "haiku",
+    "evolve": "sonnet",
+    "explore": "sonnet",
+    "default": "haiku"
+  }
+}

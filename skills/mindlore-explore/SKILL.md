@@ -2,7 +2,7 @@
 name: mindlore-explore
 description: Discover unexpected connections between sources — undirected knowledge exploration
 effort: medium
-allowed-tools: [Read, Write, Edit, Bash, Grep, Glob]
+allowed-tools: [Read, Write, Edit, Bash, Grep, Glob, Agent]
 ---
 
 # /mindlore-explore
@@ -22,8 +22,27 @@ User says `/mindlore-explore`, "knowledge explore", "baglanti kesfet", "cross-re
 
 ## Flow
 
-1. Read all source and domain files from active scope
-2. Cross-match by tag + content:
+**Agent Delegation:** Cross-reference analizini subagent'a delege et (context koruma).
+
+1. Spawn an Agent for analysis:
+   ```
+   Agent({
+     description: "mindlore explore: connections",
+     subagent_type: "Explore",
+     prompt: "[mindlore:explore] Analyze .mindlore/ for unexpected connections. <aşağıdaki talimatları buraya koy>"
+   })
+   ```
+
+   Agent talimatları:
+   a. Read all source and domain files from active scope
+   b. Cross-match by tag + content (see criteria below)
+   c. Rank connections by strength
+   d. Return findings as structured table
+
+2. After agent returns — review and show findings to user
+3. On approval, write connection files (main session handles writes)
+
+**Cross-match criteria:**
    - Files sharing tags but not referencing each other
    - Sources covering similar topics from different angles
    - Sources that could bridge between domains
@@ -65,6 +84,7 @@ tags: [shared-tag-1, shared-tag-2]
 - Update INDEX.md with new connections entry
 - Append EXPLORE entry to log.md
 - Strength is LLM-assessed based on tag overlap + content similarity
+- The `[mindlore:explore]` marker in the Agent prompt is required — it triggers the model-router hook to use the cost-optimized model (sonnet by default)
 
 ## Output Format
 

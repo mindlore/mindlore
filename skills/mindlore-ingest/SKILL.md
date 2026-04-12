@@ -24,41 +24,59 @@ User shares a URL, text, file, or says "kaynak ekle", "source ingest", "bu linki
 ## Modes
 
 ### URL Mode
-1. Extract content from URL:
-   - If `markitdown` is available (`hasMarkitdown()`): `markitdown <url>` (best quality, zero tokens)
-   - Else: use `WebFetch` or `ctx_fetch_and_index`
-   - **YouTube URL** detected (`youtube.com` or `youtu.be`):
-     1. markitdown installed → `markitdown <url>` (includes transcript)
-     2. Else youtube-transcript npm → `hasYoutubeTranscript()` check
-     3. Else → ask user to paste transcript manually
-2. Save raw capture to `.mindlore/raw/` with frontmatter:
-   ```yaml
-   ---
-   slug: source-name-kebab
-   type: raw
-   source_url: https://...
-   date_captured: YYYY-MM-DD
-   tags: [tag1, tag2]
-   ---
+
+**Agent Delegation:** URL fetch + raw/sources yazımını subagent'a delege et (maliyet optimizasyonu).
+
+1. Spawn an Agent with the following pattern:
    ```
-3. Summarize into `.mindlore/sources/` with full frontmatter:
-   ```yaml
-   ---
-   slug: source-name-kebab
-   type: source
-   title: Human Readable Title
-   source_url: https://...
-   source_type: github-repo|blog|docs|video|x-thread
-   date_captured: YYYY-MM-DD
-   tags: [tag1, tag2]
-   quality: high|medium|low
-   ingested: true
-   ---
+   Agent({
+     description: "mindlore ingest: <slug>",
+     subagent_type: "researcher",
+     prompt: "[mindlore:ingest] <aşağıdaki talimatları buraya koy>"
+   })
    ```
-4. Update relevant domain page(s) in `.mindlore/domains/` (max 2)
-5. Update `.mindlore/INDEX.md` stats line
-6. Append entry to `.mindlore/log.md`
-7. Run FTS5 re-index: `npm run index`
+
+   Agent talimatları:
+   - Extract content from URL:
+     - If `markitdown` is available: `markitdown <url>` (best quality, zero tokens)
+     - Else: use `WebFetch` or `ctx_fetch_and_index`
+     - **YouTube URL** detected (`youtube.com` or `youtu.be`):
+       1. markitdown installed → `markitdown <url>` (includes transcript)
+       2. Else youtube-transcript npm → `hasYoutubeTranscript()` check
+       3. Else → return error, ask user to paste transcript
+   - Save raw capture to `.mindlore/raw/` with frontmatter:
+     ```yaml
+     ---
+     slug: source-name-kebab
+     type: raw
+     source_url: https://...
+     date_captured: YYYY-MM-DD
+     tags: [tag1, tag2]
+     ---
+     ```
+   - Summarize into `.mindlore/sources/` with full frontmatter:
+     ```yaml
+     ---
+     slug: source-name-kebab
+     type: source
+     title: Human Readable Title
+     source_url: https://...
+     source_type: github-repo|blog|docs|video|x-thread
+     date_captured: YYYY-MM-DD
+     tags: [tag1, tag2]
+     quality: high|medium|low
+     ingested: true
+     ---
+     ```
+   - Agent must report: created file paths, slug, quality assigned
+
+2. After agent returns — verify raw/ and sources/ files exist and have valid frontmatter
+3. Update relevant domain page(s) in `.mindlore/domains/` (max 2)
+4. Update `.mindlore/INDEX.md` stats line
+5. Append entry to `.mindlore/log.md`
+6. Run FTS5 re-index: `npm run index`
+
+**IMPORTANT:** The `[mindlore:ingest]` marker in the Agent prompt is required — it triggers the model-router hook to use the cost-optimized model (haiku by default).
 
 ### Text Mode
 1. User pastes text directly

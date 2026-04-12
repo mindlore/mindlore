@@ -10,7 +10,7 @@
 
 import fs from 'fs';
 import path from 'path';
-import { MINDLORE_DIR, GLOBAL_MINDLORE_DIR, DB_NAME, DIRECTORIES, homedir, log, resolveHookCommon } from './lib/constants.js';
+import { MINDLORE_DIR, GLOBAL_MINDLORE_DIR, DB_NAME, DIRECTORIES, CONFIG_FILE, DEFAULT_MODELS, homedir, log, resolveHookCommon } from './lib/constants.js';
 import type { Settings } from './lib/constants.js';
 
  
@@ -342,7 +342,48 @@ function ensureBetterSqlite3(): boolean {
   }
 }
 
-// ── Step 8: Add .mindlore/ to .gitignore ───────────────────────────────
+// ── Step 8: Ensure config.json with models ────────────────────────────
+
+interface MindloreConfig {
+  version?: string;
+  models?: Record<string, string>;
+  [key: string]: unknown;
+}
+
+function ensureConfig(baseDir: string, packageRoot: string): boolean {
+  const configDest = path.join(baseDir, CONFIG_FILE);
+  const configSrc = path.join(packageRoot, 'templates', CONFIG_FILE);
+
+  if (!fs.existsSync(configDest)) {
+    // No config yet — copy template
+    if (fs.existsSync(configSrc)) {
+      fs.copyFileSync(configSrc, configDest);
+      return true;
+    }
+    // Template missing — write hardcoded defaults
+    const defaultConfig: MindloreConfig = { version: '0.3.1', models: { ...DEFAULT_MODELS } };
+    fs.writeFileSync(configDest, JSON.stringify(defaultConfig, null, 2) + '\n', 'utf8');
+    return true;
+  }
+
+  // Config exists — merge models if missing
+  let config: MindloreConfig;
+  try {
+    config = JSON.parse(fs.readFileSync(configDest, 'utf8')) as MindloreConfig;
+  } catch (_err) {
+    return false;
+  }
+
+  if (!config.models) {
+    config.models = { ...DEFAULT_MODELS };
+    fs.writeFileSync(configDest, JSON.stringify(config, null, 2) + '\n', 'utf8');
+    return true;
+  }
+
+  return false;
+}
+
+// ── Step 9: Add .mindlore/ to .gitignore ───────────────────────────────
 
 function addToGitignore(): boolean {
   const gitignorePath = path.join(process.cwd(), '.gitignore');
@@ -443,7 +484,15 @@ function main(): void {
       : 'Skills already registered',
   );
 
-  // Step 8: .gitignore (project mode only — global dir has its own repo)
+  // Step 8: Config (models for model-router hook)
+  const configCreated = ensureConfig(baseDir, packageRoot);
+  log(
+    configCreated
+      ? 'Created config.json with model defaults'
+      : 'config.json already configured',
+  );
+
+  // Step 9: .gitignore (project mode only — global dir has its own repo)
   if (!isGlobal) {
     const gitignoreAdded = addToGitignore();
     log(
@@ -453,7 +502,7 @@ function main(): void {
     );
   }
 
-  // Step 9: Global mode — init git repo + show private repo guide
+  // Step 10: Global mode — init git repo + show private repo guide
   if (isGlobal) {
     const gitDir = path.join(baseDir, '.git');
     if (!fs.existsSync(gitDir)) {
@@ -483,7 +532,7 @@ function main(): void {
     log('  See: https://github.com/context-mode/context-mode');
   }
 
-  // Step 10: Write .version + .pkg-version (flat string for fast session-focus comparison)
+  // Step 11: Write .version + .pkg-version (flat string for fast session-focus comparison)
   const packageJson = JSON.parse(fs.readFileSync(path.join(packageRoot, 'package.json'), 'utf8')) as { version: string };
   const versionPath = path.join(baseDir, '.version');
   const pkgVersionPath = path.join(baseDir, '.pkg-version');

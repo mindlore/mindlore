@@ -233,6 +233,27 @@ function readHookStdin(fields) {
   return input;
 }
 
+/**
+ * Read .mindlore/config.json and return parsed object.
+ * Returns null if file doesn't exist or is invalid JSON.
+ */
+function readConfig(mindloreDir) {
+  if (!mindloreDir) return null;
+  const configPath = path.join(mindloreDir, 'config.json');
+  try {
+    return JSON.parse(fs.readFileSync(configPath, 'utf8'));
+  } catch (_err) {
+    return null;
+  }
+}
+
+const DEFAULT_MODELS = {
+  ingest: 'haiku',
+  evolve: 'sonnet',
+  explore: 'sonnet',
+  default: 'haiku',
+};
+
 module.exports = {
   MINDLORE_DIR,
   GLOBAL_MINDLORE_DIR,
@@ -254,4 +275,6 @@ module.exports = {
   requireDatabase,
   openDatabase,
   getAllMdFiles,
+  readConfig,
+  DEFAULT_MODELS,
 };

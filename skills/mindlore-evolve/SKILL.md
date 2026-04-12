@@ -2,7 +2,7 @@
 name: mindlore-evolve
 description: Knowledge schema co-evolution — scan domains+sources, detect inconsistencies, suggest updates
 effort: medium
-allowed-tools: [Read, Write, Edit, Bash, Grep, Glob]
+allowed-tools: [Read, Write, Edit, Bash, Grep, Glob, Agent]
 ---
 
 # /mindlore-evolve
@@ -26,10 +26,27 @@ User says `/mindlore-evolve`, "knowledge evolve", "bilgi sistemi evrimle", "sema
 
 Scan all domains and sources for inconsistencies.
 
+**Agent Delegation:** Tarama işini subagent'a delege et (context koruma).
+
 **Flow:**
-1. Read INDEX.md to get domain and source file lists
-2. Read all domain files (from `domains/`)
-3. Read all source files (from `sources/`)
+1. Spawn an Agent for scanning:
+   ```
+   Agent({
+     description: "mindlore evolve: scan",
+     subagent_type: "Explore",
+     prompt: "[mindlore:evolve] Scan .mindlore/ for inconsistencies. <aşağıdaki talimatları buraya koy>"
+   })
+   ```
+
+   Agent talimatları:
+   a. Read INDEX.md to get domain and source file lists
+   b. Read all domain files (from `domains/`)
+   c. Read all source files (from `sources/`)
+   d. Detect issues (see list below)
+   e. Return findings as structured table
+
+2. After agent returns — review findings
+3. Show findings table to user
 4. Detect issues:
    - **Orphan files:** .md files in content directories not listed in INDEX.md
    - **Missing references:** Source exists but no domain mentions it
@@ -65,6 +82,7 @@ Apply suggested changes with user approval.
 - Show diff preview before applying
 - After changes, run `node dist/scripts/mindlore-fts5-index.js` for FTS5 sync
 - Log every change to log.md with timestamp
+- The `[mindlore:evolve]` marker in the Agent prompt is required — it triggers the model-router hook to use the cost-optimized model (sonnet by default)
 
 ## Output Format
 
