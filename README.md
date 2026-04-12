@@ -153,7 +153,7 @@ SESSION START                      DURING SESSION                         SESSIO
 
 ## Hooks
 
-12 Claude Code lifecycle hooks (v0.3):
+13 Claude Code lifecycle hooks (v0.3.2):
 
 | Event | Hook | What it does |
 |-------|------|-------------|
@@ -169,6 +169,7 @@ SESSION START                      DURING SESSION                         SESSIO
 | PostToolUse (Read) | post-read | Token estimation per file read |
 | PreToolUse (Write\|Edit) | dont-repeat | LESSONS/learnings rule enforcement |
 | CwdChanged | cwd-changed | Scope detection + _scope.json write |
+| PreToolUse (Agent) | model-router | Cost-optimized model routing via markers |
 
 ## Uninstall
 

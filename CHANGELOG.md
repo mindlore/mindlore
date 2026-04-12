@@ -5,6 +5,25 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.3.2] - 2026-04-12
+
+### Added
+- **CLI subcommands:** `npx mindlore health|search|index|quality` — no longer skill-only
+- **`detectSchemaVersion()` helper:** shared FTS5 schema detection in `mindlore-common.cjs`
+- **fts5-sync test suite:** 3 tests for incremental indexing (new file, skip unchanged, re-index on change)
+- **dateCaptured test coverage:** 2 new tests + all existing insertFts calls updated with 10th column
+
+### Fixed
+- **Health check 10-col detection:** was hardcoded "9-col", now correctly detects and reports 10-col FTS5 schema
+- **Uninstall skill deletion:** was wildcard `mindlore-*` deleting user's custom skills, now only removes plugin.json-registered skills
+- **Init hook message:** now shows "N new (M total)" instead of just the count of newly added hooks
+
+### Changed
+- **CLAUDE.md:** updated hook/skill counts, TS references, 25 suites, corrected health check "16-point"
+- **Skill docs:** health, ingest, evolve skills updated from `.cjs` script paths to `npm run` commands
+- **plugin.json:** health description corrected 18→16 point
+- 25 suites, 138 tests total
+
 ## [0.3.1] - 2026-04-12
 
 ### Added
