@@ -34,7 +34,7 @@ Claude Code forgets everything between sessions. Your corrections, discoveries, 
 npx mindlore init
 ```
 
-That's it. Mindlore creates a `.mindlore/` directory, sets up hooks, and starts working.
+That's it. Mindlore creates a `~/.mindlore/` directory, sets up hooks, and starts working.
 
 To add your first source:
 
