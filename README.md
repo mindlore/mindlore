@@ -12,15 +12,13 @@
 
 Persistent, searchable, evolving knowledge base that compounds across sessions.
 
-## Why
+## Why Mindlore?
 
 Claude Code forgets everything between sessions. Your corrections, discoveries, and decisions vanish. Mindlore gives Claude a persistent memory:
 
 - **Knowledge persists** across sessions via FTS5-indexed Markdown files
 - **Search happens automatically** — hooks inject relevant context as you work
 - **Knowledge compounds** — query answers become searchable for future sessions
-
-## Why Mindlore?
 
 | Feature | Mindlore | Typical KB CLI | Wiki Compilers | Multi-Agent Memory |
 |---------|----------|---------------|----------------|-------------------|
@@ -44,17 +42,27 @@ To add your first source:
 /mindlore-ingest https://example.com/article
 ```
 
+### CLI Commands
+
+```bash
+npx mindlore health          # 16-point structural health check
+npx mindlore search "query"  # FTS5 keyword search
+npx mindlore index           # Full FTS5 re-index
+npx mindlore quality         # Bulk quality assignment for sources
+npx mindlore init --global   # Global ~/.mindlore/ (cross-project knowledge)
+```
+
 ## Features
 
-| Skill | Version | Description |
-|-------|---------|-------------|
-| `/mindlore-ingest` | v0.1 | Add knowledge sources (URL, text, file, PDF) |
-| `/mindlore-health` | v0.1 | 18-point structural health check |
-| `/mindlore-query` | v0.2 | Search and retrieve knowledge (4 modes) |
-| `/mindlore-log` | v0.2 | Session logging with reflect and status |
-| `/mindlore-decide` | v0.2 | Decision records with supersedes chain |
-| `/mindlore-evolve` | v0.3 | Schema co-evolution and structural updates |
-| `/mindlore-explore` | v0.3 | Cross-reference discovery between sources |
+| Skill | Description |
+|-------|-------------|
+| `/mindlore-ingest` | Add knowledge sources (URL, text, file, PDF) + 6-point quality gate |
+| `/mindlore-health` | 16-point structural health check |
+| `/mindlore-query` | Search, ask, stats, brief — compounding knowledge pipeline |
+| `/mindlore-log` | Session logging with reflect and status |
+| `/mindlore-decide` | Decision records with supersedes chain |
+| `/mindlore-evolve` | Schema co-evolution and structural updates |
+| `/mindlore-explore` | Cross-reference discovery between sources |
 
 ## Architecture
 
@@ -151,6 +159,23 @@ SESSION START                      DURING SESSION                         SESSIO
 - **FTS5 search** — SQLite full-text search with BM25 ranking, no external services
 - **Content-hash dedup** — SHA256 prevents re-indexing unchanged files
 
+## Configuration
+
+Mindlore creates `.mindlore/config.json` with model defaults for cost-optimized agent delegation:
+
+```json
+{
+  "models": {
+    "ingest": "haiku",
+    "evolve": "sonnet",
+    "explore": "sonnet",
+    "default": "haiku"
+  }
+}
+```
+
+Skills spawn subagents with `[mindlore:SKILL]` markers — the model-router hook reads `config.json` and overrides the model automatically. Override any value to change routing.
+
 ## Hooks
 
 13 Claude Code lifecycle hooks (v0.3.2):
@@ -173,16 +198,15 @@ SESSION START                      DURING SESSION                         SESSIO
 
 ## Uninstall
 
-Remove Mindlore from your system:
-
 ```bash
-npx mindlore uninstall
+npx mindlore uninstall        # Remove hooks + skills (keep data)
+npx mindlore uninstall --all  # Also remove .mindlore/ project data
+npx mindlore uninstall --global --all  # Remove global ~/.mindlore/
 ```
 
-This removes:
-- Hooks from `~/.claude/settings.json`
-- Skills from `~/.claude/skills/`
-- Optionally: `.mindlore/` project data (asks for confirmation)
+## Changelog
+
+See [CHANGELOG.md](CHANGELOG.md) for version history and release notes.
 
 ## Inspired By
 
