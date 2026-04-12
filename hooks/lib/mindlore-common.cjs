@@ -247,6 +247,31 @@ function readConfig(mindloreDir) {
   }
 }
 
+/**
+ * Detect FTS5 schema version by probing columns.
+ * FTS5 virtual tables don't support PRAGMA table_info, so try/catch is required.
+ * @param {import('better-sqlite3').Database} db
+ * @returns {number} 2 | 7 | 9 | 10
+ */
+function detectSchemaVersion(db) {
+  try {
+    db.prepare('SELECT tags, quality, date_captured FROM mindlore_fts LIMIT 0').run();
+    return 10;
+  } catch (_err) {
+    try {
+      db.prepare('SELECT tags, quality FROM mindlore_fts LIMIT 0').run();
+      return 9;
+    } catch (_err2) {
+      try {
+        db.prepare('SELECT slug, description, category, title FROM mindlore_fts LIMIT 0').run();
+        return 7;
+      } catch (_err3) {
+        return 2;
+      }
+    }
+  }
+}
+
 const DEFAULT_MODELS = {
   ingest: 'haiku',
   evolve: 'sonnet',
@@ -276,5 +301,6 @@ module.exports = {
   openDatabase,
   getAllMdFiles,
   readConfig,
+  detectSchemaVersion,
   DEFAULT_MODELS,
 };

@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 
 /**
- * mindlore-health-check — 18-point structural health check for .mindlore/
+ * mindlore-health-check — 16-point structural health check for .mindlore/
  *
  * Usage: node dist/scripts/mindlore-health-check.js [path-to-mindlore-dir]
  *
@@ -11,6 +11,9 @@
 import fs from 'fs';
 import path from 'path';
 import { DIRECTORIES, TYPE_TO_DIR, DB_NAME, resolveHookCommon, isContentFile } from './lib/constants.js';
+
+// eslint-disable-next-line @typescript-eslint/no-require-imports -- CJS shared module
+const { detectSchemaVersion } = require(resolveHookCommon(__dirname)) as { detectSchemaVersion: (db: unknown) => number };
 
  
 const {
@@ -154,29 +157,18 @@ class HealthChecker {
           .prepare('SELECT count(*) as cnt FROM file_hashes')
           .get() as { cnt: number };
 
-        let schemaVersion = 0;
-        try {
-          db.prepare('SELECT tags, quality FROM mindlore_fts LIMIT 0').run();
-          schemaVersion = 9;
-        } catch (_err) {
-          try {
-            db.prepare('SELECT slug, description, category, title FROM mindlore_fts LIMIT 0').run();
-            schemaVersion = 7;
-          } catch (_err2) {
-            schemaVersion = 2;
-          }
-        }
+        const schemaVersion = detectSchemaVersion(db);
 
-        if (schemaVersion < 9) {
+        if (schemaVersion < 10) {
           return {
             warn: true,
-            detail: `${result.cnt} indexed, ${hashResult.cnt} hashes — ${schemaVersion}-col schema (run: npx mindlore init to upgrade to 9-col)`,
+            detail: `${result.cnt} indexed, ${hashResult.cnt} hashes — ${schemaVersion}-col schema (run: npx mindlore init to upgrade to 10-col)`,
           };
         }
 
         return {
           ok: true,
-          detail: `${result.cnt} indexed, ${hashResult.cnt} hashes, 9-col schema`,
+          detail: `${result.cnt} indexed, ${hashResult.cnt} hashes, 10-col schema`,
         };
       } catch (err) {
         const message = err instanceof Error ? err.message : String(err);
