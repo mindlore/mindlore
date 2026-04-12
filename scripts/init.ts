@@ -254,9 +254,10 @@ function mergeHooks(packageRoot: string): { added: number; total: number } | fal
   }
 
   // Count total mindlore hooks across all events
+  const allHooks = settings.hooks ?? {};
   let total = 0;
-  for (const event of Object.keys(settings.hooks!)) {
-    for (const entry of settings.hooks![event] ?? []) {
+  for (const event of Object.keys(allHooks)) {
+    for (const entry of allHooks[event] ?? []) {
       const hooks = entry.hooks && Array.isArray(entry.hooks) ? entry.hooks : [entry];
       for (const h of hooks) {
         if ((h.command ?? '').includes('mindlore-')) total++;
@@ -431,16 +432,16 @@ function main(): void {
     quality: { script: './quality-populate.js', passArgs: false },
   };
 
-  if (command && cliCommands[command]) {
-    const cmd = cliCommands[command]!;
-    const scriptPath = path.join(__dirname, cmd.script);
+  const cliCmd = command ? cliCommands[command] : undefined;
+  if (cliCmd) {
+    const scriptPath = path.join(__dirname, cliCmd.script);
     if (!fs.existsSync(scriptPath)) {
       console.error(`Script not found: ${scriptPath}`);
       process.exit(1);
     }
     // Reset process.argv so sub-scripts see clean args
-    const scriptArgs = cmd.passArgs ? args.slice(1) : [];
-    process.argv = [process.argv[0]!, scriptPath, ...scriptArgs];
+    const scriptArgs = cliCmd.passArgs ? args.slice(1) : [];
+    process.argv = [process.argv[0] ?? 'node', scriptPath, ...scriptArgs];
     require(scriptPath);
     return;
   }

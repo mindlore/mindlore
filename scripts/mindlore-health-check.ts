@@ -12,7 +12,6 @@ import fs from 'fs';
 import path from 'path';
 import { DIRECTORIES, TYPE_TO_DIR, DB_NAME, resolveHookCommon, isContentFile } from './lib/constants.js';
 
-// eslint-disable-next-line @typescript-eslint/no-require-imports -- CJS shared module
 const { detectSchemaVersion } = require(resolveHookCommon(__dirname)) as { detectSchemaVersion: (db: unknown) => number };
 
  
