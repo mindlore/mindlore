@@ -5,6 +5,24 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.3.1] - 2026-04-12
+
+### Added
+- **Model routing hook:** `mindlore-model-router.cjs` (PreToolUse Agent) — detects `[mindlore:SKILL]` markers, overrides model via `updatedInput` (ingest→haiku, evolve/explore→sonnet)
+- **`config.json` template:** model defaults with fallback chain (config → default key → hardcoded)
+- **Quality bulk populate:** `scripts/quality-populate.ts` — assigns quality to sources with null frontmatter using source_type heuristic + URL pattern fallback
+- **`npm run quality`** script for bulk quality assignment
+- **`QUALITY_HEURISTICS` constant:** centralized source_type → quality mapping
+- **`DEFAULT_MODELS` in common:** single source of truth for hook + scripts
+- **`readConfig()` helper:** shared config.json reader in `mindlore-common.cjs`
+- **Agent delegation pattern:** ingest, evolve, explore skills updated to spawn subagents with `[mindlore:SKILL]` markers for cost-optimized model routing
+- **3 new test suites:** model-router (9 tests), init config (3 tests), quality-populate bulk (5 tests) — 24 suites, 133 tests total
+
+### Changed
+- `init.ts` step 8: creates `config.json` with model defaults (idempotent merge)
+- `plugin.json`: 13th hook registered (model-router, PreToolUse Agent)
+- `mindlore-evolve` + `mindlore-explore` skills: Agent added to allowed-tools
+
 ## [0.3.0] - 2026-04-12
 
 ### Added

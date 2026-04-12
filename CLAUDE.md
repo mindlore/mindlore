@@ -40,7 +40,7 @@ tests/      # Jest test suites
 - `plugin.json` for CC plugin manifest (npx skills add)
 - Uninstall: `npx mindlore uninstall [--all]`
 
-## Hooks (v0.3)
+## Hooks (v0.3.1)
 
 | Event | Hook | Purpose |
 |-------|------|---------|
@@ -56,6 +56,7 @@ tests/      # Jest test suites
 | PostToolUse (Read) | mindlore-post-read | Token estimation per file read |
 | PreToolUse (Write\|Edit) | mindlore-dont-repeat | LESSONS/learnings rule enforcement |
 | CwdChanged | mindlore-cwd-changed | Scope detection + _scope.json write |
+| PreToolUse (Agent) | mindlore-model-router | Cost-optimized model routing via markers |
 
 ## Skills (v0.3)
 
@@ -76,7 +77,7 @@ npm test                    # all suites
 npx jest tests/fts5.test.cjs  # specific suite
 ```
 
-23 active suites in v0.3: fts5, dedup, init, frontmatter, hook-smoke, uninstall, search-hook, session-focus, compounding, decision, read-guard, log, global-layer, cwd-changed, dont-repeat, post-read, upgrade, schemas, quality-populate, reflect, e2e-pipeline, evolve, explore.
+24 active suites in v0.3.1: fts5, dedup, init, frontmatter, hook-smoke, uninstall, search-hook, session-focus, compounding, decision, read-guard, log, global-layer, cwd-changed, dont-repeat, post-read, upgrade, schemas, quality-populate, reflect, e2e-pipeline, evolve, explore, model-router.
 
 ## Planlama Referansları
 
