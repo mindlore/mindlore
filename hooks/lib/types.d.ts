@@ -25,6 +25,7 @@ export interface FtsEntry {
   tags?: string;
   quality?: string | null;
   dateCaptured?: string | null;
+  project?: string | null;
 }
 
 export interface ParsedFrontmatter {
@@ -53,4 +54,5 @@ export interface MindloreCommon {
   getAllMdFiles(dir: string, skip?: Set<string>): string[];
   SQL_FTS_CREATE: string;
   SQL_FTS_INSERT: string;
+  getProjectName(): string;
 }

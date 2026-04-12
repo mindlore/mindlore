@@ -30,7 +30,7 @@ function runGuard(input: string): RunGuardResult {
       encoding: 'utf8',
       timeout: 5000,
       cwd: PROJECT_DIR,
-      env: { ...process.env },
+      env: { ...process.env, MINDLORE_HOME: TEST_DIR },
     });
     return { stdout: result.trim(), exitCode: 0 };
   } catch (err) {

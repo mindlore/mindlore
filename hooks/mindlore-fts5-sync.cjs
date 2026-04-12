@@ -13,7 +13,7 @@
 
 const fs = require('fs');
 const path = require('path');
-const { MINDLORE_DIR, DB_NAME, sha256, openDatabase, getAllMdFiles, parseFrontmatter, extractFtsMetadata, insertFtsRow, readHookStdin } = require('./lib/mindlore-common.cjs');
+const { MINDLORE_DIR, DB_NAME, sha256, openDatabase, getAllMdFiles, parseFrontmatter, extractFtsMetadata, insertFtsRow, readHookStdin, getActiveMindloreDir, getProjectName } = require('./lib/mindlore-common.cjs');
 
 function main() {
   const filePath = readHookStdin(['path', 'file_path']);
@@ -25,7 +25,7 @@ function main() {
   // This hook is for bulk changes (git pull, manual batch edits).
   if (filePath.endsWith('.md')) return;
 
-  const baseDir = path.join(process.cwd(), MINDLORE_DIR);
+  const baseDir = getActiveMindloreDir();
   if (!fs.existsSync(baseDir)) return;
 
   const dbPath = path.join(baseDir, DB_NAME);
@@ -50,6 +50,7 @@ function main() {
   const now = new Date().toISOString();
 
   try {
+    const project = getProjectName();
     const transaction = db.transaction(() => {
       for (const file of mdFiles) {
         const content = fs.readFileSync(file, 'utf8').replace(/\r\n/g, '\n');
@@ -61,7 +62,7 @@ function main() {
         const { meta, body } = parseFrontmatter(content);
         const { slug, description, type, category, title, tags, quality, dateCaptured } = extractFtsMetadata(meta, body, file, baseDir);
         deleteFts.run(file);
-        insertFtsRow(db, { path: file, slug, description, type, category, title, content: body, tags, quality, dateCaptured });
+        insertFtsRow(db, { path: file, slug, description, type, category, title, content: body, tags, quality, dateCaptured, project });
         upsertHash.run(file, hash, now);
       }
     });

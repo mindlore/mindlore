@@ -10,7 +10,7 @@
 
 import fs from 'fs';
 import path from 'path';
-import { DIRECTORIES, TYPE_TO_DIR, DB_NAME, resolveHookCommon, isContentFile } from './lib/constants.js';
+import { DIRECTORIES, TYPE_TO_DIR, DB_NAME, GLOBAL_MINDLORE_DIR, resolveHookCommon, isContentFile } from './lib/constants.js';
 
 const { detectSchemaVersion } = require(resolveHookCommon(__dirname)) as { detectSchemaVersion: (db: unknown) => number };
 
@@ -158,16 +158,16 @@ class HealthChecker {
 
         const schemaVersion = detectSchemaVersion(db);
 
-        if (schemaVersion < 10) {
+        if (schemaVersion < 11) {
           return {
             warn: true,
-            detail: `${result.cnt} indexed, ${hashResult.cnt} hashes — ${schemaVersion}-col schema (run: npx mindlore init to upgrade to 10-col)`,
+            detail: `${result.cnt} indexed, ${hashResult.cnt} hashes — ${schemaVersion}-col schema (run: npx mindlore init to upgrade to 11-col)`,
           };
         }
 
         return {
           ok: true,
-          detail: `${result.cnt} indexed, ${hashResult.cnt} hashes, 10-col schema`,
+          detail: `${result.cnt} indexed, ${hashResult.cnt} hashes, 11-col schema`,
         };
       } catch (err) {
         const message = err instanceof Error ? err.message : String(err);
@@ -370,7 +370,7 @@ class HealthChecker {
 // ── Main ───────────────────────────────────────────────────────────────
 
 function main(): void {
-  const baseDir = process.argv[2] ?? path.join(process.cwd(), '.mindlore');
+  const baseDir = process.argv[2] ?? GLOBAL_MINDLORE_DIR;
 
   if (!fs.existsSync(baseDir)) {
     console.error(`  .mindlore/ not found at: ${baseDir}`);

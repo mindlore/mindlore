@@ -11,7 +11,7 @@
 
 import fs from 'fs';
 import path from 'path';
-import { getActiveMindloreDir, GLOBAL_MINDLORE_DIR, DB_NAME, QUALITY_HEURISTICS, isContentFile, log, resolveHookCommon } from './lib/constants.js';
+import { GLOBAL_MINDLORE_DIR, DB_NAME, QUALITY_HEURISTICS, isContentFile, log, resolveHookCommon } from './lib/constants.js';
 import type { QualityValue } from './lib/constants.js';
 
 const { parseFrontmatter, openDatabase } = require(resolveHookCommon(__dirname)) as {
@@ -40,10 +40,7 @@ function updateFrontmatter(content: string, meta: Record<string, unknown>, quali
 }
 
 function main(): void {
-  const args = process.argv.slice(2);
-  const isGlobal = args.includes('--global');
-
-  const baseDir = isGlobal ? GLOBAL_MINDLORE_DIR : getActiveMindloreDir();
+  const baseDir = GLOBAL_MINDLORE_DIR;
   const sourcesDir = path.join(baseDir, 'sources');
 
   if (!fs.existsSync(sourcesDir)) {

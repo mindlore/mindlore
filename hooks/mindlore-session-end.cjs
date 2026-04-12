@@ -85,11 +85,15 @@ function main() {
   const changedFiles = getRecentGitChanges();
   const reads = getSessionReads(baseDir);
 
+  const { getProjectName } = require('./lib/mindlore-common.cjs');
+  const project = getProjectName();
+
   const sections = [
     '---',
     `slug: delta-${dateStr}`,
     'type: diary',
     `date: ${now.toISOString().slice(0, 10)}`,
+    `project: ${project}`,
     '---',
     '',
     `# Session Delta — ${dateStr}`,

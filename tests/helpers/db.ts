@@ -40,6 +40,7 @@ export interface FtsEntry {
   tags?: string;
   quality?: string | null;
   dateCaptured?: string | null;
+  project?: string | null;
 }
 
 export function insertFts(db: Database.Database, entry: FtsEntry): void {

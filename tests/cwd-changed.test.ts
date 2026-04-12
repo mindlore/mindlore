@@ -19,7 +19,7 @@ afterEach(() => {
 });
 
 describe('mindlore-cwd-changed hook', () => {
-  test('writes _scope.json when project .mindlore/ exists', () => {
+  test('writes _scope.json when .mindlore/ exists', () => {
     // Create .mindlore/ in project A
     const mindloreDir = path.join(FAKE_PROJECT_A, '.mindlore');
     const diaryDir = path.join(mindloreDir, 'diary');
@@ -28,23 +28,24 @@ describe('mindlore-cwd-changed hook', () => {
     execSync(`node "${HOOK_SCRIPT}"`, {
       cwd: FAKE_PROJECT_A,
       stdio: 'pipe',
-      env: { ...process.env, HOME: TEST_DIR, USERPROFILE: TEST_DIR },
+      env: { ...process.env, HOME: TEST_DIR, USERPROFILE: TEST_DIR, MINDLORE_HOME: mindloreDir },
     });
 
     const scopePath = path.join(diaryDir, '_scope.json');
     expect(fs.existsSync(scopePath)).toBe(true);
 
     const scope = JSON.parse(fs.readFileSync(scopePath, 'utf8'));
-    expect(scope.scope).toBe('project');
+    expect(scope.scope).toBe('global');
     expect(scope.dir).toBe(mindloreDir);
   });
 
   test('outputs warning to stderr when no .mindlore/ exists', () => {
+    const nonExistent = path.join(TEST_DIR, 'no-mindlore');
     // Hook outputs to stderr — capture via 2>&1
     const result = execSync(`node "${HOOK_SCRIPT}" 2>&1`, {
       cwd: FAKE_PROJECT_B,
       encoding: 'utf8',
-      env: { ...process.env, HOME: TEST_DIR, USERPROFILE: TEST_DIR },
+      env: { ...process.env, HOME: TEST_DIR, USERPROFILE: TEST_DIR, MINDLORE_HOME: nonExistent },
     });
     expect(result).toContain('mindlore kurulu degil');
   });
@@ -57,7 +58,7 @@ describe('mindlore-cwd-changed hook', () => {
     execSync(`node "${HOOK_SCRIPT}"`, {
       cwd: FAKE_PROJECT_A,
       stdio: 'pipe',
-      env: { ...process.env, HOME: TEST_DIR, USERPROFILE: TEST_DIR },
+      env: { ...process.env, HOME: TEST_DIR, USERPROFILE: TEST_DIR, MINDLORE_HOME: mindloreDir },
     });
 
     const scope = JSON.parse(

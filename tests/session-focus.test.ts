@@ -40,6 +40,7 @@ describe('Session Focus Hook', () => {
       cwd: TEST_DIR,
       encoding: 'utf8',
       timeout: 5000,
+      env: { ...process.env, MINDLORE_HOME: path.join(TEST_DIR, '.mindlore') },
     });
 
     expect(output).toContain('[Mindlore INDEX]');
@@ -56,6 +57,7 @@ describe('Session Focus Hook', () => {
       cwd: TEST_DIR,
       encoding: 'utf8',
       timeout: 5000,
+      env: { ...process.env, MINDLORE_HOME: path.join(TEST_DIR, '.mindlore') },
     });
 
     expect(output).toContain('[Mindlore Delta: delta-2026-04-10-0900.md]');
@@ -64,10 +66,12 @@ describe('Session Focus Hook', () => {
   });
 
   test('should produce no output when .mindlore/ does not exist', () => {
+    const nonExistent = path.join(TEST_DIR, 'no-mindlore');
     const output = execSync(`node "${HOOK_PATH}"`, {
       cwd: TEST_DIR,
       encoding: 'utf8',
       timeout: 5000,
+      env: { ...process.env, MINDLORE_HOME: nonExistent },
     });
 
     expect(output).toBe('');
@@ -84,6 +88,7 @@ describe('Session Focus Hook', () => {
       cwd: TEST_DIR,
       encoding: 'utf8',
       timeout: 5000,
+      env: { ...process.env, MINDLORE_HOME: mindloreDir },
     });
 
     expect(output).toContain('[Mindlore INDEX]');

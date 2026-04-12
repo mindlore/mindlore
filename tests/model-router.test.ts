@@ -6,6 +6,7 @@ const HOOK_PATH = path.join(__dirname, '..', 'hooks', 'mindlore-model-router.cjs
 const TEST_DIR = path.join(__dirname, '..', '.test-model-router');
 
 function runHook(stdinData: Record<string, unknown>, mindloreDir?: string): string {
+  const mDir = mindloreDir || path.join(TEST_DIR, '.mindlore');
   const cwd = mindloreDir ? path.dirname(mindloreDir) : TEST_DIR;
   const input = JSON.stringify(stdinData);
   try {
@@ -14,7 +15,7 @@ function runHook(stdinData: Record<string, unknown>, mindloreDir?: string): stri
       input,
       encoding: 'utf8',
       timeout: 5000,
-      env: { ...process.env },
+      env: { ...process.env, MINDLORE_HOME: mDir },
     });
   } catch (err: unknown) {
     const e = err as { stdout?: string };

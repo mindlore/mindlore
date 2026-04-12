@@ -9,7 +9,7 @@
 
 import fs from 'fs';
 import path from 'path';
-import { DB_NAME, resolveHookCommon } from './lib/constants.js';
+import { DB_NAME, GLOBAL_MINDLORE_DIR, resolveHookCommon } from './lib/constants.js';
 
  
 const {
@@ -42,14 +42,14 @@ const {
   insertFtsRow: (db: import('better-sqlite3').Database, entry: {
     path: string; slug?: string; description?: string; type?: string;
     category?: string; title?: string; content?: string; tags?: string;
-    quality?: string | null; dateCaptured?: string | null;
+    quality?: string | null; dateCaptured?: string | null; project?: string | null;
   }) => void;
 };
 
 // ── Main ───────────────────────────────────────────────────────────────
 
 function main(): void {
-  const baseDir = process.argv[2] ?? path.join(process.cwd(), '.mindlore');
+  const baseDir = process.argv[2] ?? GLOBAL_MINDLORE_DIR;
   const dbPath = path.join(baseDir, DB_NAME);
 
   if (!fs.existsSync(dbPath)) {
@@ -80,6 +80,7 @@ function main(): void {
 
   const now = new Date().toISOString();
 
+  const project = path.basename(process.cwd());
   const transaction = db.transaction(() => {
     for (const filePath of mdFiles) {
       try {
@@ -96,7 +97,7 @@ function main(): void {
         const { slug, description, type, category, title, tags, quality, dateCaptured } =
           extractFtsMetadata(meta, body, filePath, baseDir);
         deleteFts.run(filePath);
-        insertFtsRow(db, { path: filePath, slug, description, type, category, title, content: body, tags, quality, dateCaptured });
+        insertFtsRow(db, { path: filePath, slug, description, type, category, title, content: body, tags, quality, dateCaptured, project });
 
         upsertHash.run(filePath, hash, now);
         indexed++;

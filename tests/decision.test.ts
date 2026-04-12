@@ -23,7 +23,7 @@ function runDetector(input: string): string {
       encoding: 'utf8',
       timeout: 5000,
       cwd: PROJECT_DIR,
-      env: { ...process.env },
+      env: { ...process.env, MINDLORE_HOME: MINDLORE_DIR },
     });
     return result.trim();
   } catch (err) {

@@ -17,47 +17,49 @@ const SKIP_FILES = new Set(['INDEX.md', 'SCHEMA.md', 'log.md']);
 /**
  * Compute global .mindlore/ path at call time.
  * Separate function so os.homedir() is evaluated lazily (testable).
+ * MINDLORE_HOME env var overrides for testing and custom installs.
  */
 function globalDir() {
+  if (process.env.MINDLORE_HOME) return process.env.MINDLORE_HOME;
   return path.join(os.homedir(), MINDLORE_DIR);
 }
 
 // Convenience export — snapshot at load time for simple references.
 const GLOBAL_MINDLORE_DIR = globalDir();
 
+/**
+ * v0.3.3 Global-First: always returns global ~/.mindlore/ if it exists.
+ */
 function findMindloreDir() {
-  const projectDir = path.join(process.cwd(), MINDLORE_DIR);
-  if (fs.existsSync(projectDir)) return projectDir;
-
   const gDir = globalDir();
   if (fs.existsSync(gDir)) return gDir;
-
   return null;
 }
 
 /**
- * Always returns a .mindlore/ path — project if exists, otherwise global.
- * Unlike findMindloreDir, never returns null.
+ * Always returns the global ~/.mindlore/ path.
+ * v0.3.3: project scope removed — single global directory.
  */
 function getActiveMindloreDir() {
-  const projectDir = path.join(process.cwd(), MINDLORE_DIR);
-  if (fs.existsSync(projectDir)) return projectDir;
   return globalDir();
 }
 
 /**
- * Return all existing mindlore DB paths (project first, global second).
- * Used for layered search: project results ranked higher.
+ * Return the single global mindlore DB path.
+ * v0.3.3: multi-DB layered search removed — single global DB with project column.
  */
 function getAllDbs() {
-  const dbs = [];
-  const projectDb = path.join(process.cwd(), MINDLORE_DIR, DB_NAME);
-  const gDb = path.join(globalDir(), DB_NAME);
+  const dbPath = path.join(globalDir(), DB_NAME);
+  if (fs.existsSync(dbPath)) return [dbPath];
+  return [];
+}
 
-  if (fs.existsSync(projectDb)) dbs.push(projectDb);
-  if (fs.existsSync(gDb) && gDb !== projectDb) dbs.push(gDb);
-
-  return dbs;
+/**
+ * Get current project name from CWD basename.
+ * Used as the `project` column value in FTS5.
+ */
+function getProjectName() {
+  return path.basename(process.cwd());
 }
 
 function getLatestDelta(diaryDir) {
@@ -135,10 +137,10 @@ function extractFtsMetadata(meta, body, filePath, baseDir) {
  * Shared SQL constants to prevent drift across indexing paths.
  */
 const SQL_FTS_CREATE =
-  "CREATE VIRTUAL TABLE IF NOT EXISTS mindlore_fts USING fts5(path UNINDEXED, slug, description, type UNINDEXED, category, title, content, tags, quality UNINDEXED, date_captured UNINDEXED, tokenize='porter unicode61')";
+  "CREATE VIRTUAL TABLE IF NOT EXISTS mindlore_fts USING fts5(path UNINDEXED, slug, description, type UNINDEXED, category, title, content, tags, quality UNINDEXED, date_captured UNINDEXED, project UNINDEXED, tokenize='porter unicode61')";
 
 const SQL_FTS_INSERT =
-  'INSERT INTO mindlore_fts (path, slug, description, type, category, title, content, tags, quality, date_captured) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)';
+  'INSERT INTO mindlore_fts (path, slug, description, type, category, title, content, tags, quality, date_captured, project) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)';
 
 /**
  * Insert a row into FTS5 using an object parameter (replaces positional args).
@@ -156,6 +158,7 @@ function insertFtsRow(db, entry) {
     entry.tags || '',
     entry.quality || null,
     entry.dateCaptured || null,
+    entry.project || null,
   );
 }
 
@@ -255,18 +258,23 @@ function readConfig(mindloreDir) {
  */
 function detectSchemaVersion(db) {
   try {
-    db.prepare('SELECT tags, quality, date_captured FROM mindlore_fts LIMIT 0').run();
-    return 10;
-  } catch (_err) {
+    db.prepare('SELECT tags, quality, date_captured, project FROM mindlore_fts LIMIT 0').run();
+    return 11;
+  } catch (_err11) {
     try {
-      db.prepare('SELECT tags, quality FROM mindlore_fts LIMIT 0').run();
-      return 9;
-    } catch (_err2) {
+      db.prepare('SELECT tags, quality, date_captured FROM mindlore_fts LIMIT 0').run();
+      return 10;
+    } catch (_err10) {
       try {
-        db.prepare('SELECT slug, description, category, title FROM mindlore_fts LIMIT 0').run();
-        return 7;
-      } catch (_err3) {
-        return 2;
+        db.prepare('SELECT tags, quality FROM mindlore_fts LIMIT 0').run();
+        return 9;
+      } catch (_err9) {
+        try {
+          db.prepare('SELECT slug, description, category, title FROM mindlore_fts LIMIT 0').run();
+          return 7;
+        } catch (_err7) {
+          return 2;
+        }
       }
     }
   }
@@ -302,5 +310,6 @@ module.exports = {
   getAllMdFiles,
   readConfig,
   detectSchemaVersion,
+  getProjectName,
   DEFAULT_MODELS,
 };

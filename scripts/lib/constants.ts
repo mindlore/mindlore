@@ -3,7 +3,7 @@ import fs from 'fs';
 import path from 'path';
 
 export const MINDLORE_DIR = '.mindlore';
-export const GLOBAL_MINDLORE_DIR = path.join(os.homedir(), MINDLORE_DIR);
+export const GLOBAL_MINDLORE_DIR = process.env.MINDLORE_HOME ?? path.join(os.homedir(), MINDLORE_DIR);
 export const DB_NAME = 'mindlore.db';
 
 export const DIRECTORIES = [
@@ -29,7 +29,7 @@ export const DEFAULT_MODELS: Record<string, string> = {
   default: 'haiku',
 } as const;
 
-export const FTS5_COLUMNS = ['path', 'slug', 'description', 'type', 'category', 'title', 'content', 'tags', 'quality', 'date_captured'] as const;
+export const FTS5_COLUMNS = ['path', 'slug', 'description', 'type', 'category', 'title', 'content', 'tags', 'quality', 'date_captured', 'project'] as const;
 export type FtsColumn = typeof FTS5_COLUMNS[number];
 
 export const FRONTMATTER_TYPES = ['raw', 'source', 'domain', 'analysis', 'diary', 'decision', 'insight', 'connection', 'learning'] as const;
@@ -70,33 +70,29 @@ export function homedir(): string {
 }
 
 /**
- * Resolve the active .mindlore/ directory.
- * If CWD has a .mindlore/ → project scope, otherwise → global (~/.mindlore/).
+ * Always returns the global ~/.mindlore/ path.
+ * v0.3.3: project scope removed — single global directory.
  */
 export function getActiveMindloreDir(): string {
-  const projectDir = path.join(process.cwd(), MINDLORE_DIR);
-  if (fs.existsSync(projectDir)) {
-    return projectDir;
-  }
   return GLOBAL_MINDLORE_DIR;
 }
 
 /**
- * Return all mindlore DB paths (project + global), deduplicated.
- * Project DB first (higher priority in search), global second.
+ * Return the single global mindlore DB path.
+ * v0.3.3: multi-DB layered search removed — single global DB with project column.
  */
 export function getAllDbs(): string[] {
-  const dbs: string[] = [];
-  const projectDb = path.join(process.cwd(), MINDLORE_DIR, DB_NAME);
-  const globalDb = path.join(GLOBAL_MINDLORE_DIR, DB_NAME);
+  const dbPath = path.join(GLOBAL_MINDLORE_DIR, DB_NAME);
+  if (fs.existsSync(dbPath)) return [dbPath];
+  return [];
+}
 
-  if (fs.existsSync(projectDb)) {
-    dbs.push(projectDb);
-  }
-  if (fs.existsSync(globalDb) && globalDb !== projectDb) {
-    dbs.push(globalDb);
-  }
-  return dbs;
+/**
+ * Get current project name from CWD basename.
+ * Used as the `project` column value in FTS5.
+ */
+export function getProjectName(): string {
+  return path.basename(process.cwd());
 }
 
 /**

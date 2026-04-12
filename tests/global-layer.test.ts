@@ -32,28 +32,32 @@ afterEach(() => {
 });
 
 describe('getActiveMindloreDir', () => {
-  test('returns project dir when .mindlore/ exists in CWD', () => {
+  test('always returns global dir even when project .mindlore/ exists', () => {
     fs.mkdirSync(PROJECT_MINDLORE, { recursive: true });
+    fs.mkdirSync(GLOBAL_MINDLORE, { recursive: true });
+
+    mockHomedir();
 
     const originalCwd = process.cwd();
     process.chdir(FAKE_PROJECT);
     try {
       const { getActiveMindloreDir } = require(commonPath);
       const result = getActiveMindloreDir();
-      expect(result).toBe(PROJECT_MINDLORE);
+      expect(result).toBe(GLOBAL_MINDLORE);
     } finally {
       process.chdir(originalCwd);
     }
   });
 
-  test('falls back to global when no .mindlore/ in CWD', () => {
-    // No .mindlore/ in FAKE_PROJECT
+  test('returns global dir when no .mindlore/ in CWD', () => {
+    mockHomedir();
+
     const originalCwd = process.cwd();
     process.chdir(FAKE_PROJECT);
     try {
-      const { getActiveMindloreDir, GLOBAL_MINDLORE_DIR } = require(commonPath);
+      const { getActiveMindloreDir } = require(commonPath);
       const result = getActiveMindloreDir();
-      expect(result).toBe(GLOBAL_MINDLORE_DIR);
+      expect(result).toBe(GLOBAL_MINDLORE);
     } finally {
       process.chdir(originalCwd);
     }
@@ -61,7 +65,7 @@ describe('getActiveMindloreDir', () => {
 });
 
 describe('getAllDbs', () => {
-  test('returns project DB first, then global DB', () => {
+  test('returns only global DB even when project DB exists', () => {
     fs.mkdirSync(PROJECT_MINDLORE, { recursive: true });
     fs.mkdirSync(GLOBAL_MINDLORE, { recursive: true });
 
@@ -77,34 +81,14 @@ describe('getAllDbs', () => {
     try {
       const { getAllDbs } = require(commonPath);
       const dbs = getAllDbs();
-      expect(dbs).toHaveLength(2);
-      expect(dbs[0]).toContain(path.join('project', '.mindlore'));
-      expect(dbs[1]).toContain(path.join('home', '.mindlore'));
-    } finally {
-      process.chdir(originalCwd);
-    }
-  });
-
-  test('returns only project DB when global does not exist', () => {
-    fs.mkdirSync(PROJECT_MINDLORE, { recursive: true });
-    const projectDb = createTestDb(path.join(PROJECT_MINDLORE, 'mindlore.db'));
-    projectDb.close();
-
-    mockHomedir();
-
-    const originalCwd = process.cwd();
-    process.chdir(FAKE_PROJECT);
-    try {
-      const { getAllDbs } = require(commonPath);
-      const dbs = getAllDbs();
       expect(dbs).toHaveLength(1);
-      expect(dbs[0]).toContain('project');
+      expect(dbs[0]).toContain(path.join('home', '.mindlore'));
     } finally {
       process.chdir(originalCwd);
     }
   });
 
-  test('returns only global DB when project does not exist', () => {
+  test('returns global DB when it exists', () => {
     fs.mkdirSync(GLOBAL_MINDLORE, { recursive: true });
     const globalDb = createTestDb(path.join(GLOBAL_MINDLORE, 'mindlore.db'));
     globalDb.close();
@@ -123,7 +107,7 @@ describe('getAllDbs', () => {
     }
   });
 
-  test('returns empty array when no DBs exist', () => {
+  test('returns empty array when no global DB exists', () => {
     mockHomedir();
 
     const originalCwd = process.cwd();
@@ -146,17 +130,19 @@ describe('globalDir', () => {
   });
 });
 
-describe('findMindloreDir backward compat', () => {
-  test('returns null when neither project nor global exists', () => {
+describe('findMindloreDir', () => {
+  test('returns global dir when it exists', () => {
+    fs.mkdirSync(GLOBAL_MINDLORE, { recursive: true });
     mockHomedir();
 
-    const originalCwd = process.cwd();
-    process.chdir(FAKE_PROJECT);
-    try {
-      const { findMindloreDir } = require(commonPath);
-      expect(findMindloreDir()).toBeNull();
-    } finally {
-      process.chdir(originalCwd);
-    }
+    const { findMindloreDir } = require(commonPath);
+    expect(findMindloreDir()).toBe(GLOBAL_MINDLORE);
+  });
+
+  test('returns null when global dir does not exist', () => {
+    mockHomedir();
+
+    const { findMindloreDir } = require(commonPath);
+    expect(findMindloreDir()).toBeNull();
   });
 });

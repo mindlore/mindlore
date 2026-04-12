@@ -1,10 +1,12 @@
 #!/usr/bin/env node
 
 /**
- * mindlore init — Initialize .mindlore/ knowledge base in current project.
+ * mindlore init — Initialize ~/.mindlore/ global knowledge base.
  *
- * Usage: npx mindlore init [--recommended] [--global]
+ * Usage: npx mindlore init [--recommended]
  *
+ * v0.3.3: Global-first — single ~/.mindlore/ directory, project namespace via CWD basename.
+ * --global flag kept for backward compat (no-op, always global).
  * Idempotent: running again does not destroy existing data.
  */
 
@@ -128,6 +130,11 @@ function migrateDatabase(dbPath: string, DatabaseCtor: typeof import('better-sql
       return true;
     } else if (!columns.includes('date_captured')) {
       log('Upgrading FTS5 schema (9 → 10 columns, +date_captured)...');
+      resetSchema(db);
+      db.close();
+      return true;
+    } else if (!columns.includes('project')) {
+      log('Upgrading FTS5 schema (10 → 11 columns, +project)...');
       resetSchema(db);
       db.close();
       return true;
@@ -289,7 +296,7 @@ function addSchemaToProjectDocs(): boolean {
     settings.projectDocFiles = [];
   }
 
-  const schemaPath = path.join(MINDLORE_DIR, 'SCHEMA.md');
+  const schemaPath = path.join(GLOBAL_MINDLORE_DIR, 'SCHEMA.md');
   if (!settings.projectDocFiles.includes(schemaPath)) {
     settings.projectDocFiles.push(schemaPath);
     fs.writeFileSync(
@@ -395,23 +402,7 @@ function ensureConfig(baseDir: string, packageRoot: string): boolean {
   return false;
 }
 
-// ── Step 9: Add .mindlore/ to .gitignore ───────────────────────────────
-
-function addToGitignore(): boolean {
-  const gitignorePath = path.join(process.cwd(), '.gitignore');
-  const entry = '.mindlore/';
-
-  if (fs.existsSync(gitignorePath)) {
-    const content = fs.readFileSync(gitignorePath, 'utf8');
-    if (content.includes(entry)) {
-      return false;
-    }
-    fs.appendFileSync(gitignorePath, `\n${entry}\n`, 'utf8');
-  } else {
-    fs.writeFileSync(gitignorePath, `${entry}\n`, 'utf8');
-  }
-  return true;
-}
+// Step 9 removed — .gitignore no longer needed (global dir outside project)
 
 // ── Main ───────────────────────────────────────────────────────────────
 
@@ -448,8 +439,8 @@ function main(): void {
 
   if (command && command !== 'init') {
     console.log(`Unknown command: ${command}`);
-    console.log('Usage: npx mindlore init [--recommended] [--global]');
-    console.log('       npx mindlore uninstall [--all] [--global]');
+    console.log('Usage: npx mindlore init [--recommended]');
+    console.log('       npx mindlore uninstall [--all]');
     console.log('       npx mindlore health');
     console.log('       npx mindlore search "<query>"');
     console.log('       npx mindlore index');
@@ -458,14 +449,22 @@ function main(): void {
   }
 
   const isRecommended = args.includes('--recommended');
-  const isGlobal = args.includes('--global');
   const packageRoot = resolvePackageRoot();
-  const baseDir = isGlobal
-    ? GLOBAL_MINDLORE_DIR
-    : path.join(process.cwd(), MINDLORE_DIR);
+  const baseDir = GLOBAL_MINDLORE_DIR;
 
-  const scopeLabel = isGlobal ? 'global (~/.mindlore/)' : 'project (.mindlore/)';
-  console.log(`\n  Mindlore — AI-native knowledge system [${scopeLabel}]\n`);
+  console.log(`\n  Mindlore — AI-native knowledge system [global (~/.mindlore/)]\n`);
+
+  // v0.3.3 Migration: rename existing project .mindlore/ → .mindlore.bak/
+  const projectMindlore = path.join(process.cwd(), MINDLORE_DIR);
+  if (fs.existsSync(projectMindlore) && projectMindlore !== baseDir) {
+    const backupPath = path.join(process.cwd(), '.mindlore.bak');
+    if (!fs.existsSync(backupPath)) {
+      fs.renameSync(projectMindlore, backupPath);
+      log('Migrated project .mindlore/ → .mindlore.bak/ (verify then delete)');
+    } else {
+      log('Project .mindlore/ exists — .mindlore.bak/ already present, skipping migration');
+    }
+  }
 
   // Step 1: Directories
   const dirsCreated = createDirectories(baseDir);
@@ -508,15 +507,13 @@ function main(): void {
     log('Hooks not registered (settings.json not found)');
   }
 
-  // Step 6: SCHEMA.md in projectDocFiles (project mode only)
-  if (!isGlobal) {
-    const schemaAdded = addSchemaToProjectDocs();
-    log(
-      schemaAdded
-        ? 'Added SCHEMA.md to project settings'
-        : 'SCHEMA.md already in project settings',
-    );
-  }
+  // Step 6: SCHEMA.md in projectDocFiles (global SCHEMA.md path)
+  const schemaAdded = addSchemaToProjectDocs();
+  log(
+    schemaAdded
+      ? 'Added SCHEMA.md to project settings'
+      : 'SCHEMA.md already in project settings',
+  );
 
   // Step 7: Skills
   const skillsAdded = registerSkills(packageRoot, plugin);
@@ -534,35 +531,42 @@ function main(): void {
       : 'config.json already configured',
   );
 
-  // Step 9: .gitignore (project mode only — global dir has its own repo)
-  if (!isGlobal) {
-    const gitignoreAdded = addToGitignore();
-    log(
-      gitignoreAdded
-        ? 'Added .mindlore/ to .gitignore'
-        : '.mindlore/ already in .gitignore',
-    );
+  // Step 9: .gitignore removed — global dir is outside project, no need
+
+  // Step 10: Init git repo in ~/.mindlore/ (always global now)
+  const gitDir = path.join(baseDir, '.git');
+  if (!fs.existsSync(gitDir)) {
+    try {
+      const { execSync } = require('child_process') as typeof import('child_process');
+      execSync('git init', { cwd: baseDir, stdio: 'pipe', timeout: 10000 });
+      log('Initialized git repo in ~/.mindlore/');
+    } catch (_err) {
+      log('WARNING: Could not init git repo. Install git for auto-sync.');
+    }
+  } else {
+    log('Git repo already initialized');
   }
 
-  // Step 10: Global mode — init git repo + show private repo guide
-  if (isGlobal) {
-    const gitDir = path.join(baseDir, '.git');
-    if (!fs.existsSync(gitDir)) {
-      try {
-        const { execSync } = require('child_process') as typeof import('child_process');
-        execSync('git init', { cwd: baseDir, stdio: 'pipe', timeout: 10000 });
-        log('Initialized git repo in ~/.mindlore/');
-      } catch (_err) {
-        log('WARNING: Could not init git repo. Install git for auto-sync.');
-      }
-    } else {
-      log('Git repo already initialized');
+  // Step 11: Create project namespace directories
+  const projectName = path.basename(process.cwd());
+  const namespaceDirs = ['raw', 'sources', 'diary', 'decisions'];
+  let nsCreated = 0;
+  for (const dir of namespaceDirs) {
+    if (ensureDir(path.join(baseDir, dir, projectName))) {
+      nsCreated++;
     }
-    console.log('\n  Optional: Create a private repo for backup:');
-    log('  gh repo create mindlore-data --private');
-    log('  cd ~/.mindlore && git remote add origin <url>');
-    log('  Session-end hook will auto-commit + push.\n');
   }
+  log(
+    nsCreated > 0
+      ? `Created ${nsCreated} project namespace dirs (${projectName}/)`
+      : `Project namespace already exists (${projectName}/)`,
+  );
+
+  // Backup guide
+  console.log('\n  Optional: Create a private repo for backup:');
+  log('  gh repo create mindlore-data --private');
+  log('  cd ~/.mindlore && git remote add origin <url>');
+  log('  Session-end hook will auto-commit + push.');
 
   // Recommended profile tips
   if (isRecommended) {

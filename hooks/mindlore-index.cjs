@@ -10,7 +10,7 @@
 
 const fs = require('fs');
 const path = require('path');
-const { MINDLORE_DIR, DB_NAME, SKIP_FILES, sha256, openDatabase, parseFrontmatter, extractFtsMetadata, insertFtsRow, readHookStdin } = require('./lib/mindlore-common.cjs');
+const { MINDLORE_DIR, DB_NAME, SKIP_FILES, sha256, openDatabase, parseFrontmatter, extractFtsMetadata, insertFtsRow, readHookStdin, getProjectName } = require('./lib/mindlore-common.cjs');
 
 function main() {
   const filePath = readHookStdin(['path', 'file_path']);
@@ -62,7 +62,7 @@ function main() {
 
     // Update FTS5
     db.prepare('DELETE FROM mindlore_fts WHERE path = ?').run(filePath);
-    insertFtsRow(db, { path: filePath, slug, description, type, category, title, content: body, tags, quality, dateCaptured });
+    insertFtsRow(db, { path: filePath, slug, description, type, category, title, content: body, tags, quality, dateCaptured, project: getProjectName() });
 
     // Update hash
     db.prepare(
