@@ -28,17 +28,13 @@ with YAML frontmatter. Search is powered by FTS5 (SQLite full-text search).
 └── mindlore.db     # FTS5 search database (SQLite)
 ```
 
-### Global Scope (v0.3)
+### Global Scope (v0.3.3)
 
-Mindlore supports two scopes:
-- **Project scope:** `.mindlore/` in the current working directory (project-specific knowledge)
-- **Global scope:** `~/.mindlore/` in the user's home directory (cross-project knowledge)
-
-Rules:
-- `getActiveMindloreDir()` resolves scope: project if exists, otherwise global
-- Search is layered: project results first, global results second
-- Skills accept `--global` (force global) and `--all` (both scopes) flags
-- `npx mindlore init --global` creates `~/.mindlore/` with git repo for auto-sync
+Mindlore uses a single global directory:
+- **Global:** `~/.mindlore/` (or `$MINDLORE_HOME` if set)
+- All projects share one DB; project namespace is stored in the `project` FTS5 column
+- `project` = `path.basename(cwd)` at index/search time
+- `npx mindlore init` always initializes `~/.mindlore/` with git repo for auto-sync
 
 ### Directory Rules
 

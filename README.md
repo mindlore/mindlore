@@ -153,8 +153,8 @@ SESSION START                      DURING SESSION                         SESSIO
 **Key design decisions:**
 
 - **Hooks are global** — registered in `~/.claude/settings.json`, active in all projects
-- **Two scopes** — project `.mindlore/` (per-project) + global `~/.mindlore/` (cross-project)
-- **Layered search** — project results first, global second, max 3 injected
+- **Single global store** — `~/.mindlore/` shared across projects; `project` FTS5 column namespaces per `path.basename(cwd)`
+- **Project-scoped search** — results filtered by current project, falls back to all projects if none found
 - **No `.mindlore/`?** — hooks silently skip, zero overhead
 - **FTS5 search** — SQLite full-text search with BM25 ranking, no external services
 - **Content-hash dedup** — SHA256 prevents re-indexing unchanged files
@@ -178,12 +178,12 @@ Skills spawn subagents with `[mindlore:SKILL]` markers — the model-router hook
 
 ## Hooks
 
-13 Claude Code lifecycle hooks (v0.3.2):
+13 Claude Code lifecycle hooks (v0.3.3):
 
 | Event | Hook | What it does |
 |-------|------|-------------|
 | SessionStart | session-focus | Injects last delta + INDEX + version check |
-| UserPromptSubmit | search | FTS5 layered search (project + global) |
+| UserPromptSubmit | search | FTS5 search, project-scoped with global fallback |
 | UserPromptSubmit | decision-detector | TR+EN decision signal detection |
 | FileChanged | index | Sync changed files to FTS5 |
 | FileChanged | fts5-sync | Incremental batch re-index |
@@ -200,8 +200,7 @@ Skills spawn subagents with `[mindlore:SKILL]` markers — the model-router hook
 
 ```bash
 npx mindlore uninstall        # Remove hooks + skills (keep data)
-npx mindlore uninstall --all  # Also remove .mindlore/ project data
-npx mindlore uninstall --global --all  # Remove global ~/.mindlore/
+npx mindlore uninstall --all  # Also remove ~/.mindlore/ global data
 ```
 
 ## Changelog

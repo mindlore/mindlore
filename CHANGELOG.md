@@ -17,7 +17,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **`uninstall.ts`:** global-only cleanup; `--global` flag removed (always global now)
 - **Search fallback:** project-scoped search falls back to all projects when no results found
 - **SCHEMA.md template:** updated Global Scope section and FTS5 column table for v0.3.3
-- 25 suites, 138 tests total
+- 26 suites, 148 tests total
 
 ## [0.3.2] - 2026-04-12
 
