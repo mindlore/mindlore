@@ -11,7 +11,7 @@
     {
       "name": "mindlore-health",
       "path": "skills/mindlore-health/SKILL.md",
-      "description": "Run 18-point structural health check on .mindlore/ knowledge base"
+      "description": "Run 16-point structural health check on .mindlore/ knowledge base"
     },
     {
       "name": "mindlore-query",

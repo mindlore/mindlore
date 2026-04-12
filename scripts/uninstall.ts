@@ -72,15 +72,24 @@ function removeSkills(): number {
   const skillsDir = path.join(homedir(), '.claude', 'skills');
   if (!fs.existsSync(skillsDir)) return 0;
 
-  const mindloreSkills = fs
-    .readdirSync(skillsDir)
-    .filter((d) => d.startsWith('mindlore-'));
+  // Only remove skills registered in plugin.json — don't wildcard delete user's custom skills
+  const packageRoot = path.resolve(__dirname, '..');
+  const pluginPath = path.join(packageRoot, 'plugin.json');
+  const registeredSkills: string[] = [];
+  if (fs.existsSync(pluginPath)) {
+    const plugin = JSON.parse(fs.readFileSync(pluginPath, 'utf8'));
+    for (const s of plugin.skills ?? []) {
+      if (s.name) registeredSkills.push(s.name);
+    }
+  }
 
   let removed = 0;
-  for (const skill of mindloreSkills) {
+  for (const skill of registeredSkills) {
     const skillPath = path.join(skillsDir, skill);
-    fs.rmSync(skillPath, { recursive: true, force: true });
-    removed++;
+    if (fs.existsSync(skillPath)) {
+      fs.rmSync(skillPath, { recursive: true, force: true });
+      removed++;
+    }
   }
 
   return removed;
