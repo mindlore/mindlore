@@ -5,6 +5,20 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.3.3] - 2026-04-12
+
+### Changed
+- **Global-first architecture:** single `~/.mindlore/` directory for all projects — per-project `.mindlore/` removed
+- **FTS5 11th column:** `project UNINDEXED` — namespace per `path.basename(cwd)` at index time
+- **`getProjectName()` helper:** shared in `mindlore-common.cjs` and `scripts/lib/constants.ts`
+- **`MINDLORE_HOME` env var:** overrides global directory path (custom installs + test isolation)
+- **Schema migration:** `detectSchemaVersion()` cascade extended with version 11; DROP+CREATE+reindex for FTS5 ALTER limitation
+- **`init.ts`:** migrates existing project `.mindlore/` → `.mindlore.bak/`; removes `addToGitignore()` (global dir outside project)
+- **`uninstall.ts`:** global-only cleanup; `--global` flag removed (always global now)
+- **Search fallback:** project-scoped search falls back to all projects when no results found
+- **SCHEMA.md template:** updated Global Scope section and FTS5 column table for v0.3.3
+- 25 suites, 138 tests total
+
 ## [0.3.2] - 2026-04-12
 
 ### Added

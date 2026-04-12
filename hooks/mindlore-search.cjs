@@ -117,8 +117,6 @@ function main() {
   const Database = requireDatabase();
   if (!Database) return;
 
-  // Layered search: project DB first, global DB second
-  // Project results appear first in output (higher priority)
   const allScores = [];
   for (const dbPath of dbPaths) {
     allScores.push(...searchDb(dbPath, keywords, Database));

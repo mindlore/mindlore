@@ -8,7 +8,7 @@
  * CwdChanged has NO inject to Claude — stdout is swallowed, stderr shown to user.
  *
  * Side effects:
- *   1. Detect scope (project .mindlore/ vs global ~/.mindlore/)
+ *   1. Detect scope (global ~/.mindlore/ or none)
  *   2. Write scope state to .mindlore/diary/_scope.json for session-focus to read
  *   3. Show user-facing message via stderr
  */

@@ -169,6 +169,34 @@ describe('mindlore init', () => {
     expect(updated.customField).toBe(true);
   });
 
+  test('should migrate project .mindlore/ to .mindlore.bak/ on init', () => {
+    const projectDir = path.join(TEST_PROJECT, 'myproject');
+    fs.mkdirSync(projectDir, { recursive: true });
+
+    // Simulate existing project .mindlore/ with data
+    const projectMindlore = path.join(projectDir, '.mindlore');
+    fs.mkdirSync(projectMindlore, { recursive: true });
+    fs.writeFileSync(path.join(projectMindlore, 'old-note.md'), '# Old data');
+
+    const homeDir = path.join(TEST_PROJECT, 'home');
+    fs.mkdirSync(homeDir, { recursive: true });
+
+    execSync(`node "${INIT_SCRIPT}" init`, {
+      cwd: projectDir,
+      stdio: 'pipe',
+      env: { ...process.env, HOME: homeDir, USERPROFILE: homeDir },
+    });
+
+    // Project .mindlore/ should be renamed to .mindlore.bak/
+    expect(fs.existsSync(projectMindlore)).toBe(false);
+    const backupDir = path.join(projectDir, '.mindlore.bak');
+    expect(fs.existsSync(backupDir)).toBe(true);
+    expect(fs.existsSync(path.join(backupDir, 'old-note.md'))).toBe(true);
+
+    // Global ~/.mindlore/ should have been created
+    expect(fs.existsSync(path.join(homeDir, '.mindlore'))).toBe(true);
+  });
+
   test('--global should create ~/.mindlore/ instead of project .mindlore/', () => {
     const globalDir = path.join(TEST_PROJECT, '.mindlore');
     const env = { ...process.env, HOME: TEST_PROJECT, USERPROFILE: TEST_PROJECT };

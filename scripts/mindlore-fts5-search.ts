@@ -11,11 +11,12 @@
 
 import fs from 'fs';
 import path from 'path';
+import type { Database } from 'better-sqlite3';
 import { DB_NAME, GLOBAL_MINDLORE_DIR, getProjectName, resolveHookCommon } from './lib/constants.js';
 
- 
+
 const { openDatabase, extractHeadings } = require(resolveHookCommon(__dirname)) as {
-  openDatabase: (dbPath: string, opts?: { readonly: boolean }) => import('better-sqlite3').Database | null;
+  openDatabase: (dbPath: string, opts?: { readonly: boolean }) => Database | null;
   extractHeadings: (content: string, max: number) => string[];
 };
 
@@ -29,10 +30,7 @@ interface SearchResult {
   rank: number;
 }
 
-function searchDb(dbPath: string, sanitized: string, projectFilter?: string): SearchResult[] {
-  const db = openDatabase(dbPath, { readonly: true });
-  if (!db) return [];
-
+function queryDb(db: Database, sanitized: string, projectFilter?: string): SearchResult[] {
   try {
     if (projectFilter) {
       return db
@@ -58,8 +56,6 @@ function searchDb(dbPath: string, sanitized: string, projectFilter?: string): Se
       .all(sanitized, MAX_RESULTS) as SearchResult[];
   } catch (_err) {
     return [];
-  } finally {
-    db.close();
   }
 }
 
@@ -88,14 +84,23 @@ function main(): void {
     process.exit(0);
   }
 
-  // Determine project filter
   const projectFilter = isAll ? undefined : (explicitProject ?? getProjectName());
-  const results = searchDb(dbPath, sanitized, projectFilter);
 
-  // If project-scoped search returns nothing, try all projects
-  let relevant = results.slice(0, MAX_RESULTS);
-  if (relevant.length === 0 && projectFilter) {
-    relevant = searchDb(dbPath, sanitized).slice(0, MAX_RESULTS);
+  const db = openDatabase(dbPath, { readonly: true });
+  if (!db) {
+    console.error('  Could not open database.');
+    process.exit(1);
+  }
+
+  let relevant: SearchResult[];
+  try {
+    relevant = queryDb(db, sanitized, projectFilter);
+    // If project-scoped search returns nothing, fallback to all projects
+    if (relevant.length === 0 && projectFilter) {
+      relevant = queryDb(db, sanitized);
+    }
+  } finally {
+    db.close();
   }
 
   if (relevant.length === 0) {
