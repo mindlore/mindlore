@@ -4,16 +4,16 @@ AI-native knowledge system for Claude Code.
 
 ## Tech Stack
 
-Node.js (CJS), better-sqlite3 (FTS5), Jest, ESLint
+TypeScript (CJS output), better-sqlite3 (FTS5), Jest, ESLint
 
 ## Commands
 
 ```bash
 npm test           # jest --config jest.config.cjs
 npm run lint       # eslint scripts/ hooks/ tests/
-npm run health     # mindlore-health-check.cjs
-npm run index      # mindlore-fts5-index.cjs (full re-index)
-npm run search     # mindlore-fts5-search.cjs "query"
+npm run health     # dist/scripts/mindlore-health-check.js
+npm run index      # dist/scripts/mindlore-fts5-index.js (full re-index)
+npm run search     # dist/scripts/mindlore-fts5-search.js "query"
 ```
 
 ## Architecture
@@ -22,25 +22,25 @@ Hybrid: deterministic work in CJS scripts, intelligent work in MD skills.
 
 ```
 scripts/    # Deterministic (health check, FTS5 index/search, init)
-hooks/      # CC lifecycle hooks (9 in v0.2, 11 total roadmap)
-skills/     # LLM agent skills (5 in v0.2, 7 total roadmap)
+hooks/      # CC lifecycle hooks (13 in v0.3.2)
+skills/     # LLM agent skills (7 in v0.3.2)
 templates/  # Init copies these to .mindlore/
 tests/      # Jest test suites
 ```
 
 ## Key Conventions
 
-- All scripts and hooks use `.cjs` extension (CommonJS)
+- Scripts use `.ts` (source) / `.js` (dist), hooks use `.cjs` (CommonJS)
 - FTS5 database: `.mindlore/mindlore.db`
 - Content-hash dedup: SHA256, skip unchanged files on re-index
 - Frontmatter: 9 types = 9 directories (see SCHEMA.md)
 - Hook prefix: `mindlore-` (avoid collisions with user hooks)
 - Hooks inject via `stdout` (CC ignores stderr for additionalContext)
-- Shared modules: `hooks/lib/mindlore-common.cjs`, `scripts/lib/constants.cjs`, `tests/helpers/db.cjs`
+- Shared modules: `hooks/lib/mindlore-common.cjs`, `scripts/lib/constants.ts`, `tests/helpers/db.ts`
 - `plugin.json` for CC plugin manifest (npx skills add)
 - Uninstall: `npx mindlore uninstall [--all]`
 
-## Hooks (v0.3.1)
+## Hooks (v0.3.2)
 
 | Event | Hook | Purpose |
 |-------|------|---------|
@@ -58,12 +58,12 @@ tests/      # Jest test suites
 | CwdChanged | mindlore-cwd-changed | Scope detection + _scope.json write |
 | PreToolUse (Agent) | mindlore-model-router | Cost-optimized model routing via markers |
 
-## Skills (v0.3)
+## Skills (v0.3.2)
 
 | Skill | Purpose |
 |-------|---------|
 | /mindlore-ingest | Add knowledge (URL, text, file, PDF) + 6-point quality gate |
-| /mindlore-health | 18-point structural health check |
+| /mindlore-health | 16-point structural health check |
 | /mindlore-query | Search, ask, stats, brief — compounding pipeline |
 | /mindlore-log | Session logging, reflect, status, wiki save |
 | /mindlore-decide | Record and list decisions with supersedes chain |
@@ -74,10 +74,10 @@ tests/      # Jest test suites
 
 ```bash
 npm test                    # all suites
-npx jest tests/fts5.test.cjs  # specific suite
+npx jest tests/fts5.test.ts  # specific suite
 ```
 
-24 active suites in v0.3.1: fts5, dedup, init, frontmatter, hook-smoke, uninstall, search-hook, session-focus, compounding, decision, read-guard, log, global-layer, cwd-changed, dont-repeat, post-read, upgrade, schemas, quality-populate, reflect, e2e-pipeline, evolve, explore, model-router.
+25 active suites in v0.3.2: fts5, fts5-sync, dedup, init, frontmatter, hook-smoke, uninstall, search-hook, session-focus, compounding, decision, read-guard, log, global-layer, cwd-changed, dont-repeat, post-read, upgrade, schemas, quality-populate, reflect, e2e-pipeline, evolve, explore, model-router.
 
 ## Planlama Referansları
 

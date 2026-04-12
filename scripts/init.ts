@@ -182,7 +182,7 @@ function createDatabase(baseDir: string): boolean {
 
 // ── Step 4: Merge hooks into settings.json ─────────────────────────────
 
-function mergeHooks(packageRoot: string): number | false {
+function mergeHooks(packageRoot: string): { added: number; total: number } | false {
   const settingsPath = path.join(homedir(), '.claude', 'settings.json');
 
   if (!fs.existsSync(settingsPath)) {
@@ -253,7 +253,18 @@ function mergeHooks(packageRoot: string): number | false {
     fs.writeFileSync(settingsPath, JSON.stringify(settings, null, 2), 'utf8');
   }
 
-  return added;
+  // Count total mindlore hooks across all events
+  let total = 0;
+  for (const event of Object.keys(settings.hooks!)) {
+    for (const entry of settings.hooks![event] ?? []) {
+      const hooks = entry.hooks && Array.isArray(entry.hooks) ? entry.hooks : [entry];
+      for (const h of hooks) {
+        if ((h.command ?? '').includes('mindlore-')) total++;
+      }
+    }
+  }
+
+  return { added, total };
 }
 
 // ── Step 5: Add SCHEMA.md to projectDocFiles ───────────────────────────
@@ -412,10 +423,36 @@ function main(): void {
     return;
   }
 
+  // CLI subcommands — delegate to dist scripts
+  const cliCommands: Record<string, { script: string; passArgs: boolean }> = {
+    health: { script: './mindlore-health-check.js', passArgs: false },
+    search: { script: './mindlore-fts5-search.js', passArgs: true },
+    index: { script: './mindlore-fts5-index.js', passArgs: false },
+    quality: { script: './quality-populate.js', passArgs: false },
+  };
+
+  if (command && cliCommands[command]) {
+    const cmd = cliCommands[command]!;
+    const scriptPath = path.join(__dirname, cmd.script);
+    if (!fs.existsSync(scriptPath)) {
+      console.error(`Script not found: ${scriptPath}`);
+      process.exit(1);
+    }
+    // Reset process.argv so sub-scripts see clean args
+    const scriptArgs = cmd.passArgs ? args.slice(1) : [];
+    process.argv = [process.argv[0]!, scriptPath, ...scriptArgs];
+    require(scriptPath);
+    return;
+  }
+
   if (command && command !== 'init') {
     console.log(`Unknown command: ${command}`);
     console.log('Usage: npx mindlore init [--recommended] [--global]');
     console.log('       npx mindlore uninstall [--all] [--global]');
+    console.log('       npx mindlore health');
+    console.log('       npx mindlore search "<query>"');
+    console.log('       npx mindlore index');
+    console.log('       npx mindlore quality');
     process.exit(1);
   }
 
@@ -459,11 +496,15 @@ function main(): void {
     : {};
 
   // Step 5: Hooks
-  const hooksAdded = mergeHooks(packageRoot);
-  if (typeof hooksAdded === 'number' && hooksAdded > 0) {
-    log(`Registered ${hooksAdded} hooks in ~/.claude/settings.json`);
+  const hooksResult = mergeHooks(packageRoot);
+  if (typeof hooksResult === 'object' && hooksResult !== null) {
+    if (hooksResult.added > 0) {
+      log(`Registered ${hooksResult.added} new hooks (${hooksResult.total} total) in ~/.claude/settings.json`);
+    } else {
+      log(`Hooks already registered (${hooksResult.total} total)`);
+    }
   } else {
-    log('Hooks already registered (or settings.json not found)');
+    log('Hooks not registered (settings.json not found)');
   }
 
   // Step 6: SCHEMA.md in projectDocFiles (project mode only)
