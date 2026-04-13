@@ -67,6 +67,8 @@ export interface QueryEpisodesOptions {
 }
 
 // ── SQL ──────────────────────────────────────────────────────────────
+// CO-EVOLUTION: Schema mirrors SQL_EPISODES_CREATE + SQL_EPISODES_INDEXES in hooks/lib/mindlore-common.cjs
+// CJS hooks cannot import TS modules; keep both in sync on schema changes.
 
 export const SQL_EPISODES_CREATE = `
 CREATE TABLE IF NOT EXISTS episodes (
@@ -92,21 +94,19 @@ CREATE INDEX IF NOT EXISTS idx_episodes_created ON episodes(created_at DESC);
 
 // ── Helpers ──────────────────────────────────────────────────────────
 
+// CO-EVOLUTION: generateId mirrors generateEpisodeId in hooks/lib/mindlore-common.cjs
+// CJS hooks cannot import TS modules; keep both in sync on schema changes.
 function generateId(): string {
   const timestamp = Date.now().toString(36);
   const random = crypto.randomBytes(6).toString('hex');
   return `ep-${timestamp}-${random}`;
 }
 
-function nowISO(): string {
-  return new Date().toISOString();
-}
-
 // ── CRUD ─────────────────────────────────────────────────────────────
 
 export function createEpisode(db: Database, input: CreateEpisodeInput): Episode {
   const id = generateId();
-  const now = nowISO();
+  const now = new Date().toISOString();
   const entities = input.entities ? JSON.stringify(input.entities) : null;
 
   db.prepare(`

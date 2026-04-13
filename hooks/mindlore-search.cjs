@@ -10,7 +10,7 @@
 
 const fs = require('fs');
 const path = require('path');
-const { getAllDbs, requireDatabase, extractHeadings, readHookStdin, hasEpisodesTable } = require('./lib/mindlore-common.cjs');
+const { getAllDbs, requireDatabase, extractHeadings, readHookStdin } = require('./lib/mindlore-common.cjs');
 
 const MAX_RESULTS = 3;
 const MIN_QUERY_WORDS = 3;
@@ -105,27 +105,20 @@ function searchDb(dbPath, keywords, Database) {
 }
 
 /**
- * Search episodes table using LIKE matching on summary + body.
- * Returns formatted results for injection.
+ * Search episodes via FTS5 mirror (type = 'episode').
+ * Reuses an already-open DB handle — no extra sqlite3_open.
  */
-function searchEpisodes(dbPath, keywords, Database) {
+function searchEpisodesFts(db, keywords) {
   try {
-    const db = new Database(dbPath, { readonly: true });
-    if (!hasEpisodesTable(db)) {
-      db.close();
-      return [];
-    }
-
-    const pattern = '%' + keywords.join('%') + '%';
+    const ftsQuery = keywords.map(kw => '"' + kw + '"').join(' OR ');
     const rows = db.prepare(
-      "SELECT kind, summary, project, created_at FROM episodes WHERE status = 'active' AND (summary LIKE ? OR body LIKE ?) ORDER BY created_at DESC LIMIT 3"
-    ).all(pattern, pattern);
-    db.close();
+      "SELECT title, category, slug, tags FROM mindlore_fts WHERE type = 'episode' AND mindlore_fts MATCH ? LIMIT 2"
+    ).all(ftsQuery);
 
     return rows.map(r => {
-      const date = (r.created_at || '').slice(0, 10);
-      const proj = r.project ? ` [${r.project}]` : '';
-      return `[${date}] ${r.kind}: ${r.summary}${proj}`;
+      const tags = r.tags || '';
+      const kind = tags.split(',')[0]?.trim() || 'episode';
+      return `[episode] ${kind}: ${r.title || r.slug}`;
     });
   } catch (_err) {
     return [];
@@ -190,12 +183,18 @@ function main() {
     );
   }
 
-  // v0.4.0: Search episodes table too
-  for (const dbPath of dbPaths) {
-    const episodeResults = searchEpisodes(dbPath, keywords, Database);
-    if (episodeResults.length > 0) {
-      output.push(`[Mindlore Episodes]\n${episodeResults.join('\n')}`);
-      break; // single global DB, no need to iterate
+  // v0.4.0: Search episode mirrors in FTS5 (reuses searchDb's DB path, no extra open)
+  if (relevant.length < MAX_RESULTS) {
+    for (const dbPath of dbPaths) {
+      try {
+        const db = new Database(dbPath, { readonly: true });
+        const episodeResults = searchEpisodesFts(db, keywords);
+        db.close();
+        if (episodeResults.length > 0) {
+          output.push(`[Mindlore Episodes]\n${episodeResults.join('\n')}`);
+          break;
+        }
+      } catch (_err) { /* skip */ }
     }
   }
 

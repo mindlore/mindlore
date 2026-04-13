@@ -171,7 +171,7 @@ function createDatabase(baseDir: string): boolean {
     } else {
       log('Database already exists, schema OK');
     }
-    // v0.4.0: Ensure episodes table on existing DBs
+    // Idempotent: ensure episodes table on pre-v0.4 databases
     const dbEp = new DatabaseCtor(dbPath);
     ensureEpisodesTableCjs(dbEp);
     dbEp.close();
@@ -191,7 +191,7 @@ function createDatabase(baseDir: string): boolean {
     );
   `);
 
-  // v0.4.0: Episodes table
+  // Idempotent: pre-v0.4 installs won't have this table
   ensureEpisodesTableCjs(db);
 
   db.close();

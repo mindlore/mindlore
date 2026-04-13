@@ -12,7 +12,7 @@
 const fs = require('fs');
 const path = require('path');
 const { execSync } = require('child_process');
-const { findMindloreDir, globalDir, getProjectName, openDatabase, ensureEpisodesTable, insertBareEpisode, insertFtsRow } = require('./lib/mindlore-common.cjs');
+const { findMindloreDir, globalDir, getProjectName, openDatabase, ensureEpisodesTable, hasEpisodesTable, insertBareEpisode, insertFtsRow } = require('./lib/mindlore-common.cjs');
 
 function formatDate(date) {
   const y = date.getFullYear();
@@ -154,7 +154,9 @@ function writeBareEpisode(baseDir, project, commits, changedFiles, reads) {
     const db = openDatabase(dbPath);
     if (!db) return;
 
-    ensureEpisodesTable(db);
+    if (!hasEpisodesTable(db)) {
+      ensureEpisodesTable(db);
+    }
 
     const commitList = commits.length > 0 ? commits.join(', ') : 'no commits';
     const fileCount = changedFiles.length;
@@ -172,36 +174,42 @@ function writeBareEpisode(baseDir, project, commits, changedFiles, reads) {
     }
 
     const entities = changedFiles.slice(0, 10);
+    const body = bodyParts.join('\n\n') || null;
+    const truncatedSummary = summary.slice(0, 300);
 
-    const epId = insertBareEpisode(db, {
-      kind: 'session',
-      scope: 'project',
-      project: project,
-      summary: summary.slice(0, 300),
-      body: bodyParts.join('\n\n') || null,
-      tags: 'session',
-      entities: entities.length > 0 ? entities : null,
-      source: 'hook',
-    });
-
-    // FTS5 mirror — episode searchable via /mindlore-query and mindlore-search hook
-    try {
-      insertFtsRow(db, {
-        path: `episodes/${epId}`,
-        slug: `ep-${epId}`,
-        description: summary.slice(0, 300),
-        type: 'episode',
-        category: 'episodes',
-        title: summary.slice(0, 100),
-        content: [summary, bodyParts.join('\n\n')].join('\n').trim(),
-        tags: 'session',
-        quality: null,
-        dateCaptured: new Date().toISOString().slice(0, 10),
+    // Atomic: episode + FTS5 mirror in single transaction
+    const writeBoth = db.transaction(() => {
+      const epId = insertBareEpisode(db, {
+        kind: 'session',
+        scope: 'project',
         project: project,
+        summary: truncatedSummary,
+        body: body,
+        tags: 'session',
+        entities: entities.length > 0 ? entities : null,
+        source: 'hook',
       });
-    } catch (_ftsErr) {
-      // FTS5 mirror is optional — don't break session end
-    }
+
+      // FTS5 mirror — episode searchable via mindlore-search hook
+      try {
+        insertFtsRow(db, {
+          path: `episodes/${epId}`,
+          slug: `ep-${epId}`,
+          description: truncatedSummary,
+          type: 'episode',
+          category: 'episodes',
+          title: truncatedSummary.slice(0, 100),
+          content: [truncatedSummary, body ?? ''].join('\n').trim(),
+          tags: 'session',
+          quality: null,
+          dateCaptured: new Date().toISOString().slice(0, 10),
+          project: project,
+        });
+      } catch (_ftsErr) {
+        // FTS5 mirror optional — don't break the transaction
+      }
+    });
+    writeBoth();
 
     db.close();
   } catch (_err) {

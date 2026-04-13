@@ -67,21 +67,26 @@ function main() {
   try {
     const dbPath = path.join(baseDir, 'mindlore.db');
     const db = openDatabase(dbPath, { readonly: true });
-    if (db && hasEpisodesTable(db)) {
-      const config = readConfig(baseDir);
-      const maxEpisodes = config?.session_focus?.max_episodes ?? 3;
-      const project = path.basename(process.cwd());
-      const episodes = queryRecentEpisodes(db, { project, limit: maxEpisodes });
+    if (db) {
+      try {
+        if (hasEpisodesTable(db)) {
+          const config = readConfig(baseDir);
+          const maxEpisodes = config?.session_focus?.max_episodes ?? 3;
+          const project = path.basename(process.cwd());
+          const episodes = queryRecentEpisodes(db, { project, limit: maxEpisodes });
 
-      if (episodes.length > 0) {
-        const lines = episodes.map(ep => {
-          const date = (ep.created_at || '').slice(0, 10);
-          const summary = String(ep.summary || '').slice(0, 100);
-          return `- [${date}] ${ep.kind}: ${summary}`;
-        });
-        output.push(`[Mindlore Episodes]\n${lines.join('\n')}`);
+          if (episodes.length > 0) {
+            const lines = episodes.map(ep => {
+              const date = (ep.created_at || '').slice(0, 10);
+              const summary = String(ep.summary || '').slice(0, 100);
+              return `- [${date}] ${ep.kind}: ${summary}`;
+            });
+            output.push(`[Mindlore Episodes]\n${lines.join('\n')}`);
+          }
+        }
+      } finally {
+        db.close();
       }
-      db.close();
     }
   } catch (_err) { /* graceful skip */ }
 
