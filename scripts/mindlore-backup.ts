@@ -91,6 +91,7 @@ function backupStatus(): void {
       cwd: BASE_DIR,
       encoding: 'utf8',
       timeout: 5000,
+      stdio: ['pipe', 'pipe', 'pipe'],
     }).trim();
     log(`Remote: ${remote}`);
   } catch (_err) {
