@@ -5,6 +5,17 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.3.5] - 2026-04-13
+
+### Changed
+- **Type safety enforcement:** Eliminated all unsafe `as Type` assertions across 37 files (scripts + tests)
+- New helpers: `db-helpers.ts` (dbGet/dbAll/dbPragma), `safe-parse.ts` (parseJsonObject/readJsonFile), `tests/helpers/exec.ts` (getExecStdout/getExecResult)
+- Added `mindlore-common.d.cts` type declarations for CJS module
+- ESLint `no-unsafe-type-assertion: error` rule enforced
+- Fixed N+1 `db.prepare()` in hot loops (fts5-index, quality-populate)
+- Reconciled duplicate `MindloreConfig` interface, fixed nullable `FtsEntry` fields
+- 28 suites, 172 tests total
+
 ## [0.3.4] - 2026-04-13
 
 ### Added
