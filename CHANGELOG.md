@@ -5,6 +5,26 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.3.4] - 2026-04-13
+
+### Added
+- **Backup CLI:** `mindlore backup init|status|remote|now` — git-based backup for `~/.mindlore/` with `.gitignore` template
+- **Obsidian integration:** `mindlore obsidian export|import|status` — vault export with wikilink conversion, import with frontmatter injection
+- **Reflect automation:** session-focus hook counts diary entries, injects warning at configurable threshold (default 5)
+- **Project-namespaced cache:** `_session-reads-{project}.json` and `_pattern-cache-{project}.json` prevent cross-project collision
+
+### Fixed
+- Command injection in `backup remote` — replaced `execSync` string interpolation with `execFileSync` array args
+- Git stderr leak in `backup status` — suppressed with explicit `stdio: 'pipe'`
+- Session-focus hot path — single `readdirSync` instead of duplicate call
+- Dead code removal in `obsidian-helpers` (unreachable `.db` check)
+- TOCTOU fix in `shouldExport` — single try/catch instead of `existsSync` + `statSync`
+- Redundant null guards in `obsidianStatus` after early return
+
+### Changed
+- 28 suites, 172 tests total
+- `config.json` template: added `reflect.threshold` field
+
 ## [0.3.3] - 2026-04-12
 
 ### Changed

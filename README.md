@@ -49,7 +49,10 @@ npx mindlore health          # 16-point structural health check
 npx mindlore search "query"  # FTS5 keyword search
 npx mindlore index           # Full FTS5 re-index
 npx mindlore quality         # Bulk quality assignment for sources
-npx mindlore init --global   # Global ~/.mindlore/ (cross-project knowledge)
+npx mindlore backup init     # Git-based backup for ~/.mindlore/
+npx mindlore backup status   # Show backup status + last commit
+npx mindlore obsidian export --vault /path  # Export to Obsidian vault
+npx mindlore obsidian import --vault /path  # Import from Obsidian vault
 ```
 
 ## Features
@@ -178,7 +181,7 @@ Skills spawn subagents with `[mindlore:SKILL]` markers — the model-router hook
 
 ## Hooks
 
-13 Claude Code lifecycle hooks (v0.3.3):
+13 Claude Code lifecycle hooks (v0.3.4):
 
 | Event | Hook | What it does |
 |-------|------|-------------|

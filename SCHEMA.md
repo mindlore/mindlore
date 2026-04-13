@@ -35,6 +35,7 @@ Mindlore uses a single global directory:
 - All projects share one DB; project namespace is stored in the `project` FTS5 column
 - `project` = `path.basename(cwd)` at index/search time
 - `npx mindlore init` always initializes `~/.mindlore/` with git repo for auto-sync
+- Search defaults to current project; use `--all` flag to search all projects
 
 ### Directory Rules
 
@@ -151,7 +152,7 @@ Discover unexpected connections between sources. Cross-reference analysis.
 - Max results: 3 per query (BM25 ranking)
 - Hook injects: file path + first 2 headings
 
-### FTS5 Columns (10-col schema, v0.3)
+### FTS5 Columns (11-col schema, v0.3.3)
 
 | Column | Indexed | Source |
 |--------|---------|--------|
@@ -165,6 +166,7 @@ Discover unexpected connections between sources. Cross-reference analysis.
 | `tags` | Yes | Frontmatter tags (comma-separated) |
 | `quality` | UNINDEXED | Frontmatter quality (high/medium/low) |
 | `date_captured` | UNINDEXED | Frontmatter date_captured or date |
+| `project` | UNINDEXED | path.basename(cwd) at index time |
 
 ### Search Flow (UserPromptSubmit hook)
 

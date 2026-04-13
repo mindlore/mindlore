@@ -22,8 +22,8 @@ Hybrid: deterministic work in CJS scripts, intelligent work in MD skills.
 
 ```
 scripts/    # Deterministic (health check, FTS5 index/search, init)
-hooks/      # CC lifecycle hooks (13 in v0.3.3)
-skills/     # LLM agent skills (7 in v0.3.3)
+hooks/      # CC lifecycle hooks (13 in v0.3.4)
+skills/     # LLM agent skills (7 in v0.3.4)
 templates/  # Init copies these to .mindlore/
 tests/      # Jest test suites
 ```
@@ -40,7 +40,7 @@ tests/      # Jest test suites
 - `plugin.json` for CC plugin manifest (npx skills add)
 - Uninstall: `npx mindlore uninstall [--all]`
 
-## Hooks (v0.3.3)
+## Hooks (v0.3.4)
 
 | Event | Hook | Purpose |
 |-------|------|---------|
@@ -58,7 +58,7 @@ tests/      # Jest test suites
 | CwdChanged | mindlore-cwd-changed | Scope detection + _scope.json write |
 | PreToolUse (Agent) | mindlore-model-router | Cost-optimized model routing via markers |
 
-## Skills (v0.3.3)
+## Skills (v0.3.4)
 
 | Skill | Purpose |
 |-------|---------|
@@ -77,7 +77,7 @@ npm test                    # all suites
 npx jest tests/fts5.test.ts  # specific suite
 ```
 
-26 active suites in v0.3.3: fts5, fts5-sync, dedup, init, frontmatter, hook-smoke, uninstall, search-hook, session-focus, compounding, decision, read-guard, log, global-layer, cwd-changed, dont-repeat, post-read, upgrade, schemas, quality-populate, reflect, e2e-pipeline, evolve, explore, model-router, project-namespace.
+28 active suites in v0.3.4: fts5, fts5-sync, dedup, init, frontmatter, hook-smoke, uninstall, search-hook, session-focus, compounding, decision, read-guard, log, global-layer, cwd-changed, dont-repeat, post-read, upgrade, schemas, quality-populate, reflect, e2e-pipeline, evolve, explore, model-router, project-namespace, backup, obsidian.
 
 ## Planlama Referansları
 
