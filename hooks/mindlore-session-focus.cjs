@@ -10,7 +10,7 @@
 
 const fs = require('fs');
 const path = require('path');
-const { findMindloreDir } = require('./lib/mindlore-common.cjs');
+const { findMindloreDir, readConfig } = require('./lib/mindlore-common.cjs');
 
 function main() {
   const baseDir = findMindloreDir();
@@ -40,9 +40,10 @@ function main() {
         output.push(`[Mindlore Delta: ${latestName}]\n${deltaContent}`);
       }
 
-      // Reflect trigger (threshold hardcoded — config read too expensive for session start)
-      const REFLECT_THRESHOLD = 5;
-      if (diaryFiles.length >= REFLECT_THRESHOLD) {
+      // Reflect trigger
+      const config = readConfig(baseDir);
+      const threshold = config?.reflect?.threshold ?? 5;
+      if (diaryFiles.length >= threshold) {
         output.push(`[Mindlore] ${diaryFiles.length} diary entry birikti — \`/mindlore-log reflect\` calistirmayi dusun.`);
       }
     } catch (_err) { /* skip */ }
