@@ -77,6 +77,67 @@ describe('Session Focus Hook', () => {
     expect(output).toBe('');
   });
 
+  test('should not inject reflect warning when diary entries below threshold', () => {
+    const mindloreDir = createMindloreDir();
+
+    // Create 4 deltas (below default threshold of 5)
+    for (let i = 1; i <= 4; i++) {
+      createDelta(mindloreDir, `delta-2026-04-0${i}-1200.md`, `# Delta ${i}\n`);
+    }
+
+    const output = execSync(`node "${HOOK_PATH}"`, {
+      cwd: TEST_DIR,
+      encoding: 'utf8',
+      timeout: 5000,
+      env: { ...process.env, MINDLORE_HOME: path.join(TEST_DIR, '.mindlore') },
+    });
+
+    expect(output).not.toContain('diary entry birikti');
+  });
+
+  test('should inject reflect warning when diary entries reach threshold', () => {
+    const mindloreDir = createMindloreDir();
+
+    // Create 6 deltas (above default threshold of 5)
+    for (let i = 1; i <= 6; i++) {
+      createDelta(mindloreDir, `delta-2026-04-0${i}-1200.md`, `# Delta ${i}\n`);
+    }
+
+    const output = execSync(`node "${HOOK_PATH}"`, {
+      cwd: TEST_DIR,
+      encoding: 'utf8',
+      timeout: 5000,
+      env: { ...process.env, MINDLORE_HOME: path.join(TEST_DIR, '.mindlore') },
+    });
+
+    expect(output).toContain('6 diary entry birikti');
+    expect(output).toContain('/mindlore-log reflect');
+  });
+
+  test('should respect custom reflect threshold from config.json', () => {
+    const mindloreDir = createMindloreDir();
+
+    // Set custom threshold to 3
+    fs.writeFileSync(
+      path.join(mindloreDir, 'config.json'),
+      JSON.stringify({ version: '0.3.3', reflect: { threshold: 3 } })
+    );
+
+    // Create 3 deltas (exactly at threshold)
+    for (let i = 1; i <= 3; i++) {
+      createDelta(mindloreDir, `delta-2026-04-0${i}-1200.md`, `# Delta ${i}\n`);
+    }
+
+    const output = execSync(`node "${HOOK_PATH}"`, {
+      cwd: TEST_DIR,
+      encoding: 'utf8',
+      timeout: 5000,
+      env: { ...process.env, MINDLORE_HOME: path.join(TEST_DIR, '.mindlore') },
+    });
+
+    expect(output).toContain('3 diary entry birikti');
+  });
+
   test('should handle missing diary directory gracefully', () => {
     const mindloreDir = path.join(TEST_DIR, '.mindlore');
     fs.mkdirSync(mindloreDir, { recursive: true });

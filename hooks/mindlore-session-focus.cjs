@@ -10,7 +10,7 @@
 
 const fs = require('fs');
 const path = require('path');
-const { findMindloreDir, getLatestDelta } = require('./lib/mindlore-common.cjs');
+const { findMindloreDir, getLatestDelta, readConfig } = require('./lib/mindlore-common.cjs');
 
 function main() {
   const baseDir = findMindloreDir();
@@ -32,6 +32,18 @@ function main() {
     const deltaContent = fs.readFileSync(latestDelta, 'utf8').trim();
     const deltaName = path.basename(latestDelta);
     output.push(`[Mindlore Delta: ${deltaName}]\n${deltaContent}`);
+  }
+
+  // Reflect trigger: count diary entries, warn if above threshold
+  if (fs.existsSync(diaryDir)) {
+    try {
+      const diaryFiles = fs.readdirSync(diaryDir).filter(f => f.startsWith('delta-') && f.endsWith('.md'));
+      const config = readConfig(baseDir);
+      const threshold = config?.reflect?.threshold ?? 5;
+      if (diaryFiles.length >= threshold) {
+        output.push(`[Mindlore] ${diaryFiles.length} diary entry birikti — \`/mindlore-log reflect\` calistirmayi dusun.`);
+      }
+    } catch (_err) { /* skip */ }
   }
 
   // Version check: compare .version (installed) vs .pkg-version (package)

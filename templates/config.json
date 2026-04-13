@@ -5,5 +5,8 @@
     "evolve": "sonnet",
     "explore": "sonnet",
     "default": "haiku"
+  },
+  "reflect": {
+    "threshold": 5
   }
 }
