@@ -53,6 +53,9 @@ npx mindlore backup init     # Git-based backup for ~/.mindlore/
 npx mindlore backup status   # Show backup status + last commit
 npx mindlore obsidian export --vault /path  # Export to Obsidian vault
 npx mindlore obsidian import --vault /path  # Import from Obsidian vault
+npx mindlore episodes list                  # List recent episodes
+npx mindlore episodes search "query"        # Search episodic memory
+npx mindlore episodes count                 # Episode count per project
 ```
 
 ## Features
@@ -62,7 +65,7 @@ npx mindlore obsidian import --vault /path  # Import from Obsidian vault
 | `/mindlore-ingest` | Add knowledge sources (URL, text, file, PDF) + 6-point quality gate |
 | `/mindlore-health` | 16-point structural health check |
 | `/mindlore-query` | Search, ask, stats, brief — compounding knowledge pipeline |
-| `/mindlore-log` | Session logging with reflect and status |
+| `/mindlore-log` | Session logging, diary analysis, reflect pattern extraction |
 | `/mindlore-decide` | Decision records with supersedes chain |
 | `/mindlore-evolve` | Schema co-evolution and structural updates |
 | `/mindlore-explore` | Cross-reference discovery between sources |
@@ -181,19 +184,19 @@ Skills spawn subagents with `[mindlore:SKILL]` markers — the model-router hook
 
 ## Hooks
 
-13 Claude Code lifecycle hooks (v0.3.5):
+13 Claude Code lifecycle hooks (v0.4.0):
 
 | Event | Hook | What it does |
 |-------|------|-------------|
-| SessionStart | session-focus | Injects last delta + INDEX + version check |
-| UserPromptSubmit | search | FTS5 search, project-scoped with global fallback |
+| SessionStart | session-focus | Injects last delta + INDEX + last 3 episodes + version check |
+| UserPromptSubmit | search | FTS5 search + episodes recall, project-scoped |
 | UserPromptSubmit | decision-detector | TR+EN decision signal detection |
 | FileChanged | index | Sync changed files to FTS5 |
 | FileChanged | fts5-sync | Incremental batch re-index |
-| SessionEnd | session-end | Structured delta + global git sync |
+| SessionEnd | session-end | Structured delta + bare episode + FTS5 mirror + git sync |
 | PreCompact | pre-compact | FTS5 flush before compaction |
 | PostCompact | post-compact | Re-inject context |
-| PreToolUse (Read) | read-guard | Repeated-read warning + token display |
+| PreToolUse (Read) | read-guard | Repeated-read warning, blocks 3+ repeats |
 | PostToolUse (Read) | post-read | Token estimation per file read |
 | PreToolUse (Write\|Edit) | dont-repeat | LESSONS/learnings rule enforcement |
 | CwdChanged | cwd-changed | Scope detection + _scope.json write |

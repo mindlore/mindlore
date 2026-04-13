@@ -5,6 +5,27 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.4.0] - 2026-04-13
+
+### Added
+- **Episodes table:** SQLite-based episodic memory — session/decision/event/preference/learning/friction/discovery kinds
+- **Session-end bare episode:** Hook automatically captures commits, changed files, read stats as a session episode
+- **Session-focus episode inject:** Last 3 episodes injected at session start (configurable via `config.json → session_focus.max_episodes`)
+- **Diary mode** (`/mindlore-log diary`): LLM-driven session analysis with dedup rule and parent_id linkage
+- **Reflect mode** (`/mindlore-log reflect`): Structured report format with episodes-powered pattern extraction
+- **Episodes CLI:** `npx mindlore episodes list|search|show|count` with kind/project/limit filters
+- **FTS5 episode mirror:** Episodes mirrored to FTS5 for unified search (knowledge + episodes)
+- **Search hook episodes:** `mindlore-search` hook queries episode mirrors alongside FTS5 knowledge
+- **Token display:** `post-read` hook now shows estimated token count via additionalContext on every file read
+- **Read-guard enforcement:** 3+ repeated reads of the same file blocked with exit 2
+
+### Changed
+- `mindlore-log` skill: added diary mode, reflect upgraded to episodes-powered with structured output
+- `mindlore-query` skill: search mode merges knowledge + episode results
+- Session-end hook: single `getRecentGitInfo()` call replaces two sequential git spawns
+- Session-end hook: episode + FTS5 writes wrapped in transaction for atomicity
+- 31 suites, 221 tests total
+
 ## [0.3.5] - 2026-04-13
 
 ### Changed
