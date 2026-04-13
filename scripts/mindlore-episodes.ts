@@ -13,7 +13,7 @@
 import path from 'path';
 import { GLOBAL_MINDLORE_DIR, DB_NAME, getProjectName } from './lib/constants.js';
 import { getEpisode, queryEpisodes, countEpisodes, EPISODE_KINDS } from './lib/episodes.js';
-import type { EpisodeKind, QueryEpisodesOptions } from './lib/episodes.js';
+import type { QueryEpisodesOptions } from './lib/episodes.js';
 import { dbAll } from './lib/db-helpers.js';
 
 function openDb(): import('better-sqlite3').Database | null {
@@ -49,12 +49,14 @@ function cmdList(args: string[]): void {
   const opts: QueryEpisodesOptions = {};
 
   if (parsed['kind']) {
-    if (!EPISODE_KINDS.includes(parsed['kind'] as EpisodeKind)) {
-      console.error(`Invalid kind: ${parsed['kind']}. Valid: ${EPISODE_KINDS.join(', ')}`);
+    const kindInput = parsed['kind'];
+    const validKind = EPISODE_KINDS.find(k => k === kindInput);
+    if (!validKind) {
+      console.error(`Invalid kind: ${kindInput}. Valid: ${EPISODE_KINDS.join(', ')}`);
       db.close();
       return;
     }
-    opts.kind = parsed['kind'] as EpisodeKind;
+    opts.kind = validKind;
   }
   if (parsed['project']) opts.project = parsed['project'];
   if (parsed['limit']) opts.limit = parseInt(parsed['limit'], 10) || 50;
@@ -143,7 +145,8 @@ function cmdShow(args: string[]): void {
   if (ep.supersedes) console.log(`  Supersedes: ${ep.supersedes}`);
   if (ep.entities) {
     try {
-      const entities = JSON.parse(ep.entities) as string[];
+      const parsed: unknown = JSON.parse(ep.entities);
+      const entities = Array.isArray(parsed) ? parsed.map(String) : [String(parsed)];
       console.log(`  Entities: ${entities.join(', ')}`);
     } catch (_err) {
       console.log(`  Entities: ${ep.entities}`);

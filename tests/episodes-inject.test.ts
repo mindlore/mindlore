@@ -7,6 +7,7 @@ import path from 'path';
 import Database from 'better-sqlite3';
 import { createEpisodesTestEnv, destroyEpisodesTestEnv } from './helpers/db.js';
 import type { EpisodesTestEnv } from './helpers/db.js';
+import { getEpisode } from '../scripts/lib/episodes.js';
 
 const {
   ensureEpisodesTable,
@@ -127,14 +128,15 @@ describe('session-end bare episode', () => {
 
     expect(id).toMatch(/^ep-/);
 
-    const ep = db.prepare('SELECT * FROM episodes WHERE id = ?').get(id) as Record<string, unknown>;
-    expect(ep.kind).toBe('session');
-    expect(ep.source).toBe('hook');
-    expect(ep.project).toBe('mindlore');
-    expect(String(ep.body)).toContain('## Commits');
-    expect(String(ep.body)).toContain('episodes.ts');
+    const ep = getEpisode(db, id);
+    expect(ep).toBeDefined();
+    expect(ep!.kind).toBe('session');
+    expect(ep!.source).toBe('hook');
+    expect(ep!.project).toBe('mindlore');
+    expect(ep!.body).toContain('## Commits');
+    expect(ep!.body).toContain('episodes.ts');
 
-    const entities = JSON.parse(String(ep.entities));
+    const entities: unknown = JSON.parse(ep!.entities!);
     expect(entities).toEqual(files);
   });
 
@@ -146,9 +148,10 @@ describe('session-end bare episode', () => {
       source: 'hook',
     });
 
-    const ep = db.prepare('SELECT * FROM episodes WHERE id = ?').get(id) as Record<string, unknown>;
-    expect(ep.summary).toBe('Session: no commits (0 files)');
-    expect(ep.entities).toBeNull();
+    const ep = getEpisode(db, id);
+    expect(ep).toBeDefined();
+    expect(ep!.summary).toBe('Session: no commits (0 files)');
+    expect(ep!.entities).toBeNull();
   });
 
   test('bare episode with read stats in body', () => {
@@ -161,8 +164,9 @@ describe('session-end bare episode', () => {
       source: 'hook',
     });
 
-    const ep = db.prepare('SELECT * FROM episodes WHERE id = ?').get(id) as Record<string, unknown>;
-    expect(String(ep.body)).toContain('15 files read');
+    const ep = getEpisode(db, id);
+    expect(ep).toBeDefined();
+    expect(ep!.body).toContain('15 files read');
   });
 });
 
