@@ -13,7 +13,7 @@
 
 const fs = require('fs');
 const path = require('path');
-const { findMindloreDir } = require('./lib/mindlore-common.cjs');
+const { findMindloreDir, getProjectName } = require('./lib/mindlore-common.cjs');
 
 const CODE_EXTS = new Set(['.ts', '.tsx', '.js', '.jsx', '.py', '.rs', '.go', '.java', '.c', '.cpp', '.h', '.css', '.scss', '.sql', '.sh', '.yaml', '.yml', '.json', '.toml', '.xml', '.cjs', '.mjs']);
 const PROSE_EXTS = new Set(['.md', '.txt', '.rst', '.adoc']);
@@ -67,7 +67,7 @@ function main() {
 
       // Update _session-reads.json with token info
       const diaryDir = path.join(baseDir, 'diary');
-      const readsPath = path.join(diaryDir, '_session-reads.json');
+      const readsPath = path.join(diaryDir, `_session-reads-${getProjectName()}.json`);
       let reads = {};
       if (fs.existsSync(readsPath)) {
         try { reads = JSON.parse(fs.readFileSync(readsPath, 'utf8')); } catch { reads = {}; }

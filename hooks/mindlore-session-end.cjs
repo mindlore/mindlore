@@ -12,7 +12,7 @@
 const fs = require('fs');
 const path = require('path');
 const { execSync } = require('child_process');
-const { findMindloreDir, globalDir } = require('./lib/mindlore-common.cjs');
+const { findMindloreDir, globalDir, getProjectName } = require('./lib/mindlore-common.cjs');
 
 function formatDate(date) {
   const y = date.getFullYear();
@@ -50,7 +50,7 @@ function getRecentCommits() {
 }
 
 function getSessionReads(baseDir) {
-  const readsPath = path.join(baseDir, 'diary', '_session-reads.json');
+  const readsPath = path.join(baseDir, 'diary', `_session-reads-${getProjectName()}.json`);
   if (!fs.existsSync(readsPath)) return null;
   try {
     const data = JSON.parse(fs.readFileSync(readsPath, 'utf8'));
@@ -85,7 +85,6 @@ function main() {
   const changedFiles = getRecentGitChanges();
   const reads = getSessionReads(baseDir);
 
-  const { getProjectName } = require('./lib/mindlore-common.cjs');
   const project = getProjectName();
 
   const sections = [

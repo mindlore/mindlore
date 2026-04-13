@@ -6,6 +6,7 @@ import { setupTestDir, teardownTestDir } from './helpers/db.js';
 const PROJECT_DIR = path.join(__dirname, '..', '.test-project-readguard');
 const TEST_DIR = path.join(PROJECT_DIR, '.mindlore');
 const HOOK_PATH = path.join(__dirname, '..', 'hooks', 'mindlore-read-guard.cjs');
+const PROJECT_NAME = path.basename(PROJECT_DIR);
 
 beforeEach(() => {
   setupTestDir(TEST_DIR, ['diary']);
@@ -50,17 +51,17 @@ describe('Read Guard Hook', () => {
     expect(stdout).toBe('');
   });
 
-  test('should create _session-reads.json on first read', () => {
+  test('should create project-namespaced _session-reads file on first read', () => {
     const input = JSON.stringify({ file_path: path.join(PROJECT_DIR, 'README.md') });
     runGuard(input);
-    const readsPath = path.join(TEST_DIR, 'diary', '_session-reads.json');
+    const readsPath = path.join(TEST_DIR, 'diary', `_session-reads-${PROJECT_NAME}.json`);
     expect(fs.existsSync(readsPath)).toBe(true);
   });
 
   test('should skip files inside .mindlore/', () => {
     const input = JSON.stringify({ file_path: path.join(TEST_DIR, 'INDEX.md') });
     runGuard(input);
-    const readsPath = path.join(TEST_DIR, 'diary', '_session-reads.json');
+    const readsPath = path.join(TEST_DIR, 'diary', `_session-reads-${PROJECT_NAME}.json`);
     if (fs.existsSync(readsPath)) {
       const reads = JSON.parse(fs.readFileSync(readsPath, 'utf8')) as Record<string, unknown>;
       const keys = Object.keys(reads);

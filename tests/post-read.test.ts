@@ -5,6 +5,7 @@ import { setupTestDir, teardownTestDir } from './helpers/db';
 
 const TEST_DIR = path.join(__dirname, '..', '.test-post-read');
 const HOOK_SCRIPT = path.resolve(__dirname, '..', 'hooks', 'mindlore-post-read.cjs');
+const PROJECT_NAME = path.basename(TEST_DIR);
 
 beforeEach(() => {
   setupTestDir(TEST_DIR);
@@ -41,7 +42,7 @@ describe('mindlore-post-read hook', () => {
       tool_output: { content: 'const x = 1;\n'.repeat(100) },
     });
 
-    const readsPath = path.join(TEST_DIR, '.mindlore', 'diary', '_session-reads.json');
+    const readsPath = path.join(TEST_DIR, '.mindlore', 'diary', `_session-reads-${PROJECT_NAME}.json`);
     if (fs.existsSync(readsPath)) {
       const reads = JSON.parse(fs.readFileSync(readsPath, 'utf8'));
       const entry = reads[path.resolve(testFile)];

@@ -14,7 +14,7 @@
 
 const fs = require('fs');
 const path = require('path');
-const { findMindloreDir, readHookStdin } = require('./lib/mindlore-common.cjs');
+const { findMindloreDir, readHookStdin, getProjectName } = require('./lib/mindlore-common.cjs');
 
 function main() {
   const baseDir = findMindloreDir();
@@ -35,7 +35,7 @@ function main() {
     fs.mkdirSync(diaryDir, { recursive: true });
   }
 
-  const readsPath = path.join(diaryDir, '_session-reads.json');
+  const readsPath = path.join(diaryDir, `_session-reads-${getProjectName()}.json`);
   let reads = {};
   if (fs.existsSync(readsPath)) {
     try {

@@ -18,7 +18,7 @@
 const fs = require('fs');
 const path = require('path');
 const os = require('os');
-const { findMindloreDir } = require('./lib/mindlore-common.cjs');
+const { findMindloreDir, getProjectName } = require('./lib/mindlore-common.cjs');
 
 /**
  * File-persisted pattern cache — survives across process invocations.
@@ -167,7 +167,7 @@ function main() {
 
       // Load patterns from all sources (file-persisted mtime cache)
       const mindloreDir = findMindloreDir();
-      const cachePath = mindloreDir ? path.join(mindloreDir, 'diary', '_pattern-cache.json') : null;
+      const cachePath = mindloreDir ? path.join(mindloreDir, 'diary', `_pattern-cache-${getProjectName()}.json`) : null;
       const cache = readCache(cachePath);
       const allPatterns = [];
       const cwd = process.cwd();
