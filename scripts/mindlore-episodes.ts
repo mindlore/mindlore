@@ -90,16 +90,8 @@ function cmdSearch(args: string[]): void {
 
   // Search in summary + body using LIKE (episodes is regular table, not FTS5)
   const pattern = `%${query}%`;
-  interface EpisodeRow {
-    [key: string]: unknown;
-    id: string;
-    kind: string;
-    summary: string;
-    project: string | null;
-    created_at: string;
-    source: string;
-  }
-  const results = dbAll<EpisodeRow>(
+  type EpisodeSearchRow = Pick<import('./lib/episodes.js').Episode, 'id' | 'kind' | 'summary' | 'project' | 'created_at' | 'source'>;
+  const results = dbAll<EpisodeSearchRow>(
     db,
     "SELECT id, kind, summary, project, created_at, source FROM episodes WHERE status = 'active' AND (summary LIKE ? OR body LIKE ?) ORDER BY created_at DESC LIMIT 20",
     pattern, pattern,

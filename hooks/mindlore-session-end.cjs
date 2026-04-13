@@ -23,29 +23,33 @@ function formatDate(date) {
   return `${y}-${m}-${d}-${h}${min}`;
 }
 
-function getRecentGitChanges() {
+/**
+ * Get recent commits and changed files in a single git call.
+ * Returns { commits: string[], changedFiles: string[] }
+ */
+function getRecentGitInfo() {
   try {
-    const raw = execSync('git diff --name-only HEAD~5..HEAD 2>/dev/null', {
+    // --name-only includes file names after each commit entry
+    const raw = execSync('git log --oneline -5 --name-only 2>/dev/null', {
       encoding: 'utf8',
       timeout: 5000,
     }).trim();
-    if (!raw) return [];
-    return raw.split('\n').filter(Boolean).slice(0, 20);
-  } catch (_err) {
-    return [];
-  }
-}
+    if (!raw) return { commits: [], changedFiles: [] };
 
-function getRecentCommits() {
-  try {
-    const raw = execSync('git log --oneline -5 2>/dev/null', {
-      encoding: 'utf8',
-      timeout: 5000,
-    }).trim();
-    if (!raw) return [];
-    return raw.split('\n').filter(Boolean);
+    const commits = [];
+    const fileSet = new Set();
+    for (const line of raw.split('\n')) {
+      if (!line) continue;
+      // Commit lines start with a short hash (7+ hex chars)
+      if (/^[0-9a-f]{7,}\s/.test(line)) {
+        commits.push(line);
+      } else {
+        fileSet.add(line);
+      }
+    }
+    return { commits, changedFiles: [...fileSet].slice(0, 20) };
   } catch (_err) {
-    return [];
+    return { commits: [], changedFiles: [] };
   }
 }
 
@@ -84,9 +88,8 @@ function main() {
   // Don't overwrite existing delta (idempotent)
   if (fs.existsSync(deltaPath)) return;
 
-  // Gather structured data
-  const commits = getRecentCommits();
-  const changedFiles = getRecentGitChanges();
+  // Gather structured data (single git call)
+  const { commits, changedFiles } = getRecentGitInfo();
   const reads = getSessionReads(baseDir);
 
   const project = getProjectName();

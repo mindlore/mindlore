@@ -1,5 +1,6 @@
 import fs from 'fs';
 import path from 'path';
+import os from 'os';
 import crypto from 'crypto';
 import Database from 'better-sqlite3';
 
@@ -63,4 +64,21 @@ export function setupTestDir(testDir: string, subdirs?: string[]): void {
 
 export function teardownTestDir(testDir: string): void {
   fs.rmSync(testDir, { recursive: true, force: true });
+}
+
+export interface EpisodesTestEnv {
+  db: Database.Database;
+  tmpDir: string;
+}
+
+export function createEpisodesTestEnv(prefix: string): EpisodesTestEnv {
+  const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), `mindlore-${prefix}-`));
+  const dbPath = path.join(tmpDir, 'test.db');
+  const db = createTestDbWithEpisodes(dbPath);
+  return { db, tmpDir };
+}
+
+export function destroyEpisodesTestEnv(env: EpisodesTestEnv): void {
+  env.db.close();
+  fs.rmSync(env.tmpDir, { recursive: true, force: true });
 }

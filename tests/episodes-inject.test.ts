@@ -3,11 +3,10 @@
  * Tests session-focus episode injection and session-end bare episode writing.
  */
 
-import fs from 'fs';
 import path from 'path';
-import os from 'os';
 import Database from 'better-sqlite3';
-import { createTestDbWithEpisodes } from './helpers/db.js';
+import { createEpisodesTestEnv, destroyEpisodesTestEnv } from './helpers/db.js';
+import type { EpisodesTestEnv } from './helpers/db.js';
 
 const {
   ensureEpisodesTable,
@@ -21,18 +20,16 @@ const {
   queryRecentEpisodes: (db: Database.Database, opts: Record<string, unknown>) => Array<Record<string, unknown>>;
 } = require('../hooks/lib/mindlore-common.cjs');
 
+let env: EpisodesTestEnv;
 let db: Database.Database;
-let tmpDir: string;
 
 beforeEach(() => {
-  tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'mindlore-inject-'));
-  const dbPath = path.join(tmpDir, 'test.db');
-  db = createTestDbWithEpisodes(dbPath);
+  env = createEpisodesTestEnv('inject');
+  db = env.db;
 });
 
 afterEach(() => {
-  db.close();
-  fs.rmSync(tmpDir, { recursive: true, force: true });
+  destroyEpisodesTestEnv(env);
 });
 
 describe('session-focus episode injection', () => {
@@ -171,7 +168,7 @@ describe('session-end bare episode', () => {
 
 describe('episodes table migration', () => {
   test('ensureEpisodesTable on fresh DB creates table', () => {
-    const freshPath = path.join(tmpDir, 'fresh.db');
+    const freshPath = path.join(env.tmpDir, 'fresh.db');
     const freshDb = new Database(freshPath);
     freshDb.pragma('journal_mode = WAL');
 

@@ -3,11 +3,9 @@
  * Tests the diary workflow: find bare session → extract enriched episodes.
  */
 
-import fs from 'fs';
-import path from 'path';
-import os from 'os';
 import Database from 'better-sqlite3';
-import { createTestDbWithEpisodes } from './helpers/db.js';
+import { createEpisodesTestEnv, destroyEpisodesTestEnv } from './helpers/db.js';
+import type { EpisodesTestEnv } from './helpers/db.js';
 import {
   createEpisode,
   queryEpisodes,
@@ -23,18 +21,16 @@ const {
   queryRecentEpisodes: (db: Database.Database, opts: Record<string, unknown>) => Array<Record<string, unknown>>;
 } = require('../hooks/lib/mindlore-common.cjs');
 
+let env: EpisodesTestEnv;
 let db: Database.Database;
-let tmpDir: string;
 
 beforeEach(() => {
-  tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'mindlore-diary-'));
-  const dbPath = path.join(tmpDir, 'test.db');
-  db = createTestDbWithEpisodes(dbPath);
+  env = createEpisodesTestEnv('diary');
+  db = env.db;
 });
 
 afterEach(() => {
-  db.close();
-  fs.rmSync(tmpDir, { recursive: true, force: true });
+  destroyEpisodesTestEnv(env);
 });
 
 describe('episode kinds', () => {

@@ -2,9 +2,7 @@
  * Episodes CRUD tests — v0.4.0 episodic memory.
  */
 
-import fs from 'fs';
 import path from 'path';
-import os from 'os';
 import {
   createEpisode,
   getEpisode,
@@ -16,23 +14,20 @@ import {
   ensureEpisodesTable,
   hasEpisodesTable,
 } from '../scripts/lib/episodes.js';
-// Episode type used implicitly via createEpisode return values
-import { createTestDbWithEpisodes } from './helpers/db.js';
+import { createEpisodesTestEnv, destroyEpisodesTestEnv } from './helpers/db.js';
+import type { EpisodesTestEnv } from './helpers/db.js';
 import Database from 'better-sqlite3';
 
+let env: EpisodesTestEnv;
 let db: Database.Database;
-let dbPath: string;
-let tmpDir: string;
 
 beforeEach(() => {
-  tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'mindlore-episodes-'));
-  dbPath = path.join(tmpDir, 'test.db');
-  db = createTestDbWithEpisodes(dbPath);
+  env = createEpisodesTestEnv('episodes');
+  db = env.db;
 });
 
 afterEach(() => {
-  db.close();
-  fs.rmSync(tmpDir, { recursive: true, force: true });
+  destroyEpisodesTestEnv(env);
 });
 
 describe('episodes table', () => {
@@ -41,7 +36,7 @@ describe('episodes table', () => {
   });
 
   test('hasEpisodesTable returns false on fresh db', () => {
-    const freshPath = path.join(tmpDir, 'fresh.db');
+    const freshPath = path.join(env.tmpDir, 'fresh.db');
     const freshDb = new Database(freshPath);
     expect(hasEpisodesTable(freshDb)).toBe(false);
     freshDb.close();
