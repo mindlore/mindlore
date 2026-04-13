@@ -12,7 +12,7 @@
 
 import fs from 'fs';
 import path from 'path';
-import { execSync } from 'child_process';
+import { execSync, execFileSync } from 'child_process';
 import { GLOBAL_MINDLORE_DIR, log } from './lib/constants.js';
 
 const BASE_DIR = GLOBAL_MINDLORE_DIR;
@@ -129,14 +129,14 @@ function backupRemote(url: string): void {
         stdio: 'pipe',
         timeout: 5000,
       });
-      execSync(`git remote set-url origin "${url}"`, {
+      execFileSync('git', ['remote', 'set-url', 'origin', url], {
         cwd: BASE_DIR,
         stdio: 'pipe',
         timeout: 5000,
       });
       log(`Remote updated: ${url}`);
     } catch (_err) {
-      execSync(`git remote add origin "${url}"`, {
+      execFileSync('git', ['remote', 'add', 'origin', url], {
         cwd: BASE_DIR,
         stdio: 'pipe',
         timeout: 5000,
