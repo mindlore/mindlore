@@ -79,6 +79,10 @@ npx jest tests/fts5.test.ts  # specific suite
 
 28 active suites in v0.3.4: fts5, fts5-sync, dedup, init, frontmatter, hook-smoke, uninstall, search-hook, session-focus, compounding, decision, read-guard, log, global-layer, cwd-changed, dont-repeat, post-read, upgrade, schemas, quality-populate, reflect, e2e-pipeline, evolve, explore, model-router, project-namespace, backup, obsidian.
 
+## Release
+
+Versiyon yükseltme ve npm publish için `/mindlore-release` global skill'ini kullan. Normal `/release` skill'i DEĞİL.
+
 ## Planlama Referansları
 
 Yeni versiyon planlarken bu dosyalara bakılmalı:
