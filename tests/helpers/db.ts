@@ -4,9 +4,10 @@ import crypto from 'crypto';
 import Database from 'better-sqlite3';
 
 // Hook'lar .cjs kalıyor — SQL constants'ları oradan import ediyoruz
-const { SQL_FTS_CREATE, insertFtsRow }: {
+const { SQL_FTS_CREATE, insertFtsRow, ensureEpisodesTable: ensureEpisodesTableCjs }: {
   SQL_FTS_CREATE: string;
   insertFtsRow: (db: Database.Database, entry: Record<string, unknown>) => void;
+  ensureEpisodesTable: (db: Database.Database) => void;
 } = require('../../hooks/lib/mindlore-common.cjs');
 
 export function sha256(content: string): string {
@@ -44,6 +45,12 @@ export interface FtsEntry {
 
 export function insertFts(db: Database.Database, entry: FtsEntry): void {
   insertFtsRow(db, entry);
+}
+
+export function createTestDbWithEpisodes(dbPath: string): Database.Database {
+  const db = createTestDb(dbPath);
+  ensureEpisodesTableCjs(db);
+  return db;
 }
 
 export function setupTestDir(testDir: string, subdirs?: string[]): void {

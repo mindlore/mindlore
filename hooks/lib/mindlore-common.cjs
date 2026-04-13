@@ -287,6 +287,117 @@ const DEFAULT_MODELS = {
   default: 'haiku',
 };
 
+// ── Episodes (v0.4.0) ─────────────────────────────────────────────
+
+const SQL_EPISODES_CREATE = `
+CREATE TABLE IF NOT EXISTS episodes (
+  id TEXT PRIMARY KEY,
+  kind TEXT NOT NULL,
+  scope TEXT NOT NULL DEFAULT 'project',
+  project TEXT,
+  summary TEXT NOT NULL,
+  body TEXT,
+  tags TEXT,
+  entities TEXT,
+  parent_id TEXT,
+  status TEXT NOT NULL DEFAULT 'active',
+  supersedes TEXT,
+  source TEXT,
+  created_at TEXT NOT NULL
+)`;
+
+const SQL_EPISODES_INDEXES = [
+  'CREATE INDEX IF NOT EXISTS idx_episodes_kind ON episodes(kind, status)',
+  'CREATE INDEX IF NOT EXISTS idx_episodes_project ON episodes(project, status)',
+  'CREATE INDEX IF NOT EXISTS idx_episodes_created ON episodes(created_at DESC)',
+];
+
+/**
+ * Ensure episodes table + indexes exist. Idempotent.
+ * @param {import('better-sqlite3').Database} db
+ */
+function ensureEpisodesTable(db) {
+  db.exec(SQL_EPISODES_CREATE);
+  for (const idx of SQL_EPISODES_INDEXES) {
+    db.exec(idx);
+  }
+}
+
+/**
+ * Check if episodes table exists in the database.
+ * @param {import('better-sqlite3').Database} db
+ * @returns {boolean}
+ */
+function hasEpisodesTable(db) {
+  const row = db.prepare("SELECT name FROM sqlite_master WHERE type='table' AND name='episodes'").get();
+  return row !== undefined;
+}
+
+/**
+ * Generate a time-sortable episode ID.
+ * Format: ep-{base36-timestamp}-{12-hex-random}
+ */
+function generateEpisodeId() {
+  const timestamp = Date.now().toString(36);
+  const random = crypto.randomBytes(6).toString('hex');
+  return `ep-${timestamp}-${random}`;
+}
+
+/**
+ * Insert a bare episode from hook context (no LLM needed).
+ * @param {import('better-sqlite3').Database} db
+ * @param {object} entry
+ * @returns {string} episode id
+ */
+function insertBareEpisode(db, entry) {
+  const id = entry.id || generateEpisodeId();
+  const now = new Date().toISOString();
+
+  db.prepare(`
+    INSERT INTO episodes (id, kind, scope, project, summary, body, tags, entities, parent_id, status, supersedes, source, created_at)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'active', ?, ?, ?)
+  `).run(
+    id,
+    entry.kind || 'session',
+    entry.scope || 'project',
+    entry.project || null,
+    entry.summary || '',
+    entry.body || null,
+    entry.tags || null,
+    entry.entities ? JSON.stringify(entry.entities) : null,
+    entry.parent_id || null,
+    entry.supersedes || null,
+    entry.source || 'hook',
+    now,
+  );
+
+  return id;
+}
+
+/**
+ * Query recent episodes for session-focus injection.
+ * @param {import('better-sqlite3').Database} db
+ * @param {object} opts - { project, limit, maxChars }
+ * @returns {Array<{kind: string, summary: string, created_at: string}>}
+ */
+function queryRecentEpisodes(db, opts) {
+  const project = opts.project || null;
+  const limit = opts.limit || 3;
+
+  let sql = "SELECT kind, summary, created_at FROM episodes WHERE status = 'active'";
+  const params = [];
+
+  if (project) {
+    sql += ' AND project = ?';
+    params.push(project);
+  }
+
+  sql += ' ORDER BY created_at DESC LIMIT ?';
+  params.push(limit);
+
+  return db.prepare(sql).all(...params);
+}
+
 module.exports = {
   MINDLORE_DIR,
   GLOBAL_MINDLORE_DIR,
@@ -312,4 +423,12 @@ module.exports = {
   detectSchemaVersion,
   getProjectName,
   DEFAULT_MODELS,
+  // Episodes (v0.4.0)
+  SQL_EPISODES_CREATE,
+  SQL_EPISODES_INDEXES,
+  ensureEpisodesTable,
+  hasEpisodesTable,
+  generateEpisodeId,
+  insertBareEpisode,
+  queryRecentEpisodes,
 };

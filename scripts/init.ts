@@ -18,7 +18,10 @@ import { dbPragma } from './lib/db-helpers.js';
 import { parseJsonObject, readJsonFile } from './lib/safe-parse.js';
 
 // eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- dynamic CJS require, typed by mindlore-common.d.cts
-const { SQL_FTS_CREATE } = require(resolveHookCommon(__dirname)) as { SQL_FTS_CREATE: string };
+const { SQL_FTS_CREATE, ensureEpisodesTable: ensureEpisodesTableCjs } = require(resolveHookCommon(__dirname)) as {
+  SQL_FTS_CREATE: string;
+  ensureEpisodesTable: (db: import('better-sqlite3').Database) => void;
+};
 
 const TEMPLATE_FILES = ['INDEX.md', 'log.md'];
 
@@ -168,6 +171,10 @@ function createDatabase(baseDir: string): boolean {
     } else {
       log('Database already exists, schema OK');
     }
+    // v0.4.0: Ensure episodes table on existing DBs
+    const dbEp = new DatabaseCtor(dbPath);
+    ensureEpisodesTableCjs(dbEp);
+    dbEp.close();
     return migrated;
   }
 
@@ -183,6 +190,9 @@ function createDatabase(baseDir: string): boolean {
       last_indexed TEXT NOT NULL
     );
   `);
+
+  // v0.4.0: Episodes table
+  ensureEpisodesTableCjs(db);
 
   db.close();
   return true;
@@ -421,6 +431,7 @@ function main(): void {
     quality: { script: './quality-populate.js', passArgs: false },
     backup: { script: './mindlore-backup.js', passArgs: true },
     obsidian: { script: './mindlore-obsidian.js', passArgs: true },
+    episodes: { script: './mindlore-episodes.js', passArgs: true },
   };
 
   const cliCmd = command ? cliCommands[command] : undefined;
@@ -447,6 +458,7 @@ function main(): void {
     console.log('       npx mindlore quality');
     console.log('       npx mindlore backup init|status|remote|now');
     console.log('       npx mindlore obsidian export|import|status');
+    console.log('       npx mindlore episodes list|search|show');
     process.exit(1);
   }
 
