@@ -1,6 +1,8 @@
 import fs from 'fs';
 import path from 'path';
 import { execSync } from 'child_process';
+import { getExecStdout } from './helpers/exec.js';
+import { readJsonFile } from '../scripts/lib/safe-parse.js';
 
 const TEST_DIR = path.join(__dirname, '..', '.test-obsidian');
 const MINDLORE_DIR = path.join(TEST_DIR, '.mindlore');
@@ -14,8 +16,8 @@ function runObsidian(args: string): string {
       timeout: 10000,
       env: { ...process.env, MINDLORE_HOME: MINDLORE_DIR },
     });
-  } catch (err) {
-    return (err as { stdout?: string }).stdout || '';
+  } catch (err: unknown) {
+    return getExecStdout(err);
   }
 }
 
@@ -92,7 +94,7 @@ describe('mindlore obsidian', () => {
     test('updates obsidian config after export', () => {
       runObsidian(`export --vault "${VAULT_DIR}"`);
 
-      const config = JSON.parse(fs.readFileSync(path.join(MINDLORE_DIR, 'config.json'), 'utf8'));
+      const config = readJsonFile<{ obsidian: { vault: string; lastExport: string } }>(path.join(MINDLORE_DIR, 'config.json'));
       expect(config.obsidian).toBeDefined();
       expect(config.obsidian.vault).toBe(VAULT_DIR);
       expect(config.obsidian.lastExport).toBeTruthy();

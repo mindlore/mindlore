@@ -4,11 +4,10 @@ import crypto from 'crypto';
 import Database from 'better-sqlite3';
 
 // Hook'lar .cjs kalıyor — SQL constants'ları oradan import ediyoruz
- 
-const { SQL_FTS_CREATE, insertFtsRow } = require('../../hooks/lib/mindlore-common.cjs') as {
+const { SQL_FTS_CREATE, insertFtsRow }: {
   SQL_FTS_CREATE: string;
   insertFtsRow: (db: Database.Database, entry: Record<string, unknown>) => void;
-};
+} = require('../../hooks/lib/mindlore-common.cjs');
 
 export function sha256(content: string): string {
   return crypto.createHash('sha256').update(content, 'utf8').digest('hex');

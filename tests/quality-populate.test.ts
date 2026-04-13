@@ -3,6 +3,7 @@ import path from 'path';
 import { execSync } from 'child_process';
 import type Database from 'better-sqlite3';
 import { createTestDb, insertFts, setupTestDir, teardownTestDir } from './helpers/db';
+import { dbAll, dbGet } from '../scripts/lib/db-helpers.js';
 
 const TEST_DIR = path.join(__dirname, '..', '.test-quality-populate');
 const DB_PATH = path.join(TEST_DIR, 'mindlore.db');
@@ -30,8 +31,8 @@ describe('Quality populate — storage and retrieval', () => {
       quality: 'high',
     });
 
-    const row = db.prepare('SELECT quality FROM mindlore_fts WHERE slug = ?').get('anthropic-docs') as { quality: string };
-    expect(row.quality).toBe('high');
+    const row = dbGet<{ quality: string }>(db, 'SELECT quality FROM mindlore_fts WHERE slug = ?', 'anthropic-docs');
+    expect(row?.quality).toBe('high');
   });
 
   test('medium quality stored and retrieved correctly', () => {
@@ -43,8 +44,8 @@ describe('Quality populate — storage and retrieval', () => {
       quality: 'medium',
     });
 
-    const row = db.prepare('SELECT quality FROM mindlore_fts WHERE slug = ?').get('blog-post') as { quality: string };
-    expect(row.quality).toBe('medium');
+    const row = dbGet<{ quality: string }>(db, 'SELECT quality FROM mindlore_fts WHERE slug = ?', 'blog-post');
+    expect(row?.quality).toBe('medium');
   });
 
   test('low quality stored and retrieved correctly', () => {
@@ -56,8 +57,8 @@ describe('Quality populate — storage and retrieval', () => {
       quality: 'low',
     });
 
-    const row = db.prepare('SELECT quality FROM mindlore_fts WHERE slug = ?').get('quick-paste') as { quality: string };
-    expect(row.quality).toBe('low');
+    const row = dbGet<{ quality: string }>(db, 'SELECT quality FROM mindlore_fts WHERE slug = ?', 'quick-paste');
+    expect(row?.quality).toBe('low');
   });
 
   test('NULL quality records are queryable via FTS5', () => {
@@ -68,8 +69,8 @@ describe('Quality populate — storage and retrieval', () => {
       content: '# Test\n\nContent without quality assignment.',
     });
 
-    const row = db.prepare('SELECT quality FROM mindlore_fts WHERE slug = ?').get('no-quality') as { quality: string | null };
-    expect(row.quality).toBeNull();
+    const row = dbGet<{ quality: string | null }>(db, 'SELECT quality FROM mindlore_fts WHERE slug = ?', 'no-quality');
+    expect(row?.quality).toBeNull();
 
     const results = db.prepare("SELECT slug FROM mindlore_fts WHERE mindlore_fts MATCH 'quality'").all();
     expect(results.length).toBeGreaterThan(0);
@@ -86,7 +87,7 @@ describe('Quality populate — storage and retrieval', () => {
       });
     }
 
-    const rows = db.prepare('SELECT slug, quality FROM mindlore_fts WHERE slug LIKE ?').all('quality-%') as Array<{ slug: string; quality: string | null }>;
+    const rows = dbAll<{ slug: string; quality: string | null }>(db, 'SELECT slug, quality FROM mindlore_fts WHERE slug LIKE ?', 'quality-%');
     expect(rows).toHaveLength(4);
 
     const qualities = rows.map(r => r.quality);

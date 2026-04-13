@@ -2,6 +2,8 @@ import path from 'path';
 import fs from 'fs';
 import { execSync } from 'child_process';
 import { setupTestDir, teardownTestDir } from './helpers/db.js';
+import { parseJsonObject } from '../scripts/lib/safe-parse.js';
+import { getExecResult } from './helpers/exec.js';
 
 const PROJECT_DIR = path.join(__dirname, '..', '.test-project-readguard');
 const TEST_DIR = path.join(PROJECT_DIR, '.mindlore');
@@ -18,13 +20,7 @@ afterEach(() => {
   teardownTestDir(PROJECT_DIR);
 });
 
-interface RunGuardResult {
-  stdout: string;
-  stderr?: string;
-  exitCode: number;
-}
-
-function runGuard(input: string): RunGuardResult {
+function runGuard(input: string): { stdout: string; stderr: string; exitCode: number } {
   try {
     const result = execSync(`node "${HOOK_PATH}"`, {
       input,
@@ -33,14 +29,9 @@ function runGuard(input: string): RunGuardResult {
       cwd: PROJECT_DIR,
       env: { ...process.env, MINDLORE_HOME: TEST_DIR },
     });
-    return { stdout: result.trim(), exitCode: 0 };
+    return { stdout: result.trim(), stderr: '', exitCode: 0 };
   } catch (err) {
-    const e = err as { stdout?: string; stderr?: string; status?: number };
-    return {
-      stdout: (e.stdout ?? '').trim(),
-      stderr: (e.stderr ?? '').trim(),
-      exitCode: e.status ?? 0,
-    };
+    return getExecResult(err);
   }
 }
 
@@ -63,7 +54,7 @@ describe('Read Guard Hook', () => {
     runGuard(input);
     const readsPath = path.join(TEST_DIR, 'diary', `_session-reads-${PROJECT_NAME}.json`);
     if (fs.existsSync(readsPath)) {
-      const reads = JSON.parse(fs.readFileSync(readsPath, 'utf8')) as Record<string, unknown>;
+      const reads = parseJsonObject<Record<string, unknown>>(fs.readFileSync(readsPath, 'utf8'));
       const keys = Object.keys(reads);
       const mindloreKeys = keys.filter((k) => k.includes('.mindlore'));
       expect(mindloreKeys).toHaveLength(0);

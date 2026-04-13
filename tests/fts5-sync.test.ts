@@ -49,10 +49,12 @@ describe('FTS5 Incremental Sync', () => {
     db.prepare(`INSERT OR REPLACE INTO file_hashes (path, content_hash, last_indexed) VALUES (?, ?, datetime('now'))`).run(filePath, hash);
 
     // Verify indexed
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- better-sqlite3 .get() returns unknown
     const result = db.prepare('SELECT count(*) as cnt FROM mindlore_fts WHERE path = ?').get(filePath) as { cnt: number };
     expect(result.cnt).toBe(1);
 
     // Verify hash stored
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- better-sqlite3 .get() returns unknown
     const hashRow = db.prepare('SELECT content_hash FROM file_hashes WHERE path = ?').get(filePath) as { content_hash: string };
     expect(hashRow.content_hash).toBe(hash);
 
@@ -91,6 +93,7 @@ describe('FTS5 Incremental Sync', () => {
     // Re-read same file — hash should match, skip re-index
     const raw2 = fs.readFileSync(filePath, 'utf8').replace(/\r\n/g, '\n');
     const hash2 = sha256(raw2);
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- better-sqlite3 .get() returns unknown
     const existingHash = db.prepare('SELECT content_hash FROM file_hashes WHERE path = ?').get(filePath) as { content_hash: string } | undefined;
 
     expect(existingHash).toBeDefined();
@@ -133,6 +136,7 @@ describe('FTS5 Incremental Sync', () => {
     db.prepare(`INSERT OR REPLACE INTO file_hashes (path, content_hash, last_indexed) VALUES (?, ?, datetime('now'))`).run(filePath, hash2);
 
     // Verify updated
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- better-sqlite3 .get() returns unknown
     const row = db.prepare('SELECT title FROM mindlore_fts WHERE path = ?').get(filePath) as { title: string };
     expect(row.title).toBe('Version 2');
 

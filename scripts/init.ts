@@ -14,11 +14,11 @@ import fs from 'fs';
 import path from 'path';
 import { MINDLORE_DIR, GLOBAL_MINDLORE_DIR, DB_NAME, DIRECTORIES, CONFIG_FILE, DEFAULT_MODELS, homedir, log, resolveHookCommon } from './lib/constants.js';
 import type { Settings } from './lib/constants.js';
+import { dbPragma } from './lib/db-helpers.js';
+import { parseJsonObject, readJsonFile } from './lib/safe-parse.js';
 
- 
-const { SQL_FTS_CREATE } = require(resolveHookCommon(__dirname)) as {
-  SQL_FTS_CREATE: string;
-};
+// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- dynamic CJS require, typed by mindlore-common.d.cts
+const { SQL_FTS_CREATE } = require(resolveHookCommon(__dirname)) as { SQL_FTS_CREATE: string };
 
 const TEMPLATE_FILES = ['INDEX.md', 'log.md'];
 
@@ -35,6 +35,7 @@ interface PluginSkill {
 interface PluginManifest {
   hooks?: PluginHook[];
   skills?: PluginSkill[];
+  [key: string]: unknown;
 }
 
 // ── Helpers ────────────────────────────────────────────────────────────
@@ -116,7 +117,7 @@ function resetSchema(db: import('better-sqlite3').Database): void {
 function migrateDatabase(dbPath: string, DatabaseCtor: typeof import('better-sqlite3')): boolean {
   const db = new DatabaseCtor(dbPath);
   try {
-    const info = db.pragma('table_info(mindlore_fts)') as PragmaRow[];
+    const info = dbPragma<PragmaRow>(db, 'table_info(mindlore_fts)');
     const columns = info.map((r) => r.name);
     if (!columns.includes('slug') || !columns.includes('description')) {
       log('Upgrading FTS5 schema (2 → 9 columns, porter stemmer)...');
@@ -201,7 +202,7 @@ function mergeHooks(packageRoot: string): { added: number; total: number } | fal
   let settings: Settings;
   try {
     const raw = fs.readFileSync(settingsPath, 'utf8');
-    settings = JSON.parse(raw) as Settings;
+    settings = parseJsonObject<Settings>(raw);
   } catch (_err) {
     log('WARNING: Could not parse settings.json. Hooks not registered.');
     return false;
@@ -213,7 +214,7 @@ function mergeHooks(packageRoot: string): { added: number; total: number } | fal
     return false;
   }
 
-  const plugin = JSON.parse(fs.readFileSync(pluginPath, 'utf8')) as PluginManifest;
+  const plugin = readJsonFile<PluginManifest>(pluginPath);
   if (!plugin.hooks || plugin.hooks.length === 0) {
     return false;
   }
@@ -284,7 +285,7 @@ function addSchemaToProjectDocs(): boolean {
   let settings: Settings = {};
   if (fs.existsSync(projectSettingsPath)) {
     try {
-      settings = JSON.parse(fs.readFileSync(projectSettingsPath, 'utf8')) as Settings;
+      settings = parseJsonObject<Settings>(fs.readFileSync(projectSettingsPath, 'utf8'));
     } catch (_err) {
       settings = {};
     }
@@ -345,7 +346,8 @@ function ensureBetterSqlite3(): boolean {
     return true;
   } catch (_err) {
     try {
-      const { execSync } = require('child_process') as typeof import('child_process');
+      const cp: typeof import('child_process') = require('child_process');
+      const { execSync } = cp;
       log('Installing better-sqlite3 (native dependency)...');
       execSync('npm install better-sqlite3 --no-save', {
         cwd: process.cwd(),
@@ -363,11 +365,7 @@ function ensureBetterSqlite3(): boolean {
 
 // ── Step 8: Ensure config.json with models ────────────────────────────
 
-interface MindloreConfig {
-  version?: string;
-  models?: Record<string, string>;
-  [key: string]: unknown;
-}
+type MindloreConfig = import('../hooks/lib/mindlore-common.cjs').MindloreConfig;
 
 function ensureConfig(baseDir: string, packageRoot: string): boolean {
   const configDest = path.join(baseDir, CONFIG_FILE);
@@ -388,7 +386,7 @@ function ensureConfig(baseDir: string, packageRoot: string): boolean {
   // Config exists — merge models if missing
   let config: MindloreConfig;
   try {
-    config = JSON.parse(fs.readFileSync(configDest, 'utf8')) as MindloreConfig;
+    config = readJsonFile<MindloreConfig>(configDest);
   } catch (_err) {
     return false;
   }
@@ -496,7 +494,7 @@ function main(): void {
   // Read plugin.json once for hooks + skills
   const pluginPath = path.join(packageRoot, 'plugin.json');
   const plugin: PluginManifest = fs.existsSync(pluginPath)
-    ? JSON.parse(fs.readFileSync(pluginPath, 'utf8')) as PluginManifest
+    ? readJsonFile<PluginManifest>(pluginPath)
     : {};
 
   // Step 5: Hooks
@@ -541,7 +539,8 @@ function main(): void {
   const gitDir = path.join(baseDir, '.git');
   if (!fs.existsSync(gitDir)) {
     try {
-      const { execSync } = require('child_process') as typeof import('child_process');
+      const cp2: typeof import('child_process') = require('child_process');
+      const { execSync } = cp2;
       execSync('git init', { cwd: baseDir, stdio: 'pipe', timeout: 10000 });
       log('Initialized git repo in ~/.mindlore/');
     } catch (_err) {
@@ -583,7 +582,7 @@ function main(): void {
   }
 
   // Step 11: Write .version + .pkg-version (flat string for fast session-focus comparison)
-  const packageJson = JSON.parse(fs.readFileSync(path.join(packageRoot, 'package.json'), 'utf8')) as { version: string };
+  const packageJson = readJsonFile<{ version: string }>(path.join(packageRoot, 'package.json'));
   const versionPath = path.join(baseDir, '.version');
   const pkgVersionPath = path.join(baseDir, '.pkg-version');
   fs.writeFileSync(versionPath, packageJson.version, 'utf8');

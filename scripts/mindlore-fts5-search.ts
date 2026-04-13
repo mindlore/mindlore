@@ -13,18 +13,20 @@ import fs from 'fs';
 import path from 'path';
 import type { Database } from 'better-sqlite3';
 import { DB_NAME, GLOBAL_MINDLORE_DIR, getProjectName, resolveHookCommon } from './lib/constants.js';
+import { dbAll } from './lib/db-helpers.js';
 
 
-const { openDatabase, extractHeadings } = require(resolveHookCommon(__dirname)) as {
-  openDatabase: (dbPath: string, opts?: { readonly: boolean }) => Database | null;
-  extractHeadings: (content: string, max: number) => string[];
-};
+const common: {
+  openDatabase: (dbPath: string, opts?: { readonly?: boolean }) => Database | null;
+  extractHeadings: (content: string, max?: number) => string[];
+} = require(resolveHookCommon(__dirname));
+const { openDatabase, extractHeadings } = common;
 
 const MAX_RESULTS = 3;
 
 // ── Main ───────────────────────────────────────────────────────────────
 
-interface SearchResult {
+interface SearchResult extends Record<string, unknown> {
   path: string;
   snippet: string;
   rank: number;
@@ -33,27 +35,27 @@ interface SearchResult {
 function queryDb(db: Database, sanitized: string, projectFilter?: string): SearchResult[] {
   try {
     if (projectFilter) {
-      return db
-        .prepare(
-          `SELECT path, snippet(mindlore_fts, 1, '>>>', '<<<', '...', 40) as snippet,
-                  rank
-           FROM mindlore_fts
-           WHERE mindlore_fts MATCH ? AND project = ?
-           ORDER BY rank
-           LIMIT ?`,
-        )
-        .all(sanitized, projectFilter, MAX_RESULTS) as SearchResult[];
-    }
-    return db
-      .prepare(
+      return dbAll<SearchResult>(
+        db,
         `SELECT path, snippet(mindlore_fts, 1, '>>>', '<<<', '...', 40) as snippet,
                 rank
          FROM mindlore_fts
-         WHERE mindlore_fts MATCH ?
+         WHERE mindlore_fts MATCH ? AND project = ?
          ORDER BY rank
          LIMIT ?`,
-      )
-      .all(sanitized, MAX_RESULTS) as SearchResult[];
+        sanitized, projectFilter, MAX_RESULTS,
+      );
+    }
+    return dbAll<SearchResult>(
+      db,
+      `SELECT path, snippet(mindlore_fts, 1, '>>>', '<<<', '...', 40) as snippet,
+              rank
+       FROM mindlore_fts
+       WHERE mindlore_fts MATCH ?
+       ORDER BY rank
+       LIMIT ?`,
+      sanitized, MAX_RESULTS,
+    );
   } catch (_err) {
     return [];
   }

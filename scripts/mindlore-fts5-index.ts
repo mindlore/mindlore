@@ -10,16 +10,9 @@
 import fs from 'fs';
 import path from 'path';
 import { DB_NAME, GLOBAL_MINDLORE_DIR, resolveHookCommon } from './lib/constants.js';
+import { dbAll } from './lib/db-helpers.js';
 
- 
-const {
-  sha256,
-  getAllMdFiles,
-  openDatabase,
-  parseFrontmatter,
-  extractFtsMetadata,
-  insertFtsRow,
-} = require(resolveHookCommon(__dirname)) as {
+const common: {
   sha256: (content: string) => string;
   getAllMdFiles: (dir: string) => string[];
   openDatabase: (dbPath: string) => import('better-sqlite3').Database | null;
@@ -44,7 +37,8 @@ const {
     category?: string; title?: string; content?: string; tags?: string;
     quality?: string | null; dateCaptured?: string | null; project?: string | null;
   }) => void;
-};
+} = require(resolveHookCommon(__dirname));
+const { sha256, getAllMdFiles, openDatabase, parseFrontmatter, extractFtsMetadata, insertFtsRow } = common;
 
 // ── Main ───────────────────────────────────────────────────────────────
 
@@ -63,7 +57,6 @@ function main(): void {
     process.exit(1);
   }
 
-  const getHash = db.prepare('SELECT content_hash FROM file_hashes WHERE path = ?');
   const upsertHash = db.prepare(`
     INSERT INTO file_hashes (path, content_hash, last_indexed)
     VALUES (?, ?, ?)
@@ -72,8 +65,9 @@ function main(): void {
       last_indexed = excluded.last_indexed
   `);
   const deleteFts = db.prepare('DELETE FROM mindlore_fts WHERE path = ?');
+  const getHash = db.prepare('SELECT content_hash FROM file_hashes WHERE path = ?');
 
-  const mdFiles = getAllMdFiles(baseDir) as string[];
+  const mdFiles = getAllMdFiles(baseDir);
   let indexed = 0;
   let skipped = 0;
   let errors = 0;
@@ -87,6 +81,7 @@ function main(): void {
         const content = fs.readFileSync(filePath, 'utf8').replace(/\r\n/g, '\n');
         const hash = sha256(content);
 
+        // eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- pre-prepared stmt in hot loop
         const existing = getHash.get(filePath) as { content_hash: string } | undefined;
         if (existing && existing.content_hash === hash) {
           skipped++;
@@ -111,7 +106,7 @@ function main(): void {
 
   transaction();
 
-  const allIndexed = db.prepare('SELECT path FROM file_hashes').all() as Array<{ path: string }>;
+  const allIndexed = dbAll<{ path: string }>(db, 'SELECT path FROM file_hashes');
   const existingPaths = new Set(mdFiles);
   let removed = 0;
 

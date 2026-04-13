@@ -141,7 +141,8 @@ let markitdownCached: boolean | null = null;
 export function hasMarkitdown(): boolean {
   if (markitdownCached !== null) return markitdownCached;
   try {
-    const { execSync } = require('child_process') as typeof import('child_process');
+    const cp: typeof import('child_process') = require('child_process');
+    const { execSync } = cp;
     execSync('markitdown --version', { stdio: 'pipe', timeout: 5000 });
     markitdownCached = true;
   } catch (_err) {

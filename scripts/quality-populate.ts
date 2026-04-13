@@ -14,10 +14,11 @@ import path from 'path';
 import { GLOBAL_MINDLORE_DIR, DB_NAME, QUALITY_HEURISTICS, isContentFile, log, resolveHookCommon } from './lib/constants.js';
 import type { QualityValue } from './lib/constants.js';
 
-const { parseFrontmatter, openDatabase } = require(resolveHookCommon(__dirname)) as {
+interface HookCommon {
   parseFrontmatter: (content: string) => { meta: Record<string, unknown>; body: string };
   openDatabase: (dbPath: string, opts?: { readonly?: boolean }) => import('better-sqlite3').Database | null;
-};
+}
+const { parseFrontmatter, openDatabase }: HookCommon = require(resolveHookCommon(__dirname));
 
 function resolveQuality(meta: Record<string, unknown>): QualityValue {
   const sourceType = String(meta.source_type || '').toLowerCase();
@@ -53,6 +54,8 @@ function main(): void {
 
   // Open DB once before loop
   const db = fs.existsSync(dbPath) ? openDatabase(dbPath) : null;
+  const getRowid = db?.prepare('SELECT rowid FROM mindlore_fts WHERE path = ?');
+  const updateQuality = db?.prepare('UPDATE mindlore_fts SET quality = ? WHERE rowid = ?');
 
   let updated = 0;
   let skipped = 0;
@@ -73,11 +76,12 @@ function main(): void {
     fs.writeFileSync(filePath, newContent, 'utf8');
 
     // Update FTS5
-    if (db) {
+    if (getRowid && updateQuality) {
       try {
-        const row = db.prepare('SELECT rowid FROM mindlore_fts WHERE path = ?').get(filePath) as { rowid: number } | undefined;
+        // eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- pre-prepared stmt in loop
+        const row = getRowid.get(filePath) as { rowid: number } | undefined;
         if (row) {
-          db.prepare('UPDATE mindlore_fts SET quality = ? WHERE rowid = ?').run(quality, row.rowid);
+          updateQuality.run(quality, row.rowid);
         }
       } catch (_err) {
         // FTS5 update failure is non-fatal

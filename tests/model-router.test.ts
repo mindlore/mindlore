@@ -1,6 +1,7 @@
 import fs from 'fs';
 import path from 'path';
 import { execSync } from 'child_process';
+import { getExecStdout } from './helpers/exec.js';
 
 const HOOK_PATH = path.join(__dirname, '..', 'hooks', 'mindlore-model-router.cjs');
 const TEST_DIR = path.join(__dirname, '..', '.test-model-router');
@@ -18,8 +19,7 @@ function runHook(stdinData: Record<string, unknown>, mindloreDir?: string): stri
       env: { ...process.env, MINDLORE_HOME: mDir },
     });
   } catch (err: unknown) {
-    const e = err as { stdout?: string };
-    return e.stdout || '';
+    return getExecStdout(err);
   }
 }
 

@@ -13,6 +13,7 @@ import fs from 'fs';
 import path from 'path';
 import { homedir, log, GLOBAL_MINDLORE_DIR } from './lib/constants.js';
 import type { Settings } from './lib/constants.js';
+import { readJsonFile } from './lib/safe-parse.js';
 
 // ── Remove hooks from settings.json ────────────────────────────────────
 
@@ -26,7 +27,7 @@ function removeHooks(): number {
 
   let settings: Settings;
   try {
-    settings = JSON.parse(fs.readFileSync(settingsPath, 'utf8')) as Settings;
+    settings = readJsonFile<Settings>(settingsPath);
   } catch (_err) {
     log('Could not parse settings.json, skipping hooks');
     return 0;
@@ -78,7 +79,7 @@ function removeSkills(): number {
   const pluginPath = path.join(packageRoot, 'plugin.json');
   const registeredSkills: string[] = [];
   if (fs.existsSync(pluginPath)) {
-    const plugin = JSON.parse(fs.readFileSync(pluginPath, 'utf8'));
+    const plugin = readJsonFile<{ skills?: Array<{ name?: string }> }>(pluginPath);
     for (const s of plugin.skills ?? []) {
       if (s.name) registeredSkills.push(s.name);
     }
@@ -104,7 +105,7 @@ function removeFromProjectDocs(): boolean {
 
   let settings: Settings;
   try {
-    settings = JSON.parse(fs.readFileSync(projectSettingsPath, 'utf8')) as Settings;
+    settings = readJsonFile<Settings>(projectSettingsPath);
   } catch (_err) {
     return false;
   }

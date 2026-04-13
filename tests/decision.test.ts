@@ -2,6 +2,7 @@ import path from 'path';
 import fs from 'fs';
 import { execSync } from 'child_process';
 import { setupTestDir, teardownTestDir } from './helpers/db.js';
+import { getExecStdout } from './helpers/exec.js';
 
 const PROJECT_DIR = path.join(__dirname, '..', '.test-project-decision');
 const MINDLORE_DIR = path.join(PROJECT_DIR, '.mindlore');
@@ -27,8 +28,7 @@ function runDetector(input: string): string {
     });
     return result.trim();
   } catch (err) {
-    const e = err as { stdout?: string };
-    return (e.stdout ?? '').trim();
+    return getExecStdout(err).trim();
   }
 }
 

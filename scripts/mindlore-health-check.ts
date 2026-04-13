@@ -11,17 +11,15 @@
 import fs from 'fs';
 import path from 'path';
 import { DIRECTORIES, TYPE_TO_DIR, DB_NAME, GLOBAL_MINDLORE_DIR, resolveHookCommon, isContentFile } from './lib/constants.js';
+import { dbGet, dbAll } from './lib/db-helpers.js';
 
-const { detectSchemaVersion } = require(resolveHookCommon(__dirname)) as { detectSchemaVersion: (db: unknown) => number };
-
- 
-const {
-  parseFrontmatter: _parseFm,
-  getAllMdFiles: _getAllMd,
-} = require(resolveHookCommon(__dirname)) as {
+interface MindloreCommon {
+  detectSchemaVersion: (db: unknown) => number;
   parseFrontmatter: (content: string) => { meta: Record<string, string>; body: string };
   getAllMdFiles: (dir: string, skipFiles?: Set<string>) => string[];
-};
+}
+const common: MindloreCommon = require(resolveHookCommon(__dirname));
+const { detectSchemaVersion, parseFrontmatter: _parseFm, getAllMdFiles: _getAllMd } = common;
 
 // ── Helpers ────────────────────────────────────────────────────────────
 
@@ -151,10 +149,8 @@ class HealthChecker {
 
       const db = new Database(dbPath, { readonly: true });
       try {
-        const result = db.prepare('SELECT count(*) as cnt FROM mindlore_fts').get() as { cnt: number };
-        const hashResult = db
-          .prepare('SELECT count(*) as cnt FROM file_hashes')
-          .get() as { cnt: number };
+        const result = dbGet<{ cnt: number }>(db, 'SELECT count(*) as cnt FROM mindlore_fts') ?? { cnt: 0 };
+        const hashResult = dbGet<{ cnt: number }>(db, 'SELECT count(*) as cnt FROM file_hashes') ?? { cnt: 0 };
 
         const schemaVersion = detectSchemaVersion(db);
 
@@ -197,7 +193,7 @@ class HealthChecker {
       const db = new Database(dbPath, { readonly: true });
       try {
         const indexed = new Set<string>();
-        const rows = db.prepare('SELECT path FROM file_hashes').all() as Array<{ path: string }>;
+        const rows = dbAll<{ path: string }>(db, 'SELECT path FROM file_hashes');
         for (const row of rows) {
           indexed.add(path.resolve(row.path));
         }

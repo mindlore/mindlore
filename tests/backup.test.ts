@@ -1,6 +1,7 @@
 import fs from 'fs';
 import path from 'path';
 import { execSync } from 'child_process';
+import { getExecStdout } from './helpers/exec.js';
 
 const TEST_DIR = path.join(__dirname, '..', '.test-backup');
 const MINDLORE_DIR = path.join(TEST_DIR, '.mindlore');
@@ -21,7 +22,7 @@ function runBackup(args: string): string {
       },
     });
   } catch (err) {
-    return (err as { stdout?: string }).stdout || '';
+    return getExecStdout(err);
   }
 }
 

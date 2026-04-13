@@ -8,6 +8,7 @@
 import fs from 'fs';
 import path from 'path';
 import { sha256, createTestDb, insertFts, setupTestDir, teardownTestDir } from './helpers/db.js';
+import { dbAll } from '../scripts/lib/db-helpers.js';
 
 const TEST_DIR = path.join(__dirname, '..', '.test-mindlore-compounding');
 const DB_PATH = path.join(TEST_DIR, 'mindlore.db');
@@ -20,7 +21,7 @@ afterEach(() => {
   teardownTestDir(TEST_DIR);
 });
 
-interface FtsPathRow {
+interface FtsPathRow extends Record<string, unknown> {
   path: string;
 }
 
@@ -51,14 +52,14 @@ describe('Knowledge Compounding', () => {
     ).run(insightPath, sha256(insightContent), new Date().toISOString());
 
     // Step 4: Next query should find the writeback content
-    const results = db
-      .prepare(
-        `SELECT path FROM mindlore_fts
+    const results = dbAll<FtsPathRow>(
+      db,
+      `SELECT path FROM mindlore_fts
          WHERE mindlore_fts MATCH ?
          ORDER BY rank
-         LIMIT 3`
-      )
-      .all('memory leaks cleanup') as FtsPathRow[];
+         LIMIT 3`,
+      'memory leaks cleanup',
+    );
 
     expect(results.length).toBeGreaterThan(0);
     expect(results.some((r) => r.path.includes('react-cleanup'))).toBe(true);

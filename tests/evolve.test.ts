@@ -2,6 +2,7 @@ import fs from 'fs';
 import path from 'path';
 import type Database from 'better-sqlite3';
 import { createTestDb, insertFts, setupTestDir, teardownTestDir } from './helpers/db';
+import { dbAll } from '../scripts/lib/db-helpers.js';
 
 const TEST_DIR = path.join(__dirname, '..', '.test-evolve');
 const DB_PATH = path.join(TEST_DIR, 'mindlore.db');
@@ -120,13 +121,15 @@ describe('Evolve — orphan detection and cross-reference analysis', () => {
     });
 
     // Domain is older than source — potentially stale
-    const sources = db.prepare(
-      "SELECT slug, date_captured FROM mindlore_fts WHERE type = 'source'"
-    ).all() as Array<{ slug: string; date_captured: string | null }>;
+    const sources = dbAll<{ slug: string; date_captured: string | null }>(
+      db,
+      "SELECT slug, date_captured FROM mindlore_fts WHERE type = 'source'",
+    );
 
-    const domains = db.prepare(
-      "SELECT slug, date_captured FROM mindlore_fts WHERE type = 'domain'"
-    ).all() as Array<{ slug: string; date_captured: string | null }>;
+    const domains = dbAll<{ slug: string; date_captured: string | null }>(
+      db,
+      "SELECT slug, date_captured FROM mindlore_fts WHERE type = 'domain'",
+    );
 
     expect(sources[0]!.date_captured).toBe('2026-03-01');
     expect(domains[0]!.date_captured).toBe('2026-01-15');

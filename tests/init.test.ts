@@ -2,6 +2,8 @@ import fs from 'fs';
 import path from 'path';
 import { execSync } from 'child_process';
 import Database from 'better-sqlite3';
+import { dbGet } from '../scripts/lib/db-helpers.js';
+import { readJsonFile } from '../scripts/lib/safe-parse.js';
 
 const TEST_PROJECT = path.join(__dirname, '..', '.test-mindlore-init');
 // init.ts → compiled to dist/scripts/init.js via tsc
@@ -61,15 +63,11 @@ describe('mindlore init', () => {
 
     const db = new Database(dbPath, { readonly: true });
 
-    const result = db
-      .prepare('SELECT count(*) as cnt FROM mindlore_fts')
-      .get() as { cnt: number };
-    expect(result.cnt).toBe(0);
+    const result = dbGet<{ cnt: number }>(db, 'SELECT count(*) as cnt FROM mindlore_fts');
+    expect(result?.cnt).toBe(0);
 
-    const hashResult = db
-      .prepare('SELECT count(*) as cnt FROM file_hashes')
-      .get() as { cnt: number };
-    expect(hashResult.cnt).toBe(0);
+    const hashResult = dbGet<{ cnt: number }>(db, 'SELECT count(*) as cnt FROM file_hashes');
+    expect(hashResult?.cnt).toBe(0);
 
     db.close();
   });
@@ -107,7 +105,7 @@ describe('mindlore init', () => {
     const configPath = path.join(TEST_PROJECT, '.mindlore', 'config.json');
     expect(fs.existsSync(configPath)).toBe(true);
 
-    const config = JSON.parse(fs.readFileSync(configPath, 'utf8'));
+    const config = readJsonFile<{ models: Record<string, string> }>(configPath);
     expect(config.models).toBeDefined();
     expect(config.models.ingest).toBe('haiku');
     expect(config.models.evolve).toBe('sonnet');
@@ -126,7 +124,7 @@ describe('mindlore init', () => {
 
     // User overrides ingest model
     const configPath = path.join(TEST_PROJECT, '.mindlore', 'config.json');
-    const config = JSON.parse(fs.readFileSync(configPath, 'utf8'));
+    const config = readJsonFile<{ models: Record<string, string> }>(configPath);
     config.models.ingest = 'sonnet';
     fs.writeFileSync(configPath, JSON.stringify(config, null, 2) + '\n', 'utf8');
 
@@ -138,7 +136,7 @@ describe('mindlore init', () => {
     });
 
     // User override should be preserved
-    const updated = JSON.parse(fs.readFileSync(configPath, 'utf8'));
+    const updated = readJsonFile<{ models: Record<string, string> }>(configPath);
     expect(updated.models.ingest).toBe('sonnet');
   });
 
@@ -162,7 +160,7 @@ describe('mindlore init', () => {
       env,
     });
 
-    const updated = JSON.parse(fs.readFileSync(configPath, 'utf8'));
+    const updated = readJsonFile<{ models: Record<string, string>; customField?: boolean }>(configPath);
     expect(updated.models).toBeDefined();
     expect(updated.models.ingest).toBe('haiku');
     // Custom field should be preserved

@@ -1,6 +1,7 @@
 import path from 'path';
 import Database from 'better-sqlite3';
 import { sha256, createTestDb, insertFts, setupTestDir, teardownTestDir } from './helpers/db.js';
+import { dbGet, dbAll } from '../scripts/lib/db-helpers.js';
 
 const TEST_DIR = path.join(__dirname, '..', '.test-mindlore-dedup');
 const DB_PATH = path.join(TEST_DIR, 'mindlore.db');
@@ -28,10 +29,8 @@ describe('Content-Hash Dedup', () => {
       'INSERT INTO file_hashes (path, content_hash, last_indexed) VALUES (?, ?, ?)',
     ).run(filePath, hash, new Date().toISOString());
 
-    const result = db
-      .prepare('SELECT content_hash FROM file_hashes WHERE path = ?')
-      .get(filePath) as { content_hash: string };
-    expect(result.content_hash).toBe(hash);
+    const result = dbGet<{ content_hash: string }>(db, 'SELECT content_hash FROM file_hashes WHERE path = ?', filePath);
+    expect(result!.content_hash).toBe(hash);
 
     db.close();
   });
@@ -48,17 +47,13 @@ describe('Content-Hash Dedup', () => {
       'INSERT INTO file_hashes (path, content_hash, last_indexed) VALUES (?, ?, ?)',
     ).run(filePath, hash, '2026-01-01T00:00:00Z');
 
-    const existing = db
-      .prepare('SELECT content_hash FROM file_hashes WHERE path = ?')
-      .get(filePath) as { content_hash: string };
+    const existing = dbGet<{ content_hash: string }>(db, 'SELECT content_hash FROM file_hashes WHERE path = ?', filePath);
     const newHash = sha256(content);
 
-    expect(existing.content_hash).toBe(newHash);
+    expect(existing!.content_hash).toBe(newHash);
 
-    const count = db
-      .prepare('SELECT count(*) as cnt FROM mindlore_fts WHERE path = ?')
-      .get(filePath) as { cnt: number };
-    expect(count.cnt).toBe(1);
+    const count = dbGet<{ cnt: number }>(db, 'SELECT count(*) as cnt FROM mindlore_fts WHERE path = ?', filePath);
+    expect(count!.cnt).toBe(1);
 
     db.close();
   });
@@ -77,11 +72,9 @@ describe('Content-Hash Dedup', () => {
     ).run(filePath, originalHash, '2026-01-01T00:00:00Z');
 
     const modifiedHash = sha256(modified);
-    const existing = db
-      .prepare('SELECT content_hash FROM file_hashes WHERE path = ?')
-      .get(filePath) as { content_hash: string };
+    const existing = dbGet<{ content_hash: string }>(db, 'SELECT content_hash FROM file_hashes WHERE path = ?', filePath);
 
-    expect(existing.content_hash).not.toBe(modifiedHash);
+    expect(existing!.content_hash).not.toBe(modifiedHash);
 
     db.prepare('DELETE FROM mindlore_fts WHERE path = ?').run(filePath);
     insertFts(db, { path: filePath, slug: 'changing-doc', description: 'Second version with changes', type: 'source', category: 'sources', title: 'Modified', content: modified, tags: '', quality: null });
@@ -89,9 +82,7 @@ describe('Content-Hash Dedup', () => {
       'UPDATE file_hashes SET content_hash = ?, last_indexed = ? WHERE path = ?',
     ).run(modifiedHash, new Date().toISOString(), filePath);
 
-    const results = db
-      .prepare('SELECT path FROM mindlore_fts WHERE mindlore_fts MATCH ?')
-      .all('changes') as Array<{ path: string }>;
+    const results = dbAll<{ path: string }>(db, 'SELECT path FROM mindlore_fts WHERE mindlore_fts MATCH ?', 'changes');
     expect(results).toHaveLength(1);
 
     db.close();

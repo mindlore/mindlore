@@ -1,6 +1,7 @@
 import path from 'path';
 import Database from 'better-sqlite3';
 import { createTestDb, insertFts, setupTestDir, teardownTestDir } from './helpers/db.js';
+import { dbAll } from '../scripts/lib/db-helpers.js';
 
 const TEST_DIR = path.join(__dirname, '..', '.test-mindlore-search');
 const DB_PATH = path.join(TEST_DIR, 'mindlore.db');
@@ -85,19 +86,20 @@ describe('Search Hook — Keyword Extraction', () => {
 interface FtsRow {
   path: string;
   rank: number;
+  [key: string]: unknown;
 }
 
 describe('Search Hook — FTS5 Query', () => {
   function queryFts(query: string): FtsRow[] {
     const db = new Database(DB_PATH, { readonly: true });
     try {
-      return db
-        .prepare(
-          `SELECT path, rank FROM mindlore_fts
+      return dbAll<FtsRow>(
+        db,
+        `SELECT path, rank FROM mindlore_fts
            WHERE mindlore_fts MATCH ?
-           ORDER BY rank LIMIT 3`
-        )
-        .all(query) as FtsRow[];
+           ORDER BY rank LIMIT 3`,
+        query
+      );
     } finally {
       db.close();
     }

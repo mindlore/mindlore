@@ -2,6 +2,7 @@ import fs from 'fs';
 import path from 'path';
 import type Database from 'better-sqlite3';
 import { createTestDb, insertFts, setupTestDir, teardownTestDir } from './helpers/db';
+import { dbAll } from '../scripts/lib/db-helpers.js';
 
 const TEST_DIR = path.join(__dirname, '..', '.test-explore');
 const DB_PATH = path.join(TEST_DIR, 'mindlore.db');
@@ -45,9 +46,10 @@ describe('Explore — cross-reference detection and connections', () => {
     });
 
     // Find tag overlaps
-    const allSources = db.prepare(
+    const allSources = dbAll<{ slug: string; tags: string }>(
+      db,
       "SELECT slug, tags FROM mindlore_fts WHERE type = 'source'"
-    ).all() as Array<{ slug: string; tags: string }>;
+    );
 
     const tagMap: Record<string, string[]> = {};
     for (const src of allSources) {
@@ -137,9 +139,10 @@ describe('Explore — cross-reference detection and connections', () => {
       tags: 'hooks',
     });
 
-    const results = db.prepare(
+    const results = dbAll<{ slug: string }>(
+      db,
       "SELECT slug FROM mindlore_fts WHERE type = 'connection'"
-    ).all() as Array<{ slug: string }>;
+    );
 
     expect(results).toHaveLength(1);
     expect(results[0]!.slug).toBe('conn-test');

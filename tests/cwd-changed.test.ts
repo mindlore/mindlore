@@ -2,6 +2,7 @@ import fs from 'fs';
 import path from 'path';
 import { execSync } from 'child_process';
 import { setupTestDir, teardownTestDir } from './helpers/db';
+import { readJsonFile } from '../scripts/lib/safe-parse.js';
 
 const TEST_DIR = path.join(__dirname, '..', '.test-cwd-changed');
 const FAKE_PROJECT_A = path.join(TEST_DIR, 'project-a');
@@ -34,7 +35,7 @@ describe('mindlore-cwd-changed hook', () => {
     const scopePath = path.join(diaryDir, '_scope.json');
     expect(fs.existsSync(scopePath)).toBe(true);
 
-    const scope = JSON.parse(fs.readFileSync(scopePath, 'utf8'));
+    const scope = readJsonFile<{ scope: string; dir: string }>(scopePath);
     expect(scope.scope).toBe('global');
     expect(scope.dir).toBe(mindloreDir);
   });
@@ -61,8 +62,8 @@ describe('mindlore-cwd-changed hook', () => {
       env: { ...process.env, HOME: TEST_DIR, USERPROFILE: TEST_DIR, MINDLORE_HOME: mindloreDir },
     });
 
-    const scope = JSON.parse(
-      fs.readFileSync(path.join(diaryDir, '_scope.json'), 'utf8')
+    const scope = readJsonFile<{ timestamp: string; cwd: string }>(
+      path.join(diaryDir, '_scope.json')
     );
     expect(scope.timestamp).toMatch(/^\d{4}-\d{2}-\d{2}T/);
     expect(scope.cwd).toBe(FAKE_PROJECT_A);

@@ -104,7 +104,7 @@ export type { FrontmatterType } from './constants.js';
  * Returns { valid: true } or { valid: false, errors: string[] }.
  */
 export function validateFrontmatter(meta: Record<string, unknown>): { valid: boolean; errors: string[] } {
-  const type = meta.type as string | undefined;
+  const type = typeof meta.type === 'string' ? meta.type : undefined;
   if (!type) return { valid: false, errors: ['Missing "type" field in frontmatter'] };
 
   const schema = FRONTMATTER_SCHEMAS[type];

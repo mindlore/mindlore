@@ -1,6 +1,7 @@
 import fs from 'fs';
 import path from 'path';
 import { createTestDb, insertFts, setupTestDir, teardownTestDir } from './helpers/db';
+import { dbAll, dbGet } from '../scripts/lib/db-helpers.js';
 
 const TEST_DIR = path.join(__dirname, '..', '.test-e2e-pipeline');
 const DB_PATH = path.join(TEST_DIR, 'mindlore.db');
@@ -71,9 +72,10 @@ describe('E2E Pipeline: ingest → index → search → connections', () => {
     });
 
     // Step 3: Search — should find the indexed source
-    const results = db.prepare(
-      "SELECT slug, title, quality, date_captured FROM mindlore_fts WHERE mindlore_fts MATCH 'useEffect'"
-    ).all() as Array<{ slug: string; title: string; quality: string; date_captured: string }>;
+    const results = dbAll<{ slug: string; title: string; quality: string; date_captured: string }>(
+      db,
+      "SELECT slug, title, quality, date_captured FROM mindlore_fts WHERE mindlore_fts MATCH 'useEffect'",
+    );
 
     expect(results).toHaveLength(1);
     expect(results[0]!.slug).toBe('react-hooks');
@@ -118,9 +120,10 @@ describe('E2E Pipeline: ingest → index → search → connections', () => {
     });
 
     // Search "hooks" — should return 2, not python
-    const results = db.prepare(
-      "SELECT slug FROM mindlore_fts WHERE mindlore_fts MATCH 'hooks' ORDER BY rank"
-    ).all() as Array<{ slug: string }>;
+    const results = dbAll<{ slug: string }>(
+      db,
+      "SELECT slug FROM mindlore_fts WHERE mindlore_fts MATCH 'hooks' ORDER BY rank",
+    );
 
     expect(results.length).toBeGreaterThanOrEqual(2);
     const slugs = results.map(r => r.slug);
@@ -163,9 +166,10 @@ describe('E2E Pipeline: ingest → index → search → connections', () => {
     });
 
     // Find tag overlap (simulating explore logic)
-    const allSources = db.prepare(
-      "SELECT slug, tags FROM mindlore_fts WHERE type = 'source'"
-    ).all() as Array<{ slug: string; tags: string }>;
+    const allSources = dbAll<{ slug: string; tags: string }>(
+      db,
+      "SELECT slug, tags FROM mindlore_fts WHERE type = 'source'",
+    );
 
     const tagMap: Record<string, string[]> = {};
     for (const src of allSources) {
@@ -211,9 +215,10 @@ describe('E2E Pipeline: ingest → index → search → connections', () => {
       tags: 'hooks',
     });
 
-    const connResults = db.prepare(
-      "SELECT slug FROM mindlore_fts WHERE type = 'connection'"
-    ).all() as Array<{ slug: string }>;
+    const connResults = dbAll<{ slug: string }>(
+      db,
+      "SELECT slug FROM mindlore_fts WHERE type = 'connection'",
+    );
     expect(connResults).toHaveLength(1);
 
     db.close();
@@ -236,20 +241,22 @@ describe('E2E Pipeline: ingest → index → search → connections', () => {
       dateCaptured: '2026-04-12',
     });
 
-    const row = db.prepare(
-      'SELECT path, slug, description, type, category, title, content, tags, quality, date_captured FROM mindlore_fts WHERE slug = ?'
-    ).get('schema-check') as Record<string, string | null>;
+    const row = dbGet<Record<string, string | null>>(
+      db,
+      'SELECT path, slug, description, type, category, title, content, tags, quality, date_captured FROM mindlore_fts WHERE slug = ?',
+      'schema-check',
+    );
 
-    expect(row.path).toBe('/test/schema-check.md');
-    expect(row.slug).toBe('schema-check');
-    expect(row.description).toBe('test desc');
-    expect(row.type).toBe('source');
-    expect(row.category).toBe('sources');
-    expect(row.title).toBe('Schema Check');
-    expect(row.content).toBe('test content');
-    expect(row.tags).toBe('test');
-    expect(row.quality).toBe('high');
-    expect(row.date_captured).toBe('2026-04-12');
+    expect(row!.path).toBe('/test/schema-check.md');
+    expect(row!.slug).toBe('schema-check');
+    expect(row!.description).toBe('test desc');
+    expect(row!.type).toBe('source');
+    expect(row!.category).toBe('sources');
+    expect(row!.title).toBe('Schema Check');
+    expect(row!.content).toBe('test content');
+    expect(row!.tags).toBe('test');
+    expect(row!.quality).toBe('high');
+    expect(row!.date_captured).toBe('2026-04-12');
 
     db.close();
   });

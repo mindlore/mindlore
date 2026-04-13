@@ -2,11 +2,10 @@ import path from 'path';
 import fs from 'fs';
 import { setupTestDir, teardownTestDir } from './helpers/db.js';
 
-// Hook remains .cjs — import via require with type cast
- 
-const { parseFrontmatter } = require('../hooks/lib/mindlore-common.cjs') as {
+// Hook remains .cjs — import via require with type annotation
+const { parseFrontmatter }: {
   parseFrontmatter: (raw: string) => { meta: Record<string, string>; body: string };
-};
+} = require('../hooks/lib/mindlore-common.cjs');
 
 const TEST_DIR = path.join(__dirname, '..', '.test-mindlore-log');
 

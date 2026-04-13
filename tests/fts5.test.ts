@@ -1,6 +1,7 @@
 import path from 'path';
 import Database from 'better-sqlite3';
 import { createTestDb, insertFts, setupTestDir, teardownTestDir } from './helpers/db.js';
+import { dbAll, dbGet } from '../scripts/lib/db-helpers.js';
 
 const TEST_DIR = path.join(__dirname, '..', '.test-mindlore-fts5');
 const DB_PATH = path.join(TEST_DIR, 'mindlore.db');
@@ -24,8 +25,8 @@ describe('FTS5 Database', () => {
 
     insertFts(db, { path: testPath, slug: 'test-source', description: 'TypeScript and Node.js performance', type: 'source', category: 'sources', title: 'Test Source', content: testContent, tags: '', quality: null, dateCaptured: null });
 
-    const result = db.prepare('SELECT count(*) as cnt FROM mindlore_fts').get() as { cnt: number };
-    expect(result.cnt).toBe(1);
+    const result = dbGet<{ cnt: number }>(db, 'SELECT count(*) as cnt FROM mindlore_fts');
+    expect(result!.cnt).toBe(1);
 
     db.close();
   });
@@ -38,14 +39,14 @@ describe('FTS5 Database', () => {
 
     insertFts(db, { path: testPath, slug: 'typescript-guide', description: 'TypeScript static typing for JavaScript', type: 'source', category: 'sources', title: 'TypeScript Guide', content, tags: '', quality: null, dateCaptured: null });
 
-    const results = db
-      .prepare(
-        `SELECT path, rank FROM mindlore_fts
+    const results = dbAll<{ path: string; rank: number }>(
+      db,
+      `SELECT path, rank FROM mindlore_fts
          WHERE mindlore_fts MATCH ?
          ORDER BY rank
          LIMIT 3`,
-      )
-      .all('TypeScript') as Array<{ path: string; rank: number }>;
+      'TypeScript',
+    );
 
     expect(results).toHaveLength(1);
     expect(results[0]!.path).toBe(testPath);
@@ -59,14 +60,14 @@ describe('FTS5 Database', () => {
     const testPath = path.join(TEST_DIR, 'sources', 'python-guide.md');
     insertFts(db, { path: testPath, slug: 'python-guide', description: 'Python for data science', type: 'source', category: 'sources', title: 'Python Guide', content: '# Python Guide\n\nPython is great for data science.', tags: '', quality: null, dateCaptured: null });
 
-    const results = db
-      .prepare(
-        `SELECT path FROM mindlore_fts
+    const results = dbAll<{ path: string }>(
+      db,
+      `SELECT path FROM mindlore_fts
          WHERE mindlore_fts MATCH ?
          ORDER BY rank
          LIMIT 3`,
-      )
-      .all('Kubernetes') as Array<{ path: string }>;
+      'Kubernetes',
+    );
 
     expect(results).toHaveLength(0);
 
@@ -80,14 +81,14 @@ describe('FTS5 Database', () => {
 
     insertFts(db, { path: path.join(TEST_DIR, 'sources', 'hooks-deep-dive.md'), slug: 'hooks-deep-dive', description: 'Deep dive into hooks patterns', type: 'source', category: 'sources', title: 'Hooks Deep Dive', content: '# Hooks Deep Dive\n\nHooks hooks hooks. PreToolUse hooks, PostToolUse hooks, SessionStart hooks.', tags: '', quality: null, dateCaptured: null });
 
-    const results = db
-      .prepare(
-        `SELECT path, rank FROM mindlore_fts
+    const results = dbAll<{ path: string; rank: number }>(
+      db,
+      `SELECT path, rank FROM mindlore_fts
          WHERE mindlore_fts MATCH ?
          ORDER BY rank
          LIMIT 3`,
-      )
-      .all('hooks') as Array<{ path: string; rank: number }>;
+      'hooks',
+    );
 
     expect(results).toHaveLength(2);
     const deepDive = results.find((r) => r.path.includes('deep-dive'));
@@ -103,14 +104,14 @@ describe('FTS5 Database', () => {
 
     insertFts(db, { path: path.join(TEST_DIR, 'sources', 'tagged-doc.md'), slug: 'tagged-doc', description: 'A doc with tags', type: 'source', category: 'sources', title: 'Tagged Doc', content: '# Tagged\n\nContent here.', tags: 'security, hooks, fts5', quality: null, dateCaptured: null });
 
-    const results = db
-      .prepare(
-        `SELECT path, tags FROM mindlore_fts
+    const results = dbAll<{ path: string; tags: string }>(
+      db,
+      `SELECT path, tags FROM mindlore_fts
          WHERE tags MATCH ?
          ORDER BY rank
          LIMIT 3`,
-      )
-      .all('security') as Array<{ path: string; tags: string }>;
+      'security',
+    );
 
     expect(results).toHaveLength(1);
     expect(results[0]!.tags).toBe('security, hooks, fts5');
@@ -123,8 +124,8 @@ describe('FTS5 Database', () => {
 
     insertFts(db, { path: path.join(TEST_DIR, 'sources', 'dated-doc.md'), slug: 'dated-doc', description: 'A doc with date', type: 'source', category: 'sources', title: 'Dated Doc', content: '# Dated\n\nContent here.', tags: 'test', quality: 'high', dateCaptured: '2026-04-12' });
 
-    const result = db.prepare('SELECT date_captured FROM mindlore_fts WHERE path = ?').get(path.join(TEST_DIR, 'sources', 'dated-doc.md')) as { date_captured: string | null };
-    expect(result.date_captured).toBe('2026-04-12');
+    const result = dbGet<{ date_captured: string | null }>(db, 'SELECT date_captured FROM mindlore_fts WHERE path = ?', path.join(TEST_DIR, 'sources', 'dated-doc.md'));
+    expect(result!.date_captured).toBe('2026-04-12');
 
     db.close();
   });
@@ -134,8 +135,8 @@ describe('FTS5 Database', () => {
 
     insertFts(db, { path: path.join(TEST_DIR, 'sources', 'no-date.md'), slug: 'no-date', description: 'No date set', type: 'source', category: 'sources', title: 'No Date', content: '# Test\n\nContent.', tags: '', quality: null, dateCaptured: null });
 
-    const result = db.prepare('SELECT date_captured FROM mindlore_fts WHERE path = ?').get(path.join(TEST_DIR, 'sources', 'no-date.md')) as { date_captured: string | null };
-    expect(result.date_captured).toBeFalsy();
+    const result = dbGet<{ date_captured: string | null }>(db, 'SELECT date_captured FROM mindlore_fts WHERE path = ?', path.join(TEST_DIR, 'sources', 'no-date.md'));
+    expect(result!.date_captured).toBeFalsy();
 
     db.close();
   });
@@ -145,8 +146,8 @@ describe('FTS5 Database', () => {
 
     insertFts(db, { path: path.join(TEST_DIR, 'sources', 'no-quality.md'), slug: 'no-quality', description: 'No quality set', type: 'source', category: 'sources', title: 'No Quality', content: '# Test\n\nContent.', tags: '', quality: null, dateCaptured: null });
 
-    const result = db.prepare('SELECT quality FROM mindlore_fts WHERE path = ?').get(path.join(TEST_DIR, 'sources', 'no-quality.md')) as { quality: string | null };
-    expect(result.quality).toBeFalsy();
+    const result = dbGet<{ quality: string | null }>(db, 'SELECT quality FROM mindlore_fts WHERE path = ?', path.join(TEST_DIR, 'sources', 'no-quality.md'));
+    expect(result!.quality).toBeFalsy();
 
     db.close();
   });

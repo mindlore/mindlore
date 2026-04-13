@@ -1,5 +1,6 @@
 import fs from 'fs';
 import path from 'path';
+import { readJsonFile } from '../scripts/lib/safe-parse.js';
 
 const TEST_DIR = path.join(__dirname, '..', '.test-mindlore-uninstall');
 const MOCK_HOME = path.join(TEST_DIR, 'home');
@@ -16,10 +17,12 @@ interface HookGroup {
 
 interface Settings {
   hooks: Record<string, HookGroup[]>;
+  [key: string]: unknown;
 }
 
 interface ProjectSettings {
   projectDocFiles: string[];
+  [key: string]: unknown;
 }
 
 function setupMockEnvironment(): void {
@@ -73,7 +76,7 @@ afterEach(() => {
 describe('Uninstall Logic', () => {
   test('should remove mindlore hooks but keep other hooks', () => {
     const settingsPath = path.join(MOCK_HOME, '.claude', 'settings.json');
-    const settings = JSON.parse(fs.readFileSync(settingsPath, 'utf8')) as Settings;
+    const settings = readJsonFile<Settings>(settingsPath);
     for (const event of Object.keys(settings.hooks)) {
       settings.hooks[event] = (settings.hooks[event] ?? []).filter((entry) => {
         const hooks = entry.hooks ?? [];
@@ -111,7 +114,7 @@ describe('Uninstall Logic', () => {
 
   test('should remove SCHEMA.md from projectDocFiles but keep others', () => {
     const settingsPath = path.join(MOCK_PROJECT, '.claude', 'settings.json');
-    const settings = JSON.parse(fs.readFileSync(settingsPath, 'utf8')) as ProjectSettings;
+    const settings = readJsonFile<ProjectSettings>(settingsPath);
 
     expect(settings.projectDocFiles).toContain('.mindlore/SCHEMA.md');
     expect(settings.projectDocFiles).toContain('other.md');

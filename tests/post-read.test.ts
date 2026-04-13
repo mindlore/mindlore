@@ -2,6 +2,8 @@ import fs from 'fs';
 import path from 'path';
 import { execSync } from 'child_process';
 import { setupTestDir, teardownTestDir } from './helpers/db';
+import { getExecStdout } from './helpers/exec.js';
+import { readJsonFile } from '../scripts/lib/safe-parse.js';
 
 const TEST_DIR = path.join(__dirname, '..', '.test-post-read');
 const HOOK_SCRIPT = path.resolve(__dirname, '..', 'hooks', 'mindlore-post-read.cjs');
@@ -27,7 +29,7 @@ function runHook(stdinData: Record<string, unknown>): string {
       cwd: TEST_DIR,
     });
   } catch (err) {
-    return (err as { stdout?: string }).stdout || '';
+    return getExecStdout(err);
   }
 }
 
@@ -44,7 +46,7 @@ describe('mindlore-post-read hook', () => {
 
     const readsPath = path.join(TEST_DIR, '.mindlore', 'diary', `_session-reads-${PROJECT_NAME}.json`);
     if (fs.existsSync(readsPath)) {
-      const reads = JSON.parse(fs.readFileSync(readsPath, 'utf8'));
+      const reads = readJsonFile<Record<string, { tokens: number; chars: number }>>(readsPath);
       const entry = reads[path.resolve(testFile)];
       if (entry) {
         expect(entry.tokens).toBeGreaterThan(0);

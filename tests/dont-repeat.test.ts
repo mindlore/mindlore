@@ -2,6 +2,7 @@ import fs from 'fs';
 import path from 'path';
 import { execSync } from 'child_process';
 import { setupTestDir, teardownTestDir } from './helpers/db';
+import { getExecStdout } from './helpers/exec.js';
 
 const TEST_DIR = path.join(__dirname, '..', '.test-dont-repeat');
 const HOOK_SCRIPT = path.resolve(__dirname, '..', 'hooks', 'mindlore-dont-repeat.cjs');
@@ -34,7 +35,7 @@ function runHook(stdinData: Record<string, unknown>): string {
       cwd: TEST_DIR,
     });
   } catch (err) {
-    return (err as { stdout?: string }).stdout || '';
+    return getExecStdout(err);
   }
 }
 

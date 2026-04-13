@@ -12,6 +12,7 @@
 import fs from 'fs';
 import path from 'path';
 import { GLOBAL_MINDLORE_DIR, log } from './lib/constants.js';
+import { readJsonFile } from './lib/safe-parse.js';
 import {
   convertToWikilinks,
   shouldExport,
@@ -28,8 +29,17 @@ interface ObsidianConfig {
 function readObsidianConfig(): ObsidianConfig {
   const configPath = path.join(GLOBAL_MINDLORE_DIR, 'config.json');
   try {
-    const config = JSON.parse(fs.readFileSync(configPath, 'utf8'));
-    return config.obsidian ?? { vault: null, lastExport: null, exportedFiles: 0 };
+    const config = readJsonFile<Record<string, unknown>>(configPath);
+    const obsidian = config.obsidian;
+    if (obsidian !== null && typeof obsidian === 'object' && !Array.isArray(obsidian)) {
+      const o = obsidian as Record<string, unknown>; // eslint-disable-line @typescript-eslint/no-unsafe-type-assertion -- runtime-validated object, extracting known fields below
+      return {
+        vault: typeof o.vault === 'string' ? o.vault : null,
+        lastExport: typeof o.lastExport === 'string' ? o.lastExport : null,
+        exportedFiles: typeof o.exportedFiles === 'number' ? o.exportedFiles : 0,
+      };
+    }
+    return { vault: null, lastExport: null, exportedFiles: 0 };
   } catch (_err) {
     return { vault: null, lastExport: null, exportedFiles: 0 };
   }
@@ -39,7 +49,7 @@ function saveObsidianConfig(obsidian: ObsidianConfig): void {
   const configPath = path.join(GLOBAL_MINDLORE_DIR, 'config.json');
   let config: Record<string, unknown> = {};
   try {
-    config = JSON.parse(fs.readFileSync(configPath, 'utf8'));
+    config = readJsonFile<Record<string, unknown>>(configPath);
   } catch (_err) {
     config = {};
   }
@@ -51,9 +61,13 @@ function parseArgs(args: string[]): Record<string, string | boolean> {
   const parsed: Record<string, string | boolean> = {};
   for (let i = 0; i < args.length; i++) {
     if (args[i] === '--vault' && i + 1 < args.length) {
-      parsed.vault = args[++i] as string;
+      const vaultVal = args[++i];
+      if (typeof vaultVal !== 'string') throw new Error('Missing value for --vault');
+      parsed.vault = vaultVal;
     } else if (args[i] === '--folder' && i + 1 < args.length) {
-      parsed.folder = args[++i] as string;
+      const folderVal = args[++i];
+      if (typeof folderVal !== 'string') throw new Error('Missing value for --folder');
+      parsed.folder = folderVal;
     } else if (args[i] === '--force') {
       parsed.force = true;
     }

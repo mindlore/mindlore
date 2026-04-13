@@ -2,6 +2,7 @@ import fs from 'fs';
 import path from 'path';
 import Database from 'better-sqlite3';
 import { createTestDb, insertFts, setupTestDir, teardownTestDir } from './helpers/db';
+import { dbGet, dbAll } from '../scripts/lib/db-helpers.js';
 
 const TEST_DIR = path.join(__dirname, '..', '.test-project-namespace');
 const commonPath = path.resolve(__dirname, '..', 'hooks', 'lib', 'mindlore-common.cjs');
@@ -69,9 +70,7 @@ describe('project column — insertFtsRow', () => {
       project: 'my-project',
     });
 
-    const row = db
-      .prepare('SELECT project FROM mindlore_fts WHERE path = ?')
-      .get('/fake/sources/entry.md') as { project: string } | undefined;
+    const row = dbGet<{ project: string }>(db, 'SELECT project FROM mindlore_fts WHERE path = ?', '/fake/sources/entry.md');
     db.close();
 
     expect(row?.project).toBe('my-project');
@@ -87,9 +86,7 @@ describe('project column — insertFtsRow', () => {
       content: 'legacy data',
     });
 
-    const row = db
-      .prepare('SELECT project FROM mindlore_fts WHERE path = ?')
-      .get('/fake/sources/legacy.md') as { project: string | null } | undefined;
+    const row = dbGet<{ project: string | null }>(db, 'SELECT project FROM mindlore_fts WHERE path = ?', '/fake/sources/legacy.md');
     db.close();
 
     expect(row?.project).toBeNull();
@@ -106,13 +103,9 @@ describe('project column — FTS5 filtering', () => {
     insertFts(db, { path: '/alpha/doc.md', slug: 'alpha-doc', title: 'Alpha Doc', content: 'shared keyword findme', project: 'project-alpha' });
     insertFts(db, { path: '/beta/doc.md', slug: 'beta-doc', title: 'Beta Doc', content: 'shared keyword findme', project: 'project-beta' });
 
-    const alphaRows = db
-      .prepare('SELECT path FROM mindlore_fts WHERE mindlore_fts MATCH ? AND project = ?')
-      .all('shared keyword findme', 'project-alpha') as { path: string }[];
+    const alphaRows = dbAll<{ path: string }>(db, 'SELECT path FROM mindlore_fts WHERE mindlore_fts MATCH ? AND project = ?', 'shared keyword findme', 'project-alpha');
 
-    const betaRows = db
-      .prepare('SELECT path FROM mindlore_fts WHERE mindlore_fts MATCH ? AND project = ?')
-      .all('shared keyword findme', 'project-beta') as { path: string }[];
+    const betaRows = dbAll<{ path: string }>(db, 'SELECT path FROM mindlore_fts WHERE mindlore_fts MATCH ? AND project = ?', 'shared keyword findme', 'project-beta');
 
     db.close();
 
@@ -130,9 +123,7 @@ describe('project column — FTS5 filtering', () => {
     insertFts(db, { path: '/p2/doc.md', slug: 'p2', content: 'unique term omnisearch', project: 'project-two' });
     insertFts(db, { path: '/p3/doc.md', slug: 'p3', content: 'unique term omnisearch', project: null });
 
-    const rows = db
-      .prepare('SELECT path FROM mindlore_fts WHERE mindlore_fts MATCH ?')
-      .all('unique term omnisearch') as { path: string }[];
+    const rows = dbAll<{ path: string }>(db, 'SELECT path FROM mindlore_fts WHERE mindlore_fts MATCH ?', 'unique term omnisearch');
 
     db.close();
 
@@ -145,9 +136,7 @@ describe('project column — FTS5 filtering', () => {
 
     insertFts(db, { path: '/alpha/doc.md', slug: 'alpha', content: 'some content findme', project: 'project-alpha' });
 
-    const rows = db
-      .prepare('SELECT path FROM mindlore_fts WHERE mindlore_fts MATCH ? AND project = ?')
-      .all('some content findme', 'project-other') as { path: string }[];
+    const rows = dbAll<{ path: string }>(db, 'SELECT path FROM mindlore_fts WHERE mindlore_fts MATCH ? AND project = ?', 'some content findme', 'project-other');
 
     db.close();
 

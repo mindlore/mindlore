@@ -1,7 +1,6 @@
 import { TYPE_TO_DIR } from '../scripts/lib/constants.js';
 
- 
-const { parseFrontmatter: parse, extractFtsMetadata } = require('../hooks/lib/mindlore-common.cjs') as {
+const { parseFrontmatter: parse, extractFtsMetadata }: {
   parseFrontmatter: (content: string) => { meta: Record<string, string | string[]>; body: string };
   extractFtsMetadata: (
     meta: Record<string, string | string[]>,
@@ -9,7 +8,7 @@ const { parseFrontmatter: parse, extractFtsMetadata } = require('../hooks/lib/mi
     filePath: string,
     baseDir: string,
   ) => { slug: string; description: string; type: string; category: string; title: string; tags: string; quality: string | null };
-};
+} = require('../hooks/lib/mindlore-common.cjs');
 
 interface Frontmatter {
   slug?: string;
@@ -41,7 +40,8 @@ describe('Frontmatter Parser', () => {
         fm[key] = rawValue;
       }
     }
-    return Object.keys(fm).length > 0 ? (fm as Frontmatter) : null;
+    const result: Frontmatter = fm;
+    return Object.keys(result).length > 0 ? result : null;
   }
 
   test('should parse valid frontmatter', () => {
