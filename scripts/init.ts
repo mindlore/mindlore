@@ -422,6 +422,7 @@ function main(): void {
     index: { script: './mindlore-fts5-index.js', passArgs: false },
     quality: { script: './quality-populate.js', passArgs: false },
     backup: { script: './mindlore-backup.js', passArgs: true },
+    obsidian: { script: './mindlore-obsidian.js', passArgs: true },
   };
 
   const cliCmd = command ? cliCommands[command] : undefined;
@@ -447,6 +448,7 @@ function main(): void {
     console.log('       npx mindlore index');
     console.log('       npx mindlore quality');
     console.log('       npx mindlore backup init|status|remote|now');
+    console.log('       npx mindlore obsidian export|import|status');
     process.exit(1);
   }
 
