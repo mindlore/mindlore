@@ -68,15 +68,23 @@ function main() {
   // Write updated reads
   fs.writeFileSync(readsPath, JSON.stringify(reads, null, 2), 'utf8');
 
-  // Warn on repeated reads (2nd+ time)
+  const basename = path.basename(filePath);
+  const tokenInfo = tokens > 0 ? ` (~${tokens} token)` : '';
+
+  // Block on 3+ repeated reads (exit 2 = block tool call)
+  if (count >= 3) {
+    const totalWaste = tokens > 0 ? ` Toplam israf: ~${tokens * (count - 1)} token.` : '';
+    process.stderr.write(`[Mindlore BLOCK] ${basename}${tokenInfo} bu session'da ${count}. kez okunuyor.${totalWaste} Edit icin gerekiyorsa once degisikligini yap, sonra tekrar oku. Analiz icin ctx_execute_file kullan.`);
+    process.exit(2);
+  }
+
+  // Warn on 2nd read (exit 0 = allow but warn)
   if (count > 1) {
-    const basename = path.basename(filePath);
-    const tokenInfo = tokens > 0 ? ` (~${tokens} token)` : '';
     const totalWaste = tokens > 0 ? ` Toplam tekrar: ~${tokens * (count - 1)} token.` : '';
     process.stdout.write(JSON.stringify({
       hookSpecificOutput: {
         hookEventName: 'PreToolUse',
-        additionalContext: `[Mindlore: ${basename}${tokenInfo} bu session'da ${count}. kez okunuyor.${totalWaste} Değişiklik yoksa tekrar okumayı atlayabilirsin.]`
+        additionalContext: `[Mindlore: ${basename}${tokenInfo} bu session'da ${count}. kez okunuyor.${totalWaste} Bir sonraki okuma engellenecek — Edit gerekiyorsa simdi yap.]`
       }
     }));
   }

@@ -7,8 +7,8 @@
  * After a file is read, estimate its token count
  * and store in _session-reads.json for the read-guard to reference.
  *
- * Does NOT output anything (pure bookkeeping).
- * PostToolUse stdout goes to debug log only — no inject needed.
+ * Outputs token estimate via additionalContext JSON.
+ * Also stores token info in _session-reads.json for read-guard.
  */
 
 const fs = require('fs');
@@ -87,6 +87,15 @@ function main() {
       }
 
       fs.writeFileSync(readsPath, JSON.stringify(reads, null, 2), 'utf8');
+
+      // Output token estimate to Claude via additionalContext
+      const basename = path.basename(filePath);
+      process.stdout.write(JSON.stringify({
+        hookSpecificOutput: {
+          hookEventName: 'PostToolUse',
+          additionalContext: `[Mindlore: ${basename} — ~${tokens} token (${charCount} char). Edit etmeyeceksen ctx_execute_file kullan.]`
+        }
+      }));
     } catch {
       // Silent fail
     }

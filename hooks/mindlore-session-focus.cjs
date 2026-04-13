@@ -10,7 +10,7 @@
 
 const fs = require('fs');
 const path = require('path');
-const { findMindloreDir, readConfig } = require('./lib/mindlore-common.cjs');
+const { findMindloreDir, readConfig, openDatabase, hasEpisodesTable, queryRecentEpisodes } = require('./lib/mindlore-common.cjs');
 
 function main() {
   const baseDir = findMindloreDir();
@@ -62,6 +62,28 @@ function main() {
       }
     }
   } catch (_err) { /* skip */ }
+
+  // v0.4.0: Inject recent episodes
+  try {
+    const dbPath = path.join(baseDir, 'mindlore.db');
+    const db = openDatabase(dbPath, { readonly: true });
+    if (db && hasEpisodesTable(db)) {
+      const config = readConfig(baseDir);
+      const maxEpisodes = config?.session_focus?.max_episodes ?? 3;
+      const project = path.basename(process.cwd());
+      const episodes = queryRecentEpisodes(db, { project, limit: maxEpisodes });
+
+      if (episodes.length > 0) {
+        const lines = episodes.map(ep => {
+          const date = (ep.created_at || '').slice(0, 10);
+          const summary = String(ep.summary || '').slice(0, 100);
+          return `- [${date}] ${ep.kind}: ${summary}`;
+        });
+        output.push(`[Mindlore Episodes]\n${lines.join('\n')}`);
+      }
+      db.close();
+    }
+  } catch (_err) { /* graceful skip */ }
 
   if (output.length > 0) {
     process.stdout.write(output.join('\n\n') + '\n');

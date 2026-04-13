@@ -12,7 +12,7 @@
 const fs = require('fs');
 const path = require('path');
 const { execSync } = require('child_process');
-const { findMindloreDir, globalDir, getProjectName } = require('./lib/mindlore-common.cjs');
+const { findMindloreDir, globalDir, getProjectName, openDatabase, ensureEpisodesTable, insertBareEpisode } = require('./lib/mindlore-common.cjs');
 
 function formatDate(date) {
   const y = date.getFullYear();
@@ -55,7 +55,11 @@ function getSessionReads(baseDir) {
   try {
     const data = JSON.parse(fs.readFileSync(readsPath, 'utf8'));
     const count = Object.keys(data).length;
-    const repeats = Object.values(data).filter((v) => v > 1).length;
+    const repeats = Object.values(data).filter((v) => {
+      if (typeof v === 'number') return v > 1;
+      if (v && typeof v === 'object') return (v.count || 0) > 1;
+      return false;
+    }).length;
     // Clean up session file
     fs.unlinkSync(readsPath);
     return { count, repeats };
@@ -133,8 +137,57 @@ function main() {
     fs.appendFileSync(logPath, logEntry, 'utf8');
   }
 
+  // v0.4.0: Write bare episode to episodes table
+  writeBareEpisode(baseDir, project, commits, changedFiles, reads);
+
   // Git auto-commit + push for global ~/.mindlore/ only
   syncGlobalRepo();
+}
+
+/**
+ * Write a bare session episode to the episodes table.
+ * Deterministic — no LLM needed. Captures commits, files, read stats.
+ */
+function writeBareEpisode(baseDir, project, commits, changedFiles, reads) {
+  try {
+    const dbPath = path.join(baseDir, 'mindlore.db');
+    const db = openDatabase(dbPath);
+    if (!db) return;
+
+    ensureEpisodesTable(db);
+
+    const commitList = commits.length > 0 ? commits.join(', ') : 'no commits';
+    const fileCount = changedFiles.length;
+    const summary = `Session: ${commitList} (${fileCount} files)`;
+
+    const bodyParts = [];
+    if (commits.length > 0) {
+      bodyParts.push('## Commits\n' + commits.map(c => `- ${c}`).join('\n'));
+    }
+    if (changedFiles.length > 0) {
+      bodyParts.push('## Changed Files\n' + changedFiles.map(f => `- ${f}`).join('\n'));
+    }
+    if (reads) {
+      bodyParts.push(`## Read Stats\n- ${reads.count} files read, ${reads.repeats} repeated`);
+    }
+
+    const entities = changedFiles.slice(0, 10);
+
+    insertBareEpisode(db, {
+      kind: 'session',
+      scope: 'project',
+      project: project,
+      summary: summary.slice(0, 300),
+      body: bodyParts.join('\n\n') || null,
+      tags: 'session',
+      entities: entities.length > 0 ? entities : null,
+      source: 'hook',
+    });
+
+    db.close();
+  } catch (_err) {
+    // Graceful fail — never break session end
+  }
 }
 
 /**
