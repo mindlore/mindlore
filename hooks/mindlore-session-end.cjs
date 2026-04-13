@@ -12,7 +12,7 @@
 const fs = require('fs');
 const path = require('path');
 const { execSync } = require('child_process');
-const { findMindloreDir, globalDir, getProjectName, openDatabase, ensureEpisodesTable, insertBareEpisode } = require('./lib/mindlore-common.cjs');
+const { findMindloreDir, globalDir, getProjectName, openDatabase, ensureEpisodesTable, insertBareEpisode, insertFtsRow } = require('./lib/mindlore-common.cjs');
 
 function formatDate(date) {
   const y = date.getFullYear();
@@ -173,7 +173,7 @@ function writeBareEpisode(baseDir, project, commits, changedFiles, reads) {
 
     const entities = changedFiles.slice(0, 10);
 
-    insertBareEpisode(db, {
+    const epId = insertBareEpisode(db, {
       kind: 'session',
       scope: 'project',
       project: project,
@@ -183,6 +183,25 @@ function writeBareEpisode(baseDir, project, commits, changedFiles, reads) {
       entities: entities.length > 0 ? entities : null,
       source: 'hook',
     });
+
+    // FTS5 mirror — episode searchable via /mindlore-query and mindlore-search hook
+    try {
+      insertFtsRow(db, {
+        path: `episodes/${epId}`,
+        slug: `ep-${epId}`,
+        description: summary.slice(0, 300),
+        type: 'episode',
+        category: 'episodes',
+        title: summary.slice(0, 100),
+        content: [summary, bodyParts.join('\n\n')].join('\n').trim(),
+        tags: 'session',
+        quality: null,
+        dateCaptured: new Date().toISOString().slice(0, 10),
+        project: project,
+      });
+    } catch (_ftsErr) {
+      // FTS5 mirror is optional — don't break session end
+    }
 
     db.close();
   } catch (_err) {

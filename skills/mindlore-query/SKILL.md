@@ -18,14 +18,17 @@ Determine search scope using `getActiveMindloreDir()` / `getAllDbs()` logic:
 
 ### search
 
-FTS5 keyword search with direct results.
+FTS5 keyword search + episodes recall with unified results.
 
 **Flow:**
 1. Parse user query into keywords (strip stop words)
-2. Run FTS5 MATCH on `mindlore_fts` table
-3. Return top 5 results (configurable) with: path, title, description, category, rank score
-4. Display as table with snippet preview
-5. If `--tags <tag>` flag provided: `WHERE tags MATCH '<tag>'` filter
+2. Run FTS5 MATCH on `mindlore_fts` table (knowledge: "ne biliyorum")
+3. Run LIKE search on `episodes` table (memory: "ne oldu, ne karar aldım")
+4. Merge results: FTS5 results first, then matching episodes
+5. Return top 5 knowledge results + top 3 episode results
+6. Display knowledge as table with snippet preview, episodes as timeline
+7. If `--tags <tag>` flag provided: `WHERE tags MATCH '<tag>'` filter (FTS5 only)
+8. If `--episodes-only` flag: skip FTS5, show only episode matches
 
 **Output format:**
 ```

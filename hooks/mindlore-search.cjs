@@ -10,7 +10,7 @@
 
 const fs = require('fs');
 const path = require('path');
-const { getAllDbs, requireDatabase, extractHeadings, readHookStdin } = require('./lib/mindlore-common.cjs');
+const { getAllDbs, requireDatabase, extractHeadings, readHookStdin, hasEpisodesTable } = require('./lib/mindlore-common.cjs');
 
 const MAX_RESULTS = 3;
 const MIN_QUERY_WORDS = 3;
@@ -104,6 +104,34 @@ function searchDb(dbPath, keywords, Database) {
   return results;
 }
 
+/**
+ * Search episodes table using LIKE matching on summary + body.
+ * Returns formatted results for injection.
+ */
+function searchEpisodes(dbPath, keywords, Database) {
+  try {
+    const db = new Database(dbPath, { readonly: true });
+    if (!hasEpisodesTable(db)) {
+      db.close();
+      return [];
+    }
+
+    const pattern = '%' + keywords.join('%') + '%';
+    const rows = db.prepare(
+      "SELECT kind, summary, project, created_at FROM episodes WHERE status = 'active' AND (summary LIKE ? OR body LIKE ?) ORDER BY created_at DESC LIMIT 3"
+    ).all(pattern, pattern);
+    db.close();
+
+    return rows.map(r => {
+      const date = (r.created_at || '').slice(0, 10);
+      const proj = r.project ? ` [${r.project}]` : '';
+      return `[${date}] ${r.kind}: ${r.summary}${proj}`;
+    });
+  } catch (_err) {
+    return [];
+  }
+}
+
 function main() {
   const userMessage = readHookStdin(['prompt', 'content', 'message', 'query']);
   if (!userMessage || userMessage.length < MIN_QUERY_WORDS) return;
@@ -160,6 +188,15 @@ function main() {
     output.push(
       `[Mindlore: ${category}/${title}] ${description}\nDosya: ${relativePath}${tagsStr}${headingStr}`
     );
+  }
+
+  // v0.4.0: Search episodes table too
+  for (const dbPath of dbPaths) {
+    const episodeResults = searchEpisodes(dbPath, keywords, Database);
+    if (episodeResults.length > 0) {
+      output.push(`[Mindlore Episodes]\n${episodeResults.join('\n')}`);
+      break; // single global DB, no need to iterate
+    }
   }
 
   if (output.length > 0) {
