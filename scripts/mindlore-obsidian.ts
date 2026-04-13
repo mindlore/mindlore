@@ -171,9 +171,9 @@ function obsidianStatus(): void {
   log(`Last export: ${config.lastExport ?? 'never'}`);
   log(`Files exported: ${config.exportedFiles}`);
 
-  if (config.vault && isObsidianVault(config.vault)) {
+  if (isObsidianVault(config.vault)) {
     log('Vault verified: .obsidian/ found');
-  } else if (config.vault) {
+  } else {
     log('WARNING: .obsidian/ not found — may not be an Obsidian vault');
   }
 }

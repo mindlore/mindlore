@@ -39,11 +39,13 @@ export function shouldExport(
   force: boolean,
 ): boolean {
   if (force) return true;
-  if (!fs.existsSync(destPath)) return true;
-
-  const srcStat = fs.statSync(srcPath);
-  const destStat = fs.statSync(destPath);
-  return srcStat.mtimeMs > destStat.mtimeMs;
+  try {
+    const srcStat = fs.statSync(srcPath);
+    const destStat = fs.statSync(destPath);
+    return srcStat.mtimeMs > destStat.mtimeMs;
+  } catch (_err) {
+    return true;
+  }
 }
 
 /**
@@ -80,7 +82,6 @@ export function collectMdFiles(
       results.push(...collectMdFiles(fullPath, root));
     } else if (entry.isFile() && entry.name.endsWith('.md')) {
       if (SKIP_FILES.has(entry.name)) continue;
-      if (entry.name.endsWith('.db')) continue;
 
       results.push({
         absolute: fullPath,

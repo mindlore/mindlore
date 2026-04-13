@@ -15,6 +15,9 @@ import path from 'path';
 import { execSync } from 'child_process';
 import { GLOBAL_MINDLORE_DIR, log } from './lib/constants.js';
 
+const BASE_DIR = GLOBAL_MINDLORE_DIR;
+const GIT_DIR = path.join(BASE_DIR, '.git');
+
 const GITIGNORE_CONTENT = `*.db
 *.db-wal
 *.db-shm
@@ -23,22 +26,20 @@ _pattern-cache-*.json
 `;
 
 function backupInit(): void {
-  const baseDir = GLOBAL_MINDLORE_DIR;
-  const gitDir = path.join(baseDir, '.git');
 
-  if (!fs.existsSync(baseDir)) {
+  if (!fs.existsSync(BASE_DIR)) {
     console.error('  ~/.mindlore/ not found. Run: npx mindlore init');
     process.exit(1);
   }
 
   // Create .gitignore
-  const gitignorePath = path.join(baseDir, '.gitignore');
+  const gitignorePath = path.join(BASE_DIR, '.gitignore');
   fs.writeFileSync(gitignorePath, GITIGNORE_CONTENT, 'utf8');
   log('Created .gitignore');
 
   // Init git if needed
-  if (!fs.existsSync(gitDir)) {
-    execSync('git init', { cwd: baseDir, stdio: 'pipe', timeout: 10000 });
+  if (!fs.existsSync(GIT_DIR)) {
+    execSync('git init', { cwd: BASE_DIR, stdio: 'pipe', timeout: 10000 });
     log('Initialized git repo');
   } else {
     log('Git repo already initialized');
@@ -46,15 +47,15 @@ function backupInit(): void {
 
   // Initial commit
   try {
-    execSync('git add -A', { cwd: baseDir, stdio: 'pipe', timeout: 10000 });
+    execSync('git add -A', { cwd: BASE_DIR, stdio: 'pipe', timeout: 10000 });
     const status = execSync('git status --porcelain', {
-      cwd: baseDir,
+      cwd: BASE_DIR,
       encoding: 'utf8',
       timeout: 5000,
     }).trim();
     if (status) {
       execSync('git commit -m "mindlore backup init"', {
-        cwd: baseDir,
+        cwd: BASE_DIR,
         stdio: 'pipe',
         timeout: 10000,
       });
@@ -68,17 +69,15 @@ function backupInit(): void {
 }
 
 function backupStatus(): void {
-  const baseDir = GLOBAL_MINDLORE_DIR;
-  const gitDir = path.join(baseDir, '.git');
 
-  if (!fs.existsSync(gitDir)) {
+  if (!fs.existsSync(GIT_DIR)) {
     console.log('  Backup not initialized. Run: mindlore backup init');
     return;
   }
 
   try {
     const lastCommit = execSync('git log --oneline -1', {
-      cwd: baseDir,
+      cwd: BASE_DIR,
       encoding: 'utf8',
       timeout: 5000,
     }).trim();
@@ -89,7 +88,7 @@ function backupStatus(): void {
 
   try {
     const remote = execSync('git remote get-url origin', {
-      cwd: baseDir,
+      cwd: BASE_DIR,
       encoding: 'utf8',
       timeout: 5000,
     }).trim();
@@ -100,7 +99,7 @@ function backupStatus(): void {
 
   try {
     const status = execSync('git status --short', {
-      cwd: baseDir,
+      cwd: BASE_DIR,
       encoding: 'utf8',
       timeout: 5000,
     }).trim();
@@ -116,10 +115,8 @@ function backupStatus(): void {
 }
 
 function backupRemote(url: string): void {
-  const baseDir = GLOBAL_MINDLORE_DIR;
-  const gitDir = path.join(baseDir, '.git');
 
-  if (!fs.existsSync(gitDir)) {
+  if (!fs.existsSync(GIT_DIR)) {
     console.error('  Backup not initialized. Run: mindlore backup init');
     process.exit(1);
   }
@@ -127,19 +124,19 @@ function backupRemote(url: string): void {
   try {
     try {
       execSync('git remote get-url origin', {
-        cwd: baseDir,
+        cwd: BASE_DIR,
         stdio: 'pipe',
         timeout: 5000,
       });
       execSync(`git remote set-url origin "${url}"`, {
-        cwd: baseDir,
+        cwd: BASE_DIR,
         stdio: 'pipe',
         timeout: 5000,
       });
       log(`Remote updated: ${url}`);
     } catch (_err) {
       execSync(`git remote add origin "${url}"`, {
-        cwd: baseDir,
+        cwd: BASE_DIR,
         stdio: 'pipe',
         timeout: 5000,
       });
@@ -151,18 +148,16 @@ function backupRemote(url: string): void {
 }
 
 function backupNow(): void {
-  const baseDir = GLOBAL_MINDLORE_DIR;
-  const gitDir = path.join(baseDir, '.git');
 
-  if (!fs.existsSync(gitDir)) {
+  if (!fs.existsSync(GIT_DIR)) {
     console.error('  Backup not initialized. Run: mindlore backup init');
     process.exit(1);
   }
 
   try {
-    execSync('git add -A', { cwd: baseDir, stdio: 'pipe', timeout: 10000 });
+    execSync('git add -A', { cwd: BASE_DIR, stdio: 'pipe', timeout: 10000 });
     const status = execSync('git status --porcelain', {
-      cwd: baseDir,
+      cwd: BASE_DIR,
       encoding: 'utf8',
       timeout: 5000,
     }).trim();
@@ -174,7 +169,7 @@ function backupNow(): void {
 
     const now = new Date().toISOString().slice(0, 19);
     execSync(`git commit -m "mindlore backup ${now}"`, {
-      cwd: baseDir,
+      cwd: BASE_DIR,
       stdio: 'pipe',
       timeout: 10000,
     });
@@ -182,11 +177,11 @@ function backupNow(): void {
 
     try {
       execSync('git remote get-url origin', {
-        cwd: baseDir,
+        cwd: BASE_DIR,
         stdio: 'pipe',
         timeout: 5000,
       });
-      execSync('git push', { cwd: baseDir, stdio: 'pipe', timeout: 15000 });
+      execSync('git push', { cwd: BASE_DIR, stdio: 'pipe', timeout: 15000 });
       log('Pushed to remote');
     } catch (_err) {
       log('No remote configured — local commit only');

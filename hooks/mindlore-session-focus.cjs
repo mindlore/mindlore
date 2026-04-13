@@ -10,7 +10,7 @@
 
 const fs = require('fs');
 const path = require('path');
-const { findMindloreDir, getLatestDelta, readConfig } = require('./lib/mindlore-common.cjs');
+const { findMindloreDir } = require('./lib/mindlore-common.cjs');
 
 function main() {
   const baseDir = findMindloreDir();
@@ -25,22 +25,24 @@ function main() {
     output.push(`[Mindlore INDEX]\n${content}`);
   }
 
-  // Inject latest delta
+  // Inject latest delta + reflect trigger (single readdirSync)
   const diaryDir = path.join(baseDir, 'diary');
-  const latestDelta = getLatestDelta(diaryDir);
-  if (latestDelta) {
-    const deltaContent = fs.readFileSync(latestDelta, 'utf8').trim();
-    const deltaName = path.basename(latestDelta);
-    output.push(`[Mindlore Delta: ${deltaName}]\n${deltaContent}`);
-  }
-
-  // Reflect trigger: count diary entries, warn if above threshold
   if (fs.existsSync(diaryDir)) {
     try {
       const diaryFiles = fs.readdirSync(diaryDir).filter(f => f.startsWith('delta-') && f.endsWith('.md'));
-      const config = readConfig(baseDir);
-      const threshold = config?.reflect?.threshold ?? 5;
-      if (diaryFiles.length >= threshold) {
+
+      // Latest delta
+      if (diaryFiles.length > 0) {
+        const sorted = [...diaryFiles].sort();
+        const latestName = sorted[sorted.length - 1];
+        const latestPath = path.join(diaryDir, latestName);
+        const deltaContent = fs.readFileSync(latestPath, 'utf8').trim();
+        output.push(`[Mindlore Delta: ${latestName}]\n${deltaContent}`);
+      }
+
+      // Reflect trigger (threshold hardcoded — config read too expensive for session start)
+      const REFLECT_THRESHOLD = 5;
+      if (diaryFiles.length >= REFLECT_THRESHOLD) {
         output.push(`[Mindlore] ${diaryFiles.length} diary entry birikti — \`/mindlore-log reflect\` calistirmayi dusun.`);
       }
     } catch (_err) { /* skip */ }
