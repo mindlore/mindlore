@@ -503,6 +503,18 @@ function main(): void {
   const dbCreated = createDatabase(baseDir);
   log(dbCreated ? 'Created FTS5 database' : 'Database already exists');
 
+  // Step 4b: Auto-index existing .md files into FTS5
+  try {
+    const cp: typeof import('child_process') = require('child_process');
+    const indexScript = path.join(packageRoot, 'dist', 'scripts', 'mindlore-fts5-index.js');
+    if (fs.existsSync(indexScript)) {
+      cp.execSync(`node "${indexScript}"`, { cwd: baseDir, stdio: 'pipe', timeout: 30000 });
+      log('Auto-indexed existing files into FTS5');
+    }
+  } catch (_err) {
+    log('WARNING: Auto-index failed — run: npx mindlore index');
+  }
+
   // Read plugin.json once for hooks + skills
   const pluginPath = path.join(packageRoot, 'plugin.json');
   const plugin: PluginManifest = fs.existsSync(pluginPath)
