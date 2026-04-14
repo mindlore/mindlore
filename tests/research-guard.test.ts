@@ -1,14 +1,63 @@
 import { spawnSync } from 'child_process';
+import fs from 'fs';
 import path from 'path';
+import os from 'os';
+import { createTestDb, insertFts } from './helpers/db';
 
 const HOOK_PATH = path.join(__dirname, '..', 'hooks', 'mindlore-research-guard.cjs');
+
+let tmpDir: string;
+let dbPath: string;
+
+beforeAll(() => {
+  // Create isolated .mindlore/ with test DB
+  tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'mindlore-rg-'));
+  dbPath = path.join(tmpDir, 'mindlore.db');
+  const db = createTestDb(dbPath);
+
+  // Insert a high-quality recent source
+  insertFts(db, {
+    path: 'sources/cc-hooks-reference.md',
+    slug: 'cc-hooks-reference',
+    description: 'Claude Code Hooks Reference',
+    type: 'source',
+    category: 'sources',
+    title: 'Claude Code Hooks — Comprehensive Reference',
+    content: 'Claude Code hooks SessionEnd timeout behavior exit code PreToolUse PostToolUse lifecycle',
+    tags: 'claude-code, hooks, timeout, SessionEnd',
+    quality: 'high',
+    dateCaptured: new Date().toISOString().slice(0, 10),
+    project: 'mindlore',
+  });
+
+  // Insert a medium-quality source
+  insertFts(db, {
+    path: 'sources/obsidian-integration.md',
+    slug: 'obsidian-integration',
+    description: 'Obsidian integration notes',
+    type: 'source',
+    category: 'sources',
+    title: 'Obsidian Vault Integration',
+    content: 'obsidian vault wikilinks export integration markdown',
+    tags: 'obsidian, vault, export',
+    quality: 'medium',
+    dateCaptured: new Date().toISOString().slice(0, 10),
+    project: 'mindlore',
+  });
+
+  db.close();
+});
+
+afterAll(() => {
+  fs.rmSync(tmpDir, { recursive: true, force: true });
+});
 
 function runHook(input: Record<string, unknown>): { stdout: string; stderr: string; exitCode: number } {
   const result = spawnSync('node', [HOOK_PATH], {
     input: JSON.stringify(input),
     encoding: 'utf8',
     timeout: 10000,
-    env: { ...process.env },
+    env: { ...process.env, MINDLORE_HOME: tmpDir },
   });
   return {
     stdout: result.stdout || '',
@@ -76,7 +125,7 @@ describe('mindlore-research-guard', () => {
     expect(result.stdout).toBe('');
   });
 
-  test('should return valid JSON additionalContext for weak matches', () => {
+  test('should return additionalContext for medium-quality matches', () => {
     const result = runHook({
       tool_name: 'Agent',
       tool_input: {
@@ -84,7 +133,8 @@ describe('mindlore-research-guard', () => {
         description: 'obsidian research',
       },
     });
-    if (result.exitCode === 0 && result.stdout) {
+    expect(result.exitCode).toBe(0);
+    if (result.stdout) {
       const parsed = JSON.parse(result.stdout);
       expect(parsed.hookSpecificOutput).toBeDefined();
       expect(parsed.hookSpecificOutput.additionalContext).toContain('mindlore-research-guard');
@@ -96,6 +146,7 @@ describe('mindlore-research-guard', () => {
       input: '',
       encoding: 'utf8',
       timeout: 5000,
+      env: { ...process.env, MINDLORE_HOME: tmpDir },
     });
     expect(result.status).toBe(0);
   });
