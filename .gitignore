@@ -11,3 +11,7 @@ Thumbs.db
 *.tgz
 .claude/
 .test-mindlore-*
+.mindlore.bak/
+docs/
+plans/
+security-audit-report.md
