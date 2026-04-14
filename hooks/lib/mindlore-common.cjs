@@ -306,6 +306,16 @@ CREATE TABLE IF NOT EXISTS episodes (
   created_at TEXT NOT NULL
 )`;
 
+/**
+ * Valid episode kinds. CO-EVOLUTION: mirrors EPISODE_KINDS in scripts/lib/episodes.ts
+ */
+const EPISODE_KINDS_CJS = ['session', 'decision', 'event', 'preference', 'learning', 'friction', 'discovery', 'nomination'];
+
+/**
+ * Valid episode statuses. CO-EVOLUTION: mirrors EPISODE_STATUSES in scripts/lib/episodes.ts
+ */
+const EPISODE_STATUSES_CJS = ['active', 'superseded', 'deleted', 'staged', 'reviewed', 'approved', 'rejected'];
+
 const SQL_EPISODES_INDEXES = [
   'CREATE INDEX IF NOT EXISTS idx_episodes_kind ON episodes(kind, status)',
   'CREATE INDEX IF NOT EXISTS idx_episodes_project ON episodes(project, status)',
@@ -423,7 +433,9 @@ module.exports = {
   detectSchemaVersion,
   getProjectName,
   DEFAULT_MODELS,
-  // Episodes (v0.4.0)
+  // Episodes (v0.4.1)
+  EPISODE_KINDS_CJS,
+  EPISODE_STATUSES_CJS,
   SQL_EPISODES_CREATE,
   SQL_EPISODES_INDEXES,
   ensureEpisodesTable,
