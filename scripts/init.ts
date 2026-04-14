@@ -12,6 +12,7 @@
 
 import fs from 'fs';
 import path from 'path';
+import { execSync } from 'child_process';
 import { MINDLORE_DIR, GLOBAL_MINDLORE_DIR, DB_NAME, DIRECTORIES, CONFIG_FILE, DEFAULT_MODELS, homedir, log, resolveHookCommon } from './lib/constants.js';
 import type { Settings } from './lib/constants.js';
 import { dbPragma } from './lib/db-helpers.js';
@@ -200,7 +201,7 @@ function createDatabase(baseDir: string): boolean {
 
 // ── Step 4: Merge hooks into settings.json ─────────────────────────────
 
-function mergeHooks(packageRoot: string): { added: number; total: number } | false {
+function mergeHooks(packageRoot: string, existingPlugin?: PluginManifest): { added: number; total: number } | false {
   const settingsPath = path.join(homedir(), '.claude', 'settings.json');
 
   if (!fs.existsSync(settingsPath)) {
@@ -218,13 +219,17 @@ function mergeHooks(packageRoot: string): { added: number; total: number } | fal
     return false;
   }
 
-  const pluginPath = path.join(packageRoot, 'plugin.json');
-  if (!fs.existsSync(pluginPath)) {
-    log('WARNING: plugin.json not found. Hooks not registered.');
-    return false;
+  let plugin: PluginManifest;
+  if (existingPlugin) {
+    plugin = existingPlugin;
+  } else {
+    const pluginPath = path.join(packageRoot, 'plugin.json');
+    if (!fs.existsSync(pluginPath)) {
+      log('WARNING: plugin.json not found. Hooks not registered.');
+      return false;
+    }
+    plugin = readJsonFile<PluginManifest>(pluginPath);
   }
-
-  const plugin = readJsonFile<PluginManifest>(pluginPath);
   if (!plugin.hooks || plugin.hooks.length === 0) {
     return false;
   }
@@ -356,8 +361,6 @@ function ensureBetterSqlite3(): boolean {
     return true;
   } catch (_err) {
     try {
-      const cp: typeof import('child_process') = require('child_process');
-      const { execSync } = cp;
       log('Installing better-sqlite3 (native dependency)...');
       execSync('npm install better-sqlite3 --no-save', {
         cwd: process.cwd(),
@@ -505,10 +508,9 @@ function main(): void {
 
   // Step 4b: Auto-index existing .md files into FTS5
   try {
-    const cp: typeof import('child_process') = require('child_process');
     const indexScript = path.join(packageRoot, 'dist', 'scripts', 'mindlore-fts5-index.js');
     if (fs.existsSync(indexScript)) {
-      cp.execSync(`node "${indexScript}"`, { cwd: baseDir, stdio: 'pipe', timeout: 30000 });
+      execSync(`node "${indexScript}"`, { cwd: baseDir, stdio: 'pipe', timeout: 30000 });
       log('Auto-indexed existing files into FTS5');
     }
   } catch (_err) {
@@ -522,7 +524,7 @@ function main(): void {
     : {};
 
   // Step 5: Hooks
-  const hooksResult = mergeHooks(packageRoot);
+  const hooksResult = mergeHooks(packageRoot, plugin);
   if (typeof hooksResult === 'object' && hooksResult !== null) {
     if (hooksResult.added > 0) {
       log(`Registered ${hooksResult.added} new hooks (${hooksResult.total} total) in ~/.claude/settings.json`);
@@ -557,14 +559,10 @@ function main(): void {
       : 'config.json already configured',
   );
 
-  // Step 9: .gitignore removed — global dir is outside project, no need
-
-  // Step 10: Init git repo in ~/.mindlore/ (always global now)
+  // Step 9: Init git repo in ~/.mindlore/ (always global now)
   const gitDir = path.join(baseDir, '.git');
   if (!fs.existsSync(gitDir)) {
     try {
-      const cp2: typeof import('child_process') = require('child_process');
-      const { execSync } = cp2;
       execSync('git init', { cwd: baseDir, stdio: 'pipe', timeout: 10000 });
       log('Initialized git repo in ~/.mindlore/');
     } catch (_err) {
@@ -574,7 +572,7 @@ function main(): void {
     log('Git repo already initialized');
   }
 
-  // Step 11: Create project namespace directories
+  // Step 10: Create project namespace directories
   const projectName = path.basename(process.cwd());
   const namespaceDirs = ['raw', 'sources', 'diary', 'decisions'];
   let nsCreated = 0;
@@ -590,10 +588,9 @@ function main(): void {
   );
 
   // Backup guide
-  console.log('\n  Optional: Create a private repo for backup:');
-  log('  gh repo create mindlore-data --private');
-  log('  cd ~/.mindlore && git remote add origin <url>');
-  log('  Session-end hook will auto-commit + push.');
+  console.log('\n  Backup: Auto-sync your knowledge to a private GitHub repo:');
+  log('  npx mindlore backup github');
+  log('  (Requires: gh CLI + GitHub login. Session-end hook auto-pushes.)');
 
   // Recommended profile tips
   if (isRecommended) {
@@ -605,7 +602,7 @@ function main(): void {
     log('  See: https://github.com/context-mode/context-mode');
   }
 
-  // Step 11: Write .version + .pkg-version (flat string for fast session-focus comparison)
+  // Step 11: Write .version + .pkg-version
   const packageJson = readJsonFile<{ version: string }>(path.join(packageRoot, 'package.json'));
   const versionPath = path.join(baseDir, '.version');
   const pkgVersionPath = path.join(baseDir, '.pkg-version');

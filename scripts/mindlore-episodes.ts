@@ -30,9 +30,9 @@ function openDb(): import('better-sqlite3').Database | null {
 function parseArgs(args: string[]): Record<string, string> {
   const result: Record<string, string> = {};
   for (let i = 0; i < args.length; i++) {
-    const arg = args[i]!;
+    const arg = args[i] ?? '';
     if (arg.startsWith('--') && i + 1 < args.length) {
-      result[arg.slice(2)] = args[i + 1]!;
+      result[arg.slice(2)] = args[i + 1] ?? '';
       i++;
     } else if (!arg.startsWith('--')) {
       result[`_${Object.keys(result).filter(k => k.startsWith('_')).length}`] = arg;

@@ -43,9 +43,9 @@ describe('mindlore backup', () => {
     expect(fs.existsSync(gitignorePath)).toBe(true);
 
     const content = fs.readFileSync(gitignorePath, 'utf8');
-    expect(content).toContain('*.db');
-    expect(content).toContain('_session-reads-*.json');
-    expect(content).toContain('_pattern-cache-*.json');
+    expect(content).toContain('*.db-wal');
+    expect(content).toContain('config.json');
+    expect(content).toContain('diary/_*.json');
 
     const gitDir = path.join(MINDLORE_DIR, '.git');
     expect(fs.existsSync(gitDir)).toBe(true);
@@ -102,11 +102,13 @@ describe('mindlore backup', () => {
     expect(output).toContain('Usage');
   });
 
-  test('gitignore excludes db and cache files', () => {
+  test('gitignore excludes cache and system files but keeps db', () => {
     runBackup('init');
 
-    // Create files that should be ignored
+    // Create files — some should be ignored, some tracked
     fs.writeFileSync(path.join(MINDLORE_DIR, 'mindlore.db'), 'fake-db', 'utf8');
+    fs.writeFileSync(path.join(MINDLORE_DIR, 'mindlore.db-wal'), 'wal', 'utf8');
+    fs.writeFileSync(path.join(MINDLORE_DIR, 'config.json'), '{}', 'utf8');
     fs.writeFileSync(path.join(MINDLORE_DIR, 'diary', '_session-reads-test.json'), '{}', 'utf8');
     fs.writeFileSync(path.join(MINDLORE_DIR, 'diary', '_pattern-cache-test.json'), '{}', 'utf8');
 
@@ -116,8 +118,11 @@ describe('mindlore backup', () => {
       timeout: 5000,
     }).trim();
 
-    // These files should not appear in git status (gitignored)
-    expect(status).not.toContain('mindlore.db');
+    // DB should be tracked (backup-worthy) — verify it's untracked-but-visible, not just a substring match
+    expect(status).toMatch(/\?\?\s+mindlore\.db/);
+    // WAL, cache, system files should be ignored
+    expect(status).not.toContain('mindlore.db-wal');
+    expect(status).not.toContain('config.json');
     expect(status).not.toContain('_session-reads');
     expect(status).not.toContain('_pattern-cache');
   });

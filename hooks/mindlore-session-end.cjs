@@ -143,6 +143,9 @@ function main() {
   // v0.4.0: Write bare episode to episodes table
   writeBareEpisode(baseDir, project, commits, changedFiles, reads);
 
+  // Obsidian auto-export (if vault configured)
+  syncObsidian(baseDir);
+
   // Git auto-commit + push for global ~/.mindlore/ only
   syncGlobalRepo();
 }
@@ -217,6 +220,95 @@ function writeBareEpisode(baseDir, project, commits, changedFiles, reads) {
     db.close();
   } catch (_err) {
     // Graceful fail — never break session end
+  }
+}
+
+const EXPORT_DIRS = ['analyses', 'decisions', 'diary', 'raw', 'sources', 'domains', 'connections', 'insights', 'learnings'];
+
+/**
+ * Load obsidian-helpers from compiled dist (single source of truth for wikilink conversion).
+ * Returns null if helpers not available (e.g. dev environment without build).
+ */
+function loadObsidianHelpers() {
+  try {
+    // Resolve from package root (hooks/ is sibling to dist/)
+    const hookDir = __dirname;
+    const pkgRoot = path.dirname(hookDir);
+    const helpersPath = path.join(pkgRoot, 'dist', 'scripts', 'lib', 'obsidian-helpers.js');
+    if (!fs.existsSync(helpersPath)) return null;
+    return require(helpersPath);
+  } catch (_err) {
+    return null;
+  }
+}
+
+/**
+ * Export a single .md file to Obsidian vault with wikilink conversion.
+ * Uses obsidian-helpers.convertToWikilinks for consistent behavior.
+ * Returns true if file was exported.
+ */
+function exportMdFile(srcPath, destPath, convertFn) {
+  try {
+    const destStat = fs.statSync(destPath);
+    const srcStat = fs.statSync(srcPath);
+    if (srcStat.mtimeMs <= destStat.mtimeMs) return false;
+  } catch (_err) {
+    // dest doesn't exist — proceed with export
+  }
+  let content = fs.readFileSync(srcPath, 'utf8');
+  content = convertFn(content);
+  fs.writeFileSync(destPath, content, 'utf8');
+  return true;
+}
+
+/**
+ * Auto-export .md files to Obsidian vault if configured.
+ * Skips if no vault configured, vault missing, or nothing changed since last export.
+ */
+function syncObsidian(baseDir) {
+  try {
+    const configPath = path.join(baseDir, 'config.json');
+    if (!fs.existsSync(configPath)) return;
+
+    const config = JSON.parse(fs.readFileSync(configPath, 'utf8'));
+    const vaultPath = config?.obsidian?.vault;
+    if (!vaultPath || typeof vaultPath !== 'string') return;
+    if (!fs.existsSync(vaultPath)) return;
+
+    const helpers = loadObsidianHelpers();
+    // Fallback regex if helpers unavailable (strips path prefixes like the canonical version)
+    const convertFn = helpers?.convertToWikilinks
+      ?? ((c) => c.replace(/\[([^\]]+)\]\((?:\.\.?\/)?(?:[\w-]+\/)*([^/)]+)\.md\)/g, '[[$2]]'));
+
+    const destBase = path.join(vaultPath, 'mindlore');
+    let exported = 0;
+
+    for (const dir of EXPORT_DIRS) {
+      const srcDir = path.join(baseDir, dir);
+      if (!fs.existsSync(srcDir)) continue;
+
+      const destDir = path.join(destBase, dir);
+      if (!fs.existsSync(destDir)) fs.mkdirSync(destDir, { recursive: true });
+
+      for (const file of fs.readdirSync(srcDir).filter(f => f.endsWith('.md') && !f.startsWith('_'))) {
+        if (exportMdFile(path.join(srcDir, file), path.join(destDir, file), convertFn)) exported++;
+      }
+    }
+
+    for (const rootFile of ['INDEX.md', 'log.md']) {
+      const srcPath = path.join(baseDir, rootFile);
+      if (!fs.existsSync(srcPath)) continue;
+      if (!fs.existsSync(destBase)) fs.mkdirSync(destBase, { recursive: true });
+      if (exportMdFile(srcPath, path.join(destBase, rootFile), convertFn)) exported++;
+    }
+
+    if (exported > 0) {
+      config.obsidian.lastExport = new Date().toISOString();
+      config.obsidian.lastExportCount = exported;
+      fs.writeFileSync(configPath, JSON.stringify(config, null, 2), 'utf8');
+    }
+  } catch (err) {
+    process.stderr.write(`[mindlore] obsidian sync failed: ${err?.message ?? err}\n`);
   }
 }
 
