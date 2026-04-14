@@ -1,6 +1,6 @@
 /**
  * Episodes CRUD helpers for Mindlore episodic memory.
- * v0.4.0: session/decision/event/preference/learning/friction/discovery episodes.
+ * v0.4.1: session/decision/event/preference/learning/friction/discovery/nomination episodes.
  *
  * Episodes live in a regular SQLite table (not FTS5) for structured queries.
  * Optionally mirrored to FTS5 for text search.
@@ -14,13 +14,13 @@ type Database = BetterSqlite3.Database;
 
 // ── Types ────────────────────────────────────────────────────────────
 
-export const EPISODE_KINDS = ['session', 'decision', 'event', 'preference', 'learning', 'friction', 'discovery'] as const;
+export const EPISODE_KINDS = ['session', 'decision', 'event', 'preference', 'learning', 'friction', 'discovery', 'nomination'] as const;
 export type EpisodeKind = typeof EPISODE_KINDS[number];
 
 export const EPISODE_SCOPES = ['project', 'global'] as const;
 export type EpisodeScope = typeof EPISODE_SCOPES[number];
 
-export const EPISODE_STATUSES = ['active', 'superseded', 'deleted'] as const;
+export const EPISODE_STATUSES = ['active', 'superseded', 'deleted', 'staged', 'reviewed', 'approved', 'rejected'] as const;
 export type EpisodeStatus = typeof EPISODE_STATUSES[number];
 
 export const EPISODE_SOURCES = ['hook', 'diary', 'reflect', 'decide', 'manual'] as const;
