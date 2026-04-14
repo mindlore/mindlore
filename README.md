@@ -184,7 +184,7 @@ Skills spawn subagents with `[mindlore:SKILL]` markers — the model-router hook
 
 ## Hooks
 
-13 Claude Code lifecycle hooks (v0.4.1):
+13 Claude Code lifecycle hooks (v0.4.2):
 
 | Event | Hook | What it does |
 |-------|------|-------------|

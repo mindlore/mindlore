@@ -5,6 +5,30 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.4.2] - 2026-04-14
+
+### Added
+- **Backup GitHub command:** `npx mindlore backup github` — creates private repo, sets remote, pushes in one step
+- **Auto Obsidian sync:** Session-end hook exports .md files to Obsidian vault (wikilink conversion, mtime skip)
+- **Auto FTS5 index on init:** Template files indexed immediately after init — no more orphan files
+- **Init backup guide:** Updated to show `npx mindlore backup github` command
+
+### Changed
+- Backup gitignore: DB now backed up (was ignored), WAL + system + cache still ignored
+- `commitIfDirty` and `pushIfRemote` helpers extracted in backup script (DRY)
+- `ensureGhAuth` guard-exit pattern replaces nested try/catch in backup
+- `exportMdFile` helper extracted in session-end hook (DRY)
+- Session-end Obsidian sync uses `obsidian-helpers.convertToWikilinks` via compiled dist
+- `mergeHooks` accepts optional plugin parameter — eliminates double plugin.json read in init
+- `child_process` consolidated to single top-level import in init.ts
+- Step numbering fixed in init.ts (was two Step 11s)
+- `SYSTEM_FILES` constant shared for gitignore content
+- Backup test assertion strengthened (regex match vs substring)
+
+### Fixed
+- Non-null assertion warnings in episodes parser (`!` → `?? ''`)
+- `_`-prefixed files now correctly skipped in Obsidian auto-export
+
 ## [0.4.1] - 2026-04-14
 
 ### Added
