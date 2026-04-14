@@ -1,42 +1,42 @@
 {
   "name": "mindlore",
   "description": "AI-native knowledge system for Claude Code. Persistent, searchable, evolving knowledge base with FTS5.",
-  "version": "0.3.0",
+  "version": "0.4.0",
   "skills": [
     {
       "name": "mindlore-ingest",
       "path": "skills/mindlore-ingest/SKILL.md",
-      "description": "Add new knowledge sources (URL, text, file, PDF, GitHub repo)"
+      "description": "Add new knowledge sources to .mindlore/ knowledge base. Supports: URL (web page to markdown), text (inline paste), file (local .md/.txt/.pdf), PDF (markitdown extraction), GitHub repo (README + structure analysis). Includes 6-point quality gate: frontmatter validation, slug uniqueness, content length, source_type tagging, quality heuristic assignment, and FTS5 indexing. Auto-generates frontmatter with type, slug, date, tags, and quality fields."
     },
     {
       "name": "mindlore-health",
       "path": "skills/mindlore-health/SKILL.md",
-      "description": "Run 16-point structural health check on .mindlore/ knowledge base"
+      "description": "Run 16-point structural health check on .mindlore/ knowledge base. 12 deterministic script checks: INDEX.md sync, FTS5 row count, frontmatter validation, orphan file detection, slug uniqueness, directory structure, log.md integrity, config.json schema, episodes table health, content-hash dedup status, cross-reference consistency, file naming conventions. 4 LLM-powered checks: domain coverage gaps, stale content detection, tag taxonomy coherence, knowledge graph connectivity."
     },
     {
       "name": "mindlore-query",
       "path": "skills/mindlore-query/SKILL.md",
-      "description": "Search, ask, stats, brief — compounding knowledge pipeline"
+      "description": "Search, ask, stats, brief — compounding knowledge pipeline. Modes: search (FTS5 full-text + episodes recall), ask (LLM-powered Q&A grounded in knowledge base), stats (episode counts, domain coverage, freshness metrics), brief (executive summary of recent activity). Combines FTS5 text search with episodic memory for richer recall. Supports project-scoped and global queries."
     },
     {
       "name": "mindlore-log",
       "path": "skills/mindlore-log/SKILL.md",
-      "description": "Session logging, pattern extraction, wiki updates"
+      "description": "Session logging, pattern extraction, and wiki updates. Modes: diary (LLM session analysis to enriched episodes: decisions, discoveries, frictions, learnings, preferences, events), reflect (scan episodes for recurring patterns, 3-tier confidence assessment, nomination pipeline for rule proposals), status (recent sessions summary with trends), save (structured delta + log.md append + domain wiki update). Episodes-powered since v0.4.0."
     },
     {
       "name": "mindlore-decide",
       "path": "skills/mindlore-decide/SKILL.md",
-      "description": "Record and list decisions with context, alternatives, rationale"
+      "description": "Record and list architectural, tool, format, and strategy decisions with full context. Captures: alternatives considered, rationale, trade-offs, and outcome. Supports supersedes chain — when a decision replaces an older one, links them with reason. Episodes integration: decisions stored as kind:decision episodes with structured body. List mode shows active decisions with supersedes history."
     },
     {
       "name": "mindlore-evolve",
       "path": "skills/mindlore-evolve/SKILL.md",
-      "description": "Knowledge schema co-evolution — scan domains+sources, suggest updates"
+      "description": "Knowledge schema co-evolution — scan domains and sources for inconsistencies, suggest structural updates. Detects: orphaned references, outdated cross-links, missing domain coverage, INDEX.md drift, stale source summaries. Proposes: new domain pages, source updates, INDEX.md reorganization, CLAUDE.md convention changes. Default scope: project + global (--scope project|global|all)."
     },
     {
       "name": "mindlore-explore",
       "path": "skills/mindlore-explore/SKILL.md",
-      "description": "Discover unexpected connections between knowledge sources"
+      "description": "Discover unexpected connections between knowledge sources — undirected exploration mode. Cross-references domains, sources, analyses, and episodes to find non-obvious relationships. Identifies: shared entities across sources, pattern convergence between domains, episodic evidence supporting or contradicting domain claims. Default scope: project + global (--scope project|global|all)."
     }
   ],
   "hooks": [
