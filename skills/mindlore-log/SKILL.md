@@ -86,7 +86,16 @@ LLM-driven pattern extraction from episodes → persistent learnings.
    - Recurring frictions (same blocker/error)
    - Discovery patterns (assumptions that keep breaking)
    - Workflow patterns that worked well
-5. **Structured report output:**
+5. **3-Tier Confidence Assessment:**
+   For each detected pattern, count occurrences across episodes:
+
+   | Tekrar | Tier | Aksiyon |
+   |--------|------|---------|
+   | 1x | Note | Sessiz — episode olarak kalır, raporda göster |
+   | 2x | Learning | `kind: learning` episode oluştur, learnings/ dosyasına yaz |
+   | 3x+ | Nomination | `kind: nomination, status: staged, source: reflect` episode oluştur |
+
+6. **Structured report output:**
 
 ```
 ── Reflect Raporu (son {days} gün, {N} episode) ──
@@ -101,25 +110,73 @@ Decisions ({count}):
   - {summary}
 
 Patterns:
-  - "{pattern_description}" → kural adayı
+  - "CO-EVOLUTION sync hatası" → 3x tekrar → NOMINATION (staged)
+  - "ESM import sorunu" → 2x tekrar → LEARNING
+  - "Test mock karmaşıklığı" → 1x → NOTE
 
 Önerilen:
   [ ] {rule} ({repeat_count}x, {confidence} confidence)
 ```
 
-6. User approves → write to `learnings/{topic}.md`
-7. Format: `YAPMA:` / `BEST PRACTICE:` / `KRITIK:` prefixed rules
-8. Update relevant domain page if pattern relates to an existing domain
-9. Mark processed episodes: future reflect skips already-processed timeranges
-10. Append to `log.md`: `| {date} | reflect | {N} episodes processed, {M} learnings written |`
+7. **Nomination oluşturma (3x+ tekrar):**
+   - `kind: nomination`, `status: staged`, `source: reflect`
+   - Body formatı:
+     ```markdown
+     ## Target: learnings
+     ## Rule
+     YAPMA: Schema değişikliğinde tek dosyayı güncelleme — CO-EVOLUTION sync zorunlu
+     ## Evidence
+     - ep-xxx: episodes.ts güncellendi ama common.cjs unutuldu (2026-04-10)
+     - ep-yyy: Aynı hata tekrar (2026-04-12)
+     - ep-zzz: Test'te yakalandı (2026-04-13)
+     ## Confidence
+     3x tekrar, 3 gün içinde
+     ```
+   - Target options: `learnings` | `claude.md` | `domain:{slug}`
+
+8. **Pending nominations check:**
+   Reflect başlarken staged nomination'ları kontrol et:
+   ```sql
+   SELECT id, summary, body, created_at FROM episodes
+   WHERE kind = 'nomination' AND status = 'staged' AND project = ?
+   ORDER BY created_at ASC
+   ```
+   Varsa kullanıcıya sun:
+   ```
+   ── Bekleyen Nomination'lar ({N} adet) ──
+   1. "CO-EVOLUTION sync zorunlu" (staged 2 gün önce)
+      Target: learnings | Confidence: 3x
+   2. "Test before commit" (staged 5 gün önce)
+      Target: claude.md | Confidence: 4x
+
+   Onaylamak istediğin numara(lar)ı seç, veya 'skip' de:
+   ```
+
+9. **Nomination approval flow:**
+   Kullanıcı onaylarsa:
+   - `status: staged → approved`
+   - Target'a göre yaz:
+     - `learnings` → ilgili `learnings/{topic}.md` dosyasına YAPMA/BEST PRACTICE ekle
+     - `claude.md` → ilgili projenin CLAUDE.md'sine kural ekle (kullanıcıya göster, onay al)
+     - `domain:{slug}` → ilgili domain sayfasına ekle
+   Kullanıcı reddederse:
+   - `status: staged → rejected`
+   - Body'ye `## Rejection Reason\n{kullanıcı açıklaması}` ekle
+
+10. User approves new learnings → write to `learnings/{topic}.md`
+11. Format: `YAPMA:` / `BEST PRACTICE:` / `KRITIK:` prefixed rules
+12. Update relevant domain page if pattern relates to an existing domain
+13. Mark processed episodes: future reflect skips already-processed timeranges
+14. Append to `log.md`: `| {date} | reflect | {N} episodes processed, {M} learnings written |`
 
 **Fallback:** Also reads non-archived delta files if episodes table is empty (backward compat with v0.3 deltas).
 
 **Rules:**
-- NEVER write learnings without user approval
+- NEVER write learnings or nominations without user approval
 - Group related patterns into existing topic files (don't create one file per pattern)
 - Reflect scans both project + global diary/ in `--all` mode
 - Deduplication: same pattern found in both episodes and deltas → episodes win
+- Nominations with `status: staged` are hidden from default queries — only reflect sees them
 
 ### status
 
