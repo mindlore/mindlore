@@ -16,8 +16,10 @@ function main() {
   const filePath = readHookStdin(['path', 'file_path']);
   if (!filePath) return;
 
-  // Only process .md files inside .mindlore/
-  if (!filePath.includes(MINDLORE_DIR) || !filePath.endsWith('.md')) return;
+  // Only process .md files inside .mindlore/ (resolved path check prevents traversal)
+  if (!filePath.endsWith('.md')) return;
+  const resolvedFile = path.resolve(filePath);
+  if (!resolvedFile.includes(path.sep + MINDLORE_DIR + path.sep) && !resolvedFile.includes(path.sep + MINDLORE_DIR)) return;
 
   const fileName = path.basename(filePath);
   if (SKIP_FILES.has(fileName)) return;
@@ -60,18 +62,19 @@ function main() {
     const { meta, body } = parseFrontmatter(content);
     const { slug, description, type, category, title, tags, quality, dateCaptured } = extractFtsMetadata(meta, body, filePath, baseDir);
 
-    // Update FTS5
-    db.prepare('DELETE FROM mindlore_fts WHERE path = ?').run(filePath);
-    insertFtsRow(db, { path: filePath, slug, description, type, category, title, content: body, tags, quality, dateCaptured, project: getProjectName() });
-
-    // Update hash
-    db.prepare(
-      `INSERT INTO file_hashes (path, content_hash, last_indexed)
-       VALUES (?, ?, ?)
-       ON CONFLICT(path) DO UPDATE SET
-         content_hash = excluded.content_hash,
-         last_indexed = excluded.last_indexed`
-    ).run(filePath, hash, new Date().toISOString());
+    // Update FTS5 + hash atomically
+    const updateIndex = db.transaction(() => {
+      db.prepare('DELETE FROM mindlore_fts WHERE path = ?').run(filePath);
+      insertFtsRow(db, { path: filePath, slug, description, type, category, title, content: body, tags, quality, dateCaptured, project: getProjectName() });
+      db.prepare(
+        `INSERT INTO file_hashes (path, content_hash, last_indexed)
+         VALUES (?, ?, ?)
+         ON CONFLICT(path) DO UPDATE SET
+           content_hash = excluded.content_hash,
+           last_indexed = excluded.last_indexed`
+      ).run(filePath, hash, new Date().toISOString());
+    });
+    updateIndex();
   } finally {
     db.close();
   }

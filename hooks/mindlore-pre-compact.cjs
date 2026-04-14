@@ -21,8 +21,8 @@ function main() {
   const indexScript = path.join(__dirname, '..', 'scripts', 'mindlore-fts5-index.cjs');
   if (fs.existsSync(indexScript)) {
     try {
-      const { execSync } = require('child_process');
-      execSync(`node "${indexScript}" "${baseDir}"`, {
+      const { spawnSync } = require('child_process');
+      spawnSync('node', [indexScript, baseDir], {
         timeout: 10000,
         stdio: 'pipe',
       });

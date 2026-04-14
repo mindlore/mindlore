@@ -80,7 +80,9 @@ function searchDb(dbPath, keywords, Database) {
 
       for (const kw of keywords) {
         try {
-          const r = matchStmt.get(row.path, '"' + kw + '"');
+          const sanitized = kw.replace(/["*(){}[\]^~:]/g, '');
+          if (!sanitized) continue;
+          const r = matchStmt.get(row.path, '"' + sanitized + '"');
           if (r) {
             hits++;
             totalRank += r.rank;
@@ -110,7 +112,7 @@ function searchDb(dbPath, keywords, Database) {
  */
 function searchEpisodesFts(db, keywords) {
   try {
-    const ftsQuery = keywords.map(kw => '"' + kw + '"').join(' OR ');
+    const ftsQuery = keywords.map(kw => '"' + kw.replace(/["*(){}[\]^~:]/g, '') + '"').filter(q => q !== '""').join(' OR ');
     const rows = db.prepare(
       "SELECT title, category, slug, tags FROM mindlore_fts WHERE type = 'episode' AND mindlore_fts MATCH ? LIMIT 2"
     ).all(ftsQuery);

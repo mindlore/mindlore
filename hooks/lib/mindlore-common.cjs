@@ -87,12 +87,13 @@ function parseFrontmatter(content) {
   const match = content.match(/^---\r?\n([\s\S]*?)\r?\n---/);
   if (!match) return { meta: {}, body: content };
 
-  const meta = {};
+  const meta = Object.create(null);
   const lines = match[1].split('\n');
   for (const line of lines) {
     const colonIdx = line.indexOf(':');
     if (colonIdx === -1) continue;
     const key = line.slice(0, colonIdx).trim();
+    if (key === '__proto__' || key === 'constructor' || key === 'prototype') continue;
     let value = line.slice(colonIdx + 1).trim();
     if (value.startsWith('[') && value.endsWith(']')) {
       value = value.slice(1, -1).split(',').map((s) => s.trim().replace(/^["']|["']$/g, ''));
