@@ -184,7 +184,7 @@ Skills spawn subagents with `[mindlore:SKILL]` markers — the model-router hook
 
 ## Hooks
 
-13 Claude Code lifecycle hooks (v0.4.2):
+14 Claude Code lifecycle hooks (v0.4.3):
 
 | Event | Hook | What it does |
 |-------|------|-------------|
@@ -193,7 +193,7 @@ Skills spawn subagents with `[mindlore:SKILL]` markers — the model-router hook
 | UserPromptSubmit | decision-detector | TR+EN decision signal detection |
 | FileChanged | index | Sync changed files to FTS5 |
 | FileChanged | fts5-sync | Incremental batch re-index |
-| SessionEnd | session-end | Structured delta + bare episode + FTS5 mirror + git sync |
+| SessionEnd | session-end | Structured delta + bare episode + FTS5 mirror + detached git sync |
 | PreCompact | pre-compact | FTS5 flush before compaction |
 | PostCompact | post-compact | Re-inject context |
 | PreToolUse (Read) | read-guard | Repeated-read warning, blocks 3+ repeats |
@@ -201,6 +201,7 @@ Skills spawn subagents with `[mindlore:SKILL]` markers — the model-router hook
 | PreToolUse (Write\|Edit) | dont-repeat | LESSONS/learnings rule enforcement |
 | CwdChanged | cwd-changed | Scope detection + _scope.json write |
 | PreToolUse (Agent) | model-router | Cost-optimized model routing via markers |
+| PreToolUse (Agent) | research-guard | FTS5 check before research — blocks if recent+high quality exists |
 
 ## Uninstall
 

@@ -11,8 +11,25 @@
 
 const fs = require('fs');
 const path = require('path');
-const { execSync } = require('child_process');
+const os = require('os');
+const { execSync, spawn } = require('child_process');
 const { findMindloreDir, globalDir, getProjectName, openDatabase, ensureEpisodesTable, hasEpisodesTable, insertBareEpisode, insertFtsRow } = require('./lib/mindlore-common.cjs');
+
+// --worker mode: heavy ops run in detached child process (survives parent exit)
+if (process.argv.includes('--worker')) {
+  const dataPath = process.argv[process.argv.indexOf('--worker') + 1];
+  try {
+    const raw = fs.readFileSync(dataPath, 'utf8');
+    fs.unlinkSync(dataPath); // cleanup temp file before any processing
+    const { baseDir, project, commits, changedFiles, reads } = JSON.parse(raw);
+    writeBareEpisode(baseDir, project, commits, changedFiles, reads);
+    syncObsidian(baseDir);
+    syncGlobalRepo();
+  } catch (_err) {
+    // Graceful fail — worker errors are silent
+  }
+  process.exit(0);
+}
 
 function formatDate(date) {
   const y = date.getFullYear();
@@ -140,14 +157,25 @@ function main() {
     fs.appendFileSync(logPath, logEntry, 'utf8');
   }
 
-  // v0.4.0: Write bare episode to episodes table
-  writeBareEpisode(baseDir, project, commits, changedFiles, reads);
-
-  // Obsidian auto-export (if vault configured)
-  syncObsidian(baseDir);
-
-  // Git auto-commit + push for global ~/.mindlore/ only
-  syncGlobalRepo();
+  // Heavy ops: detach into child process so CC can exit immediately.
+  // Fixes "Hook cancelled" when CC kills the hook before completion.
+  // See: https://github.com/anthropics/claude-code/issues/41577
+  try {
+    const workerData = JSON.stringify({ baseDir, project, commits, changedFiles, reads });
+    const tmpFile = path.join(os.tmpdir(), `mindlore-worker-${Date.now()}.json`);
+    fs.writeFileSync(tmpFile, workerData, 'utf8');
+    const child = spawn(process.execPath, [__filename, '--worker', tmpFile], {
+      detached: true,
+      stdio: 'ignore',
+      cwd: process.cwd(),
+    });
+    child.unref();
+  } catch (_err) {
+    // Fallback: run inline if spawn fails
+    writeBareEpisode(baseDir, project, commits, changedFiles, reads);
+    syncObsidian(baseDir);
+    syncGlobalRepo();
+  }
 }
 
 /**
@@ -204,7 +232,7 @@ function writeBareEpisode(baseDir, project, commits, changedFiles, reads) {
           description: truncatedSummary,
           type: 'episode',
           category: 'episodes',
-          title: truncatedSummary.slice(0, 100),
+          title: truncatedSummary,
           content: [truncatedSummary, body ?? ''].join('\n').trim(),
           tags: 'session',
           quality: null,
@@ -218,8 +246,8 @@ function writeBareEpisode(baseDir, project, commits, changedFiles, reads) {
     writeBoth();
 
     db.close();
-  } catch (_err) {
-    // Graceful fail — never break session end
+  } catch (err) {
+    process.stderr.write(`[mindlore] episode write failed: ${err?.message ?? err}\n`);
   }
 }
 
@@ -332,7 +360,7 @@ function syncGlobalRepo() {
 
     if (!status) return; // nothing to commit
 
-    execSync('git add -A', { cwd: gDir, timeout: 5000, stdio: 'pipe' });
+    execSync('git add *.md mindlore.db config.json diary/ sources/ domains/ analyses/ decisions/ raw/ connections/ insights/ learnings/', { cwd: gDir, timeout: 5000, stdio: 'pipe' });
     const now = new Date().toISOString().slice(0, 19);
     execSync(`git commit -m "mindlore auto-sync ${now}"`, {
       cwd: gDir,

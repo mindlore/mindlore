@@ -5,6 +5,29 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.4.3] - 2026-04-14
+
+### Added
+- **Research guard hook:** `mindlore-research-guard.cjs` — FTS5 check before spawning researcher agents. Blocks (exit 2) if high-quality + recent knowledge exists, warns if old/low quality. Bypass with `[research-override]`
+- **Shared FTS5 utilities:** `extractKeywords`, `sanitizeKeyword`, `STOP_WORDS` moved to `mindlore-common.cjs` — single source of truth for search + research-guard hooks
+- **Research guard test suite:** 8 tests covering block, warn, bypass, exclude, and edge cases (32 active suites, 249 tests)
+
+### Fixed
+- **SessionEnd "Hook cancelled" fix:** Heavy ops (episode write, Obsidian sync, git push) now run in detached child process that survives CC exit ([#41577](https://github.com/anthropics/claude-code/issues/41577))
+- **Worker data via temp file:** Avoids Windows argv 32K limit — worker reads JSON from temp file instead of command-line arg
+- **Episode write error logging:** Outer catch now writes to stderr instead of silent swallow
+- **FTS5 keyword sanitization:** Hyphens converted to spaces (`sqlite-vec` → `"sqlite vec"`) instead of being stripped (caused zero matches)
+- **Quality case sensitivity:** `quality` field lowercased on read — prevents `'High'` vs `'high'` mismatch
+- **Date field backfill:** 86 files received `date_captured` from mtime, 54 files received `quality` assignment
+
+### Changed
+- FTS5 search in research-guard uses single `MATCH OR` query instead of O(paths × keywords) loop
+- Quality/date read from FTS5 columns directly — no file I/O in hot path
+- `git add -A` in global sync replaced with explicit mindlore file patterns
+- `title` field no longer double-truncated in episode FTS5 mirror
+- Hook count: 13 → 14, test suites: 31 → 32, tests: 241 → 249
+- Telegram plugin updated 0.0.4 → 0.0.5 (stale poller fix)
+
 ## [0.4.2] - 2026-04-14
 
 ### Added

@@ -1,7 +1,7 @@
 {
   "name": "mindlore",
   "description": "AI-native knowledge system for Claude Code. Persistent, searchable, evolving knowledge base with FTS5.",
-  "version": "0.4.2",
+  "version": "0.4.3",
   "skills": [
     {
       "name": "mindlore-ingest",
@@ -93,6 +93,11 @@
     {
       "event": "PreToolUse",
       "script": "hooks/mindlore-model-router.cjs",
+      "if": "Agent"
+    },
+    {
+      "event": "PreToolUse",
+      "script": "hooks/mindlore-research-guard.cjs",
       "if": "Agent"
     }
   ]

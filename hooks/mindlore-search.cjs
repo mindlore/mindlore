@@ -10,54 +10,11 @@
 
 const fs = require('fs');
 const path = require('path');
-const { getAllDbs, requireDatabase, extractHeadings, readHookStdin } = require('./lib/mindlore-common.cjs');
+const { getAllDbs, requireDatabase, extractHeadings, readHookStdin, extractKeywords } = require('./lib/mindlore-common.cjs');
 
 const MAX_RESULTS = 3;
 const MIN_QUERY_WORDS = 3;
 const MIN_KEYWORD_HITS = 2;
-
-// Extended stop words (~70 TR + EN) matching old knowledge system
-const STOP_WORDS = new Set([
-  // English
-  'the', 'a', 'an', 'is', 'are', 'was', 'were', 'be', 'been', 'being',
-  'have', 'has', 'had', 'do', 'does', 'did', 'will', 'would', 'could',
-  'should', 'may', 'might', 'can', 'shall', 'to', 'of', 'in', 'for',
-  'on', 'with', 'at', 'by', 'from', 'as', 'into', 'through', 'during',
-  'it', 'its', 'this', 'that', 'these', 'those', 'what', 'which', 'who',
-  'whom', 'how', 'when', 'where', 'why', 'not', 'no', 'nor', 'so',
-  'if', 'or', 'but', 'all', 'each', 'every', 'both', 'few', 'more',
-  'most', 'other', 'some', 'such', 'only', 'own', 'same', 'than',
-  'and', 'about', 'between', 'after', 'before', 'above', 'below',
-  'up', 'down', 'out', 'very', 'just', 'also', 'now', 'then',
-  'here', 'there', 'too', 'yet', 'my', 'your', 'his', 'her', 'our',
-  'their', 'me', 'him', 'us', 'them', 'i', 'you', 'he', 'she', 'we', 'they',
-  // Turkish
-  'bir', 'bu', 'su', 'ne', 'nasil', 'neden', 'var', 'yok', 'mi', 'mu',
-  'ile', 'icin', 'de', 'da', 've', 'veya', 'ama', 'ise', 'hem',
-  'bakalim', 'gel', 'git', 'yap', 'et', 'al', 'ver',
-  'evet', 'hayir', 'tamam', 'ok', 'oldu', 'olur', 'dur',
-  'simdi', 'sonra', 'once', 'hemen', 'biraz',
-  'lan', 'ya', 'ki', 'abi', 'hadi', 'hey', 'selam',
-  'olarak', 'olan', 'gibi', 'kadar', 'daha', 'cok', 'hem',
-  'bunu', 'buna', 'icinde', 'uzerinde', 'arasinda',
-  'sonucu', 'tarafindan', 'zaten', 'gayet',
-  'acaba', 'nedir', 'midir', 'mudur',
-  // Generic technical (appears everywhere, not distinctive)
-  'hook', 'file', 'dosya', 'kullan', 'ekle', 'yaz', 'oku', 'calistir',
-  'kontrol', 'test', 'check', 'run', 'add', 'update', 'config',
-  'setup', 'install', 'start', 'stop', 'create', 'delete', 'remove', 'set',
-  'get', 'list', 'show', 'view', 'open', 'close', 'save', 'load',
-]);
-
-function extractKeywords(text) {
-  const words = text
-    .toLowerCase()
-    .replace(/[^\w\s\u00e7\u011f\u0131\u00f6\u015f\u00fc-]/g, ' ')
-    .split(/\s+/)
-    .filter((w) => w.length >= 3 && !STOP_WORDS.has(w) && !/^\d+$/.test(w));
-
-  return [...new Set(words)].slice(0, 8);
-}
 
 /**
  * Search a single DB and return scored results with their baseDir.

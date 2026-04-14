@@ -40,7 +40,7 @@ tests/      # Jest test suites
 - `plugin.json` for CC plugin manifest (npx skills add)
 - Uninstall: `npx mindlore uninstall [--all]`
 
-## Hooks (v0.4.0)
+## Hooks (v0.4.3 — 14 hooks)
 
 | Event | Hook | Purpose |
 |-------|------|---------|
@@ -57,6 +57,7 @@ tests/      # Jest test suites
 | PreToolUse (Write\|Edit) | mindlore-dont-repeat | LESSONS/learnings rule enforcement |
 | CwdChanged | mindlore-cwd-changed | Scope detection + _scope.json write |
 | PreToolUse (Agent) | mindlore-model-router | Cost-optimized model routing via markers |
+| PreToolUse (Agent) | mindlore-research-guard | FTS5 check before research — block if recent+high quality exists |
 
 ## Skills (v0.4.0)
 
@@ -77,7 +78,7 @@ npm test                    # all suites
 npx jest tests/fts5.test.ts  # specific suite
 ```
 
-31 active suites in v0.4.0: fts5, fts5-sync, dedup, init, frontmatter, hook-smoke, uninstall, search-hook, session-focus, compounding, decision, read-guard, log, global-layer, cwd-changed, dont-repeat, post-read, upgrade, schemas, quality-populate, reflect, e2e-pipeline, evolve, explore, model-router, project-namespace, backup, obsidian, episodes, episodes-inject, diary.
+32 active suites in v0.4.3: fts5, fts5-sync, dedup, init, frontmatter, hook-smoke, uninstall, search-hook, session-focus, compounding, decision, read-guard, log, global-layer, cwd-changed, dont-repeat, post-read, upgrade, schemas, quality-populate, reflect, e2e-pipeline, evolve, explore, model-router, project-namespace, backup, obsidian, episodes, episodes-inject, diary, research-guard.
 
 ## Release
 
@@ -87,7 +88,7 @@ Versiyon yükseltme ve npm publish için `/mindlore-release` global skill'ini ku
 
 Yeni versiyon planlarken bu dosyalara bakılmalı:
 
-- **Sentez:** `~/.claude/knowledge/analyses/2026-04-08-second-brain-architecture-decision.md` — 30+ karar, implementasyon durumu tablosu (YAPILDI/BEKLİYOR), versiyon roadmap
+- **Sentez:** `~/.mindlore/analyses/2026-04-08-second-brain-architecture-decision.md` — 30+ karar, implementasyon durumu tablosu (YAPILDI/BEKLİYOR), versiyon roadmap
 - **Plan v0.1:** `~/.claude/plans/elegant-juggling-balloon.md` — v0.0.1 implementasyon detayları, düzeltilen buglar
 - **Plan v0.2:** `~/.claude/plans/mindlore-v020.md` — 9 faz, 29 dosya, compounding + karar takibi + session memory
 - **MEMORY:** `~/.claude/projects/C--Users-Omrfc-Documents-kastell/memory/MEMORY.md` — Mindlore bölümü, sonraki session yönlendirmesi
