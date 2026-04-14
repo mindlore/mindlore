@@ -10,7 +10,7 @@
 
 const fs = require('fs');
 const path = require('path');
-const { findMindloreDir, readConfig, openDatabase, hasEpisodesTable, queryRecentEpisodes, querySupersededChains, formatSupersededChains } = require('./lib/mindlore-common.cjs');
+const { findMindloreDir, readConfig, openDatabase, hasEpisodesTable, queryRecentEpisodes, querySupersededChains, formatSupersededChains, queryMultiSessionEpisodes, formatMultiSessionEpisodes } = require('./lib/mindlore-common.cjs');
 
 function main() {
   const baseDir = findMindloreDir();
@@ -82,6 +82,16 @@ function main() {
               return `- [${date}] ${ep.kind}: ${summary}`;
             });
             output.push(`[Mindlore Episodes]\n${lines.join('\n')}`);
+          }
+
+          // v0.4.1: Enriched multi-session episodes
+          const multiDays = config?.session_focus?.multi_session_days ?? 3;
+          const enriched = queryMultiSessionEpisodes(db, { project, days: multiDays, limit: 20 });
+          if (enriched.length > 0) {
+            const formatted = formatMultiSessionEpisodes(enriched);
+            if (formatted) {
+              output.push(`[Mindlore Recent Activity]\n${formatted}`);
+            }
           }
 
           // v0.4.1: Supersedes chain display

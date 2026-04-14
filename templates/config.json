@@ -10,6 +10,7 @@
     "threshold": 5
   },
   "session_focus": {
-    "max_episodes": 3
+    "max_episodes": 3,
+    "multi_session_days": 3
   }
 }

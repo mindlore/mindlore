@@ -462,6 +462,71 @@ function formatSupersededChains(chains) {
   return lines.join('\n');
 }
 
+/**
+ * Query episodes across multiple sessions for enriched inject.
+ * Excludes bare session episodes and nominations.
+ * CO-EVOLUTION: Uses episodes table schema from SQL_EPISODES_CREATE
+ * @param {import('better-sqlite3').Database} db
+ * @param {{ project: string, days?: number, limit?: number }} opts
+ */
+function queryMultiSessionEpisodes(db, opts) {
+  const days = opts.days ?? 3;
+  const limit = opts.limit ?? 20;
+  return db.prepare(`
+    SELECT kind, summary, created_at
+    FROM episodes
+    WHERE project = ?
+      AND status = 'active'
+      AND kind != 'session'
+      AND kind != 'nomination'
+      AND created_at > datetime('now', '-' || ? || ' days')
+    ORDER BY created_at DESC
+    LIMIT ?
+  `).all(opts.project, days, limit);
+}
+
+/**
+ * Format multi-session episodes for inject.
+ * Groups by date. If too many per date, collapses to count-per-kind.
+ * @param {Array<{kind: string, summary: string, created_at: string}>} episodes
+ * @returns {string}
+ */
+function formatMultiSessionEpisodes(episodes) {
+  if (episodes.length === 0) return '';
+
+  const byDate = {};
+  for (const ep of episodes) {
+    const date = (ep.created_at || '').slice(0, 10);
+    if (!byDate[date]) byDate[date] = [];
+    byDate[date].push(ep);
+  }
+
+  const lines = [];
+  const TOKEN_CAP_CHARS = 2500;
+  let totalChars = 0;
+
+  for (const [date, eps] of Object.entries(byDate).sort((a, b) => b[0].localeCompare(a[0]))) {
+    if (eps.length <= 5) {
+      for (const ep of eps) {
+        const line = `- [${date}] ${ep.kind}: ${String(ep.summary).slice(0, 100)}`;
+        totalChars += line.length;
+        if (totalChars > TOKEN_CAP_CHARS) break;
+        lines.push(line);
+      }
+    } else {
+      const kindCounts = {};
+      for (const ep of eps) {
+        kindCounts[ep.kind] = (kindCounts[ep.kind] || 0) + 1;
+      }
+      const counts = Object.entries(kindCounts).map(([k, c]) => `${c} ${k}`).join(', ');
+      lines.push(`- [${date}] ${counts}`);
+    }
+    if (totalChars > TOKEN_CAP_CHARS) break;
+  }
+
+  return lines.join('\n');
+}
+
 module.exports = {
   MINDLORE_DIR,
   GLOBAL_MINDLORE_DIR,
@@ -499,4 +564,6 @@ module.exports = {
   queryRecentEpisodes,
   querySupersededChains,
   formatSupersededChains,
+  queryMultiSessionEpisodes,
+  formatMultiSessionEpisodes,
 };

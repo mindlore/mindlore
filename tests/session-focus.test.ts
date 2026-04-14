@@ -156,3 +156,98 @@ describe('Session Focus Hook', () => {
     expect(output).not.toContain('[Mindlore Delta');
   });
 });
+
+describe('enriched multi-session inject', () => {
+  const { queryMultiSessionEpisodes, formatMultiSessionEpisodes } = require('../hooks/lib/mindlore-common.cjs');
+  const { createEpisodesTestEnv, destroyEpisodesTestEnv } = require('./helpers/db.js');
+  const { createEpisode } = require('../scripts/lib/episodes.js');
+
+  let env: import('./helpers/db.js').EpisodesTestEnv;
+  let db: import('better-sqlite3').Database;
+
+  beforeEach(() => {
+    env = createEpisodesTestEnv('multi-session');
+    db = env.db;
+  });
+
+  afterEach(() => {
+    destroyEpisodesTestEnv(env);
+  });
+
+  test('queryMultiSessionEpisodes returns enriched episodes', () => {
+    createEpisode(db, {
+      kind: 'decision',
+      summary: 'Used FTS5 for search',
+      project: 'test-project',
+      source: 'diary',
+    });
+    createEpisode(db, {
+      kind: 'learning',
+      summary: 'CO-EVOLUTION pattern is critical',
+      project: 'test-project',
+      source: 'diary',
+    });
+    createEpisode(db, {
+      kind: 'session',
+      summary: 'Bare session',
+      project: 'test-project',
+      source: 'hook',
+    });
+
+    const results = queryMultiSessionEpisodes(db, { project: 'test-project', days: 3, limit: 20 });
+    expect(results).toHaveLength(2);
+    expect(results.every((r: { kind: string }) => r.kind !== 'session')).toBe(true);
+  });
+
+  test('excludes nomination kind from multi-session query', () => {
+    createEpisode(db, {
+      kind: 'nomination',
+      summary: 'A nomination',
+      project: 'test-project',
+      source: 'reflect',
+    });
+    createEpisode(db, {
+      kind: 'learning',
+      summary: 'A learning',
+      project: 'test-project',
+      source: 'diary',
+    });
+
+    const results = queryMultiSessionEpisodes(db, { project: 'test-project', days: 3, limit: 20 });
+    expect(results).toHaveLength(1);
+    expect(results[0].kind).toBe('learning');
+  });
+
+  test('formatMultiSessionEpisodes groups by date and kind', () => {
+    const episodes = [
+      { kind: 'decision', summary: 'Test decision', created_at: '2026-04-14T10:00:00Z' },
+      { kind: 'learning', summary: 'Test learning', created_at: '2026-04-14T11:00:00Z' },
+      { kind: 'friction', summary: 'Test friction', created_at: '2026-04-13T10:00:00Z' },
+    ];
+
+    const formatted = formatMultiSessionEpisodes(episodes);
+    expect(formatted).toContain('[2026-04-14]');
+    expect(formatted).toContain('decision:');
+    expect(formatted).toContain('learning:');
+    expect(formatted).toContain('[2026-04-13]');
+    expect(formatted).toContain('friction:');
+  });
+
+  test('respects token cap by grouping when too many', () => {
+    const episodes = [];
+    for (let i = 0; i < 30; i++) {
+      episodes.push({
+        kind: 'learning',
+        summary: `Learning item number ${i} with a reasonably long description`,
+        created_at: '2026-04-14T10:00:00Z',
+      });
+    }
+
+    const formatted = formatMultiSessionEpisodes(episodes);
+    expect(formatted.length).toBeLessThan(2500);
+  });
+
+  test('returns empty string for no episodes', () => {
+    expect(formatMultiSessionEpisodes([])).toBe('');
+  });
+});
