@@ -5,6 +5,34 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.4.1] - 2026-04-14
+
+### Added
+- **Nomination kind:** 8th episode kind for rule proposals from reflect analysis
+- **Nomination statuses:** staged/reviewed/approved/rejected status lifecycle
+- **Supersedes chain display:** Session-focus injects last 7 days of decision evolution with reason parsing
+- **Multi-session episode inject:** Enriched episodes from last N days grouped by date with 500-token cap
+- **3-tier confidence pipeline:** Reflect skill now assesses patterns at Note/Learning/Nomination tiers
+- **Stale content health check:** Session-focus warns when 3+ files are 30+ days old (monitors fallback)
+- **Explore/evolve --all scope:** Default scope changed to project + global combined
+
+### Changed
+- Skill descriptions enriched (1536 char cap) in plugin.json — all 7 skills with detailed mode/feature info
+- plugin.json version synced to 0.4.0
+- templates/config.json: added `session_focus.multi_session_days` key (default: 3)
+- CO-EVOLUTION: EPISODE_KINDS_CJS and EPISODE_STATUSES_CJS constants added to CJS mirror
+- 33 suites, 241 tests total
+
+### Fixed
+- **Security:** Command injection via MINDLORE_HOME — execSync replaced with spawnSync argv
+- **Security:** Missing transaction in FTS5 index update — wrapped in db.transaction()
+- **Security:** Weak path containment — path.resolve + sep check replaces substring includes
+- **Security:** Prototype pollution in parseFrontmatter — Object.create(null) + key blocklist
+- **Security:** FTS5 MATCH keyword sanitization — control characters stripped
+- **Efficiency:** readConfig called twice in session-focus — hoisted to single call
+- **Efficiency:** Inline directory walk replaced with existing getAllMdFiles utility
+- **Efficiency:** SQL datetime() string concatenation replaced with preformed modifier parameter
+
 ## [0.4.0] - 2026-04-13
 
 ### Added
