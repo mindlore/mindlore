@@ -106,6 +106,28 @@ function main() {
     }
   } catch (_err) { /* graceful skip */ }
 
+  // v0.4.1: Lightweight health checks (monitors fallback)
+  try {
+    const allFiles = [];
+    const walk = (dir) => {
+      for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
+        if (entry.name === 'mindlore.db' || entry.name === 'mindlore.db-wal' || entry.name === 'mindlore.db-shm') continue;
+        const fullPath = path.join(dir, entry.name);
+        if (entry.isDirectory()) walk(fullPath);
+        else if (entry.name.endsWith('.md')) allFiles.push(fullPath);
+      }
+    };
+    walk(baseDir);
+
+    const thirtyDaysAgo = Date.now() - (30 * 24 * 60 * 60 * 1000);
+    const staleFiles = allFiles.filter(f => {
+      try { return fs.statSync(f).mtimeMs < thirtyDaysAgo; } catch { return false; }
+    });
+    if (staleFiles.length > 3) {
+      output.push(`[Mindlore: ${staleFiles.length} dosya 30+ gundur guncellenmemis — \`/mindlore-evolve\` dusun]`);
+    }
+  } catch (_healthErr) { /* skip */ }
+
   if (output.length > 0) {
     process.stdout.write(output.join('\n\n') + '\n');
   }
