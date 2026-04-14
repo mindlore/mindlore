@@ -309,6 +309,9 @@ CREATE TABLE IF NOT EXISTS episodes (
 /**
  * Valid episode kinds. CO-EVOLUTION: mirrors EPISODE_KINDS in scripts/lib/episodes.ts
  */
+// ~500 tokens context budget for multi-session inject
+const MULTI_SESSION_TOKEN_CAP_CHARS = 2500;
+
 const EPISODE_KINDS_CJS = ['session', 'decision', 'event', 'preference', 'learning', 'friction', 'discovery', 'nomination'];
 
 /**
@@ -418,16 +421,17 @@ function queryRecentEpisodes(db, opts) {
 function querySupersededChains(db, opts) {
   const days = opts.days ?? 7;
   const limit = opts.limit ?? 5;
+  const modifier = `-${days} days`;
   const rows = db.prepare(`
     SELECT new_ep.summary AS current_summary, old_ep.summary AS previous_summary, new_ep.body
     FROM episodes new_ep
     JOIN episodes old_ep ON new_ep.supersedes = old_ep.id
     WHERE new_ep.project = ?
-      AND new_ep.created_at > datetime('now', '-' || ? || ' days')
+      AND new_ep.created_at > datetime('now', ?)
       AND old_ep.status = 'superseded'
     ORDER BY new_ep.created_at DESC
     LIMIT ?
-  `).all(opts.project, days, limit);
+  `).all(opts.project, modifier, limit);
 
   return rows.map(row => ({
     current: row.current_summary,
@@ -472,6 +476,7 @@ function formatSupersededChains(chains) {
 function queryMultiSessionEpisodes(db, opts) {
   const days = opts.days ?? 3;
   const limit = opts.limit ?? 20;
+  const modifier = `-${days} days`;
   return db.prepare(`
     SELECT kind, summary, created_at
     FROM episodes
@@ -479,10 +484,10 @@ function queryMultiSessionEpisodes(db, opts) {
       AND status = 'active'
       AND kind != 'session'
       AND kind != 'nomination'
-      AND created_at > datetime('now', '-' || ? || ' days')
+      AND created_at > datetime('now', ?)
     ORDER BY created_at DESC
     LIMIT ?
-  `).all(opts.project, days, limit);
+  `).all(opts.project, modifier, limit);
 }
 
 /**
@@ -502,15 +507,15 @@ function formatMultiSessionEpisodes(episodes) {
   }
 
   const lines = [];
-  const TOKEN_CAP_CHARS = 2500;
   let totalChars = 0;
 
   for (const [date, eps] of Object.entries(byDate).sort((a, b) => b[0].localeCompare(a[0]))) {
+    if (totalChars > MULTI_SESSION_TOKEN_CAP_CHARS) break;
     if (eps.length <= 5) {
       for (const ep of eps) {
         const line = `- [${date}] ${ep.kind}: ${String(ep.summary).slice(0, 100)}`;
         totalChars += line.length;
-        if (totalChars > TOKEN_CAP_CHARS) break;
+        if (totalChars > MULTI_SESSION_TOKEN_CAP_CHARS) break;
         lines.push(line);
       }
     } else {
@@ -521,7 +526,6 @@ function formatMultiSessionEpisodes(episodes) {
       const counts = Object.entries(kindCounts).map(([k, c]) => `${c} ${k}`).join(', ');
       lines.push(`- [${date}] ${counts}`);
     }
-    if (totalChars > TOKEN_CAP_CHARS) break;
   }
 
   return lines.join('\n');

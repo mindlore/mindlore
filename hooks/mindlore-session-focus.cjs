@@ -10,13 +10,14 @@
 
 const fs = require('fs');
 const path = require('path');
-const { findMindloreDir, readConfig, openDatabase, hasEpisodesTable, queryRecentEpisodes, querySupersededChains, formatSupersededChains, queryMultiSessionEpisodes, formatMultiSessionEpisodes } = require('./lib/mindlore-common.cjs');
+const { findMindloreDir, readConfig, openDatabase, hasEpisodesTable, queryRecentEpisodes, querySupersededChains, formatSupersededChains, queryMultiSessionEpisodes, formatMultiSessionEpisodes, getAllMdFiles } = require('./lib/mindlore-common.cjs');
 
 function main() {
   const baseDir = findMindloreDir();
   if (!baseDir) return; // No .mindlore/ found, silently skip
 
   const output = [];
+  const config = readConfig(baseDir);
 
   // Inject INDEX.md
   const indexPath = path.join(baseDir, 'INDEX.md');
@@ -41,7 +42,6 @@ function main() {
       }
 
       // Reflect trigger
-      const config = readConfig(baseDir);
       const threshold = config?.reflect?.threshold ?? 5;
       if (diaryFiles.length >= threshold) {
         output.push(`[Mindlore] ${diaryFiles.length} diary entry birikti — \`/mindlore-log reflect\` calistirmayi dusun.`);
@@ -70,7 +70,6 @@ function main() {
     if (db) {
       try {
         if (hasEpisodesTable(db)) {
-          const config = readConfig(baseDir);
           const maxEpisodes = config?.session_focus?.max_episodes ?? 3;
           const project = path.basename(process.cwd());
           const episodes = queryRecentEpisodes(db, { project, limit: maxEpisodes });
@@ -106,25 +105,15 @@ function main() {
     }
   } catch (_err) { /* graceful skip */ }
 
-  // v0.4.1: Lightweight health checks (monitors fallback)
+  // v0.4.1: Lightweight stale content check (monitors fallback)
   try {
-    const allFiles = [];
-    const walk = (dir) => {
-      for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
-        if (entry.name === 'mindlore.db' || entry.name === 'mindlore.db-wal' || entry.name === 'mindlore.db-shm') continue;
-        const fullPath = path.join(dir, entry.name);
-        if (entry.isDirectory()) walk(fullPath);
-        else if (entry.name.endsWith('.md')) allFiles.push(fullPath);
-      }
-    };
-    walk(baseDir);
-
+    const allFiles = getAllMdFiles(baseDir);
     const thirtyDaysAgo = Date.now() - (30 * 24 * 60 * 60 * 1000);
-    const staleFiles = allFiles.filter(f => {
-      try { return fs.statSync(f).mtimeMs < thirtyDaysAgo; } catch { return false; }
-    });
-    if (staleFiles.length > 3) {
-      output.push(`[Mindlore: ${staleFiles.length} dosya 30+ gundur guncellenmemis — \`/mindlore-evolve\` dusun]`);
+    const staleCount = allFiles.reduce((count, f) => {
+      try { return fs.statSync(f).mtimeMs < thirtyDaysAgo ? count + 1 : count; } catch { return count; }
+    }, 0);
+    if (staleCount > 3) {
+      output.push(`[Mindlore: ${staleCount} dosya 30+ gundur guncellenmemis — \`/mindlore-evolve\` dusun]`);
     }
   } catch (_healthErr) { /* skip */ }
 
