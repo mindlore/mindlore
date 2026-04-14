@@ -11,10 +11,14 @@ Discover unexpected connections between knowledge sources. Undirected exploratio
 
 ## Scope
 
-Determine target using `getActiveMindloreDir()` logic:
-- Default (no flag): explore project `.mindlore/`
-- `--global`: explore `~/.mindlore/` + project cross-reference (most valuable mode)
-- Never hardcode `.mindlore/` path — always resolve dynamically
+Default: `--scope all` (project + global birlikte taranır — en değerli mod).
+Options: `--scope project` | `--scope global` | `--scope all`
+
+1. Determine scope from argument (default: all)
+2. If `all`: explore both project `.mindlore/` and global `~/.mindlore/` + cross-reference
+3. If `project`: explore only project-scoped content (current CWD's `.mindlore/`)
+4. If `global`: explore only global `~/.mindlore/` content
+- Never hardcode `.mindlore/` path — always resolve dynamically via `getActiveMindloreDir()`
 
 ## Trigger
 

@@ -11,10 +11,14 @@ Knowledge schema co-evolution. Karpathy's 4th operation (ingest/query/health/**e
 
 ## Scope
 
-Determine target using `getActiveMindloreDir()` logic:
-- Default (no flag): scan project `.mindlore/`
-- `--global`: scan `~/.mindlore/`
-- Never hardcode `.mindlore/` path — always resolve dynamically
+Default: `--scope all` (project + global birlikte taranır).
+Options: `--scope project` | `--scope global` | `--scope all`
+
+1. Determine scope from argument (default: all)
+2. If `all`: scan both project `.mindlore/` and global `~/.mindlore/`
+3. If `project`: scan only project-scoped content (current CWD's `.mindlore/`)
+4. If `global`: scan only global `~/.mindlore/` content
+- Never hardcode `.mindlore/` path — always resolve dynamically via `getActiveMindloreDir()`
 
 ## Trigger
 
