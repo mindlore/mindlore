@@ -10,7 +10,7 @@
 
 const fs = require('fs');
 const path = require('path');
-const { findMindloreDir, readConfig, openDatabase, hasEpisodesTable, queryRecentEpisodes } = require('./lib/mindlore-common.cjs');
+const { findMindloreDir, readConfig, openDatabase, hasEpisodesTable, queryRecentEpisodes, querySupersededChains, formatSupersededChains } = require('./lib/mindlore-common.cjs');
 
 function main() {
   const baseDir = findMindloreDir();
@@ -82,6 +82,12 @@ function main() {
               return `- [${date}] ${ep.kind}: ${summary}`;
             });
             output.push(`[Mindlore Episodes]\n${lines.join('\n')}`);
+          }
+
+          // v0.4.1: Supersedes chain display
+          const chains = querySupersededChains(db, { project, days: 7, limit: 5 });
+          if (chains.length > 0) {
+            output.push(`[Mindlore Supersedes]\n${formatSupersededChains(chains)}`);
           }
         }
       } finally {

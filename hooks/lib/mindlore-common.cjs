@@ -408,6 +408,60 @@ function queryRecentEpisodes(db, opts) {
   return db.prepare(sql).all(...params);
 }
 
+/**
+ * Query superseded episode chains for session-focus display.
+ * CO-EVOLUTION: Uses episodes table schema from SQL_EPISODES_CREATE
+ * @param {import('better-sqlite3').Database} db
+ * @param {{ project: string, days?: number, limit?: number }} opts
+ * @returns {Array<{current: string, previous: string, reason: string|null}>}
+ */
+function querySupersededChains(db, opts) {
+  const days = opts.days ?? 7;
+  const limit = opts.limit ?? 5;
+  const rows = db.prepare(`
+    SELECT new_ep.summary AS current_summary, old_ep.summary AS previous_summary, new_ep.body
+    FROM episodes new_ep
+    JOIN episodes old_ep ON new_ep.supersedes = old_ep.id
+    WHERE new_ep.project = ?
+      AND new_ep.created_at > datetime('now', '-' || ? || ' days')
+      AND old_ep.status = 'superseded'
+    ORDER BY new_ep.created_at DESC
+    LIMIT ?
+  `).all(opts.project, days, limit);
+
+  return rows.map(row => ({
+    current: row.current_summary,
+    previous: row.previous_summary,
+    reason: parseReason(row.body),
+  }));
+}
+
+/**
+ * Parse ## Reason section from episode body.
+ * @param {string|null} body
+ * @returns {string|null}
+ */
+function parseReason(body) {
+  if (!body) return null;
+  const match = body.match(/## Reason\n(.+?)(?:\n##|\n*$)/s);
+  if (!match) return null;
+  return match[1].trim().split('\n')[0];
+}
+
+/**
+ * Format superseded chains for session-focus inject.
+ * @param {Array<{current: string, previous: string, reason: string|null}>} chains
+ * @returns {string}
+ */
+function formatSupersededChains(chains) {
+  if (chains.length === 0) return '';
+  const lines = chains.map(c => {
+    const base = `- ${c.current} \u2190 ${c.previous}`;
+    return c.reason ? `${base} (Reason: ${c.reason})` : base;
+  });
+  return lines.join('\n');
+}
+
 module.exports = {
   MINDLORE_DIR,
   GLOBAL_MINDLORE_DIR,
@@ -443,4 +497,6 @@ module.exports = {
   generateEpisodeId,
   insertBareEpisode,
   queryRecentEpisodes,
+  querySupersededChains,
+  formatSupersededChains,
 };
