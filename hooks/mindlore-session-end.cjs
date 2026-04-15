@@ -18,16 +18,19 @@ const { findMindloreDir, globalDir, getProjectName, openDatabase, ensureEpisodes
 // --worker mode: heavy ops run in detached child process (survives parent exit)
 if (process.argv.includes('--worker')) {
   const dataPath = process.argv[process.argv.indexOf('--worker') + 1];
+  let payload;
   try {
     const raw = fs.readFileSync(dataPath, 'utf8');
     fs.unlinkSync(dataPath); // cleanup temp file before any processing
-    const { baseDir, project, commits, changedFiles, reads } = JSON.parse(raw);
-    writeBareEpisode(baseDir, project, commits, changedFiles, reads);
-    syncObsidian(baseDir);
-    syncGlobalRepo();
+    payload = JSON.parse(raw);
   } catch (_err) {
-    // Graceful fail — worker errors are silent
+    process.exit(0);
   }
+  const { baseDir, project, commits, changedFiles, reads } = payload;
+  // Each function runs independently — one failure must not block others
+  try { writeBareEpisode(baseDir, project, commits, changedFiles, reads); } catch (_e) { /* silent */ }
+  try { syncObsidian(baseDir); } catch (_e) { /* silent */ }
+  try { syncGlobalRepo(); } catch (_e) { /* silent */ }
   process.exit(0);
 }
 
@@ -47,9 +50,10 @@ function formatDate(date) {
 function getRecentGitInfo() {
   try {
     // --name-only includes file names after each commit entry
-    const raw = execSync('git log --oneline -5 --name-only 2>/dev/null', {
+    const raw = execSync('git log --oneline -5 --name-only', {
       encoding: 'utf8',
       timeout: 5000,
+      stdio: ['pipe', 'pipe', 'pipe'],
     }).trim();
     if (!raw) return { commits: [], changedFiles: [] };
 
