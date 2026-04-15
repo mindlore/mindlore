@@ -412,13 +412,15 @@ function syncObsidian(baseDir) {
       if (exportMdFile(srcPath, path.join(destBase, rootFile), convertFn)) exported++;
     }
 
+    hookLog('session-end', 'info', `obsidian exported=${exported}, dirs=${EXPORT_DIRS.length}, vault=${vaultPath}`);
     if (exported > 0) {
       config.obsidian.lastExport = new Date().toISOString();
       config.obsidian.lastExportCount = exported;
       fs.writeFileSync(configPath, JSON.stringify(config, null, 2), 'utf8');
     }
   } catch (err) {
-    process.stderr.write(`[mindlore] obsidian sync failed: ${err?.message ?? err}\n`);
+    hookLog('session-end', 'error', `obsidian internal: ${err?.message ?? err}`);
+    throw err; // re-throw so safeRun logs FAIL
   }
 }
 
@@ -446,7 +448,7 @@ function syncGlobalRepo() {
   const status = execSync(`"${git}" status --porcelain`, execOpts(5000)).trim();
   if (!status) return; // nothing to commit
 
-  execSync(`"${git}" add *.md mindlore.db config.json diary/ sources/ domains/ analyses/ decisions/ raw/ connections/ insights/ learnings/`, execOpts(10000));
+  execSync(`"${git}" add *.md mindlore.db diary/ sources/ domains/ analyses/ decisions/ raw/ connections/ insights/ learnings/`, execOpts(10000));
   const now = new Date().toISOString().slice(0, 19);
   execSync(`"${git}" commit -m "mindlore auto-sync ${now}"`, execOpts(15000));
 
