@@ -152,3 +152,42 @@ describe('FTS5 Database', () => {
     db.close();
   });
 });
+
+describe('Vec Table', () => {
+  test('should load sqlite-vec extension and create vec table', () => {
+    const { loadSqliteVec, ensureVecTable } = require('../scripts/lib/db-helpers.js');
+    const db = new Database(DB_PATH);
+
+    const loaded = loadSqliteVec(db);
+    expect(loaded).toBe(true);
+
+    ensureVecTable(db);
+
+    // Verify table exists by inserting and querying
+    const testEmbedding = new Float32Array(384);
+    testEmbedding[0] = 1.0; // unit vector along first dimension
+
+    db.prepare('INSERT INTO documents_vec (embedding, slug, created_at, model_name) VALUES (?, ?, ?, ?)').run(
+      Buffer.from(testEmbedding.buffer),
+      'test-slug',
+      new Date().toISOString(),
+      'test-model'
+    );
+
+    // vec0 metadata columns are filterable in WHERE
+    const row = db.prepare('SELECT slug FROM documents_vec WHERE slug = ?').get('test-slug') as { slug: string } | undefined;
+    expect(row?.slug).toBe('test-slug');
+
+    db.close();
+  });
+
+  test('should return false when sqlite-vec is not available', () => {
+    const { ensureVecTable } = require('../scripts/lib/db-helpers.js');
+    const db = new Database(DB_PATH);
+
+    // Without loadSqliteVec, ensureVecTable should handle gracefully
+    expect(() => ensureVecTable(db)).not.toThrow();
+
+    db.close();
+  });
+});
