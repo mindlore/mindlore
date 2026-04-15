@@ -70,12 +70,13 @@ async function main(): Promise<void> {
     process.exit(1);
   }
 
-  // Run schema migrations
+  // Load sqlite-vec first (migrations need vec0 module)
+  const vecAvailable = loadSqliteVec(db);
+
+  // Run schema migrations (creates vec table if sqlite-vec is loaded)
   ensureSchemaTable(db);
   runMigrations(db, V050_MIGRATIONS);
 
-  // Load sqlite-vec if available
-  const vecAvailable = loadSqliteVec(db);
   if (vecAvailable) {
     ensureVecTable(db);
   }
