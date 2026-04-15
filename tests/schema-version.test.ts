@@ -77,3 +77,43 @@ describe('Schema Version', () => {
     db.close();
   });
 });
+
+describe('v0.5.0 Migrations', () => {
+  test('should create documents_vec table via migration', () => {
+    const { ensureSchemaTable, runMigrations, getSchemaVersion } = require('../scripts/lib/schema-version.js');
+    const { V050_MIGRATIONS } = require('../scripts/lib/migrations.js');
+    const { loadSqliteVec } = require('../scripts/lib/db-helpers.js');
+    const db = new Database(DB_PATH);
+
+    loadSqliteVec(db);
+    ensureSchemaTable(db);
+    runMigrations(db, V050_MIGRATIONS);
+
+    expect(getSchemaVersion(db)).toBe(1);
+
+    // Verify vec table exists
+    const row = db.prepare("SELECT name FROM sqlite_master WHERE type='table' AND name='documents_vec'").get() as { name: string } | undefined;
+    expect(row?.name).toBe('documents_vec');
+
+    db.close();
+  });
+
+  test('should add created_at and updated_at to FTS metadata tracking', () => {
+    const { ensureSchemaTable, runMigrations } = require('../scripts/lib/schema-version.js');
+    const { V050_MIGRATIONS } = require('../scripts/lib/migrations.js');
+    const { loadSqliteVec } = require('../scripts/lib/db-helpers.js');
+    const db = new Database(DB_PATH);
+
+    loadSqliteVec(db);
+    ensureSchemaTable(db);
+    runMigrations(db, V050_MIGRATIONS);
+
+    // file_hashes should now have created_at column
+    const info = db.pragma('table_info(file_hashes)') as Array<{ name: string }>;
+    const colNames = info.map(c => c.name);
+    expect(colNames).toContain('created_at');
+    expect(colNames).toContain('updated_at');
+
+    db.close();
+  });
+});
