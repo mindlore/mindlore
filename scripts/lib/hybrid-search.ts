@@ -59,12 +59,15 @@ export function l2ToCosine(l2Distance: number): number {
   return Math.max(0.0, Math.min(1.0, cosine));
 }
 
+// Empirical upper bound for BM25 absolute rank in Mindlore corpus (~150 docs)
+const BM25_MAX_RANK = 25.0;
+
 /**
  * Normalize FTS5 BM25 rank to 0-1 range.
  * FTS5 returns negative rank — more negative = better match.
  */
 export function normalizeBM25(rank: number): number {
-  return Math.abs(rank) / 25.0;
+  return Math.abs(rank) / BM25_MAX_RANK;
 }
 
 // ── RRF Fusion ─────────────────────────────────────────────────────

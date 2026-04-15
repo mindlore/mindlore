@@ -173,7 +173,7 @@ class HealthChecker {
       }
     });
 
-    // Check vec table (v0.5.0)
+    // Check vec table + schema version (v0.5.0) — reuse single DB open
     this.check('documents_vec table', () => {
       const dbPath = path.join(this.baseDir, DB_NAME);
       if (!fs.existsSync(dbPath)) {
@@ -189,31 +189,17 @@ class HealthChecker {
 
       const db = new Database(dbPath, { readonly: true });
       try {
-        let vecLoaded = false;
-        try {
-          const sqliteVec: { load: (db: unknown) => void } = require('sqlite-vec');
-          sqliteVec.load(db);
-          vecLoaded = true;
-        } catch (_err) {
-          return { warn: true, detail: 'sqlite-vec not installed' };
-        }
-
-        if (vecLoaded) {
-          try {
-            const result = dbGet<{ cnt: number }>(db, 'SELECT count(*) as cnt FROM documents_vec') ?? { cnt: 0 };
-            return { ok: true, detail: `${result.cnt} vectors indexed` };
-          } catch (_err) {
-            return { warn: true, detail: 'vec table not created yet (run: npm run index -- --embed)' };
-          }
-        }
-
-        return { warn: true, detail: 'sqlite-vec not loaded' };
+        const sqliteVec: { load: (db: unknown) => void } = require('sqlite-vec');
+        sqliteVec.load(db);
+        const result = dbGet<{ cnt: number }>(db, 'SELECT count(*) as cnt FROM documents_vec') ?? { cnt: 0 };
+        return { ok: true, detail: `${result.cnt} vectors indexed` };
+      } catch (_err) {
+        return { warn: true, detail: 'sqlite-vec not available or vec table not created (run: npm run index -- --embed)' };
       } finally {
         db.close();
       }
     });
 
-    // Check schema version (v0.5.0)
     this.check('schema version', () => {
       const dbPath = path.join(this.baseDir, DB_NAME);
       if (!fs.existsSync(dbPath)) {

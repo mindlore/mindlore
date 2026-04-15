@@ -15,12 +15,6 @@ async function getEmbedder(): Promise<unknown> {
   return cachedPipeline;
 }
 
-function normalize(vec: number[]): number[] {
-  const norm = Math.sqrt(vec.reduce((sum, v) => sum + v * v, 0));
-  if (norm === 0) return vec;
-  return vec.map(v => v / norm);
-}
-
 export async function generateEmbedding(text: string): Promise<number[]> {
   const embedder = await getEmbedder();
   // multilingual-e5-small expects "query: " or "passage: " prefix
@@ -30,11 +24,12 @@ export async function generateEmbedding(text: string): Promise<number[]> {
   // Pipeline is callable — returns Tensor with tolist()
   // eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- @xenova/transformers pipeline is callable but untyped
   const run = embedder as (input: string[], opts: Record<string, unknown>) => Promise<{ tolist: () => number[][] }>;
+  // normalize: true in pipeline options already returns L2-normalized vectors
   const result = await run([prefixed], { pooling: 'mean', normalize: true });
   const list = result.tolist();
   const raw = list[0];
   if (!raw) throw new Error('Embedding pipeline returned empty result');
-  return normalize(raw);
+  return raw;
 }
 
 export async function batchEmbed(texts: string[]): Promise<number[][]> {
