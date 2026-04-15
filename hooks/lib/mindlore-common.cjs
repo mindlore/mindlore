@@ -687,6 +687,7 @@ const HOOK_LOG_KEEP_LINES = 500;
 
 function hookLog(hook, level, message) {
   try {
+    const logFile = hookLogPath();
     const entry = JSON.stringify({
       ts: new Date().toISOString(),
       hook,
@@ -696,13 +697,13 @@ function hookLog(hook, level, message) {
     });
     // Rotate if file exceeds threshold
     try {
-      const stat = fs.statSync(hookLogPath());
+      const stat = fs.statSync(logFile);
       if (stat.size > HOOK_LOG_MAX_BYTES) {
-        const lines = fs.readFileSync(hookLogPath(), 'utf8').trim().split('\n');
-        fs.writeFileSync(hookLogPath(), lines.slice(-HOOK_LOG_KEEP_LINES).join('\n') + '\n');
+        const lines = fs.readFileSync(logFile, 'utf8').trim().split('\n');
+        fs.writeFileSync(logFile, lines.slice(-HOOK_LOG_KEEP_LINES).join('\n') + '\n');
       }
     } catch (_rotateErr) { /* file may not exist yet */ }
-    fs.appendFileSync(hookLogPath(), entry + '\n');
+    fs.appendFileSync(logFile, entry + '\n');
   } catch (_err) {
     // Best effort — never crash a hook for logging
   }

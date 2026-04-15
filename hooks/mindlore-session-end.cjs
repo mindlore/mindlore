@@ -268,7 +268,7 @@ function writeBareEpisode(baseDir, project, commits, changedFiles, reads) {
 
     db.close();
   } catch (err) {
-    process.stderr.write(`[mindlore] episode write failed: ${err?.message ?? err}\n`);
+    hookLog('session-end', 'error', `episode write failed: ${err?.message ?? err}`);
   }
 }
 
@@ -386,9 +386,8 @@ function syncObsidian(baseDir) {
       if (!fs.existsSync(srcDir)) continue;
 
       const destDir = path.join(destBase, dir);
-      if (!fs.existsSync(destDir)) fs.mkdirSync(destDir, { recursive: true });
+      fs.mkdirSync(destDir, { recursive: true });
 
-      // Top-level .md files
       for (const file of fs.readdirSync(srcDir).filter(f => f.endsWith('.md') && !f.startsWith('_'))) {
         if (exportMdFile(path.join(srcDir, file), path.join(destDir, file), convertFn)) exported++;
       }
@@ -398,7 +397,7 @@ function syncObsidian(baseDir) {
         if (!entry.isDirectory() || entry.name.startsWith('_') || entry.name.startsWith('.')) continue;
         const subSrc = path.join(srcDir, entry.name);
         const subDest = path.join(destDir, entry.name);
-        if (!fs.existsSync(subDest)) fs.mkdirSync(subDest, { recursive: true });
+        fs.mkdirSync(subDest, { recursive: true });
         for (const file of fs.readdirSync(subSrc).filter(f => f.endsWith('.md') && !f.startsWith('_'))) {
           if (exportMdFile(path.join(subSrc, file), path.join(subDest, file), convertFn)) exported++;
         }
@@ -408,7 +407,7 @@ function syncObsidian(baseDir) {
     for (const rootFile of ['INDEX.md', 'log.md']) {
       const srcPath = path.join(baseDir, rootFile);
       if (!fs.existsSync(srcPath)) continue;
-      if (!fs.existsSync(destBase)) fs.mkdirSync(destBase, { recursive: true });
+      fs.mkdirSync(destBase, { recursive: true });
       if (exportMdFile(srcPath, path.join(destBase, rootFile), convertFn)) exported++;
     }
 
