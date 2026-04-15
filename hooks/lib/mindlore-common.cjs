@@ -636,6 +636,9 @@ module.exports = {
   // Hybrid search helpers (v0.5.0)
   loadSqliteVecCjs,
   hasVecTableCjs,
+  // Hook logging (v0.5.1)
+  hookLog,
+  getRecentHookErrors,
 };
 
 /**
@@ -665,4 +668,71 @@ function hasVecTableCjs(db) {
   } catch (_err) {
     return false;
   }
+}
+
+// --- Hook Logging (v0.5.1) ---
+
+function hookLogPath() { return path.join(globalDir(), 'diary', '_hook-log.jsonl'); }
+
+/**
+ * Append a structured log entry for any mindlore hook.
+ * JSONL format — one JSON object per line.
+ * Levels: 'info' | 'warn' | 'error'
+ * @param {string} hook - Hook name (e.g. 'session-end', 'search', 'read-guard')
+ * @param {'info'|'warn'|'error'} level
+ * @param {string} message
+ */
+const HOOK_LOG_MAX_BYTES = 512 * 1024; // 500KB
+const HOOK_LOG_KEEP_LINES = 500;
+
+function hookLog(hook, level, message) {
+  try {
+    const entry = JSON.stringify({
+      ts: new Date().toISOString(),
+      hook,
+      level,
+      msg: message,
+      pid: process.pid,
+    });
+    // Rotate if file exceeds threshold
+    try {
+      const stat = fs.statSync(hookLogPath());
+      if (stat.size > HOOK_LOG_MAX_BYTES) {
+        const lines = fs.readFileSync(hookLogPath(), 'utf8').trim().split('\n');
+        fs.writeFileSync(hookLogPath(), lines.slice(-HOOK_LOG_KEEP_LINES).join('\n') + '\n');
+      }
+    } catch (_rotateErr) { /* file may not exist yet */ }
+    fs.appendFileSync(hookLogPath(), entry + '\n');
+  } catch (_err) {
+    // Best effort — never crash a hook for logging
+  }
+}
+
+/**
+ * Read recent hook errors/warnings since a given ISO date.
+ * Returns array of { ts, hook, level, msg } for level 'error' or 'warn'.
+ * Used by SessionStart to inject warnings into CC context.
+ * @param {string} [since] - ISO date string, defaults to 24h ago
+ * @param {number} [limit=10]
+ * @returns {Array<{ts: string, hook: string, level: string, msg: string}>}
+ */
+function getRecentHookErrors(since, limit) {
+  const maxEntries = limit ?? 10;
+  const cutoff = since ?? new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
+  const results = [];
+  try {
+    if (!fs.existsSync(hookLogPath())) return results;
+    const lines = fs.readFileSync(hookLogPath(), 'utf8').trim().split('\n');
+    for (let i = lines.length - 1; i >= 0 && results.length < maxEntries; i--) {
+      if (!lines[i]) continue;
+      try {
+        const entry = JSON.parse(lines[i]);
+        if (entry.ts < cutoff) break; // JSONL is chronological, stop early
+        if (entry.level === 'error' || entry.level === 'warn') {
+          results.push(entry);
+        }
+      } catch (_parseErr) { /* skip malformed lines */ }
+    }
+  } catch (_err) { /* silent */ }
+  return results.reverse(); // chronological order
 }

@@ -10,7 +10,7 @@
 
 const fs = require('fs');
 const path = require('path');
-const { findMindloreDir, readConfig, openDatabase, hasEpisodesTable, queryRecentEpisodes, querySupersededChains, formatSupersededChains, queryMultiSessionEpisodes, formatMultiSessionEpisodes, getAllMdFiles } = require('./lib/mindlore-common.cjs');
+const { findMindloreDir, readConfig, openDatabase, hasEpisodesTable, queryRecentEpisodes, querySupersededChains, formatSupersededChains, queryMultiSessionEpisodes, formatMultiSessionEpisodes, getAllMdFiles, getRecentHookErrors, hookLog } = require('./lib/mindlore-common.cjs');
 
 function main() {
   const baseDir = findMindloreDir();
@@ -116,6 +116,17 @@ function main() {
       output.push(`[Mindlore: ${staleCount} dosya 30+ gundur guncellenmemis — \`/mindlore-evolve\` dusun]`);
     }
   } catch (_healthErr) { /* skip */ }
+
+  // Check for recent hook errors — inject warnings into CC context
+  try {
+    const errors = getRecentHookErrors();
+    if (errors.length > 0) {
+      const lines = errors.map(e => `- [${e.ts.slice(0, 19)}] **${e.hook}** (${e.level}): ${e.msg}`);
+      output.push(`[Mindlore Hook Alerts]\n${lines.join('\n')}`);
+    }
+  } catch (_hookLogErr) { /* skip */ }
+
+  hookLog('session-focus', 'info', 'session started');
 
   if (output.length > 0) {
     process.stdout.write(output.join('\n\n') + '\n');

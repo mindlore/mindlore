@@ -13,10 +13,11 @@ const fs = require('fs');
 const path = require('path');
 const os = require('os');
 const { execSync, spawn } = require('child_process');
-const { findMindloreDir, globalDir, getProjectName, openDatabase, ensureEpisodesTable, hasEpisodesTable, insertBareEpisode, insertFtsRow } = require('./lib/mindlore-common.cjs');
+const { findMindloreDir, globalDir, getProjectName, openDatabase, ensureEpisodesTable, hasEpisodesTable, insertBareEpisode, insertFtsRow, hookLog } = require('./lib/mindlore-common.cjs');
 
 // --worker mode: heavy ops run in detached child process (survives parent exit)
 if (process.argv.includes('--worker')) {
+  hookLog('session-end', 'info', 'worker started, pid=' + process.pid);
   const dataPath = process.argv[process.argv.indexOf('--worker') + 1];
   let payload;
   try {
@@ -24,13 +25,19 @@ if (process.argv.includes('--worker')) {
     fs.unlinkSync(dataPath); // cleanup temp file before any processing
     payload = JSON.parse(raw);
   } catch (_err) {
+    hookLog('session-end', 'error', 'payload read failed: ' + (_err?.message ?? _err));
     process.exit(0);
   }
   const { baseDir, project, commits, changedFiles, reads } = payload;
-  // Each function runs independently — one failure must not block others
-  try { writeBareEpisode(baseDir, project, commits, changedFiles, reads); } catch (_e) { /* silent */ }
-  try { syncObsidian(baseDir); } catch (_e) { /* silent */ }
-  try { syncGlobalRepo(); } catch (_e) { /* silent */ }
+  function safeRun(fn, label) {
+    try { fn(); hookLog('session-end', 'info', label + ' OK'); }
+    catch (e) { hookLog('session-end', 'error', label + ' FAIL: ' + e?.message); }
+  }
+  safeRun(() => writeBareEpisode(baseDir, project, commits, changedFiles, reads), 'episode');
+  safeRun(() => writeEpisodeFile(baseDir, project, commits, changedFiles, reads), 'episode-file');
+  safeRun(() => syncObsidian(baseDir), 'obsidian');
+  safeRun(() => syncGlobalRepo(), 'git-sync');
+  hookLog('session-end', 'info', 'worker done');
   process.exit(0);
 }
 
@@ -168,7 +175,14 @@ function main() {
     const workerData = JSON.stringify({ baseDir, project, commits, changedFiles, reads });
     const tmpFile = path.join(os.tmpdir(), `mindlore-worker-${Date.now()}.json`);
     fs.writeFileSync(tmpFile, workerData, 'utf8');
-    const child = spawn(process.execPath, [__filename, '--worker', tmpFile], {
+    // Use system node instead of process.execPath — CC's embedded Node
+    // may not work as a standalone binary for detached worker processes.
+    // Resolve full path to avoid shell:true deprecation warning on Windows.
+    let nodeBin = 'node';
+    if (process.platform === 'win32') {
+      try { nodeBin = execSync('where node', { encoding: 'utf8', timeout: 3000 }).trim().split('\n')[0].trim(); } catch (_e) { nodeBin = 'node'; }
+    }
+    const child = spawn(nodeBin, [__filename, '--worker', tmpFile], {
       detached: true,
       stdio: 'ignore',
       cwd: process.cwd(),
@@ -177,6 +191,7 @@ function main() {
   } catch (_err) {
     // Fallback: run inline if spawn fails
     writeBareEpisode(baseDir, project, commits, changedFiles, reads);
+    writeEpisodeFile(baseDir, project, commits, changedFiles, reads);
     syncObsidian(baseDir);
     syncGlobalRepo();
   }
@@ -253,6 +268,57 @@ function writeBareEpisode(baseDir, project, commits, changedFiles, reads) {
   } catch (err) {
     process.stderr.write(`[mindlore] episode write failed: ${err?.message ?? err}\n`);
   }
+}
+
+/**
+ * Write episode as .md file to diary/{project}/ for human-readable browsing.
+ * Complements the DB episode — same content, different medium.
+ */
+function writeEpisodeFile(baseDir, project, commits, changedFiles, reads) {
+  const projDir = path.join(baseDir, 'diary', project || 'unknown');
+  if (!fs.existsSync(projDir)) fs.mkdirSync(projDir, { recursive: true });
+
+  const now = new Date();
+  const ts = formatDate(now);
+  const filePath = path.join(projDir, `episode-${ts}.md`);
+  if (fs.existsSync(filePath)) return; // idempotent
+
+  const lines = [
+    '---',
+    `slug: episode-${ts}`,
+    'type: episode',
+    `date: ${now.toISOString().slice(0, 10)}`,
+    `project: ${project || 'unknown'}`,
+    '---',
+    '',
+    `# Episode — ${ts}`,
+    '',
+  ];
+
+  if (commits.length > 0) {
+    lines.push('## Commits');
+    for (const c of commits) lines.push(`- ${c}`);
+    lines.push('');
+  }
+
+  if (changedFiles.length > 0) {
+    lines.push('## Changed Files');
+    for (const f of changedFiles) lines.push(`- ${f}`);
+    lines.push('');
+  }
+
+  if (reads) {
+    lines.push('## Read Stats');
+    lines.push(`- ${reads.count} files read, ${reads.repeats} repeated`);
+    lines.push('');
+  }
+
+  if (commits.length === 0 && changedFiles.length === 0) {
+    lines.push('_Read-only session — no commits or file changes._');
+    lines.push('');
+  }
+
+  fs.writeFileSync(filePath, lines.join('\n'), 'utf8');
 }
 
 const EXPORT_DIRS = ['analyses', 'decisions', 'diary', 'raw', 'sources', 'domains', 'connections', 'insights', 'learnings'];
