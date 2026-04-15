@@ -153,6 +153,50 @@ describe('FTS5 Database', () => {
   });
 });
 
+describe('Index with Embedding', () => {
+  test('should populate vec table when sqlite-vec is loaded', () => {
+    const { loadSqliteVec, ensureVecTable, hasVecTable: hasVec } = require('../scripts/lib/db-helpers.js');
+    const db = new Database(DB_PATH);
+    const vecLoaded = loadSqliteVec(db);
+
+    if (!vecLoaded) {
+      console.log('sqlite-vec not available — skipping embed test');
+      db.close();
+      return;
+    }
+
+    ensureVecTable(db);
+    expect(hasVec(db)).toBe(true);
+
+    // Insert a document to FTS
+    insertFts(db, {
+      path: path.join(TEST_DIR, 'sources', 'embed-test.md'),
+      slug: 'embed-test',
+      description: 'Document for embedding test',
+      type: 'source',
+      category: 'sources',
+      title: 'Embed Test',
+      content: 'This document tests the embedding pipeline integration',
+      tags: 'test,embedding',
+    });
+
+    // Manually test vec insert with fake embedding
+    const fakeEmbedding = new Float32Array(384);
+    fakeEmbedding[0] = 1.0;
+    const buf = Buffer.from(fakeEmbedding.buffer);
+
+    db.prepare('INSERT INTO documents_vec (embedding, slug, created_at, model_name) VALUES (?, ?, ?, ?)').run(
+      buf, 'embed-test', new Date().toISOString(), 'Xenova/multilingual-e5-small'
+    );
+
+    // Verify vec entry
+    const row = db.prepare('SELECT slug FROM documents_vec WHERE slug = ?').get('embed-test') as { slug: string } | undefined;
+    expect(row?.slug).toBe('embed-test');
+
+    db.close();
+  });
+});
+
 describe('Vec Table', () => {
   test('should load sqlite-vec extension and create vec table', () => {
     const { loadSqliteVec, ensureVecTable } = require('../scripts/lib/db-helpers.js');
