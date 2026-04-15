@@ -140,4 +140,47 @@ describe('Search Hook Hybrid Integration', () => {
 
     db.close();
   });
+
+  test('should return FusedResult with score when using hybridSearch without vec', () => {
+    const { hybridSearch } = require('../scripts/lib/hybrid-search.js');
+    const db = new Database(DB_PATH, { readonly: true });
+
+    // No vec table — hybridSearch should fall back to FTS5 and return FusedResult format
+    const results = hybridSearch(db, 'react hooks', { maxResults: 3 });
+    expect(results.length).toBeGreaterThan(0);
+    expect(results[0]).toHaveProperty('slug');
+    expect(results[0]).toHaveProperty('score');
+    expect(typeof results[0].score).toBe('number');
+    expect(results[0].score).toBeGreaterThan(0);
+    expect(results[0].slug).toBe('react-hooks');
+
+    db.close();
+  });
+
+  test('should expand synonyms and find results via hybridSearch', () => {
+    const { hybridSearch } = require('../scripts/lib/hybrid-search.js');
+    const { expandQuery } = require('../scripts/lib/synonym.js');
+    const db = new Database(DB_PATH, { readonly: true });
+
+    const synonyms = { react: ['reactjs', 'react.js'] };
+    const expanded = expandQuery('react', synonyms);
+    const query = expanded.join(' ');
+
+    const results = hybridSearch(db, query, { maxResults: 3 });
+    expect(results.length).toBeGreaterThan(0);
+    expect(results[0].slug).toBe('react-hooks');
+
+    db.close();
+  });
+
+  test('should respect project filter in hybridSearch', () => {
+    const { hybridSearch } = require('../scripts/lib/hybrid-search.js');
+    const db = new Database(DB_PATH, { readonly: true });
+
+    // Search with non-existent project — should return empty
+    const results = hybridSearch(db, 'react', { maxResults: 3, project: 'nonexistent-project' });
+    expect(results).toHaveLength(0);
+
+    db.close();
+  });
 });
