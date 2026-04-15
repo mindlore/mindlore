@@ -388,8 +388,20 @@ function syncObsidian(baseDir) {
       const destDir = path.join(destBase, dir);
       if (!fs.existsSync(destDir)) fs.mkdirSync(destDir, { recursive: true });
 
+      // Top-level .md files
       for (const file of fs.readdirSync(srcDir).filter(f => f.endsWith('.md') && !f.startsWith('_'))) {
         if (exportMdFile(path.join(srcDir, file), path.join(destDir, file), convertFn)) exported++;
+      }
+
+      // One-level subdirectories (e.g. diary/mindlore/)
+      for (const entry of fs.readdirSync(srcDir, { withFileTypes: true })) {
+        if (!entry.isDirectory() || entry.name.startsWith('_') || entry.name.startsWith('.')) continue;
+        const subSrc = path.join(srcDir, entry.name);
+        const subDest = path.join(destDir, entry.name);
+        if (!fs.existsSync(subDest)) fs.mkdirSync(subDest, { recursive: true });
+        for (const file of fs.readdirSync(subSrc).filter(f => f.endsWith('.md') && !f.startsWith('_'))) {
+          if (exportMdFile(path.join(subSrc, file), path.join(subDest, file), convertFn)) exported++;
+        }
       }
     }
 
@@ -415,37 +427,34 @@ function syncObsidian(baseDir) {
  * Only runs for the global scope — project .mindlore/ is in the project's own git.
  * Push failure is graceful (offline support).
  */
+function resolveGitBin() {
+  if (process.platform === 'win32') {
+    try { return execSync('where git', { encoding: 'utf8', timeout: 3000 }).trim().split('\n')[0].trim(); } catch (_e) { /* fall through */ }
+  }
+  return 'git';
+}
+
 function syncGlobalRepo() {
   const gDir = globalDir();
   const gitDir = path.join(gDir, '.git');
   if (!fs.existsSync(gitDir)) return;
 
+  const git = resolveGitBin();
+  const execOpts = (timeout) => ({ cwd: gDir, encoding: 'utf8', timeout, stdio: 'pipe' });
+
+  // Check for changes
+  const status = execSync(`"${git}" status --porcelain`, execOpts(5000)).trim();
+  if (!status) return; // nothing to commit
+
+  execSync(`"${git}" add *.md mindlore.db config.json diary/ sources/ domains/ analyses/ decisions/ raw/ connections/ insights/ learnings/`, execOpts(10000));
+  const now = new Date().toISOString().slice(0, 19);
+  execSync(`"${git}" commit -m "mindlore auto-sync ${now}"`, execOpts(15000));
+
+  // Push — graceful fail if no remote or offline
   try {
-    // Check for changes
-    const status = execSync('git status --porcelain', {
-      cwd: gDir,
-      encoding: 'utf8',
-      timeout: 5000,
-    }).trim();
-
-    if (!status) return; // nothing to commit
-
-    execSync('git add *.md mindlore.db config.json diary/ sources/ domains/ analyses/ decisions/ raw/ connections/ insights/ learnings/', { cwd: gDir, timeout: 5000, stdio: 'pipe' });
-    const now = new Date().toISOString().slice(0, 19);
-    execSync(`git commit -m "mindlore auto-sync ${now}"`, {
-      cwd: gDir,
-      timeout: 10000,
-      stdio: 'pipe',
-    });
-
-    // Push — graceful fail if no remote or offline
-    try {
-      execSync('git push', { cwd: gDir, timeout: 15000, stdio: 'pipe' });
-    } catch (_pushErr) {
-      // Offline or no remote — silently continue
-    }
-  } catch (_err) {
-    // Git not available or commit failed — silently continue
+    execSync(`"${git}" push`, execOpts(15000));
+  } catch (_pushErr) {
+    hookLog('session-end', 'warn', 'git push failed (offline?): ' + (_pushErr?.message ?? '').slice(0, 100));
   }
 }
 
