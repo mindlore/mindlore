@@ -84,6 +84,11 @@ async function main(): Promise<void> {
   const embedFlag = process.argv.includes('--embed');
   const shouldEmbed = embedFlag && vecAvailable;
 
+  // Bulk-load existing vec slugs to avoid N per-file queries
+  const embeddedSlugs = shouldEmbed
+    ? new Set(dbAll<{ slug: string }>(db, 'SELECT slug FROM documents_vec').map((r) => r.slug))
+    : new Set<string>();
+
   const upsertHash = db.prepare(`
     INSERT INTO file_hashes (path, content_hash, last_indexed)
     VALUES (?, ?, ?)
@@ -105,6 +110,10 @@ async function main(): Promise<void> {
   // Collect files that need embedding (processed after FTS5 transaction)
   const toEmbed: FileToEmbed[] = [];
 
+  function buildEmbedText(title: string, slug: string, description: string, body: string): string {
+    return `${title || slug}: ${description || ''} ${body.slice(0, 500)}`;
+  }
+
   // Phase 1: FTS5 indexing (synchronous transaction)
   const transaction = db.transaction(() => {
     for (const filePath of mdFiles) {
@@ -116,6 +125,16 @@ async function main(): Promise<void> {
         const existing = getHash.get(filePath) as { content_hash: string } | undefined;
         if (existing && existing.content_hash === hash) {
           skipped++;
+
+          // Queue for embedding if not yet embedded (first --embed run on existing files)
+          if (shouldEmbed) {
+            const { meta, body } = parseFrontmatter(content);
+            const { slug, title, description } = extractFtsMetadata(meta, body, filePath, baseDir);
+            if (!embeddedSlugs.has(slug)) {
+              toEmbed.push({ slug, text: buildEmbedText(title, slug, description, body) });
+            }
+          }
+
           continue;
         }
 
@@ -130,8 +149,7 @@ async function main(): Promise<void> {
 
         // Queue for embedding
         if (shouldEmbed) {
-          const textToEmbed = `${title || slug}: ${description || ''} ${body.slice(0, 500)}`;
-          toEmbed.push({ slug, text: textToEmbed });
+          toEmbed.push({ slug, text: buildEmbedText(title, slug, description, body) });
         }
       } catch (err) {
         const message = err instanceof Error ? err.message : String(err);

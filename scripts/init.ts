@@ -396,7 +396,7 @@ function ensureConfig(baseDir: string, packageRoot: string): boolean {
     return true;
   }
 
-  // Config exists — merge models if missing
+  // Config exists — merge missing fields from template
   let config: MindloreConfig;
   try {
     config = readJsonFile<MindloreConfig>(configDest);
@@ -404,13 +404,53 @@ function ensureConfig(baseDir: string, packageRoot: string): boolean {
     return false;
   }
 
+  let changed = false;
+
   if (!config.models) {
     config.models = { ...DEFAULT_MODELS };
-    fs.writeFileSync(configDest, JSON.stringify(config, null, 2) + '\n', 'utf8');
-    return true;
+    changed = true;
   }
 
-  return false;
+  // v0.5.0: merge new fields from template if missing
+  if (fs.existsSync(configSrc)) {
+    const template = readJsonFile<MindloreConfig>(configSrc);
+    if (!config.synonyms && template.synonyms) {
+      config.synonyms = template.synonyms;
+      changed = true;
+    }
+    if (!config.hybrid && template.hybrid) {
+      config.hybrid = template.hybrid;
+      changed = true;
+    }
+    // Merge nested session_focus keys
+    if (typeof config.session_focus === 'object' && config.session_focus !== null
+      && typeof template.session_focus === 'object' && template.session_focus !== null) {
+      const merged = parseJsonObject<Record<string, unknown>>(JSON.stringify(template.session_focus)); // lint-safe cast
+      const existing = parseJsonObject<Record<string, unknown>>(JSON.stringify(config.session_focus)); // defensive copy
+      let sfChanged = false;
+      for (const subKey of Object.keys(merged)) {
+        if (!(subKey in existing)) {
+          existing[subKey] = merged[subKey];
+          sfChanged = true;
+        }
+      }
+      if (sfChanged) {
+        config.session_focus = existing;
+        changed = true;
+      }
+    }
+    // Update version to match template
+    if (config.version !== template.version) {
+      config.version = template.version;
+      changed = true;
+    }
+  }
+
+  if (changed) {
+    fs.writeFileSync(configDest, JSON.stringify(config, null, 2) + '\n', 'utf8');
+  }
+
+  return changed;
 }
 
 // Step 9 removed — .gitignore no longer needed (global dir outside project)
