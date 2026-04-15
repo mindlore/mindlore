@@ -163,6 +163,7 @@ SESSION START                      DURING SESSION                         SESSIO
 - **Project-scoped search** — results filtered by current project, falls back to all projects if none found
 - **No `.mindlore/`?** — hooks silently skip, zero overhead
 - **FTS5 search** — SQLite full-text search with BM25 ranking, no external services
+- **Hybrid search** — RRF fusion combining FTS5 keyword + sqlite-vec vector results with synonym expansion
 - **Content-hash dedup** — SHA256 prevents re-indexing unchanged files
 
 ## Configuration
@@ -184,7 +185,7 @@ Skills spawn subagents with `[mindlore:SKILL]` markers — the model-router hook
 
 ## Hooks
 
-14 Claude Code lifecycle hooks (v0.4.3):
+14 Claude Code lifecycle hooks (v0.5.0):
 
 | Event | Hook | What it does |
 |-------|------|-------------|

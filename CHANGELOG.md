@@ -5,6 +5,32 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.5.0] - 2026-04-15
+
+### Added
+- **Hybrid search engine:** RRF (Reciprocal Rank Fusion) combining FTS5 keyword + sqlite-vec vector results
+- **Embedding pipeline:** multilingual-e5-small model via @xenova/transformers for semantic vector generation
+- **sqlite-vec integration:** Vector table management with 384-dimension embeddings
+- **Synonym expansion:** Bilingual (TR/EN) synonym module for improved FTS5 recall
+- **Schema version system:** Migration runner with versioned upgrades (v0.5.0 adds vec table + timestamp columns)
+- **`--hybrid` flag:** Search script supports hybrid mode with automatic fallback
+- **`--embed` flag:** Index script generates embeddings alongside FTS5 indexing
+- **Vec table health checks:** Schema version and vec table integrity validation
+- **Hybrid search in hook:** Search hook auto-uses hybrid mode with synonym expansion when available
+- **Synonyms and hybrid config:** Template config includes synonym and hybrid search settings
+
+### Fixed
+- **sqlite-vec load order:** Extension loaded before migrations to prevent vec table creation failure
+- **Graceful vec table creation:** Handles missing sqlite-vec extension without crashing
+- **Lint errors:** Resolved all lint warnings from v0.5.0 integration
+
+### Changed
+- **Double normalization removed:** Simplified score normalization in search pipeline
+- **Named constants:** Magic numbers replaced with descriptive constants
+- **Cleaner health checks:** Streamlined health check output formatting
+- Dependencies: added `sqlite-vec` and `@xenova/transformers`
+- Test suites: 32 → 38, tests: 249 → 280
+
 ## [0.4.3] - 2026-04-14
 
 ### Added
