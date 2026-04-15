@@ -10,11 +10,19 @@
 
 const fs = require('fs');
 const path = require('path');
-const { getAllDbs, requireDatabase, extractHeadings, readHookStdin, extractKeywords } = require('./lib/mindlore-common.cjs');
+const { getAllDbs, requireDatabase, extractHeadings, readHookStdin, extractKeywords, readConfig, loadSqliteVecCjs, hasVecTableCjs } = require('./lib/mindlore-common.cjs');
 
 const MAX_RESULTS = 3;
 const MIN_QUERY_WORDS = 3;
 const MIN_KEYWORD_HITS = 2;
+
+// Try to load hybrid search module (built TS)
+let hybridSearchMod;
+try {
+  hybridSearchMod = require('../dist/scripts/lib/hybrid-search.js');
+} catch (_err) {
+  // hybrid-search not built yet — pure FTS5 mode
+}
 
 /**
  * Search a single DB and return scored results with their baseDir.
@@ -23,6 +31,55 @@ function searchDb(dbPath, keywords, Database) {
   const baseDir = path.dirname(dbPath);
   const db = new Database(dbPath, { readonly: true });
   const results = [];
+
+  // v0.5.0: Try hybrid search with synonym expansion (no embedding — hooks are sync)
+  if (hybridSearchMod && loadSqliteVecCjs(db) && hasVecTableCjs(db)) {
+    try {
+      const config = readConfig(baseDir);
+      const synonyms = (config && config.synonyms) ? config.synonyms : {};
+
+      // Expand keywords with synonyms
+      const expandedTerms = keywords.slice();
+      for (const kw of keywords) {
+        const lower = kw.toLowerCase();
+        if (synonyms[lower]) {
+          expandedTerms.push(...synonyms[lower]);
+        }
+      }
+
+      const fusedResults = hybridSearchMod.hybridSearch(db, expandedTerms.join(' '), {
+        maxResults: MAX_RESULTS,
+        project: path.basename(process.cwd()),
+      });
+
+      if (fusedResults.length > 0) {
+        for (const r of fusedResults) {
+          const filePath = r.path || '';
+          let headings = [];
+          if (filePath && fs.existsSync(filePath)) {
+            const content = fs.readFileSync(filePath, 'utf8');
+            headings = extractHeadings(content, 3);
+          }
+          results.push({
+            path: filePath,
+            slug: r.slug,
+            description: r.description || '',
+            category: r.category || '',
+            title: r.title || '',
+            tags: r.tags || '',
+            headings,
+            hits: 1,
+            rank: r.score,
+            baseDir,
+          });
+        }
+        db.close();
+        return results;
+      }
+    } catch (_err) {
+      // Hybrid search failed — fall through to FTS5
+    }
+  }
 
   try {
     const allPaths = db.prepare('SELECT DISTINCT path FROM mindlore_fts').all();
