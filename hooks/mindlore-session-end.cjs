@@ -15,6 +15,8 @@ const os = require('os');
 const { execSync, spawn } = require('child_process');
 const { findMindloreDir, globalDir, getProjectName, openDatabase, ensureEpisodesTable, hasEpisodesTable, insertBareEpisode, insertFtsRow, hookLog } = require('./lib/mindlore-common.cjs');
 
+const EXPORT_DIRS = ['analyses', 'decisions', 'diary', 'raw', 'sources', 'domains', 'connections', 'insights', 'learnings'];
+
 // --worker mode: heavy ops run in detached child process (survives parent exit)
 if (process.argv.includes('--worker')) {
   hookLog('session-end', 'info', 'worker started, pid=' + process.pid);
@@ -320,8 +322,6 @@ function writeEpisodeFile(baseDir, project, commits, changedFiles, reads) {
 
   fs.writeFileSync(filePath, lines.join('\n'), 'utf8');
 }
-
-const EXPORT_DIRS = ['analyses', 'decisions', 'diary', 'raw', 'sources', 'domains', 'connections', 'insights', 'learnings'];
 
 /**
  * Load obsidian-helpers from compiled dist (single source of truth for wikilink conversion).
