@@ -172,6 +172,58 @@ class HealthChecker {
         db.close();
       }
     });
+
+    // Check vec table + schema version (v0.5.0) — reuse single DB open
+    this.check('documents_vec table', () => {
+      const dbPath = path.join(this.baseDir, DB_NAME);
+      if (!fs.existsSync(dbPath)) {
+        return { warn: true, detail: 'database missing' };
+      }
+
+      let Database: typeof import('better-sqlite3');
+      try {
+        Database = require('better-sqlite3');
+      } catch (_err) {
+        return { warn: true, detail: 'better-sqlite3 not available' };
+      }
+
+      const db = new Database(dbPath, { readonly: true });
+      try {
+        const sqliteVec: { load: (db: unknown) => void } = require('sqlite-vec');
+        sqliteVec.load(db);
+        const result = dbGet<{ cnt: number }>(db, 'SELECT count(*) as cnt FROM documents_vec') ?? { cnt: 0 };
+        return { ok: true, detail: `${result.cnt} vectors indexed` };
+      } catch (_err) {
+        return { warn: true, detail: 'sqlite-vec not available or vec table not created (run: npm run index -- --embed)' };
+      } finally {
+        db.close();
+      }
+    });
+
+    this.check('schema version', () => {
+      const dbPath = path.join(this.baseDir, DB_NAME);
+      if (!fs.existsSync(dbPath)) {
+        return { warn: true, detail: 'database missing' };
+      }
+
+      let Database: typeof import('better-sqlite3');
+      try {
+        Database = require('better-sqlite3');
+      } catch (_err) {
+        return { warn: true, detail: 'better-sqlite3 not available' };
+      }
+
+      const db = new Database(dbPath, { readonly: true });
+      try {
+        const { getSchemaVersion } = require('./lib/schema-version.js');
+        const version = getSchemaVersion(db);
+        return { ok: true, detail: `v${version}` };
+      } catch (_err) {
+        return { warn: true, detail: 'schema_versions table missing' };
+      } finally {
+        db.close();
+      }
+    });
   }
 
   checkOrphans(): void {

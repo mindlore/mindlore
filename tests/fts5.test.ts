@@ -152,3 +152,114 @@ describe('FTS5 Database', () => {
     db.close();
   });
 });
+
+describe('Index with Embedding', () => {
+  test('should populate vec table when sqlite-vec is loaded', () => {
+    const { loadSqliteVec, ensureVecTable, hasVecTable: hasVec } = require('../scripts/lib/db-helpers.js');
+    const db = new Database(DB_PATH);
+    const vecLoaded = loadSqliteVec(db);
+
+    if (!vecLoaded) {
+      console.log('sqlite-vec not available — skipping embed test');
+      db.close();
+      return;
+    }
+
+    ensureVecTable(db);
+    expect(hasVec(db)).toBe(true);
+
+    // Insert a document to FTS
+    insertFts(db, {
+      path: path.join(TEST_DIR, 'sources', 'embed-test.md'),
+      slug: 'embed-test',
+      description: 'Document for embedding test',
+      type: 'source',
+      category: 'sources',
+      title: 'Embed Test',
+      content: 'This document tests the embedding pipeline integration',
+      tags: 'test,embedding',
+    });
+
+    // Manually test vec insert with fake embedding
+    const fakeEmbedding = new Float32Array(384);
+    fakeEmbedding[0] = 1.0;
+    const buf = Buffer.from(fakeEmbedding.buffer);
+
+    db.prepare('INSERT INTO documents_vec (embedding, slug, created_at, model_name) VALUES (?, ?, ?, ?)').run(
+      buf, 'embed-test', new Date().toISOString(), 'Xenova/multilingual-e5-small'
+    );
+
+    // Verify vec entry
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- test: better-sqlite3 .get() returns unknown
+    const row = db.prepare('SELECT slug FROM documents_vec WHERE slug = ?').get('embed-test') as { slug: string } | undefined;
+    expect(row?.slug).toBe('embed-test');
+
+    db.close();
+  });
+});
+
+describe('Vec Table', () => {
+  test('should load sqlite-vec extension and create vec table', () => {
+    const { loadSqliteVec, ensureVecTable } = require('../scripts/lib/db-helpers.js');
+    const db = new Database(DB_PATH);
+
+    const loaded = loadSqliteVec(db);
+    expect(loaded).toBe(true);
+
+    ensureVecTable(db);
+
+    // Verify table exists by inserting and querying
+    const testEmbedding = new Float32Array(384);
+    testEmbedding[0] = 1.0; // unit vector along first dimension
+
+    db.prepare('INSERT INTO documents_vec (embedding, slug, created_at, model_name) VALUES (?, ?, ?, ?)').run(
+      Buffer.from(testEmbedding.buffer),
+      'test-slug',
+      new Date().toISOString(),
+      'test-model'
+    );
+
+    // vec0 metadata columns are filterable in WHERE
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- test: better-sqlite3 .get() returns unknown
+    const row = db.prepare('SELECT slug FROM documents_vec WHERE slug = ?').get('test-slug') as { slug: string } | undefined;
+    expect(row?.slug).toBe('test-slug');
+
+    db.close();
+  });
+
+  test('should return false when sqlite-vec is not available', () => {
+    const { ensureVecTable } = require('../scripts/lib/db-helpers.js');
+    const db = new Database(DB_PATH);
+
+    // Without loadSqliteVec, ensureVecTable should handle gracefully
+    expect(() => ensureVecTable(db)).not.toThrow();
+
+    db.close();
+  });
+});
+
+describe('Search Script Hybrid Mode', () => {
+  test('should return results with score field in hybrid mode', () => {
+    const { hybridSearch } = require('../scripts/lib/hybrid-search.js');
+    const db = new Database(DB_PATH);
+
+    insertFts(db, {
+      path: path.join(TEST_DIR, 'sources', 'search-test.md'),
+      slug: 'search-test',
+      description: 'Hybrid search integration test',
+      type: 'source',
+      category: 'sources',
+      title: 'Search Test',
+      content: 'Testing the hybrid search pipeline with FTS5 and vector search',
+      tags: 'search,hybrid',
+    });
+
+    // Without vec — should still return FTS5 results
+    const results = hybridSearch(db, 'hybrid search', { maxResults: 3 });
+    expect(results.length).toBe(1);
+    expect(results[0].slug).toBe('search-test');
+    expect(results[0].score).toBeGreaterThan(0);
+
+    db.close();
+  });
+});

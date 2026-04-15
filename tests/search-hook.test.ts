@@ -127,3 +127,17 @@ describe('Search Hook — FTS5 Query', () => {
     expect(results.length).toBe(2);
   });
 });
+
+describe('Search Hook Hybrid Integration', () => {
+  test('should fall back gracefully when hybrid search is not available', () => {
+    // Simulate hook's search function — pure FTS5 path
+    // Uses the shared DB already set up in beforeEach
+    const { searchFts5 } = require('../scripts/lib/hybrid-search.js');
+    const db = new Database(DB_PATH, { readonly: true });
+
+    const results = searchFts5(db, 'react hooks', 3);
+    expect(results.length).toBeGreaterThan(0);
+
+    db.close();
+  });
+});

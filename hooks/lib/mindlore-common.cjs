@@ -633,4 +633,36 @@ module.exports = {
   STOP_WORDS,
   extractKeywords,
   sanitizeKeyword,
+  // Hybrid search helpers (v0.5.0)
+  loadSqliteVecCjs,
+  hasVecTableCjs,
 };
+
+/**
+ * Try to load sqlite-vec extension. Returns true if successful.
+ * @param {import('better-sqlite3').Database} db
+ * @returns {boolean}
+ */
+function loadSqliteVecCjs(db) {
+  try {
+    const sqliteVec = require('sqlite-vec');
+    sqliteVec.load(db);
+    return true;
+  } catch (_err) {
+    return false;
+  }
+}
+
+/**
+ * Check if documents_vec table exists.
+ * @param {import('better-sqlite3').Database} db
+ * @returns {boolean}
+ */
+function hasVecTableCjs(db) {
+  try {
+    db.prepare('SELECT slug FROM documents_vec LIMIT 0').run();
+    return true;
+  } catch (_err) {
+    return false;
+  }
+}

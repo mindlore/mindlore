@@ -29,6 +29,11 @@ export const DEFAULT_MODELS: Record<string, string> = {
   default: 'haiku',
 } as const;
 
+export const VEC_TABLE_NAME = 'documents_vec';
+export const SCHEMA_VERSION = 1;
+export const EMBEDDING_MODEL_NAME = 'Xenova/multilingual-e5-small';
+export const EMBEDDING_DIM_CONST = 384;
+
 export const FTS5_COLUMNS = ['path', 'slug', 'description', 'type', 'category', 'title', 'content', 'tags', 'quality', 'date_captured', 'project'] as const;
 export type FtsColumn = typeof FTS5_COLUMNS[number];
 
