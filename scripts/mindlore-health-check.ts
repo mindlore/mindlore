@@ -191,7 +191,6 @@ class HealthChecker {
       try {
         let vecLoaded = false;
         try {
-          // eslint-disable-next-line @typescript-eslint/no-require-imports -- sqlite-vec is CJS native addon
           const sqliteVec: { load: (db: unknown) => void } = require('sqlite-vec');
           sqliteVec.load(db);
           vecLoaded = true;

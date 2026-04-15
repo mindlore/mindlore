@@ -19,6 +19,7 @@ export function ensureSchemaTable(db: Database): void {
 
 export function getSchemaVersion(db: Database): number {
   ensureSchemaTable(db);
+  // eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- better-sqlite3 .get() returns unknown
   const row = db.prepare('SELECT MAX(version) as v FROM schema_versions').get() as { v: number | null } | undefined;
   return row?.v ?? 0;
 }

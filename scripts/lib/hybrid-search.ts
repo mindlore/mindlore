@@ -82,6 +82,7 @@ export function computeRRF(
 
   // FTS5 results — already sorted by rank (most negative first = best)
   for (let i = 0; i < ftsResults.length; i++) {
+    // eslint-disable-next-line @typescript-eslint/no-non-null-assertion -- loop guard: i < length
     const r = ftsResults[i]!;
     const rrfScore = ftsWeight * (1.0 / (k + i + 1));
     const existing = scores.get(r.slug);
@@ -104,6 +105,7 @@ export function computeRRF(
 
   // Vec results — already sorted by distance (lowest first = most similar)
   for (let i = 0; i < vecResults.length; i++) {
+    // eslint-disable-next-line @typescript-eslint/no-non-null-assertion -- loop guard: i < length
     const r = vecResults[i]!;
     const rrfScore = vecWeight * (1.0 / (k + i + 1));
     const existing = scores.get(r.slug);

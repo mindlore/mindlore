@@ -92,6 +92,7 @@ describe('v0.5.0 Migrations', () => {
     expect(getSchemaVersion(db)).toBe(1);
 
     // Verify vec table exists
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- test: better-sqlite3 .get() returns unknown
     const row = db.prepare("SELECT name FROM sqlite_master WHERE type='table' AND name='documents_vec'").get() as { name: string } | undefined;
     expect(row?.name).toBe('documents_vec');
 
@@ -109,6 +110,7 @@ describe('v0.5.0 Migrations', () => {
     runMigrations(db, V050_MIGRATIONS);
 
     // file_hashes should now have created_at column
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- test: pragma returns array of objects
     const info = db.pragma('table_info(file_hashes)') as Array<{ name: string }>;
     const colNames = info.map(c => c.name);
     expect(colNames).toContain('created_at');

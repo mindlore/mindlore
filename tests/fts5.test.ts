@@ -190,6 +190,7 @@ describe('Index with Embedding', () => {
     );
 
     // Verify vec entry
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- test: better-sqlite3 .get() returns unknown
     const row = db.prepare('SELECT slug FROM documents_vec WHERE slug = ?').get('embed-test') as { slug: string } | undefined;
     expect(row?.slug).toBe('embed-test');
 
@@ -219,6 +220,7 @@ describe('Vec Table', () => {
     );
 
     // vec0 metadata columns are filterable in WHERE
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- test: better-sqlite3 .get() returns unknown
     const row = db.prepare('SELECT slug FROM documents_vec WHERE slug = ?').get('test-slug') as { slug: string } | undefined;
     expect(row?.slug).toBe('test-slug');
 

@@ -20,6 +20,7 @@ export const V050_MIGRATIONS: Migration[] = [
 
       // 2. Add timestamp columns to file_hashes
       // (FTS5 virtual tables can't be altered — timestamps go in file_hashes)
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- pragma returns array of objects
       const cols = db.pragma('table_info(file_hashes)') as Array<{ name: string }>;
       const colNames = new Set(cols.map(c => c.name));
 

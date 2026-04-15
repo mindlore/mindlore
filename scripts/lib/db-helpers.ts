@@ -54,7 +54,6 @@ export function dbPragma<T>(db: Database, pragma: string): T[] {
  */
 export function loadSqliteVec(db: Database): boolean {
   try {
-    // eslint-disable-next-line @typescript-eslint/no-require-imports -- sqlite-vec is CJS native addon
     const sqliteVec: { load: (db: unknown) => void } = require('sqlite-vec');
     sqliteVec.load(db);
     return true;

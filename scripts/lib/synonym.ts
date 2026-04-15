@@ -4,6 +4,7 @@ export function loadSynonyms(config: Record<string, unknown>): SynonymMap {
   if (!config || typeof config.synonyms !== 'object' || config.synonyms === null) {
     return {};
   }
+  // eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- runtime-validated object shape
   return config.synonyms as SynonymMap;
 }
 
