@@ -422,6 +422,11 @@ function ensureConfig(baseDir: string, packageRoot: string): boolean {
       config.hybrid = template.hybrid;
       changed = true;
     }
+    // v0.5.1: Merge tokenBudget if missing
+    if (!config.tokenBudget && template.tokenBudget) {
+      config.tokenBudget = template.tokenBudget;
+      changed = true;
+    }
     // Merge nested session_focus keys
     if (typeof config.session_focus === 'object' && config.session_focus !== null
       && typeof template.session_focus === 'object' && template.session_focus !== null) {

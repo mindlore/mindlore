@@ -194,7 +194,7 @@ function main() {
     // Use system node instead of process.execPath — CC's embedded Node
     // may not work as a standalone binary for detached worker processes.
     // Resolve full path to avoid shell:true deprecation warning on Windows.
-    let nodeBin = resolveWin32Bin('node');
+    const nodeBin = resolveWin32Bin('node');
     const child = spawn(nodeBin, [__filename, '--worker', tmpFile], {
       detached: true,
       stdio: 'ignore',
