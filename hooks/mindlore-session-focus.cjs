@@ -128,8 +128,17 @@ function main() {
 
   hookLog('session-focus', 'info', 'session started');
 
-  if (output.length > 0) {
-    process.stdout.write(output.join('\n\n') + '\n');
+  // Token budget for session inject
+  const budgetConfig = config?.tokenBudget ?? {};
+  const maxInjectChars = (budgetConfig.sessionInject || 2000) * 4;
+
+  let joined = output.join('\n\n');
+  if (joined.length > maxInjectChars) {
+    joined = joined.slice(0, maxInjectChars) + '\n[...truncated by token budget]';
+  }
+
+  if (joined.length > 0) {
+    process.stdout.write(joined + '\n');
   }
 }
 

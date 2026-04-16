@@ -26,5 +26,10 @@
     "ftsWeight": 0.4,
     "vecWeight": 0.6,
     "k": 60
+  },
+  "tokenBudget": {
+    "sessionInject": 2000,
+    "searchResults": 1500,
+    "perResult": 500
   }
 }

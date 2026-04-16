@@ -14,7 +14,6 @@ const { getAllDbs, requireDatabase, extractHeadings, readHookStdin, extractKeywo
 
 const MAX_RESULTS = 3;
 const MIN_QUERY_WORDS = 3;
-const MIN_KEYWORD_HITS = 2;
 
 // Try to load hybrid search module (built TS)
 let hybridSearchMod;
@@ -81,35 +80,38 @@ function searchDb(dbPath, keywords, Database) {
     }
   }
 
+  // FTS5-only fallback: OR-joined single query (replaces O(docs×keywords) nested loop)
   try {
-    const allPaths = db.prepare('SELECT DISTINCT path FROM mindlore_fts').all();
-    const matchStmt = db.prepare('SELECT rank FROM mindlore_fts WHERE path = ? AND mindlore_fts MATCH ?');
-    const metaStmt = db.prepare(
-      'SELECT slug, description, category, title, tags FROM mindlore_fts WHERE path = ?'
-    );
+    const sanitized = keywords
+      .map(kw => kw.replace(/["*(){}[\]^~:]/g, ''))
+      .filter(Boolean);
+    if (sanitized.length === 0) { db.close(); return results; }
 
-    for (const row of allPaths) {
-      let hits = 0;
-      let totalRank = 0;
+    const ftsQuery = sanitized.map(kw => `"${kw}"`).join(' OR ');
+    const rows = db.prepare(
+      `SELECT path, slug, description, category, title, tags, rank
+       FROM mindlore_fts WHERE mindlore_fts MATCH ? ORDER BY rank LIMIT ?`
+    ).all(ftsQuery, MAX_RESULTS * 2);
 
-      for (const kw of keywords) {
-        try {
-          const sanitized = kw.replace(/["*(){}[\]^~:]/g, '');
-          if (!sanitized) continue;
-          const r = matchStmt.get(row.path, '"' + sanitized + '"');
-          if (r) {
-            hits++;
-            totalRank += r.rank;
-          }
-        } catch (_err) {
-          // FTS5 query error for this keyword — skip
-        }
+    for (const r of rows) {
+      const filePath = r.path || '';
+      let headings = [];
+      if (filePath && fs.existsSync(filePath)) {
+        const content = fs.readFileSync(filePath, 'utf8');
+        headings = extractHeadings(content, 3);
       }
-
-      if (hits >= MIN_KEYWORD_HITS) {
-        const meta = metaStmt.get(row.path) || {};
-        results.push({ path: row.path, hits, totalRank, baseDir, meta });
-      }
+      results.push({
+        path: filePath,
+        slug: r.slug,
+        description: r.description || '',
+        category: r.category || '',
+        title: r.title || '',
+        tags: r.tags || '',
+        headings,
+        hits: sanitized.length,
+        rank: r.rank,
+        baseDir,
+      });
     }
   } catch (_err) {
     // FTS5 query error — silently skip
@@ -176,9 +178,17 @@ function main() {
   const relevant = unique.slice(0, MAX_RESULTS);
   if (relevant.length === 0) return;
 
+  // Token budget from config
+  const config = readConfig(path.dirname(dbPaths[0]));
+  const budget = (config && config.tokenBudget) || {};
+  const perResultChars = ((budget.perResult || 500) * 4); // ~4 chars/token
+  const totalChars = ((budget.searchResults || 1500) * 4);
+
   // Build rich inject output
   const output = [];
+  let totalUsed = 0;
   for (const r of relevant) {
+    if (totalUsed >= totalChars) break;
     const meta = r.meta || {};
     const relativePath = path.relative(r.baseDir, r.path).replace(/\\/g, '/');
 
@@ -194,9 +204,10 @@ function main() {
 
     const headingStr = headings.length > 0 ? `\nBasliklar: ${headings.join(', ')}` : '';
     const tagsStr = meta.tags ? `\nTags: ${meta.tags}` : '';
-    output.push(
-      `[Mindlore: ${category}/${title}] ${description}\nDosya: ${relativePath}${tagsStr}${headingStr}`
-    );
+    const entry = `[Mindlore: ${category}/${title}] ${description}\nDosya: ${relativePath}${tagsStr}${headingStr}`;
+    const truncated = entry.slice(0, perResultChars);
+    totalUsed += truncated.length;
+    output.push(truncated);
   }
 
   // v0.4.0: Search episode mirrors in FTS5 (reuses searchDb's DB path, no extra open)

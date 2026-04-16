@@ -186,3 +186,9 @@ export function hasYoutubeTranscript(): boolean {
     return false;
   }
 }
+
+export const DEFAULT_TOKEN_BUDGET = {
+  sessionInject: 2000,
+  searchResults: 1500,
+  perResult: 500,
+} as const;
