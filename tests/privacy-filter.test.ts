@@ -16,14 +16,14 @@ describe('Privacy Filter', () => {
   });
 
   test('should redact GitHub tokens', () => {
-    const input = 'token: ghp_ABCDEFghijklmnop1234567890abcdef';
+    const input = 'token: ghp_ABCDEFghijklmnop1234567890abcdefGHIJ';
     const result = redactSecrets(input);
     expect(result).toContain('[REDACTED]');
     expect(result).not.toContain('ghp_');
   });
 
   test('should redact npm tokens', () => {
-    const input = 'npm_abc123DEF456ghi789JKL012mno345';
+    const input = 'npm_abc123DEF456ghi789JKL012mno345PQR678stu';
     const result = redactSecrets(input);
     expect(result).toContain('[REDACTED]');
   });
