@@ -5,6 +5,29 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.5.1] - 2026-04-16
+
+### Added
+- **Privacy filter:** Regex-based secret redaction (OpenAI, AWS, GitHub, npm, Slack, connection strings) before DB writes
+- **CC memory sync:** FileChanged hook detects `~/.claude/projects/*/memory/*.md`, applies privacy filter, indexes to FTS5 with `category='cc-memory'`, copies to `~/.mindlore/memory/{project}/`
+- **Token budgeting:** Configurable token limits for session inject and search results to prevent context bloat
+- **Duplicate detection:** FTS5-based similarity check on ingest with CLI entrypoint and skill integration
+- **DB migrations v0.5.1:** New columns `source_type`, `project_scope`, `content_hash` on `file_hashes` table
+- **Health checks:** 2 new checks — `source_type` column presence + CC memory sync status
+- **Regression test:** Double `db.close()` crash prevention in `indexCcMemory`
+
+### Fixed
+- **Double db.close() bug:** Early return in `indexCcMemory` no longer crashes from double close (finally handles it)
+- **Regex precision:** GitHub PAT and npm token patterns restored to `{36,}` minimum for fewer false positives
+- **Search I/O halved:** Heading extraction moved after dedup/slice — reads 3 files instead of 6 per prompt
+
+### Changed
+- **FTS5 fallback optimized:** O(docs x keywords) nested loop replaced with single OR-joined MATCH query
+- **SessionEnd worker async:** Obsidian sync + git-sync run in parallel via `Promise.allSettled`
+- **Shared helpers:** `SHARED_EXPORT_DIRS` and `resolveWin32Bin` extracted to `mindlore-common.cjs`
+- **Reuse improvements:** `similarity.ts` uses `extractKeywords`/`sanitizeKeyword` from common; search hook uses `sanitizeKeyword`; dead code (`CC_MEMORY_BOOST`) removed
+- **Config upgrade:** `npx mindlore init` backfills `tokenBudget` from template for pre-v0.5.1 configs
+
 ## [0.5.0] - 2026-04-15
 
 ### Added
