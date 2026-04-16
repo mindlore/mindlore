@@ -129,8 +129,14 @@ N source, N analysis, N total
 
 ## Post-Ingest Quality Gate
 
-After every ingest, verify all 6 checkpoints before reporting success:
+After every ingest, verify all 7 checkpoints before reporting success:
 
+0. **Duplicate check** — Ingest öncesi mevcut DB'de benzer içerik ara:
+   ```bash
+   node dist/scripts/lib/similarity.js "<title or first 100 chars>"
+   ```
+   Eğer score > 0.7 olan sonuç varsa KULLANICIYA SOR: "Bu içerik '${slug}' ile benzer görünüyor. Yine de eklensin mi?"
+   Kullanıcı onaylarsa devam et, yoksa atla.
 1. **raw/ file exists** — immutable capture written with frontmatter (slug, type, source_url)
 2. **sources/ summary exists** — processed summary with full frontmatter (slug, type, title, tags, quality, description)
 3. **INDEX.md updated** — stats line incremented, Recent section has new entry
