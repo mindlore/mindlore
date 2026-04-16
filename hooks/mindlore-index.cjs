@@ -19,7 +19,17 @@ function main() {
   // Only process .md files inside .mindlore/ (resolved path check prevents traversal)
   if (!filePath.endsWith('.md')) return;
   const resolvedFile = path.resolve(filePath);
-  if (!resolvedFile.includes(path.sep + MINDLORE_DIR + path.sep) && !resolvedFile.includes(path.sep + MINDLORE_DIR)) return;
+  if (!resolvedFile.includes(path.sep + MINDLORE_DIR + path.sep) && !resolvedFile.includes(path.sep + MINDLORE_DIR)) {
+    // v0.5.1: Check CC memory path (~/.claude/projects/*/memory/*.md)
+    const isCcMemory = resolvedFile.includes(path.sep + '.claude' + path.sep + 'projects' + path.sep)
+      && resolvedFile.includes(path.sep + 'memory' + path.sep)
+      && resolvedFile.endsWith('.md');
+    if (!isCcMemory) return;
+
+    // CC memory path — index to global mindlore DB
+    indexCcMemory(resolvedFile);
+    return;
+  }
 
   const fileName = path.basename(filePath);
   if (SKIP_FILES.has(fileName)) return;
@@ -75,6 +85,77 @@ function main() {
       ).run(filePath, hash, new Date().toISOString());
     });
     updateIndex();
+  } finally {
+    db.close();
+  }
+}
+
+function indexCcMemory(filePath) {
+  const os = require('os');
+  const globalDir = process.env.MINDLORE_HOME || path.join(os.homedir(), MINDLORE_DIR);
+  const dbPath = path.join(globalDir, DB_NAME);
+  if (!fs.existsSync(dbPath)) return;
+
+  const content = fs.readFileSync(filePath, 'utf8').replace(/\r\n/g, '\n');
+  if (!content.trim()) return;
+
+  // Privacy filter — redact secrets before DB write
+  let cleaned = content;
+  try {
+    const { redactSecrets } = require('../dist/scripts/lib/privacy-filter.js');
+    cleaned = redactSecrets(content);
+  } catch (_err) {
+    // privacy-filter not built — use raw content
+  }
+
+  // SHA256 dedup
+  const hash = sha256(cleaned);
+  const db = openDatabase(dbPath);
+  if (!db) return;
+
+  try {
+    const existing = db.prepare('SELECT content_hash FROM file_hashes WHERE path = ?').get(filePath);
+    if (existing && existing.content_hash === hash) {
+      db.close();
+      return; // unchanged
+    }
+
+    const { meta, body } = parseFrontmatter(cleaned);
+    const memType = String(meta.type || 'unknown');
+
+    // Extract project scope from path: ~/.claude/projects/C--Users-X-proj/memory/
+    const projMatch = filePath.match(/projects[/\\]([^/\\]+)[/\\]memory/);
+    const projectScope = projMatch ? projMatch[1] : null;
+
+    const ftsData = extractFtsMetadata(meta, body, filePath, globalDir);
+
+    // Update FTS5 + hash atomically
+    const updateIndex = db.transaction(() => {
+      db.prepare('DELETE FROM mindlore_fts WHERE path = ?').run(filePath);
+      insertFtsRow(db, {
+        path: filePath,
+        ...ftsData,
+        category: 'cc-memory',
+        type: memType,
+        project: projectScope,
+      });
+      db.prepare(
+        `INSERT INTO file_hashes (path, content_hash, last_indexed, source_type, project_scope)
+         VALUES (?, ?, ?, 'cc-memory', ?)
+         ON CONFLICT(path) DO UPDATE SET
+           content_hash = excluded.content_hash,
+           last_indexed = excluded.last_indexed,
+           source_type = 'cc-memory',
+           project_scope = excluded.project_scope`
+      ).run(filePath, hash, new Date().toISOString(), projectScope);
+    });
+    updateIndex();
+
+    // Copy to ~/.mindlore/memory/{project}/ for git-sync + obsidian
+    const memoryDir = path.join(globalDir, 'memory', projectScope || '_global');
+    fs.mkdirSync(memoryDir, { recursive: true });
+    const destPath = path.join(memoryDir, path.basename(filePath));
+    fs.writeFileSync(destPath, cleaned, 'utf8');
   } finally {
     db.close();
   }

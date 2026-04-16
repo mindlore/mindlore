@@ -70,6 +70,24 @@ export const TYPE_TO_DIR: Record<string, string> = {
   diary: 'diary',
 };
 
+/**
+ * CC memory path pattern for FileChanged hook matching.
+ * Matches: ~/.claude/projects/{name}/memory/{file}.md
+ */
+export const CC_MEMORY_PATH_MARKER = path.join('.claude', 'projects');
+export const CC_MEMORY_DIR = 'memory';
+
+/**
+ * CC memory type → search boost multiplier.
+ * Applied at query time (importance column is v0.5.3).
+ */
+export const CC_MEMORY_BOOST: Record<string, number> = {
+  feedback: 1.5,
+  user: 1.3,
+  project: 1.0,
+  reference: 0.8,
+};
+
 export function homedir(): string {
   return os.homedir();
 }
