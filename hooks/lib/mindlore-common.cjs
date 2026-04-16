@@ -590,7 +590,8 @@ function sanitizeKeyword(kw) {
   return clean.length >= 2 ? `"${clean}"` : null;
 }
 
-const SHARED_EXPORT_DIRS = ['analyses', 'decisions', 'diary', 'raw', 'sources', 'domains', 'connections', 'insights', 'learnings', 'memory'];
+// Matches DIRECTORIES in scripts/lib/constants.ts + 'memory' (v0.5.1 CC memory sync)
+const SHARED_EXPORT_DIRS = ['raw', 'sources', 'domains', 'analyses', 'insights', 'connections', 'learnings', 'diary', 'decisions', 'memory'];
 
 function resolveWin32Bin(name) {
   if (process.platform === 'win32') {

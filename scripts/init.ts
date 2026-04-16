@@ -422,7 +422,7 @@ function ensureConfig(baseDir: string, packageRoot: string): boolean {
       config.hybrid = template.hybrid;
       changed = true;
     }
-    // v0.5.1: Merge tokenBudget if missing
+    // Backfill tokenBudget from template for pre-v0.5.1 configs
     if (!config.tokenBudget && template.tokenBudget) {
       config.tokenBudget = template.tokenBudget;
       changed = true;

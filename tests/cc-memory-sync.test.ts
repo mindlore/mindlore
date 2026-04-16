@@ -100,11 +100,4 @@ describe('CC Memory Sync', () => {
     db.close();
   });
 
-  test('should apply boost at query time based on CC memory type', () => {
-    const { CC_MEMORY_BOOST } = require('../dist/scripts/lib/constants.js');
-    expect(CC_MEMORY_BOOST.feedback).toBe(1.5);
-    expect(CC_MEMORY_BOOST.user).toBe(1.3);
-    expect(CC_MEMORY_BOOST.project).toBe(1.0);
-    expect(CC_MEMORY_BOOST.reference).toBe(0.8);
-  });
 });

@@ -10,7 +10,7 @@
 
 const fs = require('fs');
 const path = require('path');
-const { MINDLORE_DIR, DB_NAME, SKIP_FILES, sha256, openDatabase, parseFrontmatter, extractFtsMetadata, insertFtsRow, readHookStdin, getProjectName } = require('./lib/mindlore-common.cjs');
+const { MINDLORE_DIR, DB_NAME, SKIP_FILES, sha256, openDatabase, parseFrontmatter, extractFtsMetadata, insertFtsRow, readHookStdin, getProjectName, globalDir } = require('./lib/mindlore-common.cjs');
 
 function main() {
   const filePath = readHookStdin(['path', 'file_path']);
@@ -20,7 +20,7 @@ function main() {
   if (!filePath.endsWith('.md')) return;
   const resolvedFile = path.resolve(filePath);
   if (!resolvedFile.includes(path.sep + MINDLORE_DIR + path.sep) && !resolvedFile.includes(path.sep + MINDLORE_DIR)) {
-    // v0.5.1: Check CC memory path (~/.claude/projects/*/memory/*.md)
+    // CC memory path (~/.claude/projects/*/memory/*.md) — index to global mindlore DB
     const isCcMemory = resolvedFile.includes(path.sep + '.claude' + path.sep + 'projects' + path.sep)
       && resolvedFile.includes(path.sep + 'memory' + path.sep)
       && resolvedFile.endsWith('.md');
@@ -91,10 +91,10 @@ function main() {
 }
 
 function indexCcMemory(filePath) {
-  const os = require('os');
-  const globalDir = process.env.MINDLORE_HOME || path.join(os.homedir(), MINDLORE_DIR);
-  const dbPath = path.join(globalDir, DB_NAME);
-  if (!fs.existsSync(dbPath)) return;
+  const CC_MEMORY_CATEGORY = 'cc-memory';
+  // CC memory constants live in TS (scripts/lib/constants.ts) — CJS hooks can't require TS directly
+  const globalBase = globalDir();
+  const dbPath = path.join(globalBase, DB_NAME);
 
   const content = fs.readFileSync(filePath, 'utf8').replace(/\r\n/g, '\n');
   if (!content.trim()) return;
@@ -116,8 +116,7 @@ function indexCcMemory(filePath) {
   try {
     const existing = db.prepare('SELECT content_hash FROM file_hashes WHERE path = ?').get(filePath);
     if (existing && existing.content_hash === hash) {
-      db.close();
-      return; // unchanged
+      return; // unchanged — finally handles db.close()
     }
 
     const { meta, body } = parseFrontmatter(cleaned);
@@ -127,7 +126,7 @@ function indexCcMemory(filePath) {
     const projMatch = filePath.match(/projects[/\\]([^/\\]+)[/\\]memory/);
     const projectScope = projMatch ? projMatch[1] : null;
 
-    const ftsData = extractFtsMetadata(meta, body, filePath, globalDir);
+    const ftsData = extractFtsMetadata(meta, body, filePath, globalBase);
 
     // Update FTS5 + hash atomically
     const updateIndex = db.transaction(() => {
@@ -135,24 +134,24 @@ function indexCcMemory(filePath) {
       insertFtsRow(db, {
         path: filePath,
         ...ftsData,
-        category: 'cc-memory',
+        category: CC_MEMORY_CATEGORY,
         type: memType,
         project: projectScope,
       });
       db.prepare(
         `INSERT INTO file_hashes (path, content_hash, last_indexed, source_type, project_scope)
-         VALUES (?, ?, ?, 'cc-memory', ?)
+         VALUES (?, ?, ?, ?, ?)
          ON CONFLICT(path) DO UPDATE SET
            content_hash = excluded.content_hash,
            last_indexed = excluded.last_indexed,
-           source_type = 'cc-memory',
+           source_type = excluded.source_type,
            project_scope = excluded.project_scope`
-      ).run(filePath, hash, new Date().toISOString(), projectScope);
+      ).run(filePath, hash, new Date().toISOString(), CC_MEMORY_CATEGORY, projectScope);
     });
     updateIndex();
 
     // Copy to ~/.mindlore/memory/{project}/ for git-sync + obsidian
-    const memoryDir = path.join(globalDir, 'memory', projectScope || '_global');
+    const memoryDir = path.join(globalBase, 'memory', projectScope || '_global');
     fs.mkdirSync(memoryDir, { recursive: true });
     const destPath = path.join(memoryDir, path.basename(filePath));
     fs.writeFileSync(destPath, cleaned, 'utf8');

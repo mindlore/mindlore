@@ -1,5 +1,14 @@
 import Database from 'better-sqlite3';
+import path from 'path';
 import { dbAll } from './db-helpers.js';
+import { resolveHookCommon } from './constants.js';
+
+// Import shared utilities from CJS common module
+// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- dynamic CJS require, typed by mindlore-common.d.cts
+const { extractKeywords, sanitizeKeyword } = require(resolveHookCommon(__dirname)) as {
+  extractKeywords: (text: string) => string[];
+  sanitizeKeyword: (kw: string) => string | null;
+};
 
 export interface SimilarResult {
   slug: string;
@@ -24,26 +33,13 @@ export function findSimilar(
 ): SimilarResult[] {
   const maxResults = options?.maxResults ?? 3;
 
-  const stopWords = new Set([
-    'the', 'a', 'an', 'is', 'are', 'was', 'were', 'be', 'been', 'to', 'of',
-    'in', 'for', 'on', 'with', 'at', 'by', 'from', 'and', 'but', 'or', 'not',
-    'this', 'that', 'it', 'its', 'bir', 've', 'ile', 'icin', 'bu', 'de', 'da',
-  ]);
+  const keywords = extractKeywords(text);
+  if (keywords.length === 0) return [];
 
-  const words = text.toLowerCase()
-    .replace(/[^a-z0-9\u00C0-\u024F\u0400-\u04FF]+/gi, ' ')
-    .split(/\s+/)
-    .filter(w => w.length > 2 && !stopWords.has(w))
-    .slice(0, 8);
-
-  if (words.length === 0) return [];
-
-  const sanitized = words
-    .map(w => w.replace(/["*(){}[\]^~:]/g, ''))
-    .filter(Boolean);
+  const sanitized = keywords.map(sanitizeKeyword).filter((s): s is string => s !== null && s.length > 0);
   if (sanitized.length === 0) return [];
 
-  const ftsQuery = sanitized.map(w => `"${w}"`).join(' OR ');
+  const ftsQuery = sanitized.join(' OR ');
 
   let db: Database.Database | null = null;
   try {
@@ -76,8 +72,8 @@ export function findSimilar(
 const isMain = typeof require !== 'undefined' && require.main === module;
 if (isMain) {
   const queryArg = process.argv[2];
-  const dbPathArg = process.argv[3] ?? require('path').join(
-    process.env.MINDLORE_HOME ?? require('path').join(require('os').homedir(), '.mindlore'),
+  const dbPathArg = process.argv[3] ?? path.join(
+    process.env.MINDLORE_HOME ?? path.join(require('os').homedir(), '.mindlore'),
     'mindlore.db'
   );
   if (!queryArg) {

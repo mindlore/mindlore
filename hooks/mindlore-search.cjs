@@ -10,7 +10,7 @@
 
 const fs = require('fs');
 const path = require('path');
-const { getAllDbs, requireDatabase, extractHeadings, readHookStdin, extractKeywords, readConfig, loadSqliteVecCjs, hasVecTableCjs, hookLog } = require('./lib/mindlore-common.cjs');
+const { getAllDbs, requireDatabase, extractHeadings, readHookStdin, extractKeywords, sanitizeKeyword, readConfig, loadSqliteVecCjs, hasVecTableCjs, hookLog } = require('./lib/mindlore-common.cjs');
 
 const MAX_RESULTS = 3;
 const MIN_QUERY_WORDS = 3;
@@ -82,32 +82,24 @@ function searchDb(dbPath, keywords, Database) {
 
   // FTS5-only fallback: OR-joined single query (replaces O(docs×keywords) nested loop)
   try {
-    const sanitized = keywords
-      .map(kw => kw.replace(/["*(){}[\]^~:]/g, ''))
-      .filter(Boolean);
+    const sanitized = keywords.map(sanitizeKeyword).filter(Boolean);
     if (sanitized.length === 0) { db.close(); return results; }
 
-    const ftsQuery = sanitized.map(kw => `"${kw}"`).join(' OR ');
+    const ftsQuery = sanitized.join(' OR ');
     const rows = db.prepare(
       `SELECT path, slug, description, category, title, tags, rank
        FROM mindlore_fts WHERE mindlore_fts MATCH ? ORDER BY rank LIMIT ?`
     ).all(ftsQuery, MAX_RESULTS * 2);
 
     for (const r of rows) {
-      const filePath = r.path || '';
-      let headings = [];
-      if (filePath && fs.existsSync(filePath)) {
-        const content = fs.readFileSync(filePath, 'utf8');
-        headings = extractHeadings(content, 3);
-      }
       results.push({
-        path: filePath,
+        path: r.path || '',
         slug: r.slug,
         description: r.description || '',
         category: r.category || '',
         title: r.title || '',
         tags: r.tags || '',
-        headings,
+        headings: [],  // populated later in main() after slicing
         hits: sanitized.length,
         rank: r.rank,
         baseDir,
@@ -128,7 +120,7 @@ function searchDb(dbPath, keywords, Database) {
  */
 function searchEpisodesFts(db, keywords) {
   try {
-    const ftsQuery = keywords.map(kw => '"' + kw.replace(/["*(){}[\]^~:]/g, '') + '"').filter(q => q !== '""').join(' OR ');
+    const ftsQuery = keywords.map(sanitizeKeyword).filter(Boolean).join(' OR ');
     const rows = db.prepare(
       "SELECT title, category, slug, tags FROM mindlore_fts WHERE type = 'episode' AND mindlore_fts MATCH ? LIMIT 2"
     ).all(ftsQuery);
@@ -178,9 +170,20 @@ function main() {
   const relevant = unique.slice(0, MAX_RESULTS);
   if (relevant.length === 0) return;
 
+  // Populate headings only for final results (avoid reading extra files)
+  for (const r of relevant) {
+    if (r.path && r.headings.length === 0 && fs.existsSync(r.path)) {
+      try {
+        const content = fs.readFileSync(r.path, 'utf8');
+        r.headings = extractHeadings(content, 3);
+      } catch (_err) { /* skip */ }
+    }
+  }
+
   // Token budget from config
   const config = readConfig(path.dirname(dbPaths[0]));
   const budget = (config && config.tokenBudget) || {};
+  // Defaults match DEFAULT_TOKEN_BUDGET in scripts/lib/constants.ts
   const perResultChars = ((budget.perResult || 500) * 4); // ~4 chars/token
   const totalChars = ((budget.searchResults || 1500) * 4);
 
@@ -192,11 +195,7 @@ function main() {
     const meta = r.meta || {};
     const relativePath = path.relative(r.baseDir, r.path).replace(/\\/g, '/');
 
-    let headings = [];
-    if (fs.existsSync(r.path)) {
-      const content = fs.readFileSync(r.path, 'utf8');
-      headings = extractHeadings(content, 5);
-    }
+    const headings = r.headings || [];
 
     const category = meta.category || path.dirname(relativePath).split('/')[0];
     const title = meta.title || meta.slug || path.basename(r.path, '.md');

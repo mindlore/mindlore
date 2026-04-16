@@ -129,6 +129,7 @@ function main() {
   hookLog('session-focus', 'info', 'session started');
 
   // Token budget for session inject
+  // Defaults match DEFAULT_TOKEN_BUDGET in scripts/lib/constants.ts
   const budgetConfig = config?.tokenBudget ?? {};
   const maxInjectChars = (budgetConfig.sessionInject || 2000) * 4;
 
