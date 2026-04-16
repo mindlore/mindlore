@@ -13,7 +13,7 @@ import path from 'path';
 import { DB_NAME, GLOBAL_MINDLORE_DIR, resolveHookCommon } from './lib/constants.js';
 import { dbAll, loadSqliteVec, ensureVecTable } from './lib/db-helpers.js';
 import { ensureSchemaTable, runMigrations } from './lib/schema-version.js';
-import { V050_MIGRATIONS } from './lib/migrations.js';
+import { V050_MIGRATIONS, V051_MIGRATIONS } from './lib/migrations.js';
 import { generateEmbedding, EMBEDDING_MODEL } from './lib/embedding.js';
 
 const common: {
@@ -75,7 +75,7 @@ async function main(): Promise<void> {
 
   // Run schema migrations (creates vec table if sqlite-vec is loaded)
   ensureSchemaTable(db);
-  runMigrations(db, V050_MIGRATIONS);
+  runMigrations(db, [...V050_MIGRATIONS, ...V051_MIGRATIONS]);
 
   if (vecAvailable) {
     ensureVecTable(db);

@@ -37,3 +37,5 @@ export const V050_MIGRATIONS: Migration[] = [
     },
   },
 ];
+
+export { V051_MIGRATIONS } from './migrations-v051.js';

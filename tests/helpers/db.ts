@@ -3,6 +3,9 @@ import path from 'path';
 import os from 'os';
 import crypto from 'crypto';
 import Database from 'better-sqlite3';
+import { ensureSchemaTable, runMigrations } from '../../scripts/lib/schema-version.js';
+import { V050_MIGRATIONS } from '../../scripts/lib/migrations.js';
+import { V051_MIGRATIONS } from '../../scripts/lib/migrations-v051.js';
 
 // Hook'lar .cjs kalıyor — SQL constants'ları oradan import ediyoruz
 const { SQL_FTS_CREATE, insertFtsRow, ensureEpisodesTable: ensureEpisodesTableCjs }: {
@@ -26,6 +29,13 @@ export function createTestDb(dbPath: string): Database.Database {
       last_indexed TEXT NOT NULL
     );
   `);
+  return db;
+}
+
+export function createTestDbWithMigrations(dbPath: string): Database.Database {
+  const db = createTestDb(dbPath);
+  ensureSchemaTable(db);
+  runMigrations(db, [...V050_MIGRATIONS, ...V051_MIGRATIONS]);
   return db;
 }
 

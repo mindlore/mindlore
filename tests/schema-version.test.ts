@@ -1,6 +1,7 @@
 import path from 'path';
 import Database from 'better-sqlite3';
 import { setupTestDir, teardownTestDir, createTestDb } from './helpers/db.js';
+import { V051_MIGRATIONS } from '../scripts/lib/migrations-v051.js';
 
 const TEST_DIR = path.join(__dirname, '..', '.test-schema-version');
 const DB_PATH = path.join(TEST_DIR, 'mindlore.db');
@@ -116,6 +117,39 @@ describe('v0.5.0 Migrations', () => {
     expect(colNames).toContain('created_at');
     expect(colNames).toContain('updated_at');
 
+    db.close();
+  });
+});
+
+describe('v0.5.1 Migrations', () => {
+  test('should add source_type column to file_hashes', () => {
+    const { ensureSchemaTable, runMigrations } = require('../scripts/lib/schema-version.js');
+    const { V050_MIGRATIONS } = require('../scripts/lib/migrations.js');
+    const db = new Database(DB_PATH);
+
+    ensureSchemaTable(db);
+    runMigrations(db, [...V050_MIGRATIONS, ...V051_MIGRATIONS]);
+
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- test: pragma returns array of objects
+    const cols = db.pragma('table_info(file_hashes)') as Array<{ name: string }>;
+    const colNames = cols.map(c => c.name);
+    expect(colNames).toContain('source_type');
+    expect(colNames).toContain('project_scope');
+    expect(colNames).toContain('content_hash');
+    db.close();
+  });
+
+  test('should be idempotent — running twice does not error', () => {
+    const { ensureSchemaTable, runMigrations, getSchemaVersion } = require('../scripts/lib/schema-version.js');
+    const { V050_MIGRATIONS } = require('../scripts/lib/migrations.js');
+    const db = new Database(DB_PATH);
+
+    ensureSchemaTable(db);
+    runMigrations(db, [...V050_MIGRATIONS, ...V051_MIGRATIONS]);
+    runMigrations(db, [...V050_MIGRATIONS, ...V051_MIGRATIONS]);
+
+    const version = getSchemaVersion(db);
+    expect(version).toBeGreaterThanOrEqual(2);
     db.close();
   });
 });
