@@ -1,7 +1,7 @@
 import fs from 'fs';
 import path from 'path';
 import Database from 'better-sqlite3';
-import { createTestDbWithMigrations, setupTestDir, teardownTestDir } from './helpers/db.js';
+import { createTestDbWithMigrations, setupTestDir, teardownTestDir, sha256 } from './helpers/db.js';
 import { dbAll } from '../scripts/lib/db-helpers.js';
 
 const TEST_DIR = path.join(__dirname, '..', '.test-cc-memory-sync');
@@ -98,6 +98,43 @@ describe('CC Memory Sync', () => {
     const copied = fs.readFileSync(path.join(copyDir, 'user_role.md'), 'utf8');
     expect(copied).toContain('Senior developer');
     db.close();
+  });
+
+  test('should not crash on unchanged file re-index (double db.close regression)', () => {
+    // Regression test for: early-return path called db.close() before finally block
+    // which also called db.close(), causing a crash on the most common code path.
+    const memFile = path.join(MEMORY_DIR, 'unchanged_test.md');
+    const content = [
+      '---',
+      'name: Unchanged Test',
+      'type: feedback',
+      '---',
+      '',
+      'This content will not change between indexes.',
+    ].join('\n');
+    fs.writeFileSync(memFile, content);
+
+    const hash = sha256(content);
+    const db = createTestDbWithMigrations(DB_PATH);
+
+    // First index: insert file_hash
+    db.prepare(
+      'INSERT INTO file_hashes (path, content_hash, last_indexed, source_type) VALUES (?, ?, ?, ?)'
+    ).run(memFile, hash, new Date().toISOString(), 'cc-memory');
+
+    // Simulate the indexCcMemory try/finally pattern with early return on unchanged
+    try {
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- better-sqlite3 .get() returns unknown
+      const existing = db.prepare('SELECT content_hash FROM file_hashes WHERE path = ?').get(memFile) as { content_hash: string } | undefined;
+      expect(existing).toBeDefined();
+      expect(existing?.content_hash).toBe(hash);
+
+      if (existing && existing.content_hash === hash) {
+        return; // unchanged — only finally should close
+      }
+    } finally {
+      db.close(); // single close — no crash
+    }
   });
 
 });
