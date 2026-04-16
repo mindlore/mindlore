@@ -13,9 +13,9 @@ const fs = require('fs');
 const path = require('path');
 const os = require('os');
 const { execSync, spawn } = require('child_process');
-const { findMindloreDir, globalDir, getProjectName, openDatabase, ensureEpisodesTable, hasEpisodesTable, insertBareEpisode, insertFtsRow, hookLog } = require('./lib/mindlore-common.cjs');
+const { findMindloreDir, globalDir, getProjectName, openDatabase, ensureEpisodesTable, hasEpisodesTable, insertBareEpisode, insertFtsRow, hookLog, SHARED_EXPORT_DIRS, resolveWin32Bin } = require('./lib/mindlore-common.cjs');
 
-const EXPORT_DIRS = ['analyses', 'decisions', 'diary', 'raw', 'sources', 'domains', 'connections', 'insights', 'learnings'];
+const EXPORT_DIRS = SHARED_EXPORT_DIRS;
 
 // --worker mode: heavy ops run in detached child process (survives parent exit)
 if (process.argv.includes('--worker')) {
@@ -24,23 +24,37 @@ if (process.argv.includes('--worker')) {
   let payload;
   try {
     const raw = fs.readFileSync(dataPath, 'utf8');
-    fs.unlinkSync(dataPath); // cleanup temp file before any processing
+    fs.unlinkSync(dataPath);
     payload = JSON.parse(raw);
   } catch (_err) {
     hookLog('session-end', 'error', 'payload read failed: ' + (_err?.message ?? _err));
     process.exit(0);
   }
   const { baseDir, project, commits, changedFiles, reads } = payload;
-  function safeRun(fn, label) {
-    try { fn(); hookLog('session-end', 'info', label + ' OK'); }
-    catch (e) { hookLog('session-end', 'error', label + ' FAIL: ' + e?.message); }
+
+  async function safeRunAsync(fn, label) {
+    try {
+      await fn();
+      hookLog('session-end', 'info', label + ' OK');
+    } catch (e) {
+      hookLog('session-end', 'error', label + ' FAIL: ' + e?.message);
+    }
   }
-  safeRun(() => writeBareEpisode(baseDir, project, commits, changedFiles, reads), 'episode');
-  safeRun(() => writeEpisodeFile(baseDir, project, commits, changedFiles, reads), 'episode-file');
-  safeRun(() => syncObsidian(baseDir), 'obsidian');
-  safeRun(() => syncGlobalRepo(), 'git-sync');
-  hookLog('session-end', 'info', 'worker done');
-  process.exit(0);
+
+  (async () => {
+    // Episode writes share DB — run sequentially first
+    await safeRunAsync(() => writeBareEpisode(baseDir, project, commits, changedFiles, reads), 'episode');
+    await safeRunAsync(() => writeEpisodeFile(baseDir, project, commits, changedFiles, reads), 'episode-file');
+
+    // Obsidian + git-sync are independent — run in parallel
+    await Promise.allSettled([
+      safeRunAsync(() => syncObsidian(baseDir), 'obsidian'),
+      safeRunAsync(() => syncGlobalRepo(), 'git-sync'),
+    ]);
+
+    hookLog('session-end', 'info', 'worker done');
+    process.exit(0);
+  })();
 }
 
 function formatDate(date) {
@@ -180,10 +194,7 @@ function main() {
     // Use system node instead of process.execPath — CC's embedded Node
     // may not work as a standalone binary for detached worker processes.
     // Resolve full path to avoid shell:true deprecation warning on Windows.
-    let nodeBin = 'node';
-    if (process.platform === 'win32') {
-      try { nodeBin = execSync('where node', { encoding: 'utf8', timeout: 3000 }).trim().split('\n')[0].trim(); } catch (_e) { nodeBin = 'node'; }
-    }
+    let nodeBin = resolveWin32Bin('node');
     const child = spawn(nodeBin, [__filename, '--worker', tmpFile], {
       detached: true,
       stdio: 'ignore',
@@ -429,10 +440,7 @@ function syncObsidian(baseDir) {
  * Push failure is graceful (offline support).
  */
 function resolveGitBin() {
-  if (process.platform === 'win32') {
-    try { return execSync('where git', { encoding: 'utf8', timeout: 3000 }).trim().split('\n')[0].trim(); } catch (_e) { /* fall through */ }
-  }
-  return 'git';
+  return resolveWin32Bin('git');
 }
 
 function syncGlobalRepo() {
@@ -459,4 +467,6 @@ function syncGlobalRepo() {
   }
 }
 
-main();
+if (!process.argv.includes('--worker')) {
+  main();
+}

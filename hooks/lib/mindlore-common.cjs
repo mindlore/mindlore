@@ -590,6 +590,19 @@ function sanitizeKeyword(kw) {
   return clean.length >= 2 ? `"${clean}"` : null;
 }
 
+const SHARED_EXPORT_DIRS = ['analyses', 'decisions', 'diary', 'raw', 'sources', 'domains', 'connections', 'insights', 'learnings', 'memory'];
+
+function resolveWin32Bin(name) {
+  if (process.platform === 'win32') {
+    try {
+      return require('child_process')
+        .execSync(`where ${name}`, { encoding: 'utf8', timeout: 3000 })
+        .trim().split('\n')[0].trim();
+    } catch (_e) { /* fall through */ }
+  }
+  return name;
+}
+
 module.exports = {
   MINDLORE_DIR,
   GLOBAL_MINDLORE_DIR,
@@ -639,6 +652,9 @@ module.exports = {
   // Hook logging (v0.5.1)
   hookLog,
   getRecentHookErrors,
+  // Shared helpers (v0.5.1)
+  SHARED_EXPORT_DIRS,
+  resolveWin32Bin,
 };
 
 /**
