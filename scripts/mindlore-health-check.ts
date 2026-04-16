@@ -385,6 +385,53 @@ class HealthChecker {
     });
   }
 
+  checkSourceTypeColumn(): void {
+    this.check('source_type column', () => {
+      const dbPath = path.join(this.baseDir, DB_NAME);
+      if (!fs.existsSync(dbPath)) return { warn: true, detail: 'No database' };
+
+      let Database: typeof import('better-sqlite3');
+      try { Database = require('better-sqlite3'); } catch (_err) {
+        return { warn: true, detail: 'better-sqlite3 not available' };
+      }
+
+      const db = new Database(dbPath, { readonly: true });
+      try {
+        // eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- pragma returns array
+        const cols = db.pragma('table_info(file_hashes)') as Array<{ name: string }>;
+        const has = cols.some(c => c.name === 'source_type');
+        return has
+          ? { ok: true, detail: 'source_type column present' }
+          : { warn: true, detail: 'source_type column missing — run: npm run index' };
+      } finally {
+        db.close();
+      }
+    });
+  }
+
+  checkCcMemorySync(): void {
+    this.check('CC memory sync', () => {
+      const dbPath = path.join(this.baseDir, DB_NAME);
+      if (!fs.existsSync(dbPath)) return { warn: true, detail: 'No database' };
+
+      let Database: typeof import('better-sqlite3');
+      try { Database = require('better-sqlite3'); } catch (_err) {
+        return { warn: true, detail: 'better-sqlite3 not available' };
+      }
+
+      const db = new Database(dbPath, { readonly: true });
+      try {
+        const row = dbGet<{ cnt: number }>(db, "SELECT COUNT(*) as cnt FROM mindlore_fts WHERE category = 'cc-memory'");
+        const count = row?.cnt ?? 0;
+        return count > 0
+          ? { ok: true, detail: `${count} CC memory entries synced` }
+          : { warn: true, detail: 'No CC memory synced yet — will sync on next file change' };
+      } finally {
+        db.close();
+      }
+    });
+  }
+
   run(): this {
     this.checkDirectories();
     this.checkSchema();
@@ -394,6 +441,8 @@ class HealthChecker {
     this.checkFrontmatter();
     this.checkStaleDeltas();
     this.checkConflictingAnalyses();
+    this.checkSourceTypeColumn();
+    this.checkCcMemorySync();
     return this;
   }
 
