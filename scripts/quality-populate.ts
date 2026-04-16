@@ -26,10 +26,11 @@ function resolveQuality(meta: Record<string, unknown>): QualityValue {
     return QUALITY_HEURISTICS[sourceType];
   }
   // URL-based fallback when source_type is missing
-  const url = String(meta.source_url || '');
-  if (url.includes('github.com')) return 'high';
-  if (url.includes('docs.') || url.includes('developer.')) return 'high';
-  if (url.includes('youtube.com') || url.includes('youtu.be')) return 'medium';
+  let hostname = '';
+  try { hostname = new URL(String(meta.source_url || '')).hostname; } catch { /* invalid URL */ }
+  if (hostname === 'github.com' || hostname.endsWith('.github.com')) return 'high';
+  if (hostname.startsWith('docs.') || hostname.startsWith('developer.')) return 'high';
+  if (hostname === 'youtube.com' || hostname === 'www.youtube.com' || hostname === 'youtu.be') return 'medium';
   return 'medium';
 }
 
