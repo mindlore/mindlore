@@ -4,12 +4,12 @@ import path from 'path';
 import crypto from 'crypto';
 import os from 'os';
 
-function validateUrl(raw: string): string {
+function validateUrl(raw: string): URL {
   const u = new URL(raw);
   if (!['http:', 'https:'].includes(u.protocol)) {
     throw new Error(`Unsupported protocol: ${u.protocol}`);
   }
-  return u.href;
+  return u;
 }
 
 interface FetchResult {
@@ -44,9 +44,15 @@ function fetchCurl(url: string): string | null {
       { encoding: 'utf8', timeout: 25000, stdio: ['pipe', 'pipe', 'pipe'] }
     );
     if (raw.includes('<html') || raw.includes('<!DOCTYPE')) {
-      return raw
-        .replace(/<script[^>]*>[\s\S]*?<\/script>/gi, '')
-        .replace(/<style[^>]*>[\s\S]*?<\/style>/gi, '')
+      let cleaned = raw;
+      let prev: string;
+      do {
+        prev = cleaned;
+        cleaned = cleaned
+          .replace(/<script[^>]*>[\s\S]*?<\/script\s*>/gi, '')
+          .replace(/<style[^>]*>[\s\S]*?<\/style\s*>/gi, '');
+      } while (cleaned !== prev);
+      return cleaned
         .replace(/<[^>]+>/g, ' ')
         .replace(/\s{2,}/g, ' ')
         .trim();
@@ -77,7 +83,7 @@ function generateFrontmatter(url: string, slug: string, content: string): string
     '---',
     `slug: ${slug}`,
     'type: raw',
-    `title: "${title.replace(/"/g, '\\"')}"`,
+    `title: "${title.replace(/\\/g, '\\\\').replace(/"/g, '\\"')}"`,
     `source_url: ${url}`,
     `date_captured: ${now}`,
     'quality: unreviewed',
@@ -102,12 +108,13 @@ function main(): void {
     process.exit(1);
   }
 
-  const safeUrl = validateUrl(url);
+  const parsedUrl = validateUrl(url);
+  const safeUrl = parsedUrl.href;
 
   let content: string | null = null;
   let method: FetchResult['method'] = 'curl';
 
-  if (safeUrl.includes('github.com')) {
+  if (parsedUrl.hostname === 'github.com' || parsedUrl.hostname.endsWith('.github.com')) {
     content = fetchGitHubReadme(safeUrl);
     if (content) method = 'github-api';
   }
