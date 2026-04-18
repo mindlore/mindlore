@@ -124,7 +124,12 @@ export function computeRRF(
     }
   }
 
-  return Array.from(scores.values()).sort((a, b) => b.score - a.score);
+  const CC_MEMORY_BOOST = 1.2;
+  const results = Array.from(scores.values());
+  for (const r of results) {
+    if (r.category === 'cc-memory') r.score *= CC_MEMORY_BOOST;
+  }
+  return results.sort((a, b) => b.score - a.score);
 }
 
 // ── Search Functions ───────────────────────────────────────────────
