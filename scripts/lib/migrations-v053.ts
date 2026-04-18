@@ -29,6 +29,7 @@ export const V053_MIGRATIONS: Migration[] = [
     version: 5,
     name: 'add_episode_consolidation',
     up: (db: Database) => {
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- .get() returns unknown
       const table = db.prepare(
         "SELECT name FROM sqlite_master WHERE type='table' AND name='episodes'"
       ).get() as { name: string } | undefined;
