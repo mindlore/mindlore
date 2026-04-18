@@ -10,7 +10,7 @@
 
 const fs = require('fs');
 const path = require('path');
-const { MINDLORE_DIR, DB_NAME, SKIP_FILES, sha256, openDatabase, parseFrontmatter, extractFtsMetadata, insertFtsRow, readHookStdin, getProjectName, globalDir } = require('./lib/mindlore-common.cjs');
+const { MINDLORE_DIR, DB_NAME, SKIP_FILES, sha256, openDatabase, parseFrontmatter, extractFtsMetadata, insertFtsRow, readHookStdin, getProjectName, globalDir, hookLog } = require('./lib/mindlore-common.cjs');
 
 function main() {
   const filePath = readHookStdin(['path', 'file_path']);
@@ -32,7 +32,6 @@ function main() {
   }
 
   const fileName = path.basename(filePath);
-  if (SKIP_FILES.has(fileName)) return;
 
   // Find the .mindlore dir from the file path
   const mindloreIdx = filePath.indexOf(MINDLORE_DIR);
@@ -40,6 +39,14 @@ function main() {
   const dbPath = path.join(baseDir, DB_NAME);
 
   if (!fs.existsSync(dbPath)) return;
+
+  // Catch-up scan: when INDEX.md or log.md triggers, index recently-modified files
+  if (['INDEX.md', 'log.md'].includes(fileName)) {
+    catchUpScan(baseDir, dbPath);
+    return;
+  }
+
+  if (SKIP_FILES.has(fileName)) return;
 
   if (!fs.existsSync(filePath)) {
     // File was deleted — remove from index
@@ -155,6 +162,57 @@ function indexCcMemory(filePath) {
     fs.mkdirSync(memoryDir, { recursive: true });
     const destPath = path.join(memoryDir, path.basename(filePath));
     fs.writeFileSync(destPath, cleaned, 'utf8');
+  } finally {
+    db.close();
+  }
+}
+
+function catchUpScan(baseDir, dbPath) {
+  const CATCH_UP_DIRS = ['raw', 'sources', 'analyses', 'diary'];
+  const fiveMinAgo = Date.now() - 5 * 60 * 1000;
+
+  const db = openDatabase(dbPath);
+  if (!db) return;
+
+  try {
+    let indexed = 0;
+    for (const dir of CATCH_UP_DIRS) {
+      const dirPath = path.join(baseDir, dir);
+      if (!fs.existsSync(dirPath)) continue;
+
+      const files = fs.readdirSync(dirPath).filter(f => f.endsWith('.md'));
+      for (const file of files) {
+        const filePath = path.join(dirPath, file);
+        const stat = fs.statSync(filePath);
+        if (stat.mtimeMs < fiveMinAgo) continue;
+
+        const content = fs.readFileSync(filePath, 'utf8').replace(/\r\n/g, '\n');
+        const hash = sha256(content);
+
+        const existing = db.prepare('SELECT content_hash FROM file_hashes WHERE path = ?').get(filePath);
+        if (existing && existing.content_hash === hash) continue;
+
+        const { meta, body } = parseFrontmatter(content);
+        const ftsData = extractFtsMetadata(meta, body, filePath, baseDir);
+
+        const update = db.transaction(() => {
+          db.prepare('DELETE FROM mindlore_fts WHERE path = ?').run(filePath);
+          insertFtsRow(db, { path: filePath, ...ftsData, project: getProjectName() });
+          db.prepare(
+            `INSERT INTO file_hashes (path, content_hash, last_indexed)
+             VALUES (?, ?, ?)
+             ON CONFLICT(path) DO UPDATE SET
+               content_hash = excluded.content_hash,
+               last_indexed = excluded.last_indexed`
+          ).run(filePath, hash, new Date().toISOString());
+        });
+        update();
+        indexed++;
+      }
+    }
+    if (indexed > 0) {
+      hookLog(`catch-up: ${indexed} file(s) indexed`);
+    }
   } finally {
     db.close();
   }
