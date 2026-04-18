@@ -22,8 +22,8 @@ Hybrid: deterministic work in CJS scripts, intelligent work in MD skills.
 
 ```
 scripts/    # Deterministic (health check, FTS5 index/search, init)
-hooks/      # CC lifecycle hooks (13 in v0.4.0)
-skills/     # LLM agent skills (7 in v0.4.0)
+hooks/      # CC lifecycle hooks (14 in v0.5.3)
+skills/     # LLM agent skills (10 in v0.5.3)
 templates/  # Init copies these to .mindlore/
 tests/      # Jest test suites
 ```
