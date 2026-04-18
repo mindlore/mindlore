@@ -104,6 +104,24 @@ node "$MINDLORE_PKG/dist/scripts/lib/skill-memory.js" set mindlore-reflect last_
 node "$MINDLORE_PKG/dist/scripts/lib/skill-memory.js" set mindlore-reflect nomination_count "{staged_count}"
 ```
 
+## Quick Health Summary (v0.5.3)
+
+After pattern extraction, run quick SQL checks (0 token, <1ms):
+```bash
+node -e "
+  const db = require('better-sqlite3')(require('path').join(require('os').homedir(), '.mindlore', 'mindlore.db'), {readonly:true});
+  const stale = db.prepare(\"SELECT COUNT(*) as c FROM file_hashes WHERE recall_count = 0 AND archived_at IS NULL AND last_indexed < datetime('now','-60 days')\").get()?.c ?? 0;
+  const raw = db.prepare(\"SELECT COUNT(*) as c FROM episodes WHERE (consolidation_status = 'raw' OR consolidation_status IS NULL) AND kind IN ('learning','discovery','friction','decision')\").get()?.c ?? 0;
+  console.log(JSON.stringify({stale, raw}));
+  db.close();
+"
+```
+
+Rapor sonuna ekle:
+```
+Stale: {stale} doc | Raw episodes: {raw} | → Detay: /mindlore-maintain
+```
+
 ## Rules
 
 - NEVER write learnings or nominations without user approval
