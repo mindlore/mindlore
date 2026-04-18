@@ -6,6 +6,8 @@
 import type BetterSqlite3 from 'better-sqlite3';
 type Database = BetterSqlite3.Database;
 
+import Database_ctor from 'better-sqlite3';
+import fs from 'fs';
 import { VEC_TABLE_NAME, EMBEDDING_DIM_CONST } from './constants.js';
 
 /**
@@ -92,5 +94,38 @@ export function hasVecTable(db: Database): boolean {
     return true;
   } catch (_err) {
     return false;
+  }
+}
+
+/**
+ * Open a readonly DB, run fn, close DB. Returns undefined on error.
+ */
+export function withReadonlyDb<T>(
+  dbPath: string,
+  fn: (db: Database) => T
+): T | undefined {
+  let db: Database | null = null;
+  try {
+    db = new Database_ctor(dbPath, { readonly: true });
+    return fn(db);
+  } catch {
+    return undefined;
+  } finally {
+    db?.close();
+  }
+}
+
+/**
+ * Open a database with existence check. Returns null if file missing or error.
+ */
+export function openDatabaseTs(
+  dbPath: string,
+  options?: { readonly?: boolean }
+): Database | null {
+  try {
+    if (!fs.existsSync(dbPath)) return null;
+    return new Database_ctor(dbPath, { readonly: options?.readonly ?? false });
+  } catch {
+    return null;
   }
 }
