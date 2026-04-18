@@ -18,7 +18,7 @@ afterEach(() => {
  * Run the writeEpisodeFile function in an isolated child process.
  * The function is internal to session-end hook, so we extract and call it directly.
  */
-function runWriteEpisodeFile(baseDir: string, project: string, commits: string[], changedFiles: string[], reads: { count: number; repeats: number } | null) {
+function runWriteEpisodeFile(baseDir: string, project: string, commits: string[], changedFiles: string[], reads: { count: number; repeats: number } | null, episodeTs?: string) {
   // Since writeEpisodeFile is not exported, test via the hook's worker mode
   // by calling the hook with a crafted payload
   const payload = JSON.stringify({ baseDir, project, commits, changedFiles, reads });
@@ -26,11 +26,12 @@ function runWriteEpisodeFile(baseDir: string, project: string, commits: string[]
   fs.writeFileSync(tmpFile, payload, 'utf8');
 
   const hookFile = path.join(__dirname, '..', 'hooks', 'mindlore-session-end.cjs');
-  // Set MINDLORE_HOME so hookLog writes to our tmpDir
+  const env = { ...process.env, MINDLORE_HOME: tmpDir } as NodeJS.ProcessEnv;
+  if (episodeTs) env.MINDLORE_EPISODE_TS = episodeTs;
   execSync(`node "${hookFile}" --worker "${tmpFile}"`, {
     timeout: 10000,
     encoding: 'utf8',
-    env: { ...process.env, MINDLORE_HOME: tmpDir },
+    env,
     cwd: process.cwd(),
   });
 }
@@ -66,13 +67,14 @@ describe('writeEpisodeFile', () => {
   });
 
   test('is idempotent — second call does not overwrite', () => {
-    runWriteEpisodeFile(tmpDir, 'idem-proj', ['aaa commit'], ['x.ts'], null);
+    const fixedTs = '2026-01-15T10:30:00.000Z';
+    runWriteEpisodeFile(tmpDir, 'idem-proj', ['aaa commit'], ['x.ts'], null, fixedTs);
 
     const projDir = path.join(tmpDir, 'diary', 'idem-proj');
     const files1 = fs.readdirSync(projDir).filter(f => f.startsWith('episode-'));
 
-    // Run again within same minute — should not create duplicate
-    runWriteEpisodeFile(tmpDir, 'idem-proj', ['bbb different'], ['y.ts'], null);
+    // Run again with same timestamp — should not create duplicate
+    runWriteEpisodeFile(tmpDir, 'idem-proj', ['bbb different'], ['y.ts'], null, fixedTs);
     const files2 = fs.readdirSync(projDir).filter(f => f.startsWith('episode-'));
 
     expect(files2.length).toBe(files1.length);

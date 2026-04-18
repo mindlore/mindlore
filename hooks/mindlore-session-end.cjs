@@ -291,7 +291,7 @@ function writeEpisodeFile(baseDir, project, commits, changedFiles, reads) {
   const projDir = path.join(baseDir, 'diary', project || 'unknown');
   if (!fs.existsSync(projDir)) fs.mkdirSync(projDir, { recursive: true });
 
-  const now = new Date();
+  const now = process.env.MINDLORE_EPISODE_TS ? new Date(process.env.MINDLORE_EPISODE_TS) : new Date();
   const ts = formatDate(now);
   const filePath = path.join(projDir, `episode-${ts}.md`);
   if (fs.existsSync(filePath)) return; // idempotent
