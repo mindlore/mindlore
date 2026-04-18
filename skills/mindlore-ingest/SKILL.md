@@ -7,6 +7,15 @@ context: fork
 agent: coder
 ---
 
+## Script Resolution
+
+All script paths are relative to this skill's package root.
+Package root = 2 directories up from this skill's base directory.
+
+When CC loads this skill, it shows "Base directory for this skill: /path/to/skills/mindlore-ingest".
+Compute: `MINDLORE_PKG = {base_directory}/../..`
+Use: `node "$MINDLORE_PKG/dist/scripts/..."` for all script commands.
+
 # /mindlore-ingest
 
 Add a new knowledge source to the `.mindlore/` knowledge base.
@@ -31,7 +40,7 @@ User shares a URL, text, file, or says "kaynak ekle", "source ingest", "bu linki
 
 **Pre-check (before fetch):**
 ```bash
-node dist/scripts/lib/skill-memory.js get mindlore-ingest last_ingest_urls
+node "$MINDLORE_PKG/dist/scripts/lib/skill-memory.js" get mindlore-ingest last_ingest_urls
 ```
 If URL already in the list, warn user: "This URL was ingested recently. Re-ingest?"
 
@@ -39,7 +48,7 @@ If URL already in the list, warn user: "This URL was ingested recently. Re-inges
 
 1. **Fetch raw content (zero token):**
    ```bash
-   node dist/scripts/fetch-raw.js "$URL" --out-dir "$MINDLORE_DIR/raw"
+   node "$MINDLORE_PKG/dist/scripts/fetch-raw.js" "$URL" --out-dir "$MINDLORE_DIR/raw"
    ```
    Script output: `{ "saved": "/path/to/raw/2026-04-18-abc123.md", "chars": 14823, "method": "curl" }`
 
@@ -58,7 +67,7 @@ If URL already in the list, warn user: "This URL was ingested recently. Re-inges
 
 5. **Update skill_memory:**
    ```bash
-   node dist/scripts/lib/skill-memory.js set mindlore-ingest last_ingest_urls "$URL"
+   node "$MINDLORE_PKG/dist/scripts/lib/skill-memory.js" set mindlore-ingest last_ingest_urls "$URL"
    ```
 
 6. **Return to caller (this is all the ana session sees):**
@@ -125,7 +134,7 @@ After every ingest, verify all 7 checkpoints before reporting success:
 
 0. **Duplicate check** — Ingest öncesi mevcut DB'de benzer içerik ara:
    ```bash
-   node dist/scripts/lib/similarity.js "<title or first 100 chars>"
+   node "$MINDLORE_PKG/dist/scripts/lib/similarity.js" "<title or first 100 chars>"
    ```
    Eğer score > 0.7 olan sonuç varsa KULLANICIYA SOR: "Bu içerik '${slug}' ile benzer görünüyor. Yine de eklensin mi?"
    Kullanıcı onaylarsa devam et, yoksa atla.
@@ -134,11 +143,11 @@ After every ingest, verify all 7 checkpoints before reporting success:
 3. **INDEX.md updated** — stats line incremented, Recent section has new entry
 4. **Domain updated** — if relevant domain exists, new finding added (max 1 domain per ingest)
 5. **log.md entry** — append `| {date} | ingest | {slug}.md |`
-6. **FTS5 indexed** — FileChanged hook auto-triggers, but verify: `node scripts/mindlore-fts5-search.cjs "{keyword}"` returns the new file
+6. **FTS5 indexed** — FileChanged hook auto-triggers, but verify: `node "$MINDLORE_PKG/dist/scripts/mindlore-fts5-search.js" "{keyword}"` returns the new file
 
 If any checkpoint fails, fix it before reporting "ingest complete". Do NOT skip steps.
 
 Optional: run full health check for structural integrity:
 ```bash
-node scripts/mindlore-health-check.cjs
+node "$MINDLORE_PKG/dist/scripts/mindlore-health-check.js"
 ```

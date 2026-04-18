@@ -3,6 +3,15 @@ name: mindlore-diary
 description: LLM-powered session analysis — decisions, discoveries, frictions, learnings. Promotes episodes to semantic knowledge.
 ---
 
+## Script Resolution
+
+All script paths are relative to this skill's package root.
+Package root = 2 directories up from this skill's base directory.
+
+When CC loads this skill, it shows "Base directory for this skill: /path/to/skills/mindlore-diary".
+Compute: `MINDLORE_PKG = {base_directory}/../..`
+Use: `node "$MINDLORE_PKG/dist/scripts/..."` for all script commands.
+
 # /mindlore-diary
 
 ## Scope
@@ -18,7 +27,7 @@ Determine target using `getActiveMindloreDir()` logic:
 ## On Start — Read skill_memory
 
 ```bash
-node dist/scripts/lib/skill-memory.js get mindlore-diary last_diary_date
+node "$MINDLORE_PKG/dist/scripts/lib/skill-memory.js" get mindlore-diary last_diary_date
 ```
 If last_diary_date is today, warn: "Diary already ran today. Continue anyway?"
 
@@ -64,8 +73,8 @@ If last_diary_date is today, warn: "Diary already ran today. Continue anyway?"
 ## On End — Write skill_memory
 
 ```bash
-node dist/scripts/lib/skill-memory.js set mindlore-diary last_diary_date "$(date -I)"
-node dist/scripts/lib/skill-memory.js set mindlore-diary last_episode_count "{N}"
+node "$MINDLORE_PKG/dist/scripts/lib/skill-memory.js" set mindlore-diary last_diary_date "$(date -I)"
+node "$MINDLORE_PKG/dist/scripts/lib/skill-memory.js" set mindlore-diary last_episode_count "{N}"
 ```
 
 ## Rules

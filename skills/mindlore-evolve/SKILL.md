@@ -5,6 +5,15 @@ effort: medium
 allowed-tools: [Read, Write, Edit, Bash, Grep, Glob, Agent]
 ---
 
+## Script Resolution
+
+All script paths are relative to this skill's package root.
+Package root = 2 directories up from this skill's base directory.
+
+When CC loads this skill, it shows "Base directory for this skill: /path/to/skills/mindlore-evolve".
+Compute: `MINDLORE_PKG = {base_directory}/../..`
+Use: `node "$MINDLORE_PKG/dist/scripts/..."` for all script commands.
+
 # /mindlore-evolve
 
 Knowledge schema co-evolution. Karpathy's 4th operation (ingest/query/health/**evolve**).
@@ -84,7 +93,7 @@ Apply suggested changes with user approval.
 **Rules:**
 - NEVER make automatic changes — always require user approval
 - Show diff preview before applying
-- After changes, run `node dist/scripts/mindlore-fts5-index.js` for FTS5 sync
+- After changes, run `node "$MINDLORE_PKG/dist/scripts/mindlore-fts5-index.js"` for FTS5 sync
 - Log every change to log.md with timestamp
 - The `[mindlore:evolve]` marker in the Agent prompt is required — it triggers the model-router hook to use the cost-optimized model (sonnet by default)
 
