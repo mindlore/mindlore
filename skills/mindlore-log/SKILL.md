@@ -12,7 +12,9 @@ Determine target using `getActiveMindloreDir()` logic:
 
 ## Trigger
 
-`/mindlore-log <mode>` where mode is `log`, `diary`, `reflect`, `status`, or `save`.
+`/mindlore-log <mode>` where mode is `log`, `status`, or `save`.
+
+For diary analysis, use `/mindlore-diary`. For pattern extraction, use `/mindlore-reflect`.
 
 ## Modes
 
@@ -35,148 +37,6 @@ date: 2026-04-11
 
 4. Body: user's note as-is
 5. Append to `log.md`: `| {date} | log | {slug}.md |`
-
-### diary
-
-LLM-driven session analysis → enriched episodes in the episodes table.
-
-**Trigger:** User runs `/mindlore-log diary` or Stop hook asks "Diary analizi yapayım mı?"
-
-**Model:** `[mindlore:diary]` marker → sonnet (analysis needed)
-
-**Flow:**
-1. Open `~/.mindlore/mindlore.db`, ensure episodes table exists
-2. Find the latest bare session episode for current project: `WHERE kind = 'session' AND project = ? AND source = 'hook' ORDER BY created_at DESC LIMIT 1`
-3. Gather context:
-   - The bare episode's body (commits, files, read stats)
-   - Git log last 10 commits
-   - Decision-detector captures (if any in session)
-4. LLM analyzes and extracts structured episodes:
-   - **Decisions** → `kind: 'decision'` — architectural/tool/format choices
-   - **Discoveries** → `kind: 'discovery'` — assumption vs reality findings
-   - **Frictions** → `kind: 'friction'` — tool errors, blockers, recurring issues
-   - **Learnings** → `kind: 'learning'` — reusable knowledge
-   - **Preferences** → `kind: 'preference'` — user behavioral preferences
-   - **Events** → `kind: 'event'` — releases, incidents, milestones
-5. **Deduplication rule:** Each finding belongs to exactly ONE kind. Priority: `decision > discovery > friction > learning > preference > event`. Never write the same finding to multiple kinds.
-6. Present to user, get approval
-7. Write approved episodes to DB:
-   - `source: 'diary'`
-   - `parent_id: {bare_session_episode_id}` — links enriched episodes to source session
-   - `scope: 'project'` (default) or `'global'` if cross-project
-8. Optionally mirror to FTS5 for text search
-9. Append to `log.md`: `| {date} | diary | {N} episodes extracted from session |`
-
-**Rules:**
-- NEVER write episodes without user approval
-- parent_id always points to the source session episode
-- Each episode gets its own summary (max 100 chars) and body (markdown, unbounded)
-- entities field: JSON array of relevant file paths (max 10)
-
-### reflect
-
-LLM-driven pattern extraction from episodes → persistent learnings.
-
-**Flow (v0.4 — episodes-powered):**
-1. Read active episodes: `WHERE status = 'active' AND source IN ('hook', 'diary')`
-2. Optionally filter by time: `--days 7` (default 7), `--days 30`
-3. Present summary: "Found N episodes spanning DATE1 to DATE2"
-4. LLM analyzes episodes (not deltas) for patterns:
-   - Repeated decisions (same choice 2+ times)
-   - Recurring frictions (same blocker/error)
-   - Discovery patterns (assumptions that keep breaking)
-   - Workflow patterns that worked well
-5. **3-Tier Confidence Assessment:**
-   For each detected pattern, count occurrences across episodes:
-
-   | Tekrar | Tier | Aksiyon |
-   |--------|------|---------|
-   | 1x | Note | Sessiz — episode olarak kalır, raporda göster |
-   | 2x | Learning | `kind: learning` episode oluştur, learnings/ dosyasına yaz |
-   | 3x+ | Nomination | `kind: nomination, status: staged, source: reflect` episode oluştur |
-
-6. **Structured report output:**
-
-```
-── Reflect Raporu (son {days} gün, {N} episode) ──
-
-Friction ({count}):
-  - {summary} — {repeat_count}x tekrar
-
-Discoveries ({count}):
-  - {summary}
-
-Decisions ({count}):
-  - {summary}
-
-Patterns:
-  - "CO-EVOLUTION sync hatası" → 3x tekrar → NOMINATION (staged)
-  - "ESM import sorunu" → 2x tekrar → LEARNING
-  - "Test mock karmaşıklığı" → 1x → NOTE
-
-Önerilen:
-  [ ] {rule} ({repeat_count}x, {confidence} confidence)
-```
-
-7. **Nomination oluşturma (3x+ tekrar):**
-   - `kind: nomination`, `status: staged`, `source: reflect`
-   - Body formatı:
-     ```markdown
-     ## Target: learnings
-     ## Rule
-     YAPMA: Schema değişikliğinde tek dosyayı güncelleme — CO-EVOLUTION sync zorunlu
-     ## Evidence
-     - ep-xxx: episodes.ts güncellendi ama common.cjs unutuldu (2026-04-10)
-     - ep-yyy: Aynı hata tekrar (2026-04-12)
-     - ep-zzz: Test'te yakalandı (2026-04-13)
-     ## Confidence
-     3x tekrar, 3 gün içinde
-     ```
-   - Target options: `learnings` | `claude.md` | `domain:{slug}`
-
-8. **Pending nominations check:**
-   Reflect başlarken staged nomination'ları kontrol et:
-   ```sql
-   SELECT id, summary, body, created_at FROM episodes
-   WHERE kind = 'nomination' AND status = 'staged' AND project = ?
-   ORDER BY created_at ASC
-   ```
-   Varsa kullanıcıya sun:
-   ```
-   ── Bekleyen Nomination'lar ({N} adet) ──
-   1. "CO-EVOLUTION sync zorunlu" (staged 2 gün önce)
-      Target: learnings | Confidence: 3x
-   2. "Test before commit" (staged 5 gün önce)
-      Target: claude.md | Confidence: 4x
-
-   Onaylamak istediğin numara(lar)ı seç, veya 'skip' de:
-   ```
-
-9. **Nomination approval flow:**
-   Kullanıcı onaylarsa:
-   - `status: staged → approved`
-   - Target'a göre yaz:
-     - `learnings` → ilgili `learnings/{topic}.md` dosyasına YAPMA/BEST PRACTICE ekle
-     - `claude.md` → ilgili projenin CLAUDE.md'sine kural ekle (kullanıcıya göster, onay al)
-     - `domain:{slug}` → ilgili domain sayfasına ekle
-   Kullanıcı reddederse:
-   - `status: staged → rejected`
-   - Body'ye `## Rejection Reason\n{kullanıcı açıklaması}` ekle
-
-10. User approves new learnings → write to `learnings/{topic}.md`
-11. Format: `YAPMA:` / `BEST PRACTICE:` / `KRITIK:` prefixed rules
-12. Update relevant domain page if pattern relates to an existing domain
-13. Mark processed episodes: future reflect skips already-processed timeranges
-14. Append to `log.md`: `| {date} | reflect | {N} episodes processed, {M} learnings written |`
-
-**Fallback:** Also reads non-archived delta files if episodes table is empty (backward compat with v0.3 deltas).
-
-**Rules:**
-- NEVER write learnings or nominations without user approval
-- Group related patterns into existing topic files (don't create one file per pattern)
-- Reflect scans both project + global diary/ in `--all` mode
-- Deduplication: same pattern found in both episodes and deltas → episodes win
-- Nominations with `status: staged` are hidden from default queries — only reflect sees them
 
 ### status
 
