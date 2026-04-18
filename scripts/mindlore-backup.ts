@@ -309,7 +309,7 @@ export function createPreEvictionTag(mindloreDir: string): string {
 
     const status = execSync('git status --porcelain', { cwd: mindloreDir, encoding: 'utf8' }).trim();
     if (status) {
-      execSync('git add -A && git commit -m "pre-eviction snapshot"', { cwd: mindloreDir });
+      execSync('git add . && git commit -m "pre-eviction snapshot"', { cwd: mindloreDir });
     }
 
     execSync(`git tag ${tag}`, { cwd: mindloreDir });

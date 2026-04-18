@@ -170,12 +170,12 @@ function main() {
   const relevant = unique.slice(0, MAX_RESULTS);
   if (relevant.length === 0) return;
 
-  // Track recall frequency for hot-path detection (v0.5.3)
   try {
     const db = new Database(dbPaths[0]);
-    for (const r of relevant) {
-      try { incrementRecallCount(db, r.path); } catch (_e) { /* skip */ }
-    }
+    const txn = db.transaction(() => {
+      for (const r of relevant) incrementRecallCount(db, r.path);
+    });
+    txn();
     db.close();
   } catch (_e) { /* graceful — never block search output */ }
 

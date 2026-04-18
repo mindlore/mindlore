@@ -68,7 +68,7 @@ export function listStaleDocuments(db: Database, threshold: number = STALE_THRES
       created_at,
       last_recalled_at: row.last_recalled_at,
       recall_count: row.recall_count ?? 0,
-      importance: row.importance ?? 1.0,
+      importance: row.importance,
     });
     if (score < threshold) {
       stale.push({ ...row, decay_score: score, created_at });

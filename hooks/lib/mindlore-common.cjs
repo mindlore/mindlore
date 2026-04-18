@@ -716,9 +716,14 @@ function hasVecTableCjs(db) {
  * @param {import('better-sqlite3').Database} db
  * @param {string} filePath
  */
+const _recallColCache = new WeakMap();
 function incrementRecallCount(db, filePath) {
   try {
-    const hasCol = db.pragma('table_info(file_hashes)').some(c => c.name === 'recall_count');
+    let hasCol = _recallColCache.get(db);
+    if (hasCol === undefined) {
+      hasCol = db.pragma('table_info(file_hashes)').some(c => c.name === 'recall_count');
+      _recallColCache.set(db, hasCol);
+    }
     if (!hasCol) return;
     db.prepare(`
       UPDATE file_hashes
