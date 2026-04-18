@@ -65,7 +65,9 @@ npx mindlore episodes count                 # Episode count per project
 | `/mindlore-ingest` | Add knowledge sources (URL, text, file, PDF) + 6-point quality gate |
 | `/mindlore-health` | 16-point structural health check |
 | `/mindlore-query` | Search, ask, stats, brief — compounding knowledge pipeline |
-| `/mindlore-log` | Session logging, diary analysis, reflect pattern extraction |
+| `/mindlore-log` | Session logging and status |
+| `/mindlore-diary` | Session diary — decisions, challenges, solutions |
+| `/mindlore-reflect` | Pattern extraction from accumulated diaries |
 | `/mindlore-decide` | Decision records with supersedes chain |
 | `/mindlore-evolve` | Schema co-evolution and structural updates |
 | `/mindlore-explore` | Cross-reference discovery between sources |
@@ -196,7 +198,7 @@ Skills spawn subagents with `[mindlore:SKILL]` markers — the model-router hook
 
 ## Hooks
 
-14 Claude Code lifecycle hooks (v0.5.1):
+14 Claude Code lifecycle hooks (v0.5.2):
 
 | Event | Hook | What it does |
 |-------|------|-------------|

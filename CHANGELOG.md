@@ -5,6 +5,39 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.5.2] - 2026-04-18
+
+### Added
+- **3 agents:** mindlore-assistant (search+cite), mindlore-researcher (web research), mindlore-librarian (maintenance)
+- **Skeleton-mode compression:** Structural skeleton extraction for repeated file reads (JS/TS/Python/Markdown)
+- **Skill memory:** Persistent key-value store per skill via `skill_memory` SQLite table + CLI entrypoint
+- **Wiki lint:** Contradiction detection across sources/domains (numeric claim conflicts)
+- **FTS5 catch-up:** Automatic indexing of subagent-written files within 5-minute window
+- **Search offload:** Results >10KB written to tmp/ with pointer injection
+- **fetch-raw pipeline:** Zero-token URL fetching (GitHub API, curl, Jina) with frontmatter generation
+- **Diary/Reflect skills:** Split from monolithic log skill into focused `/mindlore-diary` and `/mindlore-reflect`
+- **CC_MEMORY_BOOST:** 1.2x query-time scoring boost for cc-memory category results
+- **DB helpers:** `withReadonlyDb` and `openDatabaseTs` for safe database access patterns
+
+### Fixed
+- **Shell injection (CRITICAL):** `fetch-raw.ts` `execSync` → `execFileSync` with URL validation
+- **Dead tiebreaker:** Search sort used undefined `totalRank` instead of `rank`
+- **hookLog arity:** Search offload called `hookLog` with 1 arg instead of required 3
+- **fetchGitHub scope:** Renamed to `fetchGitHubReadme` with repo-root-only regex to prevent silent wrong results
+- **Duplicate stop word:** `'hem'` appeared twice in STOP_WORDS set
+- **Duplicate package.json key:** `fetch-raw` script entry duplicated
+- **Token budget comment:** Corrected ~500 → ~625 tokens annotation
+
+### Changed
+- **Skeleton single source of truth:** CJS hooks require compiled TS skeleton instead of maintaining ~100-line duplicate
+- **SHARED_EXPORT_DIRS:** Derived from compiled constants.ts instead of hardcoded array
+- **skill-memory.ts:** Private `openDb` replaced with `withReadonlyDb`/`openDatabaseTs` from db-helpers
+- **health-check refactor:** 7x DB open boilerplate → `withCheckedDb` helper (-203 LOC)
+- **dbAll/dbGet constraint:** `Record<string, unknown>` → `object` (removes need for index signatures)
+- **CC_MEMORY constants:** Magic string `'cc-memory'` and `1.2` → exported `CC_MEMORY_CATEGORY`/`CC_MEMORY_BOOST`
+- **resolveHookCommon:** Redundant 3-element candidates array removed, walk-up loop sufficient
+- **Ingest skill:** Refactored to use context:fork + fetch-raw zero-token pipeline
+
 ## [0.5.1] - 2026-04-16
 
 ### Added
