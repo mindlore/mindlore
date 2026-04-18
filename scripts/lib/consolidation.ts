@@ -14,7 +14,7 @@ interface RawEpisode {
 }
 
 export function countRawEpisodes(db: Database): number {
-  const row = dbGet<{ cnt: number }>(db, "SELECT COUNT(*) as cnt FROM episodes WHERE consolidation_status = 'raw'");
+  const row = dbGet<{ cnt: number }>(db, "SELECT COUNT(*) as cnt FROM episodes WHERE consolidation_status = 'raw' OR consolidation_status IS NULL");
   return row?.cnt ?? 0;
 }
 
@@ -26,7 +26,7 @@ export function groupEpisodesByKind(db: Database): Map<string, RawEpisode[]> {
   const rows = dbAll<RawEpisode>(db, `
     SELECT id, kind, summary, body, tags, created_at
     FROM episodes
-    WHERE consolidation_status = 'raw' AND status = 'active'
+    WHERE (consolidation_status = 'raw' OR consolidation_status IS NULL) AND status = 'active'
     ORDER BY kind, created_at
   `);
 

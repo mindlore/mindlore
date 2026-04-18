@@ -12,7 +12,7 @@ Package root = 2 directories up from this skill's base directory.
 
 When CC loads this skill, it shows "Base directory for this skill: /path/to/skills/mindlore-maintain".
 Compute: `MINDLORE_PKG = {base_directory}/../..`
-Use: `node $MINDLORE_PKG/dist/scripts/...` for all script commands.
+Use: `node "$MINDLORE_PKG/dist/scripts/..."` for all script commands.
 
 # /mindlore-maintain
 
@@ -29,9 +29,9 @@ KB bakım skill'i. Reflect düşünür, maintain temizler.
 
 1. Stale documents listele:
    ```bash
-   node "$MINDLORE_PKG/dist/scripts/lib/decay.js" 2>/dev/null || \
+   DECAY_MOD="$MINDLORE_PKG/dist/scripts/lib/decay.js"
    node -e "
-     const { listStaleDocuments } = require('$MINDLORE_PKG/dist/scripts/lib/decay.js');
+     const { listStaleDocuments } = require(process.argv[1]);
      const Database = require('better-sqlite3');
      const path = require('path'), os = require('os');
      const dbPath = path.join(os.homedir(), '.mindlore', 'mindlore.db');
@@ -39,7 +39,7 @@ KB bakım skill'i. Reflect düşünür, maintain temizler.
      const stale = listStaleDocuments(db);
      console.log(JSON.stringify(stale, null, 2));
      db.close();
-   "
+   " "$DECAY_MOD"
    ```
 
 2. Rapor sun:

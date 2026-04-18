@@ -203,10 +203,10 @@ export function syncToDb(
           project: projectName,
         });
 
-        upsertHash.run(destPath, hash, now);
-
-        // Copy file after successful DB write
+        // Copy file before DB write — if copy fails, DB stays clean
         fs.copyFileSync(srcPath, destPath);
+
+        upsertHash.run(destPath, hash, now);
 
         result.synced++;
       } catch (err) {
