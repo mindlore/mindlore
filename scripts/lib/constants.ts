@@ -140,8 +140,22 @@ export function isContentFile(filePath: string): boolean {
  * From dist/scripts/: ../../hooks/lib/mindlore-common.cjs
  */
 export function resolveHookCommon(callerDir: string): string {
-  const candidate = path.resolve(callerDir, '..', 'hooks', 'lib', 'mindlore-common.cjs');
-  if (fs.existsSync(candidate)) return candidate;
+  const candidates = [
+    path.resolve(callerDir, '..', 'hooks', 'lib', 'mindlore-common.cjs'),
+    path.resolve(callerDir, '..', '..', 'hooks', 'lib', 'mindlore-common.cjs'),
+    path.resolve(callerDir, '..', '..', '..', 'hooks', 'lib', 'mindlore-common.cjs'),
+  ];
+  for (const c of candidates) {
+    if (fs.existsSync(c)) return c;
+  }
+  let dir = callerDir;
+  for (let i = 0; i < 5; i++) {
+    const target = path.join(dir, 'hooks', 'lib', 'mindlore-common.cjs');
+    if (fs.existsSync(target)) return target;
+    const parent = path.dirname(dir);
+    if (parent === dir) break;
+    dir = parent;
+  }
   return path.resolve(callerDir, '..', '..', 'hooks', 'lib', 'mindlore-common.cjs');
 }
 
