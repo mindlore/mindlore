@@ -14,7 +14,7 @@ import { VEC_TABLE_NAME, EMBEDDING_DIM_CONST } from './constants.js';
  * Typed wrapper for Statement.get().
  * Returns undefined if no row matches.
  */
-export function dbGet<T extends Record<string, unknown>>(
+export function dbGet<T extends object>(
   db: Database,
   sql: string,
   ...params: unknown[]
@@ -31,7 +31,7 @@ export function dbGet<T extends Record<string, unknown>>(
 /**
  * Typed wrapper for Statement.all().
  */
-export function dbAll<T extends Record<string, unknown>>(
+export function dbAll<T extends object>(
   db: Database,
   sql: string,
   ...params: unknown[]

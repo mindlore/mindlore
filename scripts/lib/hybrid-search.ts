@@ -1,10 +1,10 @@
 import type BetterSqlite3 from 'better-sqlite3';
 import { dbAll, hasVecTable } from './db-helpers.js';
+import { CC_MEMORY_CATEGORY, CC_MEMORY_BOOST } from './constants.js';
 
 type Database = BetterSqlite3.Database;
 
 export interface FtsResult {
-  [key: string]: unknown;
   slug: string;
   rank: number;
   path?: string;
@@ -15,7 +15,6 @@ export interface FtsResult {
 }
 
 export interface VecResult {
-  [key: string]: unknown;
   slug: string;
   distance: number;
 }
@@ -124,10 +123,9 @@ export function computeRRF(
     }
   }
 
-  const CC_MEMORY_BOOST = 1.2;
   const results = Array.from(scores.values());
   for (const r of results) {
-    if (r.category === 'cc-memory') r.score *= CC_MEMORY_BOOST;
+    if (r.category === CC_MEMORY_CATEGORY) r.score *= CC_MEMORY_BOOST;
   }
   return results.sort((a, b) => b.score - a.score);
 }

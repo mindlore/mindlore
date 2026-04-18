@@ -76,6 +76,8 @@ export const TYPE_TO_DIR: Record<string, string> = {
  */
 export const CC_MEMORY_PATH_MARKER = path.join('.claude', 'projects');
 export const CC_MEMORY_DIR = 'memory';
+export const CC_MEMORY_CATEGORY = 'cc-memory';
+export const CC_MEMORY_BOOST = 1.2;
 
 export function homedir(): string {
   return os.homedir();
@@ -140,14 +142,6 @@ export function isContentFile(filePath: string): boolean {
  * From dist/scripts/: ../../hooks/lib/mindlore-common.cjs
  */
 export function resolveHookCommon(callerDir: string): string {
-  const candidates = [
-    path.resolve(callerDir, '..', 'hooks', 'lib', 'mindlore-common.cjs'),
-    path.resolve(callerDir, '..', '..', 'hooks', 'lib', 'mindlore-common.cjs'),
-    path.resolve(callerDir, '..', '..', '..', 'hooks', 'lib', 'mindlore-common.cjs'),
-  ];
-  for (const c of candidates) {
-    if (fs.existsSync(c)) return c;
-  }
   let dir = callerDir;
   for (let i = 0; i < 5; i++) {
     const target = path.join(dir, 'hooks', 'lib', 'mindlore-common.cjs');

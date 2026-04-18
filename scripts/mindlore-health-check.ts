@@ -10,8 +10,11 @@
 
 import fs from 'fs';
 import path from 'path';
-import { DIRECTORIES, TYPE_TO_DIR, DB_NAME, GLOBAL_MINDLORE_DIR, resolveHookCommon, isContentFile } from './lib/constants.js';
-import { dbGet, dbAll } from './lib/db-helpers.js';
+import { DIRECTORIES, TYPE_TO_DIR, DB_NAME, GLOBAL_MINDLORE_DIR, resolveHookCommon, isContentFile, CC_MEMORY_CATEGORY } from './lib/constants.js';
+import { dbGet, dbAll, withReadonlyDb } from './lib/db-helpers.js';
+import type BetterSqlite3 from 'better-sqlite3';
+
+type Database = BetterSqlite3.Database;
 
 interface MindloreCommon {
   detectSchemaVersion: (db: unknown) => number;
@@ -118,6 +121,13 @@ class HealthChecker {
     this.baseDir = baseDir;
   }
 
+  private withCheckedDb(fn: (db: Database) => CheckResult): CheckResult {
+    const dbPath = path.join(this.baseDir, DB_NAME);
+    if (!fs.existsSync(dbPath)) return { warn: true, detail: 'database missing' };
+    const result = withReadonlyDb(dbPath, fn);
+    return result ?? { ok: false, detail: 'database open failed' };
+  }
+
   check(name: string, fn: () => CheckResult): void {
     try {
       const result = fn();
@@ -186,60 +196,21 @@ class HealthChecker {
   }
 
   checkDatabase(): void {
-    this.check('mindlore.db FTS5', () => {
-      const dbPath = path.join(this.baseDir, DB_NAME);
-      if (!fs.existsSync(dbPath)) {
-        return { ok: false, detail: 'database missing' };
-      }
+    this.check('mindlore.db FTS5', () => this.withCheckedDb((db) => {
+      const result = dbGet<{ cnt: number }>(db, 'SELECT count(*) as cnt FROM mindlore_fts') ?? { cnt: 0 };
+      const hashResult = dbGet<{ cnt: number }>(db, 'SELECT count(*) as cnt FROM file_hashes') ?? { cnt: 0 };
+      const schemaVersion = detectSchemaVersion(db);
 
-      let Database: typeof import('better-sqlite3');
-      try {
-        Database = require('better-sqlite3');
-      } catch (_err) {
-        return { warn: true, detail: 'better-sqlite3 not available, cannot verify' };
-      }
-
-      const db = new Database(dbPath, { readonly: true });
-      try {
-        const result = dbGet<{ cnt: number }>(db, 'SELECT count(*) as cnt FROM mindlore_fts') ?? { cnt: 0 };
-        const hashResult = dbGet<{ cnt: number }>(db, 'SELECT count(*) as cnt FROM file_hashes') ?? { cnt: 0 };
-
-        const schemaVersion = detectSchemaVersion(db);
-
-        if (schemaVersion < 11) {
-          return {
-            warn: true,
-            detail: `${result.cnt} indexed, ${hashResult.cnt} hashes — ${schemaVersion}-col schema (run: npx mindlore init to upgrade to 11-col)`,
-          };
-        }
-
+      if (schemaVersion < 11) {
         return {
-          ok: true,
-          detail: `${result.cnt} indexed, ${hashResult.cnt} hashes, 11-col schema`,
+          warn: true,
+          detail: `${result.cnt} indexed, ${hashResult.cnt} hashes — ${schemaVersion}-col schema (run: npx mindlore init to upgrade to 11-col)`,
         };
-      } catch (err) {
-        const message = err instanceof Error ? err.message : String(err);
-        return { ok: false, detail: `FTS5 error: ${message}` };
-      } finally {
-        db.close();
       }
-    });
+      return { ok: true, detail: `${result.cnt} indexed, ${hashResult.cnt} hashes, 11-col schema` };
+    }));
 
-    // Check vec table + schema version (v0.5.0) — reuse single DB open
-    this.check('documents_vec table', () => {
-      const dbPath = path.join(this.baseDir, DB_NAME);
-      if (!fs.existsSync(dbPath)) {
-        return { warn: true, detail: 'database missing' };
-      }
-
-      let Database: typeof import('better-sqlite3');
-      try {
-        Database = require('better-sqlite3');
-      } catch (_err) {
-        return { warn: true, detail: 'better-sqlite3 not available' };
-      }
-
-      const db = new Database(dbPath, { readonly: true });
+    this.check('documents_vec table', () => this.withCheckedDb((db) => {
       try {
         const sqliteVec: { load: (db: unknown) => void } = require('sqlite-vec');
         sqliteVec.load(db);
@@ -247,81 +218,38 @@ class HealthChecker {
         return { ok: true, detail: `${result.cnt} vectors indexed` };
       } catch (_err) {
         return { warn: true, detail: 'sqlite-vec not available or vec table not created (run: npm run index -- --embed)' };
-      } finally {
-        db.close();
       }
-    });
+    }));
 
-    this.check('schema version', () => {
-      const dbPath = path.join(this.baseDir, DB_NAME);
-      if (!fs.existsSync(dbPath)) {
-        return { warn: true, detail: 'database missing' };
-      }
-
-      let Database: typeof import('better-sqlite3');
-      try {
-        Database = require('better-sqlite3');
-      } catch (_err) {
-        return { warn: true, detail: 'better-sqlite3 not available' };
-      }
-
-      const db = new Database(dbPath, { readonly: true });
+    this.check('schema version', () => this.withCheckedDb((db) => {
       try {
         const { getSchemaVersion } = require('./lib/schema-version.js');
         const version = getSchemaVersion(db);
         return { ok: true, detail: `v${version}` };
       } catch (_err) {
         return { warn: true, detail: 'schema_versions table missing' };
-      } finally {
-        db.close();
       }
-    });
+    }));
   }
 
   checkOrphans(): void {
     this.check('Orphan files', () => {
-      const dbPath = path.join(this.baseDir, DB_NAME);
-      if (!fs.existsSync(dbPath)) {
-        return { warn: true, detail: 'no database, cannot check' };
-      }
-
-      let Database: typeof import('better-sqlite3');
-      try {
-        Database = require('better-sqlite3');
-      } catch (_err) {
-        return { warn: true, detail: 'better-sqlite3 not available' };
-      }
-
       const mdFiles = getAllMdFiles(this.baseDir).filter(isContentFile);
-
-      const db = new Database(dbPath, { readonly: true });
-      try {
+      return this.withCheckedDb((db) => {
         const indexed = new Set<string>();
         const rows = dbAll<{ path: string }>(db, 'SELECT path FROM file_hashes');
         for (const row of rows) {
           indexed.add(path.resolve(row.path));
         }
 
-        const orphans = mdFiles.filter(
-          (f) => !indexed.has(path.resolve(f)),
-        );
+        const orphans = mdFiles.filter((f) => !indexed.has(path.resolve(f)));
 
-        if (orphans.length === 0) {
-          return { ok: true, detail: 'no orphans' };
-        }
+        if (orphans.length === 0) return { ok: true, detail: 'no orphans' };
         if (orphans.length <= 3) {
-          return {
-            warn: true,
-            detail: `${orphans.length} unindexed: ${orphans.map((f) => path.basename(f)).join(', ')}`,
-          };
+          return { warn: true, detail: `${orphans.length} unindexed: ${orphans.map((f) => path.basename(f)).join(', ')}` };
         }
-        return {
-          ok: false,
-          detail: `${orphans.length} unindexed files — run: npm run index`,
-        };
-      } finally {
-        db.close();
-      }
+        return { ok: false, detail: `${orphans.length} unindexed files — run: npm run index` };
+      });
     });
   }
 
@@ -438,50 +366,24 @@ class HealthChecker {
   }
 
   checkSourceTypeColumn(): void {
-    this.check('source_type column', () => {
-      const dbPath = path.join(this.baseDir, DB_NAME);
-      if (!fs.existsSync(dbPath)) return { warn: true, detail: 'No database' };
-
-      let Database: typeof import('better-sqlite3');
-      try { Database = require('better-sqlite3'); } catch (_err) {
-        return { warn: true, detail: 'better-sqlite3 not available' };
-      }
-
-      const db = new Database(dbPath, { readonly: true });
-      try {
-        // eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- pragma returns array
-        const cols = db.pragma('table_info(file_hashes)') as Array<{ name: string }>;
-        const has = cols.some(c => c.name === 'source_type');
-        return has
-          ? { ok: true, detail: 'source_type column present' }
-          : { warn: true, detail: 'source_type column missing — run: npm run index' };
-      } finally {
-        db.close();
-      }
-    });
+    this.check('source_type column', () => this.withCheckedDb((db) => {
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- pragma returns array
+      const cols = db.pragma('table_info(file_hashes)') as Array<{ name: string }>;
+      const has = cols.some(c => c.name === 'source_type');
+      return has
+        ? { ok: true, detail: 'source_type column present' }
+        : { warn: true, detail: 'source_type column missing — run: npm run index' };
+    }));
   }
 
   checkCcMemorySync(): void {
-    this.check('CC memory sync', () => {
-      const dbPath = path.join(this.baseDir, DB_NAME);
-      if (!fs.existsSync(dbPath)) return { warn: true, detail: 'No database' };
-
-      let Database: typeof import('better-sqlite3');
-      try { Database = require('better-sqlite3'); } catch (_err) {
-        return { warn: true, detail: 'better-sqlite3 not available' };
-      }
-
-      const db = new Database(dbPath, { readonly: true });
-      try {
-        const row = dbGet<{ cnt: number }>(db, "SELECT COUNT(*) as cnt FROM mindlore_fts WHERE category = 'cc-memory'");
-        const count = row?.cnt ?? 0;
-        return count > 0
-          ? { ok: true, detail: `${count} CC memory entries synced` }
-          : { warn: true, detail: 'No CC memory synced yet — will sync on next file change' };
-      } finally {
-        db.close();
-      }
-    });
+    this.check('CC memory sync', () => this.withCheckedDb((db) => {
+      const row = dbGet<{ cnt: number }>(db, 'SELECT COUNT(*) as cnt FROM mindlore_fts WHERE category = ?', CC_MEMORY_CATEGORY);
+      const count = row?.cnt ?? 0;
+      return count > 0
+        ? { ok: true, detail: `${count} CC memory entries synced` }
+        : { warn: true, detail: 'No CC memory synced yet — will sync on next file change' };
+    }));
   }
 
   checkWikiContradictions(): void {
@@ -494,25 +396,12 @@ class HealthChecker {
   }
 
   checkSkillMemoryTable(): void {
-    this.check('skill-memory-table', () => {
-      const dbPath = path.join(this.baseDir, DB_NAME);
-      if (!fs.existsSync(dbPath)) return { warn: true, detail: 'No database' };
-
-      let Database: typeof import('better-sqlite3');
-      try { Database = require('better-sqlite3'); } catch (_err) {
-        return { warn: true, detail: 'better-sqlite3 not available' };
-      }
-
-      const db = new Database(dbPath, { readonly: true });
-      try {
-        const table = dbGet<{ name: string }>(db, "SELECT name FROM sqlite_master WHERE type='table' AND name='skill_memory'");
-        return table
-          ? { ok: true, detail: 'skill_memory table exists' }
-          : { warn: true, detail: 'skill_memory table missing (run npm run index)' };
-      } finally {
-        db.close();
-      }
-    });
+    this.check('skill-memory-table', () => this.withCheckedDb((db) => {
+      const table = dbGet<{ name: string }>(db, "SELECT name FROM sqlite_master WHERE type='table' AND name='skill_memory'");
+      return table
+        ? { ok: true, detail: 'skill_memory table exists' }
+        : { warn: true, detail: 'skill_memory table missing (run npm run index)' };
+    }));
   }
 
   run(): this {

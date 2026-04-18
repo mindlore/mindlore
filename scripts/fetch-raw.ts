@@ -1,8 +1,16 @@
-import { execSync } from 'child_process';
+import { execSync, execFileSync } from 'child_process';
 import fs from 'fs';
 import path from 'path';
 import crypto from 'crypto';
 import os from 'os';
+
+function validateUrl(raw: string): string {
+  const u = new URL(raw);
+  if (!['http:', 'https:'].includes(u.protocol)) {
+    throw new Error(`Unsupported protocol: ${u.protocol}`);
+  }
+  return u.href;
+}
 
 interface FetchResult {
   saved: string;
@@ -14,8 +22,8 @@ function slugFromUrl(url: string): string {
   return crypto.createHash('sha256').update(url).digest('hex').slice(0, 12);
 }
 
-function fetchGitHub(url: string): string | null {
-  const match = url.match(/github\.com\/([^/]+)\/([^/]+)/);
+function fetchGitHubReadme(url: string): string | null {
+  const match = url.match(/^https?:\/\/github\.com\/([^/]+)\/([^/]+)\/?$/);
   if (!match) return null;
   const [, owner, repo] = match;
   try {
@@ -31,8 +39,8 @@ function fetchGitHub(url: string): string | null {
 
 function fetchCurl(url: string): string | null {
   try {
-    const raw = execSync(
-      `curl -sL --max-time 20 --max-filesize 5242880 "${url}"`,
+    const raw = execFileSync(
+      'curl', ['-sL', '--max-time', '20', '--max-filesize', '5242880', url],
       { encoding: 'utf8', timeout: 25000, stdio: ['pipe', 'pipe', 'pipe'] }
     );
     if (raw.includes('<html') || raw.includes('<!DOCTYPE')) {
@@ -51,8 +59,8 @@ function fetchCurl(url: string): string | null {
 
 function fetchJina(url: string): string | null {
   try {
-    const result = execSync(
-      `curl -sL --max-time 30 "https://r.jina.ai/${url}"`,
+    const result = execFileSync(
+      'curl', ['-sL', '--max-time', '30', `https://r.jina.ai/${url}`],
       { encoding: 'utf8', timeout: 35000, stdio: ['pipe', 'pipe', 'pipe'] }
     );
     return result;
@@ -94,31 +102,33 @@ function main(): void {
     process.exit(1);
   }
 
+  const safeUrl = validateUrl(url);
+
   let content: string | null = null;
   let method: FetchResult['method'] = 'curl';
 
-  if (url.includes('github.com')) {
-    content = fetchGitHub(url);
+  if (safeUrl.includes('github.com')) {
+    content = fetchGitHubReadme(safeUrl);
     if (content) method = 'github-api';
   }
 
   if (!content) {
-    content = fetchCurl(url);
+    content = fetchCurl(safeUrl);
     method = 'curl';
   }
 
   if (!content || content.length < 100) {
-    content = fetchJina(url);
+    content = fetchJina(safeUrl);
     method = 'jina';
   }
 
   if (!content || content.length < 50) {
-    console.error(JSON.stringify({ error: 'All fetch methods failed', url }));
+    console.error(JSON.stringify({ error: 'All fetch methods failed', url: safeUrl }));
     process.exit(1);
   }
 
-  const slug = slugFromUrl(url);
-  const frontmatter = generateFrontmatter(url, slug, content);
+  const slug = slugFromUrl(safeUrl);
+  const frontmatter = generateFrontmatter(safeUrl, slug, content);
   const fullContent = frontmatter + content;
 
   fs.mkdirSync(outDir, { recursive: true });

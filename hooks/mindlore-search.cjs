@@ -154,7 +154,7 @@ function main() {
   }
 
   // Sort: most keyword hits first, then best rank
-  allScores.sort((a, b) => b.hits - a.hits || a.totalRank - b.totalRank);
+  allScores.sort((a, b) => b.hits - a.hits || a.rank - b.rank);
 
   // Deduplicate by full path (project version wins — appears first in sort)
   const seen = new Set();
@@ -240,7 +240,7 @@ function main() {
       outputStr = `[Mindlore Search: ${outputStr.length} chars offloaded to ${filePath}]\n` +
                   `Summary: ${summary}...\n` +
                   `[Read full results: ${filePath}]`;
-      hookLog('search offloaded to tmp/ (' + outputStr.length + ' chars)');
+      hookLog('search', 'info', 'offloaded to tmp/ (' + outputStr.length + ' chars)');
     }
 
     process.stdout.write(outputStr);
