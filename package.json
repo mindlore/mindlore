@@ -18,7 +18,8 @@
     "index": "node dist/scripts/mindlore-fts5-index.js",
     "search": "node dist/scripts/mindlore-fts5-search.js",
     "quality": "node dist/scripts/quality-populate.js",
-    "fetch-raw": "node dist/scripts/fetch-raw.js"
+    "fetch-raw": "node dist/scripts/fetch-raw.js",
+    "cc-sync": "node dist/scripts/cc-memory-bulk-sync.js"
   },
   "keywords": [
     "claude-code",
