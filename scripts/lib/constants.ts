@@ -189,3 +189,7 @@ export const DEFAULT_TOKEN_BUDGET = {
   searchResults: 1500,
   perResult: 500,
 } as const;
+
+export const DECAY_HALF_LIFE_DAYS = 30;
+export const STALE_THRESHOLD = 0.3;
+export const CONSOLIDATION_THRESHOLD = 50;
