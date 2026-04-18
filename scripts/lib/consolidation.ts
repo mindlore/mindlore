@@ -39,6 +39,17 @@ export function groupEpisodesByKind(db: Database): Map<string, RawEpisode[]> {
   return groups;
 }
 
+const KIND_DIR_MAP: Record<string, string> = {
+  learning: 'learnings',
+  discovery: 'insights',
+  friction: 'analyses',
+  decision: 'decisions',
+};
+
+export function resolveTargetDir(kind: string): string {
+  return KIND_DIR_MAP[kind] ?? 'learnings';
+}
+
 export function markConsolidated(db: Database, episodeIds: string[], targetFile: string): void {
   const stmt = db.prepare(`
     UPDATE episodes

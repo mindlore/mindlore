@@ -398,7 +398,9 @@ function queryRecentEpisodes(db, opts) {
   const project = opts.project || null;
   const limit = opts.limit || 3;
 
-  let sql = "SELECT kind, summary, created_at FROM episodes WHERE status = 'active'";
+  const hasConsolCol = db.pragma('table_info(episodes)').some(c => c.name === 'consolidation_status');
+  const consolFilter = hasConsolCol ? " AND (consolidation_status IS NULL OR consolidation_status != 'consolidated')" : '';
+  let sql = `SELECT kind, summary, created_at FROM episodes WHERE status = 'active'${consolFilter}`;
   const params = [];
 
   if (project) {
