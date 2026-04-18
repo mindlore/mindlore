@@ -23,6 +23,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Health check CC memory warning** — informative message instead of false warning on fresh installs
 
 ### Changed
+- **Search hook now writes recall telemetry** — previously read-only, now increments recall_count on search hits (graceful fallback on read-only DB)
 - Migration v4: recall_count, last_recalled_at, archived_at, importance on file_hashes
 - Migration v5: consolidation_status, consolidated_into, decay_score, last_decay_calc on episodes
 - Config template: added decay and consolidation settings
