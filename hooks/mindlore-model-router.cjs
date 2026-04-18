@@ -6,7 +6,7 @@
  */
 
 const fs = require('fs');
-const { findMindloreDir, readConfig, DEFAULT_MODELS } = require('./lib/mindlore-common.cjs');
+const { findMindloreDir, readConfig, DEFAULT_MODELS, hookLog } = require('./lib/mindlore-common.cjs');
 
 const SKILL_KEYS = Object.keys(DEFAULT_MODELS).filter((k) => k !== 'default');
 const MARKER_REGEX = new RegExp(`\\[mindlore:(${SKILL_KEYS.join('|')})\\]`);
@@ -51,4 +51,4 @@ function main() {
   process.stdout.write(JSON.stringify(output));
 }
 
-main();
+try { main(); } catch (err) { hookLog('model-router', 'error', err?.message ?? String(err)); }

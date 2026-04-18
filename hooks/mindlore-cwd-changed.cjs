@@ -15,7 +15,7 @@
 
 const fs = require('fs');
 const path = require('path');
-const { findMindloreDir, globalDir } = require('./lib/mindlore-common.cjs');
+const { findMindloreDir, globalDir, hookLog } = require('./lib/mindlore-common.cjs');
 
 function main() {
   const cwd = process.cwd();
@@ -54,4 +54,4 @@ function main() {
   }
 }
 
-main();
+try { main(); } catch (err) { hookLog('cwd-changed', 'error', err?.message ?? String(err)); }

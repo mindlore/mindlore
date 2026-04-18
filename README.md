@@ -166,6 +166,17 @@ SESSION START                      DURING SESSION                         SESSIO
 - **Hybrid search** — RRF fusion combining FTS5 keyword + sqlite-vec vector results with synonym expansion
 - **Content-hash dedup** — SHA256 prevents re-indexing unchanged files
 
+## Daily Usage
+
+Mindlore is invisible by design — hooks handle everything automatically:
+
+1. **Just work** — hooks inject relevant context as you type
+2. **Add knowledge** — `/mindlore-ingest` when you find something worth keeping
+3. **Search** — `npm run search "query"` or `/mindlore-query search "query"`
+4. **Record decisions** — `/mindlore-decide` when making architectural choices
+5. **Health check** — `npm run health` periodically to verify integrity
+6. **Explore connections** — `/mindlore-explore` to discover links between sources
+
 ## Configuration
 
 Mindlore creates `.mindlore/config.json` with model defaults for cost-optimized agent delegation:

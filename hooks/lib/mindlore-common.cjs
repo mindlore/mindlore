@@ -712,7 +712,7 @@ function hookLog(hook, level, message) {
       msg: message,
       pid: process.pid,
     });
-    // Rotate if file exceeds threshold
+    // Rotate if file exceeds threshold (at most once per hook — each runs as separate process)
     try {
       const stat = fs.statSync(logFile);
       if (stat.size > HOOK_LOG_MAX_BYTES) {

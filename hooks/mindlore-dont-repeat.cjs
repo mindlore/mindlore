@@ -18,7 +18,7 @@
 const fs = require('fs');
 const path = require('path');
 const os = require('os');
-const { findMindloreDir, getProjectName } = require('./lib/mindlore-common.cjs');
+const { findMindloreDir, getProjectName, hookLog } = require('./lib/mindlore-common.cjs');
 
 /**
  * File-persisted pattern cache — survives across process invocations.
@@ -219,4 +219,4 @@ function main() {
   });
 }
 
-main();
+try { main(); } catch (err) { hookLog('dont-repeat', 'error', err?.message ?? String(err)); }

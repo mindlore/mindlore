@@ -11,7 +11,7 @@
 
 const fs = require('fs');
 const path = require('path');
-const { findMindloreDir } = require('./lib/mindlore-common.cjs');
+const { findMindloreDir, hookLog } = require('./lib/mindlore-common.cjs');
 
 function main() {
   const baseDir = findMindloreDir();
@@ -45,4 +45,4 @@ function main() {
   process.stdout.write('[Mindlore: pre-compact FTS5 flush complete]\n');
 }
 
-main();
+try { main(); } catch (err) { hookLog('pre-compact', 'error', err?.message ?? String(err)); }
