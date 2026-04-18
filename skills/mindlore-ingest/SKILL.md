@@ -3,6 +3,8 @@ name: mindlore-ingest
 description: Add new knowledge sources to .mindlore/ (URL, text, file, PDF, GitHub repo)
 effort: medium
 allowed-tools: [Read, Write, Edit, Bash, Grep, Glob, Agent, WebFetch]
+context: fork
+agent: coder
 ---
 
 # /mindlore-ingest
@@ -23,60 +25,50 @@ User shares a URL, text, file, or says "kaynak ekle", "source ingest", "bu linki
 
 ## Modes
 
-### URL Mode
+### URL Mode (v0.5.2 — Zero-Token Pipeline)
 
-**Agent Delegation:** URL fetch + raw/sources yazımını subagent'a delege et (maliyet optimizasyonu).
+**Trigger:** Input starts with `http://` or `https://`
 
-1. Spawn an Agent with the following pattern:
+**Pre-check (before fetch):**
+```bash
+node dist/scripts/lib/skill-memory.js get mindlore-ingest last_ingest_urls
+```
+If URL already in the list, warn user: "This URL was ingested recently. Re-ingest?"
+
+**Flow:**
+
+1. **Fetch raw content (zero token):**
+   ```bash
+   node dist/scripts/fetch-raw.js "$URL" --out-dir "$MINDLORE_DIR/raw"
    ```
-   Agent({
-     description: "mindlore ingest: <slug>",
-     subagent_type: "researcher",
-     prompt: "[mindlore:ingest] <aşağıdaki talimatları buraya koy>"
-   })
+   Script output: `{ "saved": "/path/to/raw/2026-04-18-abc123.md", "chars": 14823, "method": "curl" }`
+
+2. **Read first 3000 chars (heading-aware truncation):**
+   - Read the saved raw file
+   - Find the last `##` heading before char 3000
+   - Truncate at that heading boundary (not mid-paragraph)
+   - If no heading found before 3000, truncate at last paragraph break
+
+3. **Write sources/ summary from truncated content:**
+   - Extract: title, description (first paragraph), key topics
+   - Generate frontmatter: slug, type: source, source_url, date_captured, tags, quality
+   - Write to `$MINDLORE_DIR/sources/{slug}.md`
+
+4. **Update INDEX.md** with new source entry
+
+5. **Update skill_memory:**
+   ```bash
+   node dist/scripts/lib/skill-memory.js set mindlore-ingest last_ingest_urls "$URL"
    ```
 
-   Agent talimatları:
-   - Extract content from URL:
-     - If `markitdown` is available: `markitdown <url>` (best quality, zero tokens)
-     - Else: use `WebFetch` or `ctx_fetch_and_index`
-     - **YouTube URL** detected (`youtube.com` or `youtu.be`):
-       1. markitdown installed → `markitdown <url>` (includes transcript)
-       2. Else youtube-transcript npm → `hasYoutubeTranscript()` check
-       3. Else → return error, ask user to paste transcript
-   - Save raw capture to `.mindlore/raw/` with frontmatter:
-     ```yaml
-     ---
-     slug: source-name-kebab
-     type: raw
-     source_url: https://...
-     date_captured: YYYY-MM-DD
-     tags: [tag1, tag2]
-     ---
-     ```
-   - Summarize into `.mindlore/sources/` with full frontmatter:
-     ```yaml
-     ---
-     slug: source-name-kebab
-     type: source
-     title: Human Readable Title
-     source_url: https://...
-     source_type: github-repo|blog|docs|video|x-thread
-     date_captured: YYYY-MM-DD
-     tags: [tag1, tag2]
-     quality: high|medium|low
-     ingested: true
-     ---
-     ```
-   - Agent must report: created file paths, slug, quality assigned
+6. **Return to caller (this is all the ana session sees):**
+   ```json
+   { "source_id": "abc123", "title": "Extracted Title" }
+   ```
 
-2. After agent returns — verify raw/ and sources/ files exist and have valid frontmatter
-3. Update relevant domain page(s) in `.mindlore/domains/` (max 2)
-4. Update `.mindlore/INDEX.md` stats line
-5. Append entry to `.mindlore/log.md`
-6. Run FTS5 re-index: `npm run index`
+**Token budget:** ~2-3k tokens in fork context (vs ~40-50k before). Ana session: ~50 tokens.
 
-**IMPORTANT:** The `[mindlore:ingest]` marker in the Agent prompt is required — it triggers the model-router hook to use the cost-optimized model (haiku by default).
+**Fallback:** If fetch-raw.js fails (network error, unsupported format), fall back to existing WebFetch-based flow with warning: "Zero-token fetch failed, using legacy flow (higher token cost)."
 
 ### Text Mode
 1. User pastes text directly
