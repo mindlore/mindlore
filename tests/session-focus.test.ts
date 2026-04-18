@@ -138,6 +138,41 @@ describe('Session Focus Hook', () => {
     expect(output).toContain('3 diary entry birikti');
   });
 
+  test('should not inject delta from a different project', () => {
+    const mindloreDir = createMindloreDir();
+
+    createDelta(mindloreDir, 'delta-2026-04-10-0900.md',
+      '---\nslug: delta-2026-04-10-0900\ntype: diary\nproject: other-project\n---\n\n# Other Project Delta\n\nCommits from other project.');
+
+    const output = execSync(`node "${HOOK_PATH}"`, {
+      cwd: TEST_DIR,
+      encoding: 'utf8',
+      timeout: 5000,
+      env: { ...process.env, MINDLORE_HOME: path.join(TEST_DIR, '.mindlore') },
+    });
+
+    expect(output).not.toContain('[Mindlore Delta');
+    expect(output).not.toContain('Other Project Delta');
+  });
+
+  test('should inject delta when project matches cwd basename', () => {
+    const mindloreDir = createMindloreDir();
+    const cwdBasename = path.basename(TEST_DIR);
+
+    createDelta(mindloreDir, 'delta-2026-04-10-0900.md',
+      `---\nslug: delta-2026-04-10-0900\ntype: diary\nproject: ${cwdBasename}\n---\n\n# Matching Delta\n\nSame project.`);
+
+    const output = execSync(`node "${HOOK_PATH}"`, {
+      cwd: TEST_DIR,
+      encoding: 'utf8',
+      timeout: 5000,
+      env: { ...process.env, MINDLORE_HOME: path.join(TEST_DIR, '.mindlore') },
+    });
+
+    expect(output).toContain('[Mindlore Delta');
+    expect(output).toContain('Matching Delta');
+  });
+
   test('should handle missing diary directory gracefully', () => {
     const mindloreDir = path.join(TEST_DIR, '.mindlore');
     fs.mkdirSync(mindloreDir, { recursive: true });

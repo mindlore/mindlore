@@ -10,7 +10,7 @@
 
 const fs = require('fs');
 const path = require('path');
-const { findMindloreDir, readConfig, openDatabase, hasEpisodesTable, queryRecentEpisodes, querySupersededChains, formatSupersededChains, queryMultiSessionEpisodes, formatMultiSessionEpisodes, getAllMdFiles, getRecentHookErrors, hookLog } = require('./lib/mindlore-common.cjs');
+const { findMindloreDir, readConfig, openDatabase, hasEpisodesTable, queryRecentEpisodes, querySupersededChains, formatSupersededChains, queryMultiSessionEpisodes, formatMultiSessionEpisodes, getAllMdFiles, getRecentHookErrors, hookLog, getProjectName, parseFrontmatter } = require('./lib/mindlore-common.cjs');
 
 function main() {
   const baseDir = findMindloreDir();
@@ -32,13 +32,17 @@ function main() {
     try {
       const diaryFiles = fs.readdirSync(diaryDir).filter(f => f.startsWith('delta-') && f.endsWith('.md'));
 
-      // Latest delta
       if (diaryFiles.length > 0) {
         const sorted = [...diaryFiles].sort();
         const latestName = sorted[sorted.length - 1];
         const latestPath = path.join(diaryDir, latestName);
         const deltaContent = fs.readFileSync(latestPath, 'utf8').trim();
-        output.push(`[Mindlore Delta: ${latestName}]\n${deltaContent}`);
+        const { meta } = parseFrontmatter(deltaContent);
+        const deltaProject = meta.project || null;
+        const currentProject = getProjectName();
+        if (!deltaProject || deltaProject.toLowerCase() === currentProject.toLowerCase()) {
+          output.push(`[Mindlore Delta: ${latestName}]\n${deltaContent}`);
+        }
       }
 
       // Reflect trigger
