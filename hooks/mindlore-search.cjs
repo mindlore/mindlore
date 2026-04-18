@@ -10,7 +10,7 @@
 
 const fs = require('fs');
 const path = require('path');
-const { getAllDbs, requireDatabase, extractHeadings, readHookStdin, extractKeywords, sanitizeKeyword, readConfig, loadSqliteVecCjs, hasVecTableCjs, hookLog } = require('./lib/mindlore-common.cjs');
+const { getAllDbs, requireDatabase, extractHeadings, readHookStdin, extractKeywords, sanitizeKeyword, readConfig, loadSqliteVecCjs, hasVecTableCjs, hookLog, incrementRecallCount } = require('./lib/mindlore-common.cjs');
 
 const MAX_RESULTS = 3;
 const MIN_QUERY_WORDS = 3;
@@ -169,6 +169,15 @@ function main() {
 
   const relevant = unique.slice(0, MAX_RESULTS);
   if (relevant.length === 0) return;
+
+  // Track recall frequency for hot-path detection (v0.5.3)
+  try {
+    const db = new Database(dbPaths[0]);
+    for (const r of relevant) {
+      try { incrementRecallCount(db, r.path); } catch (_e) { /* skip */ }
+    }
+    db.close();
+  } catch (_e) { /* graceful — never block search output */ }
 
   // Populate headings only for final results (avoid reading extra files)
   for (const r of relevant) {
