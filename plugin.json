@@ -21,7 +21,17 @@
     {
       "name": "mindlore-log",
       "path": "skills/mindlore-log/SKILL.md",
-      "description": "Session logging, pattern extraction, and wiki updates. Modes: diary (LLM session analysis to enriched episodes: decisions, discoveries, frictions, learnings, preferences, events), reflect (scan episodes for recurring patterns, 3-tier confidence assessment, nomination pipeline for rule proposals), status (recent sessions summary with trends), save (structured delta + log.md append + domain wiki update). Episodes-powered since v0.4.0."
+      "description": "Session logging and wiki updates. Modes: log (manual diary entry), status (recent sessions summary with trends), save (structured delta + log.md append + domain wiki update). For diary analysis use /mindlore-diary; for pattern extraction use /mindlore-reflect."
+    },
+    {
+      "name": "mindlore-diary",
+      "path": "skills/mindlore-diary/SKILL.md",
+      "description": "LLM-powered session analysis: decisions, discoveries, frictions, learnings. Promotes episodes to semantic knowledge with 3-tier confidence. Reads/writes skill_memory for continuity."
+    },
+    {
+      "name": "mindlore-reflect",
+      "path": "skills/mindlore-reflect/SKILL.md",
+      "description": "Pattern extraction from episodes: recurring decisions, frictions, discoveries. 3-tier confidence (Note/Learning/Nomination), nomination pipeline with approval flow, CLAUDE.md update proposals."
     },
     {
       "name": "mindlore-decide",
