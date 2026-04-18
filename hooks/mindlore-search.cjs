@@ -225,7 +225,25 @@ function main() {
   }
 
   if (output.length > 0) {
-    process.stdout.write(output.join('\n\n') + '\n');
+    let outputStr = output.join('\n\n') + '\n';
+
+    const OFFLOAD_THRESHOLD = 10240; // 10KB
+    if (outputStr.length > OFFLOAD_THRESHOLD) {
+      const baseDir = path.dirname(dbPaths[0]);
+      const tmpDir = path.join(baseDir, 'tmp');
+      fs.mkdirSync(tmpDir, { recursive: true });
+      const fileName = `search-${Date.now()}.md`;
+      const filePath = path.join(tmpDir, fileName);
+      fs.writeFileSync(filePath, outputStr, 'utf8');
+
+      const summary = outputStr.slice(0, 500).replace(/\n/g, ' ').trim();
+      outputStr = `[Mindlore Search: ${outputStr.length} chars offloaded to ${filePath}]\n` +
+                  `Summary: ${summary}...\n` +
+                  `[Read full results: ${filePath}]`;
+      hookLog('search offloaded to tmp/ (' + outputStr.length + ' chars)');
+    }
+
+    process.stdout.write(outputStr);
   }
 }
 
