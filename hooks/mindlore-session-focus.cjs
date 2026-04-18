@@ -98,6 +98,18 @@ function main() {
           if (chains.length > 0) {
             output.push(`[Mindlore Supersedes]\n${formatSupersededChains(chains)}`);
           }
+
+          // v0.5.3: Episode consolidation reminder
+          try {
+            const rawCount = db.prepare(
+              "SELECT COUNT(*) as cnt FROM episodes WHERE consolidation_status = 'raw' OR consolidation_status IS NULL"
+            ).get();
+            const cnt = rawCount?.cnt ?? 0;
+            const consolThreshold = config?.consolidation?.threshold ?? 50;
+            if (cnt >= consolThreshold) {
+              output.push(`[Mindlore] ${cnt} raw episode birikti — \`/mindlore-maintain consolidate\` ile birleştirmeyi düşün.`);
+            }
+          } catch (_err) { /* consolidation_status column may not exist yet */ }
         }
       } finally {
         db.close();
