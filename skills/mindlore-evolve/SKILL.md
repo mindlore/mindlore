@@ -39,6 +39,20 @@ User says `/mindlore-evolve`, "knowledge evolve", "bilgi sistemi evrimle", "sema
 
 Scan all domains and sources for inconsistencies.
 
+**Pre-check (before scan):**
+
+Before spawning the agent, check KB maturity:
+```bash
+# Count domains and sources
+DOMAIN_COUNT=$(ls ~/.mindlore/domains/ 2>/dev/null | grep -c '.md$' || echo 0)
+SOURCE_COUNT=$(ls ~/.mindlore/sources/ 2>/dev/null | grep -c '.md$' || echo 0)
+```
+
+If `DOMAIN_COUNT == 0`:
+- Show: "Fresh KB detected (0 domains, N sources). Evolve works best with at least 1 domain. Run `/mindlore-ingest` to add sources, then manually create domain files to organize them."
+- If `SOURCE_COUNT < 3`: Show "Too few sources for meaningful evolution scan. Add more knowledge first." and STOP.
+- If `SOURCE_COUNT >= 3` but 0 domains: Show warning but continue scan — findings will be limited to orphan/tag checks.
+
 **Agent Delegation:** Tarama işini subagent'a delege et (context koruma).
 
 **Flow:**
