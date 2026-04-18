@@ -41,6 +41,55 @@ function getAllMdFiles(dir: string): string[] {
   return _getAllMd(dir, new Set());
 }
 
+// ── Wiki lint ──────────────────────────────────────────────────────────
+
+export function detectWikiContradictions(baseDir: string): string[] {
+  const sourcesDir = path.join(baseDir, 'sources');
+  const domainsDir = path.join(baseDir, 'domains');
+  const warnings: string[] = [];
+
+  const tagMap = new Map<string, Array<{ path: string; content: string }>>();
+
+  for (const dir of [sourcesDir, domainsDir]) {
+    if (!fs.existsSync(dir)) continue;
+    for (const file of fs.readdirSync(dir).filter((f) => f.endsWith('.md'))) {
+      const filePath = path.join(dir, file);
+      const content = fs.readFileSync(filePath, 'utf8');
+      const tagMatch = content.match(/tags:\s*\[([^\]]+)\]/);
+      if (!tagMatch) continue;
+      const tags = tagMatch[1]!.split(',').map((t) => t.trim().replace(/['"]/g, ''));
+      for (const tag of tags) {
+        if (!tagMap.has(tag)) tagMap.set(tag, []);
+        tagMap.get(tag)!.push({ path: filePath, content });
+      }
+    }
+  }
+
+  for (const [tag, files] of tagMap) {
+    if (files.length < 2) continue;
+    const numericClaims = new Map<string, Array<{ file: string; value: string }>>();
+
+    for (const { path: fp, content } of files) {
+      const matches = content.matchAll(/(\w+)\s+(?:has|uses|contains|supports)\s+(\d+)\s+(\w+)/gi);
+      for (const m of matches) {
+        const key = `${m[1]?.toLowerCase()} ${m[3]?.toLowerCase()}`;
+        if (!numericClaims.has(key)) numericClaims.set(key, []);
+        numericClaims.get(key)!.push({ file: fp, value: m[2]! });
+      }
+    }
+
+    for (const [claim, entries] of numericClaims) {
+      const values = new Set(entries.map((e) => e.value));
+      if (values.size > 1) {
+        const fileNames = entries.map((e) => path.basename(e.file)).join(', ');
+        warnings.push(`[${tag}] "${claim}" has conflicting values: ${[...values].join(' vs ')} in ${fileNames}`);
+      }
+    }
+  }
+
+  return warnings;
+}
+
 // ── Checks ─────────────────────────────────────────────────────────────
 
 interface CheckResult {
@@ -432,6 +481,37 @@ class HealthChecker {
     });
   }
 
+  checkWikiContradictions(): void {
+    this.check('wiki-lint', () => {
+      const warnings = detectWikiContradictions(this.baseDir);
+      return warnings.length === 0
+        ? { ok: true, detail: 'No contradictions detected' }
+        : { warn: true, detail: `${warnings.length} potential contradiction(s):\n${warnings.join('\n')}` };
+    });
+  }
+
+  checkSkillMemoryTable(): void {
+    this.check('skill-memory-table', () => {
+      const dbPath = path.join(this.baseDir, DB_NAME);
+      if (!fs.existsSync(dbPath)) return { warn: true, detail: 'No database' };
+
+      let Database: typeof import('better-sqlite3');
+      try { Database = require('better-sqlite3'); } catch (_err) {
+        return { warn: true, detail: 'better-sqlite3 not available' };
+      }
+
+      const db = new Database(dbPath, { readonly: true });
+      try {
+        const table = dbGet<{ name: string }>(db, "SELECT name FROM sqlite_master WHERE type='table' AND name='skill_memory'");
+        return table
+          ? { ok: true, detail: 'skill_memory table exists' }
+          : { warn: true, detail: 'skill_memory table missing (run npm run index)' };
+      } finally {
+        db.close();
+      }
+    });
+  }
+
   run(): this {
     this.checkDirectories();
     this.checkSchema();
@@ -443,6 +523,8 @@ class HealthChecker {
     this.checkConflictingAnalyses();
     this.checkSourceTypeColumn();
     this.checkCcMemorySync();
+    this.checkWikiContradictions();
+    this.checkSkillMemoryTable();
     return this;
   }
 
@@ -480,4 +562,5 @@ function main(): void {
   process.exit(healthy ? 0 : 1);
 }
 
-main();
+const isMain = typeof require !== 'undefined' && require.main === module;
+if (isMain) main();
