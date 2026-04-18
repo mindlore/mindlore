@@ -49,6 +49,23 @@
       "description": "Discover unexpected connections between knowledge sources — undirected exploration mode. Cross-references domains, sources, analyses, and episodes to find non-obvious relationships. Identifies: shared entities across sources, pattern convergence between domains, episodic evidence supporting or contradicting domain claims. Default scope: project + global (--scope project|global|all)."
     }
   ],
+  "agents": [
+    {
+      "name": "mindlore-assistant",
+      "path": "agents/mindlore-assistant.md",
+      "description": "Knowledge base Q&A with hybrid search and citations"
+    },
+    {
+      "name": "mindlore-researcher",
+      "path": "agents/mindlore-researcher.md",
+      "description": "Independent web research with source comparison"
+    },
+    {
+      "name": "mindlore-librarian",
+      "path": "agents/mindlore-librarian.md",
+      "description": "Periodic maintenance, stale detection, health trends"
+    }
+  ],
   "hooks": [
     {
       "event": "SessionStart",
