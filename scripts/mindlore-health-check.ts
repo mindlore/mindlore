@@ -382,7 +382,7 @@ class HealthChecker {
       const count = row?.cnt ?? 0;
       return count > 0
         ? { ok: true, detail: `${count} CC memory entries synced` }
-        : { warn: true, detail: 'No CC memory synced yet — will sync on next file change' };
+        : { ok: true, detail: 'No CC memory yet — normal for fresh installs, syncs automatically on file changes' };
     }));
   }
 
