@@ -293,6 +293,32 @@ function backupGithub(): void {
   log('Session-end hook will auto-sync on every session close.');
 }
 
+export function createPreEvictionTag(mindloreDir: string): string {
+  const date = new Date().toISOString().slice(0, 10);
+  let tag = `pre-eviction-${date}`;
+
+  try {
+    const existing = execSync(`git tag -l "${tag}*"`, {
+      cwd: mindloreDir, encoding: 'utf8',
+    }).trim();
+
+    if (existing.includes(tag)) {
+      const count = existing.split('\n').length;
+      tag = `${tag}-${count}`;
+    }
+
+    const status = execSync('git status --porcelain', { cwd: mindloreDir, encoding: 'utf8' }).trim();
+    if (status) {
+      execSync('git add -A && git commit -m "pre-eviction snapshot"', { cwd: mindloreDir });
+    }
+
+    execSync(`git tag ${tag}`, { cwd: mindloreDir });
+    return tag;
+  } catch (_err) {
+    return tag;
+  }
+}
+
 function main(): void {
   const args = process.argv.slice(2);
   const subcommand = args[0];
