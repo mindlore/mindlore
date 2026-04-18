@@ -87,6 +87,7 @@ describe('FTS5 catch-up mechanism', () => {
     } catch { /* hook may exit with non-zero */ }
 
     const db2 = new Database(dbPath, { readonly: true });
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- better-sqlite3 .get() returns unknown
     const count = db2.prepare('SELECT COUNT(*) as c FROM file_hashes').get() as { c: number };
     db2.close();
     expect(count.c).toBe(1);

@@ -36,6 +36,7 @@ describe('skill_memory table', () => {
        VALUES (?, ?, ?, ?)`
     ).run('mindlore-ingest', 'last_ingest_urls', '["https://example.com"]', new Date().toISOString());
 
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- better-sqlite3 .get() returns unknown
     const row = db.prepare(
       'SELECT * FROM skill_memory WHERE skill_name = ? AND key = ?'
     ).get('mindlore-ingest', 'last_ingest_urls') as Record<string, unknown>;
@@ -70,6 +71,7 @@ describe('skill_memory table', () => {
     upsert.run('mindlore-diary', 'last_date', '"2026-04-18"', now);
     upsert.run('mindlore-diary', 'last_date', '"2026-04-19"', now);
 
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- better-sqlite3 .get() returns unknown
     const row = db.prepare(
       'SELECT * FROM skill_memory WHERE skill_name = ? AND key = ?'
     ).get('mindlore-diary', 'last_date') as Record<string, unknown>;

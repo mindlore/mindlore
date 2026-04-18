@@ -85,7 +85,8 @@ function main(): void {
   if (outDirFlag >= 0) { skipIndices.add(outDirFlag); skipIndices.add(outDirFlag + 1); }
   const url = args.find((a, i) => !a.startsWith('--') && !skipIndices.has(i));
   const outDir: string = (outDirFlag >= 0 && args[outDirFlag + 1])
-    ? args[outDirFlag + 1] as string
+    // eslint-disable-next-line @typescript-eslint/no-non-null-assertion -- guarded by args[outDirFlag + 1] truthiness check above
+    ? args[outDirFlag + 1]!
     : path.join(process.env.MINDLORE_HOME ?? path.join(os.homedir(), '.mindlore'), 'raw');
 
   if (!url) {

@@ -57,9 +57,11 @@ export function detectWikiContradictions(baseDir: string): string[] {
       const content = fs.readFileSync(filePath, 'utf8');
       const tagMatch = content.match(/tags:\s*\[([^\]]+)\]/);
       if (!tagMatch) continue;
+      // eslint-disable-next-line @typescript-eslint/no-non-null-assertion -- tagMatch[1] exists when tagMatch is truthy (capture group 1)
       const tags = tagMatch[1]!.split(',').map((t) => t.trim().replace(/['"]/g, ''));
       for (const tag of tags) {
         if (!tagMap.has(tag)) tagMap.set(tag, []);
+        // eslint-disable-next-line @typescript-eslint/no-non-null-assertion -- tagMap.has(tag) check above ensures entry exists
         tagMap.get(tag)!.push({ path: filePath, content });
       }
     }
@@ -74,6 +76,7 @@ export function detectWikiContradictions(baseDir: string): string[] {
       for (const m of matches) {
         const key = `${m[1]?.toLowerCase()} ${m[3]?.toLowerCase()}`;
         if (!numericClaims.has(key)) numericClaims.set(key, []);
+        // eslint-disable-next-line @typescript-eslint/no-non-null-assertion -- numericClaims.has(key) check above ensures entry exists; m[2] is capture group 2 of a successful match
         numericClaims.get(key)!.push({ file: fp, value: m[2]! });
       }
     }

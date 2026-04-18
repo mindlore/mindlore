@@ -17,6 +17,7 @@ function openDb(dbPath: string, readonly = false): Database.Database {
 export function getSkillMem(dbPath: string, skill: string, key: string): string | null {
   const db = openDb(dbPath, true);
   try {
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- better-sqlite3 .get() returns unknown
     const row = db.prepare(
       'SELECT value FROM skill_memory WHERE skill_name = ? AND key = ?'
     ).get(skill, key) as { value: string } | undefined;
@@ -56,6 +57,7 @@ export function bumpAccess(dbPath: string, skill: string, key: string): void {
 export function listSkillMem(dbPath: string, skill: string): SkillMemRow[] {
   const db = openDb(dbPath, true);
   try {
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- better-sqlite3 .all() returns unknown[]
     return db.prepare(
       'SELECT * FROM skill_memory WHERE skill_name = ? ORDER BY key'
     ).all(skill) as SkillMemRow[];

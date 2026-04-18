@@ -48,6 +48,7 @@ describe('skill-memory API', () => {
     bumpAccess(dbPath, 'mindlore-query', 'log');
 
     const db2 = new Database(dbPath, { readonly: true });
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- better-sqlite3 .get() returns unknown
     const row = db2.prepare(
       'SELECT access_count FROM skill_memory WHERE skill_name = ? AND key = ?'
     ).get('mindlore-query', 'log') as { access_count: number };

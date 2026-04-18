@@ -38,6 +38,7 @@ function jsSkeleton(lines: string[]): string[] {
 function pySkeleton(lines: string[]): string[] {
   const kept: string[] = [];
   for (let i = 0; i < lines.length; i++) {
+    // eslint-disable-next-line @typescript-eslint/no-non-null-assertion -- loop bound ensures index is valid
     const line = lines[i]!;
     const t = line.trim();
     if (!t) {
@@ -54,7 +55,9 @@ function pySkeleton(lines: string[]): string[] {
     if (keep) {
       kept.push(line);
       if ((t.startsWith('def ') || t.startsWith('class ')) && i + 1 < lines.length) {
+        // eslint-disable-next-line @typescript-eslint/no-non-null-assertion -- i + 1 < lines.length guard above ensures element exists
         const next = lines[i + 1]!.trim();
+        // eslint-disable-next-line @typescript-eslint/no-non-null-assertion -- same guard: i + 1 < lines.length
         if (next.startsWith('"""') || next.startsWith("'''")) kept.push(lines[i + 1]!);
       }
     }
