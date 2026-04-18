@@ -61,6 +61,7 @@ If URL already in the list, warn user: "This URL was ingested recently. Re-inges
 3. **Write sources/ summary from truncated content:**
    - Extract: title, description (first paragraph), key topics
    - Generate frontmatter: slug, type: source, source_url, date_captured, tags, quality
+   - `source_type` is auto-detected from URL pattern (see Source Summary Format)
    - Write to `$MINDLORE_DIR/sources/{slug}.md`
 
 4. **Update INDEX.md** with new source entry
@@ -103,6 +104,16 @@ The sources/ file should contain:
 - **Key takeaways** (3-7 bullet points)
 - **Relevance to project** (why this matters)
 - **Related** links to other sources/domains in .mindlore/
+
+Required frontmatter fields include `source_type` — auto-detected:
+- `github-repo` if URL contains `github.com/{owner}/{repo}` (not a file/blob URL)
+- `docs` if URL contains `/docs/`, `/documentation/`, or `/api/`
+- `blog` if URL contains `/blog/`, `/post/`, or `/article/`
+- `video` if URL contains `youtube.com`, `youtu.be`, or `vimeo.com`
+- `url-fetch` as default fallback for all other URLs
+- `text-paste` for Text Mode
+- `pdf` for PDF Mode
+- `file` for File Mode
 
 ## Quality Assessment
 
