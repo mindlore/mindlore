@@ -27,4 +27,21 @@ describe('Skill script path resolution', () => {
     expect(resolvedPkg).toBe(mindlorePkg);
     expect(fs.existsSync(path.join(resolvedPkg, 'dist', 'scripts'))).toBe(true);
   });
+
+  test('no bare "node dist/" or "node scripts/" references in skill files', () => {
+    const skillsDir = path.join(mindlorePkg, 'skills');
+    const skillDirs = fs.readdirSync(skillsDir).filter(d =>
+      fs.statSync(path.join(skillsDir, d)).isDirectory()
+    );
+
+    for (const dir of skillDirs) {
+      const skillFile = path.join(skillsDir, dir, 'SKILL.md');
+      if (!fs.existsSync(skillFile)) continue;
+      const content = fs.readFileSync(skillFile, 'utf8');
+      const bareNodeDist = content.match(/node dist\//g) ?? [];
+      const bareNodeScripts = content.match(/node scripts\//g) ?? [];
+      expect(bareNodeDist).toEqual([]);
+      expect(bareNodeScripts).toEqual([]);
+    }
+  });
 });
