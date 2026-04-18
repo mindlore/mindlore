@@ -72,6 +72,7 @@ describe('archiveDocument / restoreDocument', () => {
 
     archiveDocument(db, '/test/doc.md');
 
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- better-sqlite3 .get() returns unknown, narrowing to expected row shape
     const afterArchive = db.prepare(
       'SELECT archived_at FROM file_hashes WHERE path = ?'
     ).get('/test/doc.md') as { archived_at: string | null };
@@ -79,6 +80,7 @@ describe('archiveDocument / restoreDocument', () => {
 
     restoreDocument(db, '/test/doc.md');
 
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- better-sqlite3 .get() returns unknown, narrowing to expected row shape
     const afterRestore = db.prepare(
       'SELECT archived_at FROM file_hashes WHERE path = ?'
     ).get('/test/doc.md') as { archived_at: string | null };

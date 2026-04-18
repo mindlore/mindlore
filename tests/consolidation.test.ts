@@ -83,7 +83,9 @@ describe('markConsolidated', () => {
 
     markConsolidated(env.db, ['ep-1', 'ep-2'], 'consolidated/2026-04.md');
 
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- better-sqlite3 .get() returns unknown, narrowing to expected row shape
     const ep1 = env.db.prepare('SELECT consolidation_status, consolidated_into FROM episodes WHERE id = ?').get('ep-1') as { consolidation_status: string; consolidated_into: string };
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- better-sqlite3 .get() returns unknown, narrowing to expected row shape
     const ep2 = env.db.prepare('SELECT consolidation_status, consolidated_into FROM episodes WHERE id = ?').get('ep-2') as { consolidation_status: string; consolidated_into: string };
 
     expect(ep1.consolidation_status).toBe('consolidated');

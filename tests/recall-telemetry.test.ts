@@ -35,11 +35,13 @@ describe('Recall Telemetry', () => {
     const db = new Database(dbPath);
     const { incrementRecallCount } = require('../hooks/lib/mindlore-common.cjs');
     incrementRecallCount(db, '/test/file.md');
-    const row = db.prepare('SELECT recall_count, last_recalled_at FROM file_hashes WHERE path = ?').get('/test/file.md') as any;
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- better-sqlite3 .get() returns unknown, narrowing to expected row shape
+    const row = db.prepare('SELECT recall_count, last_recalled_at FROM file_hashes WHERE path = ?').get('/test/file.md') as { recall_count: number; last_recalled_at: string | null };
     expect(row.recall_count).toBe(1);
     expect(row.last_recalled_at).toBeTruthy();
     incrementRecallCount(db, '/test/file.md');
-    const row2 = db.prepare('SELECT recall_count FROM file_hashes WHERE path = ?').get('/test/file.md') as any;
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- better-sqlite3 .get() returns unknown, narrowing to expected row shape
+    const row2 = db.prepare('SELECT recall_count FROM file_hashes WHERE path = ?').get('/test/file.md') as { recall_count: number };
     expect(row2.recall_count).toBe(2);
     db.close();
   });
