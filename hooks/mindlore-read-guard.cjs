@@ -14,7 +14,7 @@
 
 const fs = require('fs');
 const path = require('path');
-const { findMindloreDir, readHookStdin, getProjectName, hookLog } = require('./lib/mindlore-common.cjs');
+const { findMindloreDir, readHookStdin, getProjectName, hookLog, extractSkeleton } = require('./lib/mindlore-common.cjs');
 
 function main() {
   const baseDir = findMindloreDir();
@@ -81,10 +81,22 @@ function main() {
   // Warn on 2nd read (exit 0 = allow but warn)
   if (count > 1) {
     const totalWaste = tokens > 0 ? ` Toplam tekrar: ~${tokens * (count - 1)} token.` : '';
+    let skeletonSection = '';
+    try {
+      const ext = path.extname(filePath).slice(1);
+      const fileContent = fs.readFileSync(filePath, 'utf8');
+      if (fileContent.length < 500_000) {
+        const skeleton = extractSkeleton(fileContent, ext);
+        if (skeleton !== fileContent) {
+          const truncated = skeleton.length > 2000 ? skeleton.slice(0, 2000) + '\n...[truncated]' : skeleton;
+          skeletonSection = '\n\n' + truncated;
+        }
+      }
+    } catch (_e) { /* unreadable/binary — skip */ }
     process.stdout.write(JSON.stringify({
       hookSpecificOutput: {
         hookEventName: 'PreToolUse',
-        additionalContext: `[Mindlore: ${basename}${tokenInfo} bu session'da ${count}. kez okunuyor.${totalWaste} Bir sonraki okuma engellenecek — Edit gerekiyorsa simdi yap.]`
+        additionalContext: `[Mindlore: ${basename}${tokenInfo} bu session'da ${count}. kez okunuyor.${totalWaste} Bir sonraki okuma engellenecek — Edit gerekiyorsa simdi yap.]${skeletonSection}`
       }
     }));
   }

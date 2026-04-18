@@ -604,6 +604,108 @@ function resolveWin32Bin(name) {
   return name;
 }
 
+// CO-EVOLUTION: mirrors scripts/lib/skeleton.ts — keep in sync
+function _jsSkeleton(lines) {
+  const kept = [];
+  let depth = 0;
+  let inMLComment = false;
+
+  for (const line of lines) {
+    const t = line.trim();
+
+    if (t.includes('/*') && !t.includes('*/')) inMLComment = true;
+    if (t.includes('*/')) { inMLComment = false; continue; }
+    if (inMLComment) continue;
+
+    const opens = (line.match(/\{/g) ?? []).length;
+    const closes = (line.match(/\}/g) ?? []).length;
+
+    const keep = depth === 0 && (
+      t.startsWith('import ') || t.startsWith('export ') ||
+      t.startsWith('const ') || t.startsWith('let ') || t.startsWith('var ') ||
+      t.startsWith('function ') || t.startsWith('async function ') ||
+      t.startsWith('class ') || t.startsWith('interface ') ||
+      t.startsWith('type ') || t.startsWith('enum ') ||
+      t.startsWith('//') || t.startsWith('module.exports') ||
+      t.startsWith('require(')
+    );
+
+    if (keep) {
+      kept.push(line);
+    } else if (depth === 0 && !t) {
+      if (kept.length && kept[kept.length - 1] !== '') kept.push('');
+    }
+
+    depth = Math.max(0, depth + opens - closes);
+  }
+
+  return kept;
+}
+
+function _pySkeleton(lines) {
+  const kept = [];
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i];
+    const t = line.trim();
+    if (!t) {
+      if (kept.length && kept[kept.length - 1] !== '') kept.push('');
+      continue;
+    }
+    const keep =
+      t.startsWith('import ') || t.startsWith('from ') ||
+      t.startsWith('def ') || t.startsWith('async def ') ||
+      t.startsWith('class ') || t.startsWith('@') ||
+      t.startsWith('#') ||
+      Boolean(line.match(/^\S/) && t.match(/^[A-Z_][A-Z_0-9]*\s*=/));
+
+    if (keep) {
+      kept.push(line);
+      if ((t.startsWith('def ') || t.startsWith('class ')) && i + 1 < lines.length) {
+        const next = lines[i + 1].trim();
+        if (next.startsWith('"""') || next.startsWith("'''")) kept.push(lines[i + 1]);
+      }
+    }
+  }
+  return kept;
+}
+
+function _mdSkeleton(lines) {
+  return lines.filter(l => l.trim().startsWith('#'));
+}
+
+/**
+ * Reduce file content to its structural skeleton (imports, signatures, headings).
+ * Returns original content unchanged for unsupported extensions or when skeleton
+ * is >= 75% of the original (not worth compressing).
+ * @param {string} content - File content
+ * @param {string} ext - File extension without dot (e.g. 'ts', 'py', 'md')
+ * @returns {string}
+ */
+function extractSkeleton(content, ext) {
+  const lines = content.split('\n');
+
+  let kept;
+  switch (ext.toLowerCase()) {
+    case 'js': case 'ts': case 'jsx': case 'tsx': case 'mjs': case 'cjs':
+      kept = _jsSkeleton(lines);
+      break;
+    case 'py':
+      kept = _pySkeleton(lines);
+      break;
+    case 'md': case 'txt': case 'rst':
+      kept = _mdSkeleton(lines);
+      break;
+    default:
+      return content;
+  }
+
+  if (kept.length >= lines.length * 0.75) return content;
+
+  const label = `[SKELETON: ${lines.length} lines -> ${kept.length} shown]`;
+  return label + '\n\n' + kept.join('\n').replace(/\n{3,}/g, '\n\n') +
+    '\n\n[Full file: ask for specific function/section by name]';
+}
+
 module.exports = {
   MINDLORE_DIR,
   GLOBAL_MINDLORE_DIR,
@@ -656,6 +758,8 @@ module.exports = {
   // Shared helpers (v0.5.1)
   SHARED_EXPORT_DIRS,
   resolveWin32Bin,
+  // Skeleton compression (v0.5.2)
+  extractSkeleton,
 };
 
 /**
