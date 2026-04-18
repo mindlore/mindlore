@@ -5,6 +5,29 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.5.3] — 2026-04-18
+
+### Added
+- **Recall telemetry** — tracks search hit frequency per document (recall_count, last_recalled_at)
+- **Decay/eviction system** — time-based decay score with access boost, archive/restore helpers, pre-eviction git snapshots
+- **Episode consolidation** — group raw episodes by kind, promote to learnings/insights/analyses/decisions
+- **`/mindlore-maintain` skill** — KB maintenance: decay reports, consolidation, contradiction detection
+- **CC memory bulk sync** — `npm run cc-sync` one-shot script for existing Claude Code memory files
+- **Ingest source_type** — auto-detection from URL pattern (github-repo, docs, blog, video, etc.)
+- **Evolve fresh KB filter** — skip scan when 0 domains or <3 sources
+- **Reflect quick health summary** — SQL-based stale/raw episode counts after pattern extraction
+- **Session-focus consolidation reminder** — shows when 50+ raw episodes accumulate
+
+### Fixed
+- **Skill script path resolution** — all 8 skills work from any project directory via MINDLORE_PKG preamble
+- **Health check CC memory warning** — informative message instead of false warning on fresh installs
+
+### Changed
+- **Search hook now writes recall telemetry** — previously read-only, now increments recall_count on search hits (graceful fallback on read-only DB)
+- Migration v4: recall_count, last_recalled_at, archived_at, importance on file_hashes
+- Migration v5: consolidation_status, consolidated_into, decay_score, last_decay_calc on episodes
+- Config template: added decay and consolidation settings
+
 ## [0.5.2] - 2026-04-18
 
 ### Added

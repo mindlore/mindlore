@@ -398,7 +398,9 @@ function queryRecentEpisodes(db, opts) {
   const project = opts.project || null;
   const limit = opts.limit || 3;
 
-  let sql = "SELECT kind, summary, created_at FROM episodes WHERE status = 'active'";
+  const hasConsolCol = db.pragma('table_info(episodes)').some(c => c.name === 'consolidation_status');
+  const consolFilter = hasConsolCol ? " AND (consolidation_status IS NULL OR consolidation_status != 'consolidated')" : '';
+  let sql = `SELECT kind, summary, created_at FROM episodes WHERE status = 'active'${consolFilter}`;
   const params = [];
 
   if (project) {
@@ -675,6 +677,8 @@ module.exports = {
   resolveWin32Bin,
   // Skeleton compression (v0.5.2)
   extractSkeleton,
+  // Recall telemetry (v0.5.3)
+  incrementRecallCount,
 };
 
 /**
@@ -704,6 +708,30 @@ function hasVecTableCjs(db) {
   } catch (_err) {
     return false;
   }
+}
+
+/**
+ * Increment recall_count and update last_recalled_at for a file in file_hashes.
+ * No-op if column missing (old DB without v0.5.3 migration).
+ * @param {import('better-sqlite3').Database} db
+ * @param {string} filePath
+ */
+const _recallColCache = new WeakMap();
+function incrementRecallCount(db, filePath) {
+  try {
+    let hasCol = _recallColCache.get(db);
+    if (hasCol === undefined) {
+      hasCol = db.pragma('table_info(file_hashes)').some(c => c.name === 'recall_count');
+      _recallColCache.set(db, hasCol);
+    }
+    if (!hasCol) return;
+    db.prepare(`
+      UPDATE file_hashes
+      SET recall_count = COALESCE(recall_count, 0) + 1,
+          last_recalled_at = ?
+      WHERE path = ?
+    `).run(new Date().toISOString(), filePath);
+  } catch (_err) { /* graceful — old DB without columns */ }
 }
 
 // --- Hook Logging (v0.5.1) ---

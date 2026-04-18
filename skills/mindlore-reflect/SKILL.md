@@ -3,6 +3,15 @@ name: mindlore-reflect
 description: Pattern extraction from episodes — 3-tier confidence, nomination pipeline, CLAUDE.md update proposals.
 ---
 
+## Script Resolution
+
+All script paths are relative to this skill's package root.
+Package root = 2 directories up from this skill's base directory.
+
+When CC loads this skill, it shows "Base directory for this skill: /path/to/skills/mindlore-reflect".
+Compute: `MINDLORE_PKG = {base_directory}/../..`
+Use: `node "$MINDLORE_PKG/dist/scripts/..."` for all script commands.
+
 # /mindlore-reflect
 
 ## Scope
@@ -16,8 +25,8 @@ Scans both project + global `~/.mindlore/` diary/ for patterns.
 ## On Start — Check pending nominations + skill_memory
 
 ```bash
-node dist/scripts/lib/skill-memory.js get mindlore-reflect last_reflect_date
-node dist/scripts/lib/skill-memory.js get mindlore-reflect nomination_count
+node "$MINDLORE_PKG/dist/scripts/lib/skill-memory.js" get mindlore-reflect last_reflect_date
+node "$MINDLORE_PKG/dist/scripts/lib/skill-memory.js" get mindlore-reflect nomination_count
 ```
 
 Check pending nominations:
@@ -91,8 +100,26 @@ Onaylamak istediklerini sec, veya 'skip':
 ## On End — Write skill_memory
 
 ```bash
-node dist/scripts/lib/skill-memory.js set mindlore-reflect last_reflect_date "$(date -I)"
-node dist/scripts/lib/skill-memory.js set mindlore-reflect nomination_count "{staged_count}"
+node "$MINDLORE_PKG/dist/scripts/lib/skill-memory.js" set mindlore-reflect last_reflect_date "$(date -I)"
+node "$MINDLORE_PKG/dist/scripts/lib/skill-memory.js" set mindlore-reflect nomination_count "{staged_count}"
+```
+
+## Quick Health Summary (v0.5.3)
+
+After pattern extraction, run quick SQL checks (0 token, <1ms):
+```bash
+node -e "
+  const db = require('better-sqlite3')(require('path').join(require('os').homedir(), '.mindlore', 'mindlore.db'), {readonly:true});
+  const stale = db.prepare(\"SELECT COUNT(*) as c FROM file_hashes WHERE recall_count = 0 AND archived_at IS NULL AND last_indexed < datetime('now','-60 days')\").get()?.c ?? 0;
+  const raw = db.prepare(\"SELECT COUNT(*) as c FROM episodes WHERE (consolidation_status = 'raw' OR consolidation_status IS NULL) AND kind IN ('learning','discovery','friction','decision')\").get()?.c ?? 0;
+  console.log(JSON.stringify({stale, raw}));
+  db.close();
+"
+```
+
+Rapor sonuna ekle:
+```
+Stale: {stale} doc | Raw episodes: {raw} | → Detay: /mindlore-maintain
 ```
 
 ## Rules

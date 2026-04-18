@@ -10,7 +10,7 @@
 
 const fs = require('fs');
 const path = require('path');
-const { getAllDbs, requireDatabase, extractHeadings, readHookStdin, extractKeywords, sanitizeKeyword, readConfig, loadSqliteVecCjs, hasVecTableCjs, hookLog } = require('./lib/mindlore-common.cjs');
+const { getAllDbs, requireDatabase, extractHeadings, readHookStdin, extractKeywords, sanitizeKeyword, readConfig, loadSqliteVecCjs, hasVecTableCjs, hookLog, incrementRecallCount } = require('./lib/mindlore-common.cjs');
 
 const MAX_RESULTS = 3;
 const MIN_QUERY_WORDS = 3;
@@ -169,6 +169,15 @@ function main() {
 
   const relevant = unique.slice(0, MAX_RESULTS);
   if (relevant.length === 0) return;
+
+  try {
+    const db = new Database(dbPaths[0]);
+    const txn = db.transaction(() => {
+      for (const r of relevant) incrementRecallCount(db, r.path);
+    });
+    txn();
+    db.close();
+  } catch (_e) { /* graceful — never block search output */ }
 
   // Populate headings only for final results (avoid reading extra files)
   for (const r of relevant) {

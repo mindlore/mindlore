@@ -382,7 +382,7 @@ class HealthChecker {
       const count = row?.cnt ?? 0;
       return count > 0
         ? { ok: true, detail: `${count} CC memory entries synced` }
-        : { warn: true, detail: 'No CC memory synced yet — will sync on next file change' };
+        : { ok: true, detail: 'No CC memory yet — normal for fresh installs, syncs automatically on file changes' };
     }));
   }
 
@@ -404,6 +404,46 @@ class HealthChecker {
     }));
   }
 
+  checkDecayStats(): void {
+    this.check('decay stats', () => this.withCheckedDb((db) => {
+      try {
+        const row = dbGet<{ cnt: number }>(db,
+          'SELECT COUNT(*) as cnt FROM file_hashes WHERE archived_at IS NOT NULL'
+        );
+        const archived = row?.cnt ?? 0;
+
+        const staleRow = dbGet<{ cnt: number }>(db,
+          "SELECT COUNT(*) as cnt FROM file_hashes WHERE recall_count = 0 AND archived_at IS NULL AND last_indexed < datetime('now', '-60 days')"
+        );
+        const staleCount = staleRow?.cnt ?? 0;
+
+        if (staleCount > 10) {
+          return { warn: true, detail: `${staleCount} stale documents (0 recalls, >60 days old). Run /mindlore-maintain decay` };
+        }
+        return { ok: true, detail: `${archived} archived, ${staleCount} potentially stale` };
+      } catch (_err) {
+        return { ok: true, detail: 'decay columns not yet available (run npm run index)' };
+      }
+    }));
+  }
+
+  checkConsolidation(): void {
+    this.check('episode consolidation', () => this.withCheckedDb((db) => {
+      try {
+        const row = dbGet<{ cnt: number }>(db,
+          "SELECT COUNT(*) as cnt FROM episodes WHERE consolidation_status = 'raw' OR consolidation_status IS NULL"
+        );
+        const raw = row?.cnt ?? 0;
+        if (raw >= 50) {
+          return { warn: true, detail: `${raw} raw episodes. Run /mindlore-maintain consolidate` };
+        }
+        return { ok: true, detail: `${raw} raw episodes` };
+      } catch (_err) {
+        return { ok: true, detail: 'consolidation columns not yet available' };
+      }
+    }));
+  }
+
   run(): this {
     this.checkDirectories();
     this.checkSchema();
@@ -417,6 +457,8 @@ class HealthChecker {
     this.checkCcMemorySync();
     this.checkWikiContradictions();
     this.checkSkillMemoryTable();
+    this.checkDecayStats();
+    this.checkConsolidation();
     return this;
   }
 

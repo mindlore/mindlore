@@ -2,6 +2,15 @@
 
 Search, ask, analyze, and retrieve knowledge from `.mindlore/`.
 
+## Script Resolution
+
+All script paths are relative to this skill's package root.
+Package root = 2 directories up from this skill's base directory.
+
+When CC loads this skill, it shows "Base directory for this skill: /path/to/skills/mindlore-query".
+Compute: `MINDLORE_PKG = {base_directory}/../..`
+Use: `node "$MINDLORE_PKG/dist/scripts/..."` for all script commands.
+
 ## Scope
 
 Determine search scope using `getActiveMindloreDir()` / `getAllDbs()` logic:

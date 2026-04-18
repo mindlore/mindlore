@@ -5,6 +5,15 @@ effort: low
 allowed-tools: [Bash, Read]
 ---
 
+## Script Resolution
+
+All script paths are relative to this skill's package root.
+Package root = 2 directories up from this skill's base directory.
+
+When CC loads this skill, it shows "Base directory for this skill: /path/to/skills/mindlore-health".
+Compute: `MINDLORE_PKG = {base_directory}/../..`
+Use: `node "$MINDLORE_PKG/dist/scripts/..."` for all script commands.
+
 # /mindlore-health
 
 Run the 16-point structural health check on the `.mindlore/` knowledge base.
@@ -25,7 +34,7 @@ User says "health check", "mindlore health", "bilgi sistemi kontrol", "saglik ko
 
 1. Run the health check script:
    ```bash
-   node scripts/mindlore-health-check.cjs
+   node "$MINDLORE_PKG/dist/scripts/mindlore-health-check.js"
    ```
 
 2. Read the output and provide LLM interpretation:

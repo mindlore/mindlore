@@ -71,6 +71,7 @@ npx mindlore episodes count                 # Episode count per project
 | `/mindlore-decide` | Decision records with supersedes chain |
 | `/mindlore-evolve` | Schema co-evolution and structural updates |
 | `/mindlore-explore` | Cross-reference discovery between sources |
+| `/mindlore-maintain` | KB maintenance: decay reports, consolidation, contradiction detection |
 
 ## Architecture
 

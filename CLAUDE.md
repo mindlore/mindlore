@@ -78,7 +78,7 @@ npm test                    # all suites
 npx jest tests/fts5.test.ts  # specific suite
 ```
 
-32 active suites in v0.4.3: fts5, fts5-sync, dedup, init, frontmatter, hook-smoke, uninstall, search-hook, session-focus, compounding, decision, read-guard, log, global-layer, cwd-changed, dont-repeat, post-read, upgrade, schemas, quality-populate, reflect, e2e-pipeline, evolve, explore, model-router, project-namespace, backup, obsidian, episodes, episodes-inject, diary, research-guard.
+61 active suites in v0.5.3: fts5, fts5-sync, dedup, init, frontmatter, hook-smoke, uninstall, search-hook, session-focus, compounding, decision, read-guard, log, global-layer, cwd-changed, dont-repeat, post-read, upgrade, schemas, quality-populate, reflect, e2e-pipeline, evolve, explore, model-router, project-namespace, backup, obsidian, episodes, episodes-inject, diary, research-guard, skill-path-resolution, migrations-v053, cc-memory-bulk-sync, recall-telemetry, decay, git-snapshot, consolidation.
 
 ## Release
 
