@@ -26,12 +26,12 @@ Claude Code forgets everything between sessions. Your corrections, discoveries, 
 | Persistent search | FTS5 auto-indexed | Manual index | No search | Vector DB overhead |
 | Knowledge compounding | Writeback loop | No | No | Partial |
 | Token efficient | Progressive disclosure | Full dump | Full dump | Varies |
-| Setup time | `npx mindlore init` | Config + setup | Complex | Complex |
+| Setup time | `npx mindlore` | Config + setup | Complex | Complex |
 
 ## Quick Start
 
 ```bash
-npx mindlore init
+npx mindlore
 ```
 
 That's it. Mindlore creates a `~/.mindlore/` directory, sets up hooks, and starts working.
@@ -110,7 +110,7 @@ Nine directories, each mapping to a frontmatter `type`:
 ### Minimal (default)
 
 ```bash
-npx mindlore init
+npx mindlore
 ```
 
 Requires: Node.js 20+, `better-sqlite3` (installed automatically).
@@ -118,7 +118,7 @@ Requires: Node.js 20+, `better-sqlite3` (installed automatically).
 ### Recommended
 
 ```bash
-npx mindlore init --recommended
+npx mindlore --recommended
 ```
 
 Also suggests installing:
