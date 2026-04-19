@@ -21,6 +21,11 @@ export interface SessionPayload {
   skipInjection: boolean;
 }
 
+interface EpisodeRow {
+  summary: string;
+  created_at: string;
+}
+
 const CHARS_PER_TOKEN = 4;
 
 function estimateTokens(text: string): number {
@@ -38,38 +43,41 @@ function buildSessionSummary(baseDir: string): string {
   if (!fs.existsSync(diaryDir)) return 'No previous session data.';
   const deltas = fs.readdirSync(diaryDir).filter(f => f.startsWith('delta-')).sort();
   if (deltas.length === 0) return 'No previous session data.';
-  const latestFile = deltas[deltas.length - 1]!;
+  const latestFile = deltas[deltas.length - 1] ?? '';
   const latest = fs.readFileSync(path.join(diaryDir, latestFile), 'utf8');
   const lines = latest.split('\n').filter(l => l.startsWith('- ') || l.startsWith('# '));
   return lines.slice(0, 10).join('\n');
 }
 
 function buildDecisions(db: Database.Database, project: string): string {
+  // eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- better-sqlite3 .all() returns unknown[]
   const decisions = db.prepare(
     `SELECT summary, created_at FROM episodes
      WHERE kind = 'decision' AND status = 'active' AND project = ?
      ORDER BY created_at DESC LIMIT 5`,
-  ).all(project) as Array<{ summary: string; created_at: string }>;
+  ).all(project) as EpisodeRow[];
   if (decisions.length === 0) return 'No recent decisions.';
   return decisions.map(d => `- ${d.summary} (${d.created_at.slice(0, 10)})`).join('\n');
 }
 
 function buildFriction(db: Database.Database, project: string): string {
+  // eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- better-sqlite3 .all() returns unknown[]
   const frictions = db.prepare(
     `SELECT summary, created_at FROM episodes
      WHERE kind = 'friction' AND status = 'active' AND project = ?
      ORDER BY created_at DESC LIMIT 3`,
-  ).all(project) as Array<{ summary: string; created_at: string }>;
+  ).all(project) as EpisodeRow[];
   if (frictions.length === 0) return 'No active friction points.';
   return frictions.map(f => `- ${f.summary} (${f.created_at.slice(0, 10)})`).join('\n');
 }
 
 function buildLearnings(db: Database.Database, project: string): string {
+  // eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- better-sqlite3 .all() returns unknown[]
   const learnings = db.prepare(
     `SELECT summary, created_at FROM episodes
      WHERE kind = 'learning' AND status = 'active' AND project = ?
      ORDER BY created_at DESC LIMIT 5`,
-  ).all(project) as Array<{ summary: string; created_at: string }>;
+  ).all(project) as EpisodeRow[];
   if (learnings.length === 0) return 'No recent learnings.';
   return learnings.map(l => `- ${l.summary} (${l.created_at.slice(0, 10)})`).join('\n');
 }
@@ -96,7 +104,8 @@ export function buildSessionPayload(
 
   let totalTokens = sections.reduce((sum, s) => sum + s.tokens, 0);
   while (totalTokens > tokenBudget && sections.length > 1) {
-    const removed = sections.pop()!;
+    const removed = sections.pop();
+    if (!removed) break;
     totalTokens -= removed.tokens;
   }
 

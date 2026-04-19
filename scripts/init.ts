@@ -670,7 +670,8 @@ function main(): void {
   const currentVersion = fs.existsSync(versionPath) ? fs.readFileSync(versionPath, 'utf8').trim() : '0.0.0';
   if (currentVersion < '0.5.4') {
     try {
-      const { runBackfill } = require('./lib/backfill.js') as { runBackfill: (db: import('better-sqlite3').Database, dir: string) => { createdAtFixed: number; importanceMapped: number; projectScopeSet: number } };
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- dynamic CJS require, typed manually
+      const { runBackfill } = require('./lib/backfill.js') as unknown as { runBackfill: (db: import('better-sqlite3').Database, dir: string) => { createdAtFixed: number; importanceMapped: number; projectScopeSet: number } };
       const dbPath = path.join(baseDir, DB_NAME);
       if (fs.existsSync(dbPath)) {
         const DatabaseBackfill: typeof import('better-sqlite3') = require('better-sqlite3');

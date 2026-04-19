@@ -3,6 +3,19 @@ import Database from 'better-sqlite3';
 import { createTestDb, insertFts, setupTestDir, teardownTestDir } from './helpers/db.js';
 import { dbAll, dbGet } from '../scripts/lib/db-helpers.js';
 
+interface TimestampRow {
+  created_at: string | null;
+  updated_at: string | null;
+}
+
+interface ProjectScopeRow {
+  project_scope: string | null;
+}
+
+interface ImportanceRow {
+  importance: number;
+}
+
 const TEST_DIR = path.join(__dirname, '..', '.test-mindlore-fts5');
 const DB_PATH = path.join(TEST_DIR, 'mindlore.db');
 
@@ -274,6 +287,7 @@ describe('Vec Table', () => {
 describe('Timestamp columns', () => {
   test('should write created_at on first index, updated_at on re-index', () => {
     const { createTestDbWithMigrations } = require('./helpers/db.js');
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- test helper returns Database
     const db = createTestDbWithMigrations(DB_PATH) as import('better-sqlite3').Database;
 
     const testPath = path.join(TEST_DIR, 'sources', 'test-timestamps.md');
@@ -292,8 +306,8 @@ describe('Timestamp columns', () => {
 
     upsertHash.run(testPath, hash1, now1);
 
-    // eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- test assertion
-    const row1 = db.prepare('SELECT created_at, updated_at FROM file_hashes WHERE path = ?').get(testPath) as { created_at: string | null; updated_at: string | null };
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- better-sqlite3 .get() returns unknown
+    const row1 = db.prepare('SELECT created_at, updated_at FROM file_hashes WHERE path = ?').get(testPath) as TimestampRow;
     expect(row1.created_at).toBeTruthy();
     expect(row1.updated_at).toBeNull(); // First index, no update yet
 
@@ -302,8 +316,8 @@ describe('Timestamp columns', () => {
     const now2 = '2026-04-19T11:00:00.000Z';
     upsertHash.run(testPath, hash2, now2);
 
-    // eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- test assertion
-    const row2 = db.prepare('SELECT created_at, updated_at FROM file_hashes WHERE path = ?').get(testPath) as { created_at: string | null; updated_at: string | null };
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- better-sqlite3 .get() returns unknown
+    const row2 = db.prepare('SELECT created_at, updated_at FROM file_hashes WHERE path = ?').get(testPath) as TimestampRow;
     expect(row2.created_at).toBe(row1.created_at); // created_at shouldn't change
     expect(row2.updated_at).toBeTruthy(); // updated_at should now be set
 
@@ -314,6 +328,7 @@ describe('Timestamp columns', () => {
 describe('Project scope on index', () => {
   test('should write project_scope on index', () => {
     const { createTestDbWithMigrations } = require('./helpers/db.js');
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- test helper returns Database
     const db = createTestDbWithMigrations(DB_PATH) as import('better-sqlite3').Database;
 
     const testPath = path.join(TEST_DIR, 'sources', 'test-scope.md');
@@ -333,8 +348,8 @@ describe('Project scope on index', () => {
 
     upsertHash.run(testPath, hash, now, projectName);
 
-    // eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- test assertion
-    const row = db.prepare('SELECT project_scope FROM file_hashes WHERE path = ?').get(testPath) as { project_scope: string | null };
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- better-sqlite3 .get() returns unknown
+    const row = db.prepare('SELECT project_scope FROM file_hashes WHERE path = ?').get(testPath) as ProjectScopeRow;
     expect(row.project_scope).toBeTruthy();
     expect(typeof row.project_scope).toBe('string');
     expect(row.project_scope).toBe('test-project');
@@ -346,6 +361,7 @@ describe('Project scope on index', () => {
 describe('Quality to importance mapping', () => {
   test('should map quality high to importance 1.0', () => {
     const { createTestDbWithMigrations } = require('./helpers/db.js');
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- test helper returns Database
     const db = createTestDbWithMigrations(DB_PATH) as import('better-sqlite3').Database;
 
     const testPath = path.join(TEST_DIR, 'sources', 'test-importance-high.md');
@@ -363,8 +379,8 @@ describe('Quality to importance mapping', () => {
     // Simulate indexer: quality 'high' -> importance 1.0
     upsertHash.run(testPath, 'aaa', '2026-04-19T10:00:00.000Z', 'test', 1.0);
 
-    // eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- test assertion
-    const row = db.prepare('SELECT importance FROM file_hashes WHERE path = ?').get(testPath) as { importance: number };
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- better-sqlite3 .get() returns unknown
+    const row = db.prepare('SELECT importance FROM file_hashes WHERE path = ?').get(testPath) as ImportanceRow;
     expect(row.importance).toBe(1.0);
 
     db.close();
@@ -372,6 +388,7 @@ describe('Quality to importance mapping', () => {
 
   test('should map quality medium to importance 0.6', () => {
     const { createTestDbWithMigrations } = require('./helpers/db.js');
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- test helper returns Database
     const db = createTestDbWithMigrations(DB_PATH) as import('better-sqlite3').Database;
 
     const testPath = path.join(TEST_DIR, 'sources', 'test-importance-medium.md');
@@ -388,8 +405,8 @@ describe('Quality to importance mapping', () => {
 
     upsertHash.run(testPath, 'bbb', '2026-04-19T10:00:00.000Z', 'test', 0.6);
 
-    // eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- test assertion
-    const row = db.prepare('SELECT importance FROM file_hashes WHERE path = ?').get(testPath) as { importance: number };
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- better-sqlite3 .get() returns unknown
+    const row = db.prepare('SELECT importance FROM file_hashes WHERE path = ?').get(testPath) as ImportanceRow;
     expect(row.importance).toBe(0.6);
 
     db.close();
@@ -397,6 +414,7 @@ describe('Quality to importance mapping', () => {
 
   test('should map quality low to importance 0.3', () => {
     const { createTestDbWithMigrations } = require('./helpers/db.js');
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- test helper returns Database
     const db = createTestDbWithMigrations(DB_PATH) as import('better-sqlite3').Database;
 
     const testPath = path.join(TEST_DIR, 'sources', 'test-importance-low.md');
@@ -413,8 +431,8 @@ describe('Quality to importance mapping', () => {
 
     upsertHash.run(testPath, 'ccc', '2026-04-19T10:00:00.000Z', 'test', 0.3);
 
-    // eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- test assertion
-    const row = db.prepare('SELECT importance FROM file_hashes WHERE path = ?').get(testPath) as { importance: number };
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- better-sqlite3 .get() returns unknown
+    const row = db.prepare('SELECT importance FROM file_hashes WHERE path = ?').get(testPath) as ImportanceRow;
     expect(row.importance).toBe(0.3);
 
     db.close();
@@ -422,6 +440,7 @@ describe('Quality to importance mapping', () => {
 
   test('should default importance to 0.5 when quality is missing', () => {
     const { createTestDbWithMigrations } = require('./helpers/db.js');
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- test helper returns Database
     const db = createTestDbWithMigrations(DB_PATH) as import('better-sqlite3').Database;
 
     const testPath = path.join(TEST_DIR, 'sources', 'test-no-quality.md');
@@ -439,8 +458,8 @@ describe('Quality to importance mapping', () => {
     // quality undefined -> default 0.5
     upsertHash.run(testPath, 'ddd', '2026-04-19T10:00:00.000Z', 'test', 0.5);
 
-    // eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- test assertion
-    const row = db.prepare('SELECT importance FROM file_hashes WHERE path = ?').get(testPath) as { importance: number };
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- better-sqlite3 .get() returns unknown
+    const row = db.prepare('SELECT importance FROM file_hashes WHERE path = ?').get(testPath) as ImportanceRow;
     expect(row.importance).toBe(0.5);
 
     db.close();
