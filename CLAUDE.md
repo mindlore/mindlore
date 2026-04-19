@@ -33,14 +33,14 @@ tests/      # Jest test suites
 - Scripts use `.ts` (source) / `.js` (dist), hooks use `.cjs` (CommonJS)
 - FTS5 database: `.mindlore/mindlore.db`
 - Content-hash dedup: SHA256, skip unchanged files on re-index
-- Frontmatter: 9 types = 9 directories (see SCHEMA.md)
+- Frontmatter: 11 directories (see SCHEMA.md)
 - Hook prefix: `mindlore-` (avoid collisions with user hooks)
 - Hooks inject via `stdout` (CC ignores stderr for additionalContext)
 - Shared modules: `hooks/lib/mindlore-common.cjs`, `scripts/lib/constants.ts`, `tests/helpers/db.ts`
 - `plugin.json` for CC plugin manifest (npx skills add)
 - Uninstall: `npx mindlore uninstall [--all]`
 
-## Hooks (v0.4.3 — 14 hooks)
+## Hooks (v0.5.4 — 14 hooks)
 
 | Event | Hook | Purpose |
 |-------|------|---------|
@@ -59,7 +59,7 @@ tests/      # Jest test suites
 | PreToolUse (Agent) | mindlore-model-router | Cost-optimized model routing via markers |
 | PreToolUse (Agent) | mindlore-research-guard | FTS5 check before research — block if recent+high quality exists |
 
-## Skills (v0.4.0)
+## Skills (v0.5.4 — 10 skills)
 
 | Skill | Purpose |
 |-------|---------|
@@ -70,6 +70,9 @@ tests/      # Jest test suites
 | /mindlore-decide | Record and list decisions with supersedes chain |
 | /mindlore-evolve | Knowledge schema co-evolution — scan + suggest updates |
 | /mindlore-explore | Discover unexpected connections between sources |
+| /mindlore-diary | Session analysis — decisions, discoveries, frictions |
+| /mindlore-reflect | Pattern extraction from episodes, CLAUDE.md update proposals |
+| /mindlore-maintain | KB maintenance — decay/archive, consolidation, contradiction |
 
 ## Testing
 
@@ -78,7 +81,7 @@ npm test                    # all suites
 npx jest tests/fts5.test.ts  # specific suite
 ```
 
-61 active suites in v0.5.3: fts5, fts5-sync, dedup, init, frontmatter, hook-smoke, uninstall, search-hook, session-focus, compounding, decision, read-guard, log, global-layer, cwd-changed, dont-repeat, post-read, upgrade, schemas, quality-populate, reflect, e2e-pipeline, evolve, explore, model-router, project-namespace, backup, obsidian, episodes, episodes-inject, diary, research-guard, skill-path-resolution, migrations-v053, cc-memory-bulk-sync, recall-telemetry, decay, git-snapshot, consolidation.
+65 active suites in v0.5.4: fts5, fts5-sync, dedup, init, frontmatter, hook-smoke, uninstall, search-hook, session-focus, compounding, decision, read-guard, log, global-layer, cwd-changed, dont-repeat, post-read, upgrade, schemas, quality-populate, reflect, e2e-pipeline, evolve, explore, model-router, project-namespace, backup, obsidian, episodes, episodes-inject, diary, research-guard, research-guard-scope, skill-path-resolution, migrations-v053, cc-memory-bulk-sync, recall-telemetry, decay, git-snapshot, consolidation, backfill, session-payload, contradiction-extended, session-focus.
 
 ## Release
 

@@ -74,7 +74,7 @@ function checkDateContradictions(files: FileMeta[]): Contradiction[] {
   const tagMap = groupBySharedTag(files);
   const datePattern = /(\b[A-Z][\w.-]+(?:\s+[\w.-]+){0,3})\s+(?:was|were|is|will be)\s+\S+\s+(?:on|at|in)\s+(\d{4}-\d{2}-\d{2})/gi;
 
-  for (const [_tag, group] of tagMap) {
+  for (const [, group] of tagMap) {
     if (group.length < 2) continue;
     const claimMap = new Map<string, Array<{ file: string; date: string }>>();
 
@@ -110,7 +110,7 @@ function checkBooleanContradictions(files: FileMeta[]): Contradiction[] {
   const tagMap = groupBySharedTag(files);
   const boolPattern = /\b(the\s+\w+(?:\s+\w+)?)\s+is\s+(enabled|disabled|true|false)\b/gi;
 
-  for (const [_tag, group] of tagMap) {
+  for (const [, group] of tagMap) {
     if (group.length < 2) continue;
     const claimMap = new Map<string, Array<{ file: string; state: string }>>();
 
@@ -149,7 +149,7 @@ function checkVersionContradictions(files: FileMeta[]): Contradiction[] {
   const tagMap = groupBySharedTag(files);
   const versionPattern = /(\b[A-Z][\w.-]+(?:\s+[\w.-]+){0,2})\s+version\s+(\d+(?:\.\d+)+)/gi;
 
-  for (const [_tag, group] of tagMap) {
+  for (const [, group] of tagMap) {
     if (group.length < 2) continue;
     const claimMap = new Map<string, Array<{ file: string; version: string }>>();
 

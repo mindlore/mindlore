@@ -219,6 +219,7 @@ describe('Search Hook — Synonym Loader Verification', () => {
   test('loadSynonyms returns empty map for missing config', () => {
     const { loadSynonyms } = require('../scripts/lib/synonym.js');
     expect(loadSynonyms({})).toEqual({});
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- testing null guard
     expect(loadSynonyms(null as unknown as Record<string, unknown>)).toEqual({});
   });
 

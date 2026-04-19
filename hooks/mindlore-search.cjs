@@ -10,7 +10,7 @@
 
 const fs = require('fs');
 const path = require('path');
-const { getAllDbs, requireDatabase, openDatabase, extractHeadings, readHookStdin, extractKeywords, sanitizeKeyword, readConfig, loadSqliteVecCjs, hasVecTableCjs, hookLog, incrementRecallCount } = require('./lib/mindlore-common.cjs');
+const { getAllDbs, openDatabase, extractHeadings, readHookStdin, extractKeywords, sanitizeKeyword, readConfig, loadSqliteVecCjs, hasVecTableCjs, hookLog, incrementRecallCount } = require('./lib/mindlore-common.cjs');
 
 const MAX_RESULTS = 3;
 const MIN_QUERY_WORDS = 3;
