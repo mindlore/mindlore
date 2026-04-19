@@ -77,3 +77,31 @@ export function listStaleDocuments(db: Database, threshold: number = STALE_THRES
 
   return stale.sort((a, b) => a.decay_score - b.decay_score);
 }
+
+export function persistDecayScores(db: Database): number {
+  const episodes = dbAll<{ id: string; created_at: string; kind: string }>(
+    db,
+    "SELECT id, created_at, kind FROM episodes WHERE status = 'active'"
+  );
+
+  const now = new Date().toISOString();
+  const update = db.prepare(
+    'UPDATE episodes SET decay_score = ?, last_decay_calc = ? WHERE id = ?'
+  );
+
+  let count = 0;
+  for (const ep of episodes) {
+    const importance = ep.kind === 'decision' ? 0.9
+      : ep.kind === 'learning' ? 0.8
+      : 0.5;
+    const score = calculateDecayScore({
+      created_at: ep.created_at,
+      last_recalled_at: null,
+      recall_count: 0,
+      importance,
+    });
+    update.run(score, now, ep.id);
+    count++;
+  }
+  return count;
+}
