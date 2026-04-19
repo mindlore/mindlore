@@ -16,6 +16,7 @@ export const DIRECTORIES = [
   'learnings',
   'diary',
   'decisions',
+  'logs',
 ] as const;
 
 export const SKIP_FILES = new Set(['INDEX.md', 'SCHEMA.md', 'log.md']);
