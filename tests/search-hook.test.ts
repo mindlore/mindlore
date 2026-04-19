@@ -202,3 +202,32 @@ describe('Search Hook Hybrid Integration', () => {
     db.close();
   });
 });
+
+describe('Search Hook — Synonym Loader Verification', () => {
+  test('loadSynonyms and expandQuery work with config synonyms', () => {
+    const { loadSynonyms, expandQuery } = require('../scripts/lib/synonym.js');
+    const config = { synonyms: { auth: ['authentication', 'login'] } };
+    const synonyms = loadSynonyms(config);
+    expect(Object.keys(synonyms).length).toBe(1);
+    const expanded = expandQuery('auth token', synonyms);
+    expect(expanded).toContain('auth');
+    expect(expanded).toContain('authentication');
+    expect(expanded).toContain('login');
+    expect(expanded).toContain('token');
+  });
+
+  test('loadSynonyms returns empty map for missing config', () => {
+    const { loadSynonyms } = require('../scripts/lib/synonym.js');
+    expect(loadSynonyms({})).toEqual({});
+    expect(loadSynonyms(null as unknown as Record<string, unknown>)).toEqual({});
+  });
+
+  test('search hook contains inline synonym expansion logic', () => {
+    const hookSource = fs.readFileSync(
+      path.join(__dirname, '..', 'hooks', 'mindlore-search.cjs'), 'utf8'
+    );
+    expect(hookSource).toContain('config.synonyms');
+    expect(hookSource).toContain('synonyms[lower]');
+    expect(hookSource).toContain('expandedTerms.push');
+  });
+});
