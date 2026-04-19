@@ -18,18 +18,64 @@ describe('Git Snapshot (Pre-Eviction)', () => {
 
   afterEach(() => fs.rmSync(tmpDir, { recursive: true, force: true }));
 
-  test('createPreEvictionTag creates a git tag with date prefix', async () => {
-    const { createPreEvictionTag } = await import('../scripts/mindlore-backup.js');
-    const tag = createPreEvictionTag(mindloreDir);
-    expect(tag).toMatch(/^pre-eviction-\d{4}-\d{2}-\d{2}/);
+  test('createPreEvictionTag creates a git tag with slug and date', async () => {
+    const { createPreEvictionTag } = await import('../scripts/lib/git-snapshot.js');
+    const tag = createPreEvictionTag(mindloreDir, 'domains/ai-tools.md');
+    expect(tag).toMatch(/^pre-evict\/ai-tools-\d{4}-\d{2}-\d{2}$/);
     const tags = execSync('git tag', { cwd: mindloreDir, encoding: 'utf8' });
-    expect(tags).toContain(tag);
+    expect(tags).toContain('pre-evict/');
   });
 
-  test('createPreEvictionTag is idempotent (no error on same-day call)', async () => {
-    const { createPreEvictionTag } = await import('../scripts/mindlore-backup.js');
-    createPreEvictionTag(mindloreDir);
-    const tag2 = createPreEvictionTag(mindloreDir);
-    expect(tag2).toBeTruthy();
+  test('createPreEvictionTag returns null on duplicate tag', async () => {
+    const { createPreEvictionTag } = await import('../scripts/lib/git-snapshot.js');
+    createPreEvictionTag(mindloreDir, 'test.md');
+    const tag2 = createPreEvictionTag(mindloreDir, 'test.md');
+    expect(tag2).toBeNull();
+  });
+
+  test('createPreEvictionTag accepts custom reason', async () => {
+    const { createPreEvictionTag } = await import('../scripts/lib/git-snapshot.js');
+    const tag = createPreEvictionTag(mindloreDir, 'test.md', 'manual-archive');
+    expect(tag).toMatch(/^pre-evict\/test-\d{4}-\d{2}-\d{2}$/);
+  });
+
+  test('listPreEvictionTags returns empty array when no tags', async () => {
+    const { listPreEvictionTags } = await import('../scripts/lib/git-snapshot.js');
+    const tags = listPreEvictionTags(mindloreDir);
+    expect(tags).toEqual([]);
+  });
+
+  test('listPreEvictionTags returns created tags', async () => {
+    const { createPreEvictionTag, listPreEvictionTags } = await import('../scripts/lib/git-snapshot.js');
+    createPreEvictionTag(mindloreDir, 'alpha.md');
+    createPreEvictionTag(mindloreDir, 'beta.md');
+    const tags = listPreEvictionTags(mindloreDir);
+    expect(tags).toHaveLength(2);
+    expect(tags.some((t: string) => t.includes('alpha'))).toBe(true);
+    expect(tags.some((t: string) => t.includes('beta'))).toBe(true);
+  });
+
+  test('createPreEvictionTag returns null for non-git directory', async () => {
+    const { createPreEvictionTag } = await import('../scripts/lib/git-snapshot.js');
+    const nonGit = path.join(os.tmpdir(), `no-git-${Date.now()}`);
+    fs.mkdirSync(nonGit, { recursive: true });
+    try {
+      const tag = createPreEvictionTag(nonGit, 'test.md');
+      expect(tag).toBeNull();
+    } finally {
+      fs.rmSync(nonGit, { recursive: true, force: true });
+    }
+  });
+
+  test('listPreEvictionTags returns empty for non-git directory', async () => {
+    const { listPreEvictionTags } = await import('../scripts/lib/git-snapshot.js');
+    const nonGit = path.join(os.tmpdir(), `no-git-${Date.now()}`);
+    fs.mkdirSync(nonGit, { recursive: true });
+    try {
+      const tags = listPreEvictionTags(nonGit);
+      expect(tags).toEqual([]);
+    } finally {
+      fs.rmSync(nonGit, { recursive: true, force: true });
+    }
   });
 });
