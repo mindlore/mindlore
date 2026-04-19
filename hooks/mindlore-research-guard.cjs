@@ -103,13 +103,29 @@ function main() {
   if (toolName !== 'Agent') return;
 
   const toolInput = input.tool_input || {};
+
+  // Only block research/explore agents — let coder, code-reviewer, etc. pass
+  const RESEARCH_AGENT_TYPES = ['researcher', 'Explore'];
+  const subagentType = toolInput.subagent_type || '';
+  const description = (toolInput.description || '').toLowerCase();
+
+  // If subagent_type is set and NOT a research type, let it pass immediately
+  if (subagentType && !RESEARCH_AGENT_TYPES.includes(subagentType)) return;
+
+  // If no subagent_type, check description for research intent
+  const researchKeywords = ['research', 'explore', 'investigate', 'find', 'search', 'look up'];
+  const isResearchDescription = researchKeywords.some(kw => description.includes(kw));
+  if (!subagentType && !isResearchDescription) return;
+
   const prompt = (toolInput.prompt || '') + ' ' + (toolInput.description || '');
 
   // Skip mindlore internal operations and explicit overrides
   if (EXCLUDE_REGEX.test(prompt)) return;
 
-  // Only trigger on research-intent agents
-  if (!RESEARCH_REGEX.test(prompt)) return;
+  // If subagent_type is a known research type, skip prompt-level regex check
+  // Otherwise require research signals in the prompt text
+  const isKnownResearchType = RESEARCH_AGENT_TYPES.includes(subagentType);
+  if (!isKnownResearchType && !RESEARCH_REGEX.test(prompt)) return;
 
   const keywords = extractKeywords(prompt, 10);
   if (keywords.length < 2) return;
