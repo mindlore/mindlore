@@ -526,6 +526,8 @@ function main(): void {
 
   const isRecommended = args.includes('--recommended');
   const packageRoot = resolvePackageRoot();
+  // Resolution order: MINDLORE_HOME env var > ~/.mindlore/ (global default).
+  // Project-local .mindlore/ was removed in v0.3.3 and is migrated to .mindlore.bak/ below.
   const baseDir = GLOBAL_MINDLORE_DIR;
 
   console.log(`\n  Mindlore — AI-native knowledge system [global (~/.mindlore/)]\n`);

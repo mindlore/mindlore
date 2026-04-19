@@ -230,4 +230,40 @@ describe('contradiction module', () => {
       expect(results).toHaveLength(0);
     });
   });
+
+  describe('tag exact-prefix match (M2 regression)', () => {
+    test('"api" tag should not collide with "api-gateway" tag', () => {
+      const { detectContradictions } = loadModule();
+
+      writeFile('sources/api.md',
+        makeFrontmatter({ slug: 'api-doc', type: 'source', tags: '[api]' }) +
+        'REST API was released on 2024-01-01.\n'
+      );
+      writeFile('sources/gateway.md',
+        makeFrontmatter({ slug: 'gw-doc', type: 'source', tags: '[api-gateway]' }) +
+        'REST API was released on 2024-06-01.\n'
+      );
+
+      const results = detectContradictions(TEST_DIR);
+      const dateResults = results.filter(r => r.rule === 'date-contradiction');
+      expect(dateResults).toHaveLength(0);
+    });
+
+    test('exact tag match groups files correctly', () => {
+      const { detectContradictions } = loadModule();
+
+      writeFile('sources/a.md',
+        makeFrontmatter({ slug: 'a', type: 'source', tags: '[api]' }) +
+        'Service version 1.0.0 is live.\n'
+      );
+      writeFile('sources/b.md',
+        makeFrontmatter({ slug: 'b', type: 'source', tags: '[api]' }) +
+        'Service version 2.0.0 is live.\n'
+      );
+
+      const results = detectContradictions(TEST_DIR);
+      const versionResults = results.filter(r => r.rule === 'version-contradiction');
+      expect(versionResults.length).toBeGreaterThanOrEqual(1);
+    });
+  });
 });

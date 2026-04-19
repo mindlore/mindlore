@@ -64,6 +64,16 @@ describe('calculateDecayScore', () => {
     });
     expect(score).toBeLessThan(0.3);
   });
+
+  test('respects config.halfLifeDays when provided', () => {
+    const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString();
+    const input = { created_at: thirtyDaysAgo, last_recalled_at: null, recall_count: 0, importance: 1.0 };
+
+    const defaultScore = calculateDecayScore(input);
+    const longerHalfLife = calculateDecayScore(input, { halfLifeDays: 120 });
+
+    expect(longerHalfLife).toBeGreaterThan(defaultScore);
+  });
 });
 
 describe('archiveDocument / restoreDocument', () => {

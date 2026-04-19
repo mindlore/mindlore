@@ -212,6 +212,31 @@ describe('mindlore init', () => {
     expect(config.version).toBe('0.5.4');
   });
 
+  test('should handle v0.5.3 schema without logs/memory dirs gracefully', () => {
+    const env = { ...process.env, HOME: TEST_PROJECT, USERPROFILE: TEST_PROJECT };
+
+    // First init to get full structure
+    execSync(`node "${INIT_SCRIPT}" init`, { cwd: TEST_PROJECT, stdio: 'pipe', env });
+
+    const mindloreDir = path.join(TEST_PROJECT, '.mindlore');
+
+    // Remove logs/ and memory/ to simulate v0.5.3-style directory
+    fs.rmSync(path.join(mindloreDir, 'logs'), { recursive: true, force: true });
+    fs.rmSync(path.join(mindloreDir, 'memory'), { recursive: true, force: true });
+    expect(fs.existsSync(path.join(mindloreDir, 'logs'))).toBe(false);
+    expect(fs.existsSync(path.join(mindloreDir, 'memory'))).toBe(false);
+
+    // Re-run init — should recreate missing dirs without error
+    execSync(`node "${INIT_SCRIPT}" init`, { cwd: TEST_PROJECT, stdio: 'pipe', env });
+
+    expect(fs.existsSync(path.join(mindloreDir, 'logs'))).toBe(true);
+    expect(fs.existsSync(path.join(mindloreDir, 'memory'))).toBe(true);
+
+    // Existing dirs should still be intact
+    expect(fs.existsSync(path.join(mindloreDir, 'sources'))).toBe(true);
+    expect(fs.existsSync(path.join(mindloreDir, 'domains'))).toBe(true);
+  });
+
   test('--global should create ~/.mindlore/ instead of project .mindlore/', () => {
     const globalDir = path.join(TEST_PROJECT, '.mindlore');
     const env = { ...process.env, HOME: TEST_PROJECT, USERPROFILE: TEST_PROJECT };

@@ -4,6 +4,11 @@ import { DECAY_HALF_LIFE_DAYS, STALE_THRESHOLD } from './constants.js';
 
 type Database = BetterSqlite3.Database;
 
+export interface DecayConfig {
+  halfLifeDays?: number;
+  staleThreshold?: number;
+}
+
 interface DecayInput {
   created_at: string;
   last_recalled_at: string | null;
@@ -19,14 +24,15 @@ interface StaleDocument {
   created_at: string;
 }
 
-export function calculateDecayScore(input: DecayInput): number {
+export function calculateDecayScore(input: DecayInput, config?: DecayConfig): number {
+  const halfLife = config?.halfLifeDays ?? DECAY_HALF_LIFE_DAYS;
   const now = Date.now();
   const lastAccess = input.last_recalled_at
     ? new Date(input.last_recalled_at).getTime()
     : new Date(input.created_at).getTime();
 
   const daysSinceAccess = (now - lastAccess) / (1000 * 60 * 60 * 24);
-  const timeDecay = Math.pow(0.5, daysSinceAccess / DECAY_HALF_LIFE_DAYS);
+  const timeDecay = Math.pow(0.5, daysSinceAccess / halfLife);
   const accessBoost = Math.min(1.0, Math.log2(input.recall_count + 1) / 5);
   const score = (timeDecay * 0.6 + accessBoost * 0.4) * input.importance;
 
@@ -45,7 +51,8 @@ export function restoreDocument(db: Database, filePath: string): void {
   ).run(filePath);
 }
 
-export function listStaleDocuments(db: Database, threshold: number = STALE_THRESHOLD): StaleDocument[] {
+export function listStaleDocuments(db: Database, threshold?: number, config?: DecayConfig): StaleDocument[] {
+  const effectiveThreshold = threshold ?? config?.staleThreshold ?? STALE_THRESHOLD;
   const rows = dbAll<{
     path: string;
     recall_count: number;
@@ -69,8 +76,8 @@ export function listStaleDocuments(db: Database, threshold: number = STALE_THRES
       last_recalled_at: row.last_recalled_at,
       recall_count: row.recall_count ?? 0,
       importance: row.importance,
-    });
-    if (score < threshold) {
+    }, config);
+    if (score < effectiveThreshold) {
       stale.push({ ...row, decay_score: score, created_at });
     }
   }
