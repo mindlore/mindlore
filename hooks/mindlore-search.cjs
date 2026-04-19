@@ -33,6 +33,9 @@ function searchDb(dbPath, keywords) {
   const results = [];
 
   // v0.5.0: Try hybrid search with synonym expansion (no embedding — hooks are sync)
+  if (!hybridSearchMod) {
+    hookLog('search', 'info', 'No hybridSearchMod — FTS5-only mode');
+  }
   if (hybridSearchMod && loadSqliteVecCjs(db) && hasVecTableCjs(db)) {
     try {
       const config = readConfig(baseDir);
@@ -76,8 +79,8 @@ function searchDb(dbPath, keywords) {
         db.close();
         return results;
       }
-    } catch (_err) {
-      // Hybrid search failed — fall through to FTS5
+    } catch (hybridErr) {
+      hookLog('search', 'warn', `Hybrid search fallback to FTS5: ${hybridErr?.message || hybridErr}`);
     }
   }
 

@@ -137,6 +137,13 @@ describe('Search Hook — DB Access Pattern', () => {
     const rawDbCalls = (hookSource.match(/new Database\(/g) || []).length;
     expect(rawDbCalls).toBe(0);
   });
+
+  it('should log when falling back from hybrid to FTS5', () => {
+    const hookSource = fs.readFileSync(
+      path.join(__dirname, '..', 'hooks', 'mindlore-search.cjs'), 'utf8'
+    );
+    expect(hookSource).toContain("hookLog('search'");
+  });
 });
 
 describe('Search Hook Hybrid Integration', () => {
