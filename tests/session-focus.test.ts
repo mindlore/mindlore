@@ -192,6 +192,80 @@ describe('Session Focus Hook', () => {
   });
 });
 
+describe('session-payload integration', () => {
+  test('should still inject INDEX when session-payload module is available', () => {
+    createMindloreDir();
+
+    const output = execSync(`node "${HOOK_PATH}"`, {
+      cwd: TEST_DIR,
+      encoding: 'utf8',
+      timeout: 5000,
+      env: { ...process.env, MINDLORE_HOME: path.join(TEST_DIR, '.mindlore') },
+    });
+
+    // INDEX must always be present regardless of session-payload
+    expect(output).toContain('[Mindlore INDEX]');
+  });
+
+  test('should not inject old-style Episodes or Hook Alerts sections', () => {
+    createMindloreDir();
+
+    const output = execSync(`node "${HOOK_PATH}"`, {
+      cwd: TEST_DIR,
+      encoding: 'utf8',
+      timeout: 5000,
+      env: { ...process.env, MINDLORE_HOME: path.join(TEST_DIR, '.mindlore') },
+    });
+
+    // Old scattered sections should no longer appear
+    expect(output).not.toContain('[Mindlore Episodes]');
+    expect(output).not.toContain('[Mindlore Recent Activity]');
+    expect(output).not.toContain('[Mindlore Hook Alerts]');
+  });
+
+  test('should produce session-payload sections when DB has episode data', () => {
+    const mindloreDir = createMindloreDir();
+
+    // Create a DB with episodes for session-payload to find
+    const { createEpisodesTestEnv, destroyEpisodesTestEnv } = require('./helpers/db.js');
+    const { createEpisode } = require('../scripts/lib/episodes.js');
+    const env = createEpisodesTestEnv('session-payload-hook');
+
+    // Copy the test DB to the .mindlore dir so the hook finds it
+    const dbSrcPath = path.join(env.tmpDir, 'test.db');
+    const dbDestPath = path.join(mindloreDir, 'mindlore.db');
+
+    // Insert test episodes
+    createEpisode(env.db, {
+      kind: 'decision',
+      summary: 'Use session-payload module',
+      project: path.basename(TEST_DIR),
+      source: 'test',
+    });
+    createEpisode(env.db, {
+      kind: 'friction',
+      summary: 'Scattered injection was messy',
+      project: path.basename(TEST_DIR),
+      source: 'test',
+    });
+
+    env.db.close();
+    fs.copyFileSync(dbSrcPath, dbDestPath);
+    destroyEpisodesTestEnv(env);
+
+    const output = execSync(`node "${HOOK_PATH}"`, {
+      cwd: TEST_DIR,
+      encoding: 'utf8',
+      timeout: 10000,
+      env: { ...process.env, MINDLORE_HOME: mindloreDir },
+    });
+
+    expect(output).toContain('[Mindlore INDEX]');
+    // Session-payload sections use labels: Session, Decisions, Friction, Learnings
+    expect(output).toContain('[Mindlore Session]');
+  });
+});
+
 describe('enriched multi-session inject', () => {
   const { queryMultiSessionEpisodes, formatMultiSessionEpisodes } = require('../hooks/lib/mindlore-common.cjs');
   const { createEpisodesTestEnv, destroyEpisodesTestEnv } = require('./helpers/db.js');

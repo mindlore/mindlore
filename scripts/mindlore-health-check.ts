@@ -12,6 +12,7 @@ import fs from 'fs';
 import path from 'path';
 import { DIRECTORIES, TYPE_TO_DIR, DB_NAME, GLOBAL_MINDLORE_DIR, resolveHookCommon, isContentFile, CC_MEMORY_CATEGORY } from './lib/constants.js';
 import { dbGet, dbAll, withReadonlyDb } from './lib/db-helpers.js';
+import { detectContradictions } from './lib/contradiction.js';
 import type BetterSqlite3 from 'better-sqlite3';
 
 type Database = BetterSqlite3.Database;
@@ -427,6 +428,17 @@ class HealthChecker {
     }));
   }
 
+  checkContradictions(): void {
+    this.check('content contradictions', () => {
+      const contradictions = detectContradictions(this.baseDir);
+      if (contradictions.length === 0) {
+        return { ok: true, detail: 'No content contradictions detected' };
+      }
+      const summary = contradictions.slice(0, 3).map(c => `[${c.rule}] ${c.detail}`).join('; ');
+      return { warn: true, detail: `${contradictions.length} contradiction(s): ${summary}` };
+    });
+  }
+
   checkConsolidation(): void {
     this.check('episode consolidation', () => this.withCheckedDb((db) => {
       try {
@@ -459,6 +471,7 @@ class HealthChecker {
     this.checkSkillMemoryTable();
     this.checkDecayStats();
     this.checkConsolidation();
+    this.checkContradictions();
     return this;
   }
 

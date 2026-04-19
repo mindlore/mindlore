@@ -13,10 +13,13 @@ import {
   archiveDocument,
   restoreDocument,
   listStaleDocuments,
+  persistDecayScores,
 } from '../scripts/lib/decay.js';
+import { ensureEpisodesTable } from '../scripts/lib/episodes.js';
 
 function createDecayTestDb(dbPath: string): Database.Database {
   const db = createTestDb(dbPath);
+  ensureEpisodesTable(db);
   ensureSchemaTable(db);
   runMigrations(db, [
     ...V050_MIGRATIONS,
@@ -60,6 +63,16 @@ describe('calculateDecayScore', () => {
       importance: 1.0,
     });
     expect(score).toBeLessThan(0.3);
+  });
+
+  test('respects config.halfLifeDays when provided', () => {
+    const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString();
+    const input = { created_at: thirtyDaysAgo, last_recalled_at: null, recall_count: 0, importance: 1.0 };
+
+    const defaultScore = calculateDecayScore(input);
+    const longerHalfLife = calculateDecayScore(input, { halfLifeDays: 120 });
+
+    expect(longerHalfLife).toBeGreaterThan(defaultScore);
   });
 });
 
@@ -115,5 +128,58 @@ describe('listStaleDocuments', () => {
     if (stale.length > 1) {
       expect(stale[0]!.decay_score).toBeLessThanOrEqual(stale[stale.length - 1]!.decay_score);
     }
+  });
+});
+
+describe('persistDecayScores', () => {
+  test('should write decay_score and last_decay_calc to episodes', () => {
+    db.prepare(`INSERT INTO episodes (id, kind, scope, summary, created_at)
+      VALUES ('test-decay-1', 'learning', 'project', 'test', datetime('now'))`).run();
+
+    persistDecayScores(db);
+
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- better-sqlite3 .get() returns unknown
+    const row = db.prepare('SELECT decay_score, last_decay_calc FROM episodes WHERE id = ?').get('test-decay-1') as { decay_score: number; last_decay_calc: string };
+    expect(row.decay_score).toBeGreaterThanOrEqual(0);
+    expect(row.decay_score).toBeLessThanOrEqual(1);
+    expect(row.last_decay_calc).toBeTruthy();
+  });
+
+  test('should return count of updated episodes', () => {
+    db.prepare(`INSERT INTO episodes (id, kind, scope, summary, created_at)
+      VALUES ('test-decay-2', 'decision', 'project', 'decision test', datetime('now'))`).run();
+    db.prepare(`INSERT INTO episodes (id, kind, scope, summary, created_at)
+      VALUES ('test-decay-3', 'observation', 'project', 'obs test', datetime('now'))`).run();
+
+    const count = persistDecayScores(db);
+    expect(count).toBe(2);
+  });
+
+  test('should skip non-active episodes', () => {
+    db.prepare(`INSERT INTO episodes (id, kind, scope, summary, status, created_at)
+      VALUES ('test-decay-4', 'learning', 'project', 'archived', 'archived', datetime('now'))`).run();
+
+    const count = persistDecayScores(db);
+    expect(count).toBe(0);
+
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- better-sqlite3 .get() returns unknown
+    const row = db.prepare('SELECT decay_score FROM episodes WHERE id = ?').get('test-decay-4') as { decay_score: number | null };
+    expect(row.decay_score).toBeNull();
+  });
+
+  test('should assign higher importance to learning and decision kinds', () => {
+    const oldDate = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString();
+    db.prepare(`INSERT INTO episodes (id, kind, scope, summary, created_at)
+      VALUES ('decay-learn', 'learning', 'project', 'learn', ?)`).run(oldDate);
+    db.prepare(`INSERT INTO episodes (id, kind, scope, summary, created_at)
+      VALUES ('decay-obs', 'observation', 'project', 'obs', ?)`).run(oldDate);
+
+    persistDecayScores(db);
+
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- better-sqlite3 .get() returns unknown
+    const learn = db.prepare('SELECT decay_score FROM episodes WHERE id = ?').get('decay-learn') as { decay_score: number };
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- better-sqlite3 .get() returns unknown
+    const obs = db.prepare('SELECT decay_score FROM episodes WHERE id = ?').get('decay-obs') as { decay_score: number };
+    expect(learn.decay_score).toBeGreaterThan(obs.decay_score);
   });
 });

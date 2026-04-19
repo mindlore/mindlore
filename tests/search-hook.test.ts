@@ -1,3 +1,4 @@
+import fs from 'fs';
 import path from 'path';
 import Database from 'better-sqlite3';
 import { createTestDb, insertFts, setupTestDir, teardownTestDir } from './helpers/db.js';
@@ -128,6 +129,23 @@ describe('Search Hook — FTS5 Query', () => {
   });
 });
 
+describe('Search Hook — DB Access Pattern', () => {
+  it('search hook should use openDatabase (WAL + busy_timeout)', () => {
+    const hookSource = fs.readFileSync(
+      path.join(__dirname, '..', 'hooks', 'mindlore-search.cjs'), 'utf8'
+    );
+    const rawDbCalls = (hookSource.match(/new Database\(/g) || []).length;
+    expect(rawDbCalls).toBe(0);
+  });
+
+  it('should log when falling back from hybrid to FTS5', () => {
+    const hookSource = fs.readFileSync(
+      path.join(__dirname, '..', 'hooks', 'mindlore-search.cjs'), 'utf8'
+    );
+    expect(hookSource).toContain("hookLog('search'");
+  });
+});
+
 describe('Search Hook Hybrid Integration', () => {
   test('should fall back gracefully when hybrid search is not available', () => {
     // Simulate hook's search function — pure FTS5 path
@@ -182,5 +200,35 @@ describe('Search Hook Hybrid Integration', () => {
     expect(results).toHaveLength(0);
 
     db.close();
+  });
+});
+
+describe('Search Hook — Synonym Loader Verification', () => {
+  test('loadSynonyms and expandQuery work with config synonyms', () => {
+    const { loadSynonyms, expandQuery } = require('../scripts/lib/synonym.js');
+    const config = { synonyms: { auth: ['authentication', 'login'] } };
+    const synonyms = loadSynonyms(config);
+    expect(Object.keys(synonyms).length).toBe(1);
+    const expanded = expandQuery('auth token', synonyms);
+    expect(expanded).toContain('auth');
+    expect(expanded).toContain('authentication');
+    expect(expanded).toContain('login');
+    expect(expanded).toContain('token');
+  });
+
+  test('loadSynonyms returns empty map for missing config', () => {
+    const { loadSynonyms } = require('../scripts/lib/synonym.js');
+    expect(loadSynonyms({})).toEqual({});
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- testing null guard
+    expect(loadSynonyms(null as unknown as Record<string, unknown>)).toEqual({});
+  });
+
+  test('search hook contains inline synonym expansion logic', () => {
+    const hookSource = fs.readFileSync(
+      path.join(__dirname, '..', 'hooks', 'mindlore-search.cjs'), 'utf8'
+    );
+    expect(hookSource).toContain('config.synonyms');
+    expect(hookSource).toContain('synonyms[lower]');
+    expect(hookSource).toContain('expandedTerms.push');
   });
 });

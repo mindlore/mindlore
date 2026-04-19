@@ -10,7 +10,7 @@
 
 const fs = require('fs');
 const path = require('path');
-const { getAllDbs, requireDatabase, extractHeadings, readHookStdin, extractKeywords, sanitizeKeyword, readConfig, loadSqliteVecCjs, hasVecTableCjs, hookLog, incrementRecallCount } = require('./lib/mindlore-common.cjs');
+const { getAllDbs, openDatabase, extractHeadings, readHookStdin, extractKeywords, sanitizeKeyword, readConfig, loadSqliteVecCjs, hasVecTableCjs, hookLog, incrementRecallCount } = require('./lib/mindlore-common.cjs');
 
 const MAX_RESULTS = 3;
 const MIN_QUERY_WORDS = 3;
@@ -26,12 +26,16 @@ try {
 /**
  * Search a single DB and return scored results with their baseDir.
  */
-function searchDb(dbPath, keywords, Database) {
+function searchDb(dbPath, keywords) {
   const baseDir = path.dirname(dbPath);
-  const db = new Database(dbPath, { readonly: true });
+  const db = openDatabase(dbPath, { readonly: true });
+  if (!db) return [];
   const results = [];
 
   // v0.5.0: Try hybrid search with synonym expansion (no embedding — hooks are sync)
+  if (!hybridSearchMod) {
+    hookLog('search', 'info', 'No hybridSearchMod — FTS5-only mode');
+  }
   if (hybridSearchMod && loadSqliteVecCjs(db) && hasVecTableCjs(db)) {
     try {
       const config = readConfig(baseDir);
@@ -75,8 +79,8 @@ function searchDb(dbPath, keywords, Database) {
         db.close();
         return results;
       }
-    } catch (_err) {
-      // Hybrid search failed — fall through to FTS5
+    } catch (hybridErr) {
+      hookLog('search', 'warn', `Hybrid search fallback to FTS5: ${hybridErr?.message || hybridErr}`);
     }
   }
 
@@ -145,12 +149,9 @@ function main() {
   const keywords = extractKeywords(userMessage);
   if (keywords.length < MIN_QUERY_WORDS) return;
 
-  const Database = requireDatabase();
-  if (!Database) return;
-
   const allScores = [];
   for (const dbPath of dbPaths) {
-    allScores.push(...searchDb(dbPath, keywords, Database));
+    allScores.push(...searchDb(dbPath, keywords));
   }
 
   // Sort: most keyword hits first, then best rank
@@ -171,12 +172,14 @@ function main() {
   if (relevant.length === 0) return;
 
   try {
-    const db = new Database(dbPaths[0]);
-    const txn = db.transaction(() => {
-      for (const r of relevant) incrementRecallCount(db, r.path);
-    });
-    txn();
-    db.close();
+    const db = openDatabase(dbPaths[0]);
+    if (db) {
+      const txn = db.transaction(() => {
+        for (const r of relevant) incrementRecallCount(db, r.path);
+      });
+      txn();
+      db.close();
+    }
   } catch (_e) { /* graceful — never block search output */ }
 
   // Populate headings only for final results (avoid reading extra files)
@@ -222,7 +225,8 @@ function main() {
   if (relevant.length < MAX_RESULTS) {
     for (const dbPath of dbPaths) {
       try {
-        const db = new Database(dbPath, { readonly: true });
+        const db = openDatabase(dbPath, { readonly: true });
+        if (!db) continue;
         const episodeResults = searchEpisodesFts(db, keywords);
         db.close();
         if (episodeResults.length > 0) {

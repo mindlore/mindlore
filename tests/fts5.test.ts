@@ -3,6 +3,19 @@ import Database from 'better-sqlite3';
 import { createTestDb, insertFts, setupTestDir, teardownTestDir } from './helpers/db.js';
 import { dbAll, dbGet } from '../scripts/lib/db-helpers.js';
 
+interface TimestampRow {
+  created_at: string | null;
+  updated_at: string | null;
+}
+
+interface ProjectScopeRow {
+  project_scope: string | null;
+}
+
+interface ImportanceRow {
+  importance: number;
+}
+
 const TEST_DIR = path.join(__dirname, '..', '.test-mindlore-fts5');
 const DB_PATH = path.join(TEST_DIR, 'mindlore.db');
 
@@ -153,6 +166,39 @@ describe('FTS5 Database', () => {
   });
 });
 
+describe('openDatabaseTs', () => {
+  test('should set WAL + busy_timeout for writable DB', () => {
+    const { openDatabaseTs } = require('../scripts/lib/db-helpers.js');
+    const db = openDatabaseTs(DB_PATH);
+    if (!db) throw new Error('DB not opened');
+    const walMode = db.pragma('journal_mode', { simple: true });
+    expect(walMode).toBe('wal');
+    const timeout = db.pragma('busy_timeout', { simple: true });
+    expect(timeout).toBe(5000);
+    db.close();
+  });
+
+  test('readonly should NOT set WAL', () => {
+    const { openDatabaseTs } = require('../scripts/lib/db-helpers.js');
+    const db = openDatabaseTs(DB_PATH, { readonly: true });
+    if (!db) throw new Error('DB not opened');
+    db.close();
+  });
+});
+
+describe('openDatabase CJS', () => {
+  test('should set WAL mode and busy_timeout on writable DB', () => {
+    const { openDatabase } = require('../hooks/lib/mindlore-common.cjs');
+    const db = openDatabase(DB_PATH);
+    if (!db) throw new Error('DB not opened');
+    const walMode = db.pragma('journal_mode', { simple: true });
+    expect(walMode).toBe('wal');
+    const timeout = db.pragma('busy_timeout', { simple: true });
+    expect(timeout).toBe(5000);
+    db.close();
+  });
+});
+
 describe('Index with Embedding', () => {
   test('should populate vec table when sqlite-vec is loaded', () => {
     const { loadSqliteVec, ensureVecTable, hasVecTable: hasVec } = require('../scripts/lib/db-helpers.js');
@@ -233,6 +279,188 @@ describe('Vec Table', () => {
 
     // Without loadSqliteVec, ensureVecTable should handle gracefully
     expect(() => ensureVecTable(db)).not.toThrow();
+
+    db.close();
+  });
+});
+
+describe('Timestamp columns', () => {
+  test('should write created_at on first index, updated_at on re-index', () => {
+    const { createTestDbWithMigrations } = require('./helpers/db.js');
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- test helper returns Database
+    const db = createTestDbWithMigrations(DB_PATH) as import('better-sqlite3').Database;
+
+    const testPath = path.join(TEST_DIR, 'sources', 'test-timestamps.md');
+    const hash1 = 'aaa111';
+    const now1 = '2026-04-19T10:00:00.000Z';
+
+    // Simulate first index: INSERT with created_at, no updated_at
+    const upsertHash = db.prepare(`
+      INSERT INTO file_hashes (path, content_hash, last_indexed, created_at)
+      VALUES (?, ?, ?, datetime('now'))
+      ON CONFLICT(path) DO UPDATE SET
+        content_hash = excluded.content_hash,
+        last_indexed = excluded.last_indexed,
+        updated_at = datetime('now')
+    `);
+
+    upsertHash.run(testPath, hash1, now1);
+
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- better-sqlite3 .get() returns unknown
+    const row1 = db.prepare('SELECT created_at, updated_at FROM file_hashes WHERE path = ?').get(testPath) as TimestampRow;
+    expect(row1.created_at).toBeTruthy();
+    expect(row1.updated_at).toBeNull(); // First index, no update yet
+
+    // Simulate re-index with different hash: triggers ON CONFLICT UPDATE
+    const hash2 = 'bbb222';
+    const now2 = '2026-04-19T11:00:00.000Z';
+    upsertHash.run(testPath, hash2, now2);
+
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- better-sqlite3 .get() returns unknown
+    const row2 = db.prepare('SELECT created_at, updated_at FROM file_hashes WHERE path = ?').get(testPath) as TimestampRow;
+    expect(row2.created_at).toBe(row1.created_at); // created_at shouldn't change
+    expect(row2.updated_at).toBeTruthy(); // updated_at should now be set
+
+    db.close();
+  });
+});
+
+describe('Project scope on index', () => {
+  test('should write project_scope on index', () => {
+    const { createTestDbWithMigrations } = require('./helpers/db.js');
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- test helper returns Database
+    const db = createTestDbWithMigrations(DB_PATH) as import('better-sqlite3').Database;
+
+    const testPath = path.join(TEST_DIR, 'sources', 'test-scope.md');
+    const hash = 'abc123';
+    const now = '2026-04-19T12:00:00.000Z';
+    const projectName = 'test-project';
+
+    const upsertHash = db.prepare(`
+      INSERT INTO file_hashes (path, content_hash, last_indexed, created_at, project_scope)
+      VALUES (?, ?, ?, datetime('now'), ?)
+      ON CONFLICT(path) DO UPDATE SET
+        content_hash = excluded.content_hash,
+        last_indexed = excluded.last_indexed,
+        updated_at = datetime('now'),
+        project_scope = excluded.project_scope
+    `);
+
+    upsertHash.run(testPath, hash, now, projectName);
+
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- better-sqlite3 .get() returns unknown
+    const row = db.prepare('SELECT project_scope FROM file_hashes WHERE path = ?').get(testPath) as ProjectScopeRow;
+    expect(row.project_scope).toBeTruthy();
+    expect(typeof row.project_scope).toBe('string');
+    expect(row.project_scope).toBe('test-project');
+
+    db.close();
+  });
+});
+
+describe('Quality to importance mapping', () => {
+  test('should map quality high to importance 1.0', () => {
+    const { createTestDbWithMigrations } = require('./helpers/db.js');
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- test helper returns Database
+    const db = createTestDbWithMigrations(DB_PATH) as import('better-sqlite3').Database;
+
+    const testPath = path.join(TEST_DIR, 'sources', 'test-importance-high.md');
+    const upsertHash = db.prepare(`
+      INSERT INTO file_hashes (path, content_hash, last_indexed, created_at, project_scope, importance)
+      VALUES (?, ?, ?, datetime('now'), ?, ?)
+      ON CONFLICT(path) DO UPDATE SET
+        content_hash = excluded.content_hash,
+        last_indexed = excluded.last_indexed,
+        updated_at = datetime('now'),
+        project_scope = excluded.project_scope,
+        importance = excluded.importance
+    `);
+
+    // Simulate indexer: quality 'high' -> importance 1.0
+    upsertHash.run(testPath, 'aaa', '2026-04-19T10:00:00.000Z', 'test', 1.0);
+
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- better-sqlite3 .get() returns unknown
+    const row = db.prepare('SELECT importance FROM file_hashes WHERE path = ?').get(testPath) as ImportanceRow;
+    expect(row.importance).toBe(1.0);
+
+    db.close();
+  });
+
+  test('should map quality medium to importance 0.6', () => {
+    const { createTestDbWithMigrations } = require('./helpers/db.js');
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- test helper returns Database
+    const db = createTestDbWithMigrations(DB_PATH) as import('better-sqlite3').Database;
+
+    const testPath = path.join(TEST_DIR, 'sources', 'test-importance-medium.md');
+    const upsertHash = db.prepare(`
+      INSERT INTO file_hashes (path, content_hash, last_indexed, created_at, project_scope, importance)
+      VALUES (?, ?, ?, datetime('now'), ?, ?)
+      ON CONFLICT(path) DO UPDATE SET
+        content_hash = excluded.content_hash,
+        last_indexed = excluded.last_indexed,
+        updated_at = datetime('now'),
+        project_scope = excluded.project_scope,
+        importance = excluded.importance
+    `);
+
+    upsertHash.run(testPath, 'bbb', '2026-04-19T10:00:00.000Z', 'test', 0.6);
+
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- better-sqlite3 .get() returns unknown
+    const row = db.prepare('SELECT importance FROM file_hashes WHERE path = ?').get(testPath) as ImportanceRow;
+    expect(row.importance).toBe(0.6);
+
+    db.close();
+  });
+
+  test('should map quality low to importance 0.3', () => {
+    const { createTestDbWithMigrations } = require('./helpers/db.js');
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- test helper returns Database
+    const db = createTestDbWithMigrations(DB_PATH) as import('better-sqlite3').Database;
+
+    const testPath = path.join(TEST_DIR, 'sources', 'test-importance-low.md');
+    const upsertHash = db.prepare(`
+      INSERT INTO file_hashes (path, content_hash, last_indexed, created_at, project_scope, importance)
+      VALUES (?, ?, ?, datetime('now'), ?, ?)
+      ON CONFLICT(path) DO UPDATE SET
+        content_hash = excluded.content_hash,
+        last_indexed = excluded.last_indexed,
+        updated_at = datetime('now'),
+        project_scope = excluded.project_scope,
+        importance = excluded.importance
+    `);
+
+    upsertHash.run(testPath, 'ccc', '2026-04-19T10:00:00.000Z', 'test', 0.3);
+
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- better-sqlite3 .get() returns unknown
+    const row = db.prepare('SELECT importance FROM file_hashes WHERE path = ?').get(testPath) as ImportanceRow;
+    expect(row.importance).toBe(0.3);
+
+    db.close();
+  });
+
+  test('should default importance to 0.5 when quality is missing', () => {
+    const { createTestDbWithMigrations } = require('./helpers/db.js');
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- test helper returns Database
+    const db = createTestDbWithMigrations(DB_PATH) as import('better-sqlite3').Database;
+
+    const testPath = path.join(TEST_DIR, 'sources', 'test-no-quality.md');
+    const upsertHash = db.prepare(`
+      INSERT INTO file_hashes (path, content_hash, last_indexed, created_at, project_scope, importance)
+      VALUES (?, ?, ?, datetime('now'), ?, ?)
+      ON CONFLICT(path) DO UPDATE SET
+        content_hash = excluded.content_hash,
+        last_indexed = excluded.last_indexed,
+        updated_at = datetime('now'),
+        project_scope = excluded.project_scope,
+        importance = excluded.importance
+    `);
+
+    // quality undefined -> default 0.5
+    upsertHash.run(testPath, 'ddd', '2026-04-19T10:00:00.000Z', 'test', 0.5);
+
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- better-sqlite3 .get() returns unknown
+    const row = db.prepare('SELECT importance FROM file_hashes WHERE path = ?').get(testPath) as ImportanceRow;
+    expect(row.importance).toBe(0.5);
 
     db.close();
   });

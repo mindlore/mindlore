@@ -103,13 +103,36 @@ function main() {
   if (toolName !== 'Agent') return;
 
   const toolInput = input.tool_input || {};
+
+  // Only block agents with web access — let local-only agents pass
+  const WEB_CAPABLE_TYPES = ['researcher', 'general-purpose'];
+  const LOCAL_ONLY_TYPES = [
+    'Explore', 'coder', 'code-reviewer', 'Plan',
+    'bug-analyzer', 'security-reviewer', 'contrarian',
+    'scope-guardian', 'quality-gate', 'test-runner',
+  ];
+  const subagentType = toolInput.subagent_type || '';
+  const description = (toolInput.description || '').toLowerCase();
+
+  // Known local-only agent → always pass
+  if (LOCAL_ONLY_TYPES.includes(subagentType)) return;
+
+  // Known web-capable agent → continue to FTS5 check
+  // Unknown or empty subagent_type → check description for research intent
+  if (subagentType && !WEB_CAPABLE_TYPES.includes(subagentType)) return;
+
+  // If no subagent_type, check description for web research intent (reuse RESEARCH_REGEX)
+  if (!subagentType && !RESEARCH_REGEX.test(description)) return;
+
   const prompt = (toolInput.prompt || '') + ' ' + (toolInput.description || '');
 
   // Skip mindlore internal operations and explicit overrides
   if (EXCLUDE_REGEX.test(prompt)) return;
 
-  // Only trigger on research-intent agents
-  if (!RESEARCH_REGEX.test(prompt)) return;
+  // If subagent_type is a known research type, skip prompt-level regex check
+  // Otherwise require research signals in the prompt text
+  const isKnownResearchType = WEB_CAPABLE_TYPES.includes(subagentType);
+  if (!isKnownResearchType && !RESEARCH_REGEX.test(prompt)) return;
 
   const keywords = extractKeywords(prompt, 10);
   if (keywords.length < 2) return;

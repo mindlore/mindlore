@@ -1,5 +1,5 @@
 {
-  "version": "0.5.3",
+  "version": "0.5.4",
   "models": {
     "ingest": "haiku",
     "evolve": "sonnet",
@@ -13,14 +13,7 @@
     "max_episodes": 3,
     "multi_session_days": 3
   },
-  "synonyms": {
-    "auth": ["authentication", "login", "kimlik doğrulama"],
-    "güvenlik": ["security", "hardening", "sertleştirme"],
-    "db": ["database", "veritabanı", "sqlite"],
-    "api": ["endpoint", "rest", "graphql"],
-    "ui": ["frontend", "arayüz", "interface"],
-    "test": ["testing", "jest", "unit test"]
-  },
+  "synonyms": {},
   "hybrid": {
     "enabled": true,
     "ftsWeight": 0.4,
@@ -38,5 +31,14 @@
   },
   "consolidation": {
     "threshold": 50
+  },
+  "backup": {
+    "autoOnSessionEnd": false,
+    "remote": null
+  },
+  "reminders": {
+    "diaryReflectThreshold": 10,
+    "consolidationThreshold": 50,
+    "evolveIntervalDays": 30
   }
 }

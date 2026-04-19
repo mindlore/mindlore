@@ -186,14 +186,20 @@ function requireDatabase() {
 }
 
 function openDatabase(dbPath, opts) {
-  const Database = requireDatabase();
-  if (!Database) return null;
-
-  const db = new Database(dbPath, opts);
-  if (!opts || !opts.readonly) {
-    db.pragma('journal_mode = WAL');
+  try {
+    const Database = requireDatabase();
+    if (!Database) return null;
+    if (!fs.existsSync(dbPath)) return null;
+    const readonly = opts?.readonly ?? false;
+    const db = new Database(dbPath, { readonly });
+    if (!readonly) {
+      db.pragma('journal_mode = WAL');
+      db.pragma('busy_timeout = 5000');
+    }
+    return db;
+  } catch (_err) {
+    return null;
   }
-  return db;
 }
 
 function getAllMdFiles(dir, skip) {

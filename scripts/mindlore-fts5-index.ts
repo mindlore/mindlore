@@ -53,6 +53,17 @@ interface FileToEmbed {
   text: string;
 }
 
+// ── Helpers ──────────────────────────────────────────────────────────
+
+function qualityToImportance(quality: string | undefined | null): number {
+  switch (quality) {
+    case 'high': return 1.0;
+    case 'medium': return 0.6;
+    case 'low': return 0.3;
+    default: return 0.5;
+  }
+}
+
 // ── Main ───────────────────────────────────────────────────────────────
 
 async function main(): Promise<void> {
@@ -91,12 +102,16 @@ async function main(): Promise<void> {
     ? new Set(dbAll<{ slug: string }>(db, 'SELECT slug FROM documents_vec').map((r) => r.slug))
     : new Set<string>();
 
+  const projectName = path.basename(process.cwd());
   const upsertHash = db.prepare(`
-    INSERT INTO file_hashes (path, content_hash, last_indexed)
-    VALUES (?, ?, ?)
+    INSERT INTO file_hashes (path, content_hash, last_indexed, created_at, project_scope, importance)
+    VALUES (?, ?, ?, datetime('now'), ?, ?)
     ON CONFLICT(path) DO UPDATE SET
       content_hash = excluded.content_hash,
-      last_indexed = excluded.last_indexed
+      last_indexed = excluded.last_indexed,
+      updated_at = datetime('now'),
+      project_scope = excluded.project_scope,
+      importance = excluded.importance
   `);
   const deleteFts = db.prepare('DELETE FROM mindlore_fts WHERE path = ?');
   const getHash = db.prepare('SELECT content_hash FROM file_hashes WHERE path = ?');
@@ -107,7 +122,6 @@ async function main(): Promise<void> {
   let errors = 0;
 
   const now = new Date().toISOString();
-  const project = path.basename(process.cwd());
 
   // Collect files that need embedding (processed after FTS5 transaction)
   const toEmbed: FileToEmbed[] = [];
@@ -144,9 +158,9 @@ async function main(): Promise<void> {
         const { slug, description, type, category, title, tags, quality, dateCaptured } =
           extractFtsMetadata(meta, body, filePath, baseDir);
         deleteFts.run(filePath);
-        insertFtsRow(db, { path: filePath, slug, description, type, category, title, content: body, tags, quality, dateCaptured, project });
+        insertFtsRow(db, { path: filePath, slug, description, type, category, title, content: body, tags, quality, dateCaptured, project: projectName });
 
-        upsertHash.run(filePath, hash, now);
+        upsertHash.run(filePath, hash, now, projectName, qualityToImportance(quality));
         indexed++;
 
         // Queue for embedding

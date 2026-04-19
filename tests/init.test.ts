@@ -18,7 +18,7 @@ afterEach(() => {
 });
 
 describe('mindlore init', () => {
-  test('should create 9 directories under .mindlore/', () => {
+  test('should create 11 directories under .mindlore/', () => {
     execSync(`node "${INIT_SCRIPT}" init`, {
       cwd: TEST_PROJECT,
       stdio: 'pipe',
@@ -30,7 +30,7 @@ describe('mindlore init', () => {
 
     const expectedDirs = [
       'raw', 'sources', 'domains', 'analyses', 'insights',
-      'connections', 'learnings', 'diary', 'decisions',
+      'connections', 'learnings', 'diary', 'decisions', 'logs', 'memory',
     ];
 
     for (const dir of expectedDirs) {
@@ -195,6 +195,48 @@ describe('mindlore init', () => {
     expect(fs.existsSync(path.join(homeDir, '.mindlore'))).toBe(true);
   });
 
+  test('should list all CLI subcommands', () => {
+    const initSource = fs.readFileSync(path.join(__dirname, '..', 'scripts', 'init.ts'), 'utf8');
+    const required = ['health', 'search', 'index', 'quality', 'backup', 'obsidian', 'episodes', 'memory-sync', 'fetch-raw'];
+    for (const cmd of required) {
+      // Keys with hyphens use quotes, simple keys don't — match either form
+      const hasKey = initSource.includes(`'${cmd}'`) || initSource.includes(`${cmd}:`);
+      expect(hasKey).toBe(true);
+    }
+  });
+
+  test('config template should have backup and reminders', () => {
+    const config = JSON.parse(fs.readFileSync(path.join(__dirname, '..', 'templates', 'config.json'), 'utf8'));
+    expect(config.backup).toBeDefined();
+    expect(config.reminders).toBeDefined();
+    expect(config.version).toBe('0.5.4');
+  });
+
+  test('should handle v0.5.3 schema without logs/memory dirs gracefully', () => {
+    const env = { ...process.env, HOME: TEST_PROJECT, USERPROFILE: TEST_PROJECT };
+
+    // First init to get full structure
+    execSync(`node "${INIT_SCRIPT}" init`, { cwd: TEST_PROJECT, stdio: 'pipe', env });
+
+    const mindloreDir = path.join(TEST_PROJECT, '.mindlore');
+
+    // Remove logs/ and memory/ to simulate v0.5.3-style directory
+    fs.rmSync(path.join(mindloreDir, 'logs'), { recursive: true, force: true });
+    fs.rmSync(path.join(mindloreDir, 'memory'), { recursive: true, force: true });
+    expect(fs.existsSync(path.join(mindloreDir, 'logs'))).toBe(false);
+    expect(fs.existsSync(path.join(mindloreDir, 'memory'))).toBe(false);
+
+    // Re-run init — should recreate missing dirs without error
+    execSync(`node "${INIT_SCRIPT}" init`, { cwd: TEST_PROJECT, stdio: 'pipe', env });
+
+    expect(fs.existsSync(path.join(mindloreDir, 'logs'))).toBe(true);
+    expect(fs.existsSync(path.join(mindloreDir, 'memory'))).toBe(true);
+
+    // Existing dirs should still be intact
+    expect(fs.existsSync(path.join(mindloreDir, 'sources'))).toBe(true);
+    expect(fs.existsSync(path.join(mindloreDir, 'domains'))).toBe(true);
+  });
+
   test('--global should create ~/.mindlore/ instead of project .mindlore/', () => {
     const globalDir = path.join(TEST_PROJECT, '.mindlore');
     const env = { ...process.env, HOME: TEST_PROJECT, USERPROFILE: TEST_PROJECT };
@@ -209,7 +251,7 @@ describe('mindlore init', () => {
 
     const expectedDirs = [
       'raw', 'sources', 'domains', 'analyses', 'insights',
-      'connections', 'learnings', 'diary', 'decisions',
+      'connections', 'learnings', 'diary', 'decisions', 'logs', 'memory',
     ];
 
     for (const dir of expectedDirs) {
