@@ -95,7 +95,7 @@ describe('research-guard agent type filtering', () => {
       expect(result.stderr).toBe('');
     });
 
-    it('should NOT block general-purpose agent', () => {
+    it('should block general-purpose agent (web-capable) with matching knowledge', () => {
       const result = runHook({
         tool_name: 'Agent',
         tool_input: {
@@ -104,8 +104,8 @@ describe('research-guard agent type filtering', () => {
           description: 'research hooks',
         },
       });
-      expect(result.exitCode).toBe(0);
-      expect(result.stderr).toBe('');
+      expect(result.exitCode).toBe(2);
+      expect(result.stderr).toContain('BLOK');
     });
   });
 
@@ -123,7 +123,7 @@ describe('research-guard agent type filtering', () => {
       expect(result.stderr).toContain('BLOK');
     });
 
-    it('should block Explore agent with matching high-quality knowledge', () => {
+    it('should NOT block Explore agent (local-only codebase exploration)', () => {
       const result = runHook({
         tool_name: 'Agent',
         tool_input: {
@@ -132,8 +132,8 @@ describe('research-guard agent type filtering', () => {
           description: 'explore hooks',
         },
       });
-      expect(result.exitCode).toBe(2);
-      expect(result.stderr).toContain('BLOK');
+      expect(result.exitCode).toBe(0);
+      expect(result.stderr).toBe('');
     });
   });
 

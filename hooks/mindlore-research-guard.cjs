@@ -104,18 +104,25 @@ function main() {
 
   const toolInput = input.tool_input || {};
 
-  // Only block research/explore agents — let coder, code-reviewer, etc. pass
-  const RESEARCH_AGENT_TYPES = ['researcher', 'Explore'];
+  // Only block agents with web access — let local-only agents pass
+  const WEB_CAPABLE_TYPES = ['researcher', 'general-purpose'];
+  const LOCAL_ONLY_TYPES = [
+    'Explore', 'coder', 'code-reviewer', 'Plan',
+    'bug-analyzer', 'security-reviewer', 'contrarian',
+    'scope-guardian', 'quality-gate', 'test-runner',
+  ];
   const subagentType = toolInput.subagent_type || '';
   const description = (toolInput.description || '').toLowerCase();
 
-  // If subagent_type is set and NOT a research type, let it pass immediately
-  if (subagentType && !RESEARCH_AGENT_TYPES.includes(subagentType)) return;
+  // Known local-only agent → always pass
+  if (LOCAL_ONLY_TYPES.includes(subagentType)) return;
 
-  // If no subagent_type, check description for research intent
-  const researchKeywords = ['research', 'explore', 'investigate', 'find', 'search', 'look up'];
-  const isResearchDescription = researchKeywords.some(kw => description.includes(kw));
-  if (!subagentType && !isResearchDescription) return;
+  // Known web-capable agent → continue to FTS5 check
+  // Unknown or empty subagent_type → check description for research intent
+  if (subagentType && !WEB_CAPABLE_TYPES.includes(subagentType)) return;
+
+  // If no subagent_type, check description for web research intent (reuse RESEARCH_REGEX)
+  if (!subagentType && !RESEARCH_REGEX.test(description)) return;
 
   const prompt = (toolInput.prompt || '') + ' ' + (toolInput.description || '');
 
@@ -124,7 +131,7 @@ function main() {
 
   // If subagent_type is a known research type, skip prompt-level regex check
   // Otherwise require research signals in the prompt text
-  const isKnownResearchType = RESEARCH_AGENT_TYPES.includes(subagentType);
+  const isKnownResearchType = WEB_CAPABLE_TYPES.includes(subagentType);
   if (!isKnownResearchType && !RESEARCH_REGEX.test(prompt)) return;
 
   const keywords = extractKeywords(prompt, 10);

@@ -141,6 +141,71 @@ describe('mindlore-research-guard', () => {
     }
   });
 
+  test('should pass Explore agent (local-only, not web research)', () => {
+    const result = runHook({
+      tool_name: 'Agent',
+      tool_input: {
+        subagent_type: 'Explore',
+        prompt: 'Research the Claude Code SessionEnd hook timeout behavior',
+        description: 'Explore codebase research',
+      },
+    });
+    expect(result.exitCode).toBe(0);
+    expect(result.stdout).toBe('');
+  });
+
+  test('should pass code-reviewer agent', () => {
+    const result = runHook({
+      tool_name: 'Agent',
+      tool_input: {
+        subagent_type: 'code-reviewer',
+        prompt: 'Review code for reuse, search for existing utilities',
+        description: 'Code Reuse Review',
+      },
+    });
+    expect(result.exitCode).toBe(0);
+    expect(result.stdout).toBe('');
+  });
+
+  test('should pass coder agent', () => {
+    const result = runHook({
+      tool_name: 'Agent',
+      tool_input: {
+        subagent_type: 'coder',
+        prompt: 'Find and fix the search hook research guard issue',
+        description: 'Fix research guard',
+      },
+    });
+    expect(result.exitCode).toBe(0);
+    expect(result.stdout).toBe('');
+  });
+
+  test('should block researcher agent with matching DB content', () => {
+    const result = runHook({
+      tool_name: 'Agent',
+      tool_input: {
+        subagent_type: 'researcher',
+        prompt: 'Research the Claude Code SessionEnd hook timeout behavior',
+        description: 'Hook timeout research',
+      },
+    });
+    expect(result.exitCode).toBe(2);
+    expect(result.stderr).toContain('BLOK');
+  });
+
+  test('should block general-purpose agent with research prompt and matching DB content', () => {
+    const result = runHook({
+      tool_name: 'Agent',
+      tool_input: {
+        subagent_type: 'general-purpose',
+        prompt: 'Research the Claude Code SessionEnd hook timeout behavior',
+        description: 'Hook timeout research',
+      },
+    });
+    expect(result.exitCode).toBe(2);
+    expect(result.stderr).toContain('BLOK');
+  });
+
   test('should handle empty stdin gracefully', () => {
     const result = spawnSync('node', [HOOK_PATH], {
       input: '',
