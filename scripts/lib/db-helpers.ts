@@ -124,7 +124,13 @@ export function openDatabaseTs(
 ): Database | null {
   try {
     if (!fs.existsSync(dbPath)) return null;
-    return new Database_ctor(dbPath, { readonly: options?.readonly ?? false });
+    const readonly = options?.readonly ?? false;
+    const db = new Database_ctor(dbPath, { readonly });
+    if (!readonly) {
+      db.pragma('journal_mode = WAL');
+      db.pragma('busy_timeout = 5000');
+    }
+    return db;
   } catch {
     return null;
   }
