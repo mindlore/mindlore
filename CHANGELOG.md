@@ -5,6 +5,34 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.5.4] — 2026-04-19
+
+### Added
+- **Session-payload builder** — 4-section structured injection (Session, Decisions, Friction, Learnings) with 2000-token budget + content-hash cache-lock
+- **Contradiction detection module** — extracted to `scripts/lib/contradiction.ts` with 4 rules: date conflict, boolean contradiction, version mismatch, frontmatter inconsistency
+- **Backfill migration** — one-time script to populate 180 existing rows: created_at, importance, project_scope
+- **Git snapshot** — `createPreEvictionTag()` + `listPreEvictionTags()` for pre-archive git tags
+- **CC memory sync in SessionEnd** — detached worker runs `cc-memory-bulk-sync --auto` on session end
+- **Embed trigger in SessionEnd** — detached `mindlore-fts5-index --embed` after session
+- **Auto-backfill on upgrade** — `npx mindlore` detects version < 0.5.4 and runs backfill automatically
+- **CLI subcommands** — added `memory-sync` and `fetch-raw`
+- **Config: backup + reminders** — backup settings, diary/consolidation/evolve reminder thresholds
+- **logs/ and memory/ directories** — created during init, hookLog writes to logs/
+
+### Fixed
+- **DB busy_timeout** — all `openDatabase` (CJS + TS) now set `busy_timeout=5000` for concurrent access
+- **Search hook DB access** — replaced 3 raw `new Database()` calls with `openDatabase()` (WAL + busy_timeout)
+- **Search fallback logging** — hybrid→FTS5 fallback now logged via hookLog instead of silent
+- **Research-guard scope** — only blocks `researcher`/`Explore` agents, lets coder/code-reviewer/general-purpose pass
+- **Code review M1-M5** — schema backward-compat test, tag exact-match, decay config wire-up, resolveTargetDir docs
+
+### Changed
+- **Session-focus hook** — replaced 7+ scattered injection sections with consolidated 4-section payload builder
+- **FTS5 indexer** — now writes created_at, updated_at, project_scope, importance on every INSERT/UPDATE
+- **Decay persistence** — `persistDecayScores()` writes decay_score + last_decay_calc back to episodes table
+- **Importance mapping** — quality frontmatter (high/medium/low) mapped to importance (1.0/0.6/0.3)
+- Config template version bumped to 0.5.4
+
 ## [0.5.3] — 2026-04-18
 
 ### Added
