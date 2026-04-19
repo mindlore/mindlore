@@ -1,3 +1,4 @@
+import fs from 'fs';
 import path from 'path';
 import Database from 'better-sqlite3';
 import { createTestDb, insertFts, setupTestDir, teardownTestDir } from './helpers/db.js';
@@ -125,6 +126,16 @@ describe('Search Hook — FTS5 Query', () => {
   test('should handle OR queries across multiple keywords', () => {
     const results = queryFts('react OR typescript');
     expect(results.length).toBe(2);
+  });
+});
+
+describe('Search Hook — DB Access Pattern', () => {
+  it('search hook should use openDatabase (WAL + busy_timeout)', () => {
+    const hookSource = fs.readFileSync(
+      path.join(__dirname, '..', 'hooks', 'mindlore-search.cjs'), 'utf8'
+    );
+    const rawDbCalls = (hookSource.match(/new Database\(/g) || []).length;
+    expect(rawDbCalls).toBe(0);
   });
 });
 
