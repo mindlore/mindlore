@@ -10,7 +10,7 @@
 
 const fs = require('fs');
 const path = require('path');
-const { findMindloreDir, readConfig, openDatabase, hasEpisodesTable, queryRecentEpisodes, querySupersededChains, formatSupersededChains, queryMultiSessionEpisodes, formatMultiSessionEpisodes, getAllMdFiles, getRecentHookErrors, hookLog, getProjectName, parseFrontmatter } = require('./lib/mindlore-common.cjs');
+const { findMindloreDir, readConfig, openDatabase, hasEpisodesTable, querySupersededChains, formatSupersededChains, getAllMdFiles, hookLog, getProjectName, parseFrontmatter } = require('./lib/mindlore-common.cjs');
 
 function main() {
   const baseDir = findMindloreDir();
@@ -67,43 +67,37 @@ function main() {
     }
   } catch (_err) { /* skip */ }
 
-  // v0.4.0: Inject recent episodes
+  // v0.5.4: Consolidated session payload (replaces scattered episodes/activity/alerts injection)
   try {
     const dbPath = path.join(baseDir, 'mindlore.db');
     const db = openDatabase(dbPath, { readonly: true });
     if (db) {
       try {
-        if (hasEpisodesTable(db)) {
-          const maxEpisodes = config?.session_focus?.max_episodes ?? 3;
+        // Session payload: Session summary, Decisions, Friction, Learnings
+        try {
+          const { buildSessionPayload } = require('../dist/scripts/lib/session-payload.js');
           const project = path.basename(process.cwd());
-          const episodes = queryRecentEpisodes(db, { project, limit: maxEpisodes });
-
-          if (episodes.length > 0) {
-            const lines = episodes.map(ep => {
-              const date = (ep.created_at || '').slice(0, 10);
-              const summary = String(ep.summary || '').slice(0, 100);
-              return `- [${date}] ${ep.kind}: ${summary}`;
-            });
-            output.push(`[Mindlore Episodes]\n${lines.join('\n')}`);
-          }
-
-          // v0.4.1: Enriched multi-session episodes
-          const multiDays = config?.session_focus?.multi_session_days ?? 3;
-          const enriched = queryMultiSessionEpisodes(db, { project, days: multiDays, limit: 20 });
-          if (enriched.length > 0) {
-            const formatted = formatMultiSessionEpisodes(enriched);
-            if (formatted) {
-              output.push(`[Mindlore Recent Activity]\n${formatted}`);
+          const payloadBudget = config?.tokenBudget?.sessionInject ?? 2000;
+          const payload = buildSessionPayload(db, baseDir, project, payloadBudget);
+          if (!payload.skipInjection) {
+            for (const section of payload.sections) {
+              output.push(`[Mindlore ${section.label}]\n${section.content}`);
             }
           }
+        } catch (_payloadErr) {
+          // Session payload is optional — don't break session start
+        }
 
-          // v0.4.1: Supersedes chain display
+        // v0.4.1: Supersedes chain display (kept — not covered by session-payload)
+        if (hasEpisodesTable(db)) {
+          const project = path.basename(process.cwd());
+
           const chains = querySupersededChains(db, { project, days: 7, limit: 5 });
           if (chains.length > 0) {
             output.push(`[Mindlore Supersedes]\n${formatSupersededChains(chains)}`);
           }
 
-          // v0.5.3: Episode consolidation reminder
+          // v0.5.3: Episode consolidation reminder (kept — threshold-based reminder)
           try {
             const rawCount = db.prepare(
               "SELECT COUNT(*) as cnt FROM episodes WHERE consolidation_status = 'raw' OR consolidation_status IS NULL"
@@ -132,15 +126,6 @@ function main() {
       output.push(`[Mindlore: ${staleCount} dosya 30+ gundur guncellenmemis — \`/mindlore-evolve\` dusun]`);
     }
   } catch (_healthErr) { /* skip */ }
-
-  // Check for recent hook errors — inject warnings into CC context
-  try {
-    const errors = getRecentHookErrors();
-    if (errors.length > 0) {
-      const lines = errors.map(e => `- [${e.ts.slice(0, 19)}] **${e.hook}** (${e.level}): ${e.msg}`);
-      output.push(`[Mindlore Hook Alerts]\n${lines.join('\n')}`);
-    }
-  } catch (_hookLogErr) { /* skip */ }
 
   hookLog('session-focus', 'info', 'session started');
 
