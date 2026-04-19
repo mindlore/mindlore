@@ -18,7 +18,7 @@ afterEach(() => {
 });
 
 describe('mindlore init', () => {
-  test('should create 10 directories under .mindlore/', () => {
+  test('should create 11 directories under .mindlore/', () => {
     execSync(`node "${INIT_SCRIPT}" init`, {
       cwd: TEST_PROJECT,
       stdio: 'pipe',
@@ -30,7 +30,7 @@ describe('mindlore init', () => {
 
     const expectedDirs = [
       'raw', 'sources', 'domains', 'analyses', 'insights',
-      'connections', 'learnings', 'diary', 'decisions', 'logs',
+      'connections', 'learnings', 'diary', 'decisions', 'logs', 'memory',
     ];
 
     for (const dir of expectedDirs) {
@@ -209,7 +209,7 @@ describe('mindlore init', () => {
 
     const expectedDirs = [
       'raw', 'sources', 'domains', 'analyses', 'insights',
-      'connections', 'learnings', 'diary', 'decisions', 'logs',
+      'connections', 'learnings', 'diary', 'decisions', 'logs', 'memory',
     ];
 
     for (const dir of expectedDirs) {

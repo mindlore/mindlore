@@ -46,6 +46,41 @@ if (process.argv.includes('--worker')) {
     await safeRunAsync(() => writeBareEpisode(baseDir, project, commits, changedFiles, reads), 'episode');
     await safeRunAsync(() => writeEpisodeFile(baseDir, project, commits, changedFiles, reads), 'episode-file');
 
+    // CC memory bulk sync — synchronous with timeout
+    await safeRunAsync(async () => {
+      const syncScript = path.join(__dirname, '..', 'dist', 'scripts', 'cc-memory-bulk-sync.js');
+      if (fs.existsSync(syncScript)) {
+        const nodeExe = resolveWin32Bin('node') || process.execPath;
+        const { execFileSync } = require('child_process');
+        try {
+          execFileSync(nodeExe, [syncScript, '--auto'], {
+            timeout: 10000,
+            env: { ...process.env, MINDLORE_HOME: baseDir },
+          });
+          hookLog('session-end', 'info', 'CC memory sync completed');
+        } catch (syncErr) {
+          hookLog('session-end', 'warn', `CC memory sync failed: ${syncErr?.message || syncErr}`);
+        }
+      }
+    }, 'cc-memory-sync');
+
+    // Embed trigger — detached, fire-and-forget
+    await safeRunAsync(async () => {
+      const indexScript = path.join(__dirname, '..', 'dist', 'scripts', 'mindlore-fts5-index.js');
+      if (fs.existsSync(indexScript)) {
+        const nodeExe = resolveWin32Bin('node') || process.execPath;
+        const { spawn: spawnChild } = require('child_process');
+        const embedProc = spawnChild(nodeExe, [indexScript, '--embed'], {
+          detached: true,
+          stdio: 'ignore',
+          windowsHide: true,
+          env: { ...process.env, MINDLORE_HOME: baseDir },
+        });
+        embedProc.unref();
+        hookLog('session-end', 'info', 'embed subprocess spawned, pid=' + embedProc.pid);
+      }
+    }, 'embed-trigger');
+
     // Obsidian + git-sync are independent — run in parallel
     await Promise.allSettled([
       safeRunAsync(() => syncObsidian(baseDir), 'obsidian'),
