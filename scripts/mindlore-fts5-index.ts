@@ -92,11 +92,12 @@ async function main(): Promise<void> {
     : new Set<string>();
 
   const upsertHash = db.prepare(`
-    INSERT INTO file_hashes (path, content_hash, last_indexed)
-    VALUES (?, ?, ?)
+    INSERT INTO file_hashes (path, content_hash, last_indexed, created_at)
+    VALUES (?, ?, ?, datetime('now'))
     ON CONFLICT(path) DO UPDATE SET
       content_hash = excluded.content_hash,
-      last_indexed = excluded.last_indexed
+      last_indexed = excluded.last_indexed,
+      updated_at = datetime('now')
   `);
   const deleteFts = db.prepare('DELETE FROM mindlore_fts WHERE path = ?');
   const getHash = db.prepare('SELECT content_hash FROM file_hashes WHERE path = ?');

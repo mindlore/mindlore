@@ -153,6 +153,39 @@ describe('FTS5 Database', () => {
   });
 });
 
+describe('openDatabaseTs', () => {
+  test('should set WAL + busy_timeout for writable DB', () => {
+    const { openDatabaseTs } = require('../scripts/lib/db-helpers.js');
+    const db = openDatabaseTs(DB_PATH);
+    if (!db) throw new Error('DB not opened');
+    const walMode = db.pragma('journal_mode', { simple: true });
+    expect(walMode).toBe('wal');
+    const timeout = db.pragma('busy_timeout', { simple: true });
+    expect(timeout).toBe(5000);
+    db.close();
+  });
+
+  test('readonly should NOT set WAL', () => {
+    const { openDatabaseTs } = require('../scripts/lib/db-helpers.js');
+    const db = openDatabaseTs(DB_PATH, { readonly: true });
+    if (!db) throw new Error('DB not opened');
+    db.close();
+  });
+});
+
+describe('openDatabase CJS', () => {
+  test('should set WAL mode and busy_timeout on writable DB', () => {
+    const { openDatabase } = require('../hooks/lib/mindlore-common.cjs');
+    const db = openDatabase(DB_PATH);
+    if (!db) throw new Error('DB not opened');
+    const walMode = db.pragma('journal_mode', { simple: true });
+    expect(walMode).toBe('wal');
+    const timeout = db.pragma('busy_timeout', { simple: true });
+    expect(timeout).toBe(5000);
+    db.close();
+  });
+});
+
 describe('Index with Embedding', () => {
   test('should populate vec table when sqlite-vec is loaded', () => {
     const { loadSqliteVec, ensureVecTable, hasVecTable: hasVec } = require('../scripts/lib/db-helpers.js');
@@ -233,6 +266,46 @@ describe('Vec Table', () => {
 
     // Without loadSqliteVec, ensureVecTable should handle gracefully
     expect(() => ensureVecTable(db)).not.toThrow();
+
+    db.close();
+  });
+});
+
+describe('Timestamp columns', () => {
+  test('should write created_at on first index, updated_at on re-index', () => {
+    const { createTestDbWithMigrations } = require('./helpers/db.js');
+    const db = createTestDbWithMigrations(DB_PATH) as import('better-sqlite3').Database;
+
+    const testPath = path.join(TEST_DIR, 'sources', 'test-timestamps.md');
+    const hash1 = 'aaa111';
+    const now1 = '2026-04-19T10:00:00.000Z';
+
+    // Simulate first index: INSERT with created_at, no updated_at
+    const upsertHash = db.prepare(`
+      INSERT INTO file_hashes (path, content_hash, last_indexed, created_at)
+      VALUES (?, ?, ?, datetime('now'))
+      ON CONFLICT(path) DO UPDATE SET
+        content_hash = excluded.content_hash,
+        last_indexed = excluded.last_indexed,
+        updated_at = datetime('now')
+    `);
+
+    upsertHash.run(testPath, hash1, now1);
+
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- test assertion
+    const row1 = db.prepare('SELECT created_at, updated_at FROM file_hashes WHERE path = ?').get(testPath) as { created_at: string | null; updated_at: string | null };
+    expect(row1.created_at).toBeTruthy();
+    expect(row1.updated_at).toBeNull(); // First index, no update yet
+
+    // Simulate re-index with different hash: triggers ON CONFLICT UPDATE
+    const hash2 = 'bbb222';
+    const now2 = '2026-04-19T11:00:00.000Z';
+    upsertHash.run(testPath, hash2, now2);
+
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- test assertion
+    const row2 = db.prepare('SELECT created_at, updated_at FROM file_hashes WHERE path = ?').get(testPath) as { created_at: string | null; updated_at: string | null };
+    expect(row2.created_at).toBe(row1.created_at); // created_at shouldn't change
+    expect(row2.updated_at).toBeTruthy(); // updated_at should now be set
 
     db.close();
   });
