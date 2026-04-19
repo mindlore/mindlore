@@ -343,6 +343,110 @@ describe('Project scope on index', () => {
   });
 });
 
+describe('Quality to importance mapping', () => {
+  test('should map quality high to importance 1.0', () => {
+    const { createTestDbWithMigrations } = require('./helpers/db.js');
+    const db = createTestDbWithMigrations(DB_PATH) as import('better-sqlite3').Database;
+
+    const testPath = path.join(TEST_DIR, 'sources', 'test-importance-high.md');
+    const upsertHash = db.prepare(`
+      INSERT INTO file_hashes (path, content_hash, last_indexed, created_at, project_scope, importance)
+      VALUES (?, ?, ?, datetime('now'), ?, ?)
+      ON CONFLICT(path) DO UPDATE SET
+        content_hash = excluded.content_hash,
+        last_indexed = excluded.last_indexed,
+        updated_at = datetime('now'),
+        project_scope = excluded.project_scope,
+        importance = excluded.importance
+    `);
+
+    // Simulate indexer: quality 'high' -> importance 1.0
+    upsertHash.run(testPath, 'aaa', '2026-04-19T10:00:00.000Z', 'test', 1.0);
+
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- test assertion
+    const row = db.prepare('SELECT importance FROM file_hashes WHERE path = ?').get(testPath) as { importance: number };
+    expect(row.importance).toBe(1.0);
+
+    db.close();
+  });
+
+  test('should map quality medium to importance 0.6', () => {
+    const { createTestDbWithMigrations } = require('./helpers/db.js');
+    const db = createTestDbWithMigrations(DB_PATH) as import('better-sqlite3').Database;
+
+    const testPath = path.join(TEST_DIR, 'sources', 'test-importance-medium.md');
+    const upsertHash = db.prepare(`
+      INSERT INTO file_hashes (path, content_hash, last_indexed, created_at, project_scope, importance)
+      VALUES (?, ?, ?, datetime('now'), ?, ?)
+      ON CONFLICT(path) DO UPDATE SET
+        content_hash = excluded.content_hash,
+        last_indexed = excluded.last_indexed,
+        updated_at = datetime('now'),
+        project_scope = excluded.project_scope,
+        importance = excluded.importance
+    `);
+
+    upsertHash.run(testPath, 'bbb', '2026-04-19T10:00:00.000Z', 'test', 0.6);
+
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- test assertion
+    const row = db.prepare('SELECT importance FROM file_hashes WHERE path = ?').get(testPath) as { importance: number };
+    expect(row.importance).toBe(0.6);
+
+    db.close();
+  });
+
+  test('should map quality low to importance 0.3', () => {
+    const { createTestDbWithMigrations } = require('./helpers/db.js');
+    const db = createTestDbWithMigrations(DB_PATH) as import('better-sqlite3').Database;
+
+    const testPath = path.join(TEST_DIR, 'sources', 'test-importance-low.md');
+    const upsertHash = db.prepare(`
+      INSERT INTO file_hashes (path, content_hash, last_indexed, created_at, project_scope, importance)
+      VALUES (?, ?, ?, datetime('now'), ?, ?)
+      ON CONFLICT(path) DO UPDATE SET
+        content_hash = excluded.content_hash,
+        last_indexed = excluded.last_indexed,
+        updated_at = datetime('now'),
+        project_scope = excluded.project_scope,
+        importance = excluded.importance
+    `);
+
+    upsertHash.run(testPath, 'ccc', '2026-04-19T10:00:00.000Z', 'test', 0.3);
+
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- test assertion
+    const row = db.prepare('SELECT importance FROM file_hashes WHERE path = ?').get(testPath) as { importance: number };
+    expect(row.importance).toBe(0.3);
+
+    db.close();
+  });
+
+  test('should default importance to 0.5 when quality is missing', () => {
+    const { createTestDbWithMigrations } = require('./helpers/db.js');
+    const db = createTestDbWithMigrations(DB_PATH) as import('better-sqlite3').Database;
+
+    const testPath = path.join(TEST_DIR, 'sources', 'test-no-quality.md');
+    const upsertHash = db.prepare(`
+      INSERT INTO file_hashes (path, content_hash, last_indexed, created_at, project_scope, importance)
+      VALUES (?, ?, ?, datetime('now'), ?, ?)
+      ON CONFLICT(path) DO UPDATE SET
+        content_hash = excluded.content_hash,
+        last_indexed = excluded.last_indexed,
+        updated_at = datetime('now'),
+        project_scope = excluded.project_scope,
+        importance = excluded.importance
+    `);
+
+    // quality undefined -> default 0.5
+    upsertHash.run(testPath, 'ddd', '2026-04-19T10:00:00.000Z', 'test', 0.5);
+
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- test assertion
+    const row = db.prepare('SELECT importance FROM file_hashes WHERE path = ?').get(testPath) as { importance: number };
+    expect(row.importance).toBe(0.5);
+
+    db.close();
+  });
+});
+
 describe('Search Script Hybrid Mode', () => {
   test('should return results with score field in hybrid mode', () => {
     const { hybridSearch } = require('../scripts/lib/hybrid-search.js');

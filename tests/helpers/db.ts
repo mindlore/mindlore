@@ -6,6 +6,8 @@ import Database from 'better-sqlite3';
 import { ensureSchemaTable, runMigrations } from '../../scripts/lib/schema-version.js';
 import { V050_MIGRATIONS } from '../../scripts/lib/migrations.js';
 import { V051_MIGRATIONS } from '../../scripts/lib/migrations-v051.js';
+import { V052_MIGRATIONS } from '../../scripts/lib/migrations-v052.js';
+import { V053_MIGRATIONS } from '../../scripts/lib/migrations-v053.js';
 
 // Hook'lar .cjs kalıyor — SQL constants'ları oradan import ediyoruz
 const { SQL_FTS_CREATE, insertFtsRow, ensureEpisodesTable: ensureEpisodesTableCjs }: {
@@ -35,7 +37,7 @@ export function createTestDb(dbPath: string): Database.Database {
 export function createTestDbWithMigrations(dbPath: string): Database.Database {
   const db = createTestDb(dbPath);
   ensureSchemaTable(db);
-  runMigrations(db, [...V050_MIGRATIONS, ...V051_MIGRATIONS]);
+  runMigrations(db, [...V050_MIGRATIONS, ...V051_MIGRATIONS, ...V052_MIGRATIONS, ...V053_MIGRATIONS]);
   return db;
 }
 
