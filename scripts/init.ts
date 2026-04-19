@@ -427,6 +427,16 @@ function ensureConfig(baseDir: string, packageRoot: string): boolean {
       config.tokenBudget = template.tokenBudget;
       changed = true;
     }
+    // Backfill backup from template for pre-v0.5.4 configs
+    if (!config.backup && template.backup) {
+      config.backup = template.backup;
+      changed = true;
+    }
+    // Backfill reminders from template for pre-v0.5.4 configs
+    if (!config.reminders && template.reminders) {
+      config.reminders = template.reminders;
+      changed = true;
+    }
     // Merge nested session_focus keys
     if (typeof config.session_focus === 'object' && config.session_focus !== null
       && typeof template.session_focus === 'object' && template.session_focus !== null) {
@@ -480,6 +490,8 @@ function main(): void {
     backup: { script: './mindlore-backup.js', passArgs: true },
     obsidian: { script: './mindlore-obsidian.js', passArgs: true },
     episodes: { script: './mindlore-episodes.js', passArgs: true },
+    'memory-sync': { script: './cc-memory-bulk-sync.js', passArgs: true },
+    'fetch-raw': { script: './fetch-raw.js', passArgs: true },
   };
 
   const cliCmd = command ? cliCommands[command] : undefined;
@@ -507,6 +519,8 @@ function main(): void {
     console.log('       npx mindlore backup init|status|remote|now');
     console.log('       npx mindlore obsidian export|import|status');
     console.log('       npx mindlore episodes list|search|show');
+    console.log('       npx mindlore memory-sync');
+    console.log('       npx mindlore fetch-raw <url>');
     process.exit(1);
   }
 
@@ -647,10 +661,29 @@ function main(): void {
     log('  See: https://github.com/context-mode/context-mode');
   }
 
-  // Step 11: Write .version + .pkg-version
+  // Step 11: Auto-backfill on upgrade + write .version + .pkg-version
   const packageJson = readJsonFile<{ version: string }>(path.join(packageRoot, 'package.json'));
   const versionPath = path.join(baseDir, '.version');
   const pkgVersionPath = path.join(baseDir, '.pkg-version');
+  const currentVersion = fs.existsSync(versionPath) ? fs.readFileSync(versionPath, 'utf8').trim() : '0.0.0';
+  if (currentVersion < '0.5.4') {
+    try {
+      const { runBackfill } = require('./lib/backfill.js') as { runBackfill: (db: import('better-sqlite3').Database, dir: string) => { createdAtFixed: number; importanceMapped: number; projectScopeSet: number } };
+      const dbPath = path.join(baseDir, DB_NAME);
+      if (fs.existsSync(dbPath)) {
+        const DatabaseBackfill: typeof import('better-sqlite3') = require('better-sqlite3');
+        const db = new DatabaseBackfill(dbPath);
+        db.pragma('journal_mode = WAL');
+        db.pragma('busy_timeout = 5000');
+        const result = runBackfill(db, baseDir);
+        log(`Backfill: ${result.createdAtFixed} timestamps, ${result.importanceMapped} importance, ${result.projectScopeSet} scope`);
+        db.close();
+      }
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : String(err);
+      console.error('Auto-backfill failed (non-fatal):', msg);
+    }
+  }
   fs.writeFileSync(versionPath, packageJson.version, 'utf8');
   fs.writeFileSync(pkgVersionPath, packageJson.version, 'utf8');
   log(`Version: ${packageJson.version}`);

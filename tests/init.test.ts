@@ -195,6 +195,23 @@ describe('mindlore init', () => {
     expect(fs.existsSync(path.join(homeDir, '.mindlore'))).toBe(true);
   });
 
+  test('should list all CLI subcommands', () => {
+    const initSource = fs.readFileSync(path.join(__dirname, '..', 'scripts', 'init.ts'), 'utf8');
+    const required = ['health', 'search', 'index', 'quality', 'backup', 'obsidian', 'episodes', 'memory-sync', 'fetch-raw'];
+    for (const cmd of required) {
+      // Keys with hyphens use quotes, simple keys don't — match either form
+      const hasKey = initSource.includes(`'${cmd}'`) || initSource.includes(`${cmd}:`);
+      expect(hasKey).toBe(true);
+    }
+  });
+
+  test('config template should have backup and reminders', () => {
+    const config = JSON.parse(fs.readFileSync(path.join(__dirname, '..', 'templates', 'config.json'), 'utf8'));
+    expect(config.backup).toBeDefined();
+    expect(config.reminders).toBeDefined();
+    expect(config.version).toBe('0.5.4');
+  });
+
   test('--global should create ~/.mindlore/ instead of project .mindlore/', () => {
     const globalDir = path.join(TEST_PROJECT, '.mindlore');
     const env = { ...process.env, HOME: TEST_PROJECT, USERPROFILE: TEST_PROJECT };
