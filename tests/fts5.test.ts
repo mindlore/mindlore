@@ -311,6 +311,38 @@ describe('Timestamp columns', () => {
   });
 });
 
+describe('Project scope on index', () => {
+  test('should write project_scope on index', () => {
+    const { createTestDbWithMigrations } = require('./helpers/db.js');
+    const db = createTestDbWithMigrations(DB_PATH) as import('better-sqlite3').Database;
+
+    const testPath = path.join(TEST_DIR, 'sources', 'test-scope.md');
+    const hash = 'abc123';
+    const now = '2026-04-19T12:00:00.000Z';
+    const projectName = 'test-project';
+
+    const upsertHash = db.prepare(`
+      INSERT INTO file_hashes (path, content_hash, last_indexed, created_at, project_scope)
+      VALUES (?, ?, ?, datetime('now'), ?)
+      ON CONFLICT(path) DO UPDATE SET
+        content_hash = excluded.content_hash,
+        last_indexed = excluded.last_indexed,
+        updated_at = datetime('now'),
+        project_scope = excluded.project_scope
+    `);
+
+    upsertHash.run(testPath, hash, now, projectName);
+
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- test assertion
+    const row = db.prepare('SELECT project_scope FROM file_hashes WHERE path = ?').get(testPath) as { project_scope: string | null };
+    expect(row.project_scope).toBeTruthy();
+    expect(typeof row.project_scope).toBe('string');
+    expect(row.project_scope).toBe('test-project');
+
+    db.close();
+  });
+});
+
 describe('Search Script Hybrid Mode', () => {
   test('should return results with score field in hybrid mode', () => {
     const { hybridSearch } = require('../scripts/lib/hybrid-search.js');
