@@ -139,6 +139,42 @@ function main() {
     joined = joined.slice(0, maxInjectChars) + '\n[...truncated by token budget]';
   }
 
+  // v0.5.5: Auto-start embedding daemon if not already running
+  // Skip in test environments to avoid file lock issues
+  if (process.env.NODE_ENV === 'test' || baseDir.includes('.test-')) {
+    // no-op
+  } else try {
+    const os = require('os');
+    const pidFile = path.join(baseDir, 'mindlore-daemon.pid');
+    let daemonRunning = false;
+
+    if (fs.existsSync(pidFile)) {
+      const pid = parseInt(fs.readFileSync(pidFile, 'utf8').trim());
+      try {
+        process.kill(pid, 0);
+        daemonRunning = true;
+      } catch {
+        fs.unlinkSync(pidFile);
+      }
+    }
+
+    if (!daemonRunning) {
+      const daemonScript = path.join(__dirname, '..', 'dist', 'scripts', 'mindlore-daemon.js');
+      if (fs.existsSync(daemonScript)) {
+        const { spawn } = require('child_process');
+        const child = spawn(process.execPath, [daemonScript, 'start'], {
+          detached: true,
+          stdio: 'ignore',
+          windowsHide: true,
+        });
+        child.unref();
+        hookLog('session-focus', 'info', 'Daemon auto-started, pid=' + child.pid);
+      }
+    }
+  } catch (_err) {
+    hookLog('session-focus', 'warn', 'Daemon auto-start failed: ' + (_err?.message || _err));
+  }
+
   if (joined.length > 0) {
     process.stdout.write(joined + '\n');
   }
