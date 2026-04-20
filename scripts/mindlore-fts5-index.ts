@@ -140,18 +140,22 @@ async function main(): Promise<void> {
         // eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- pre-prepared stmt in hot loop
         const existing = getHash.get(filePath) as { content_hash: string } | undefined;
         if (existing && existing.content_hash === hash) {
-          skipped++;
+          // Verify FTS5 entry exists — file_hashes and mindlore_fts can get out of sync
+          const ftsExists = db.prepare('SELECT 1 FROM mindlore_fts WHERE path = ? LIMIT 1').get(filePath);
+          if (ftsExists) {
+            skipped++;
 
-          // Queue for embedding if not yet embedded (first --embed run on existing files)
-          if (shouldEmbed) {
-            const { meta, body } = parseFrontmatter(content);
-            const { slug, title, description } = extractFtsMetadata(meta, body, filePath, baseDir);
-            if (!embeddedSlugs.has(slug)) {
-              toEmbed.push({ slug, text: buildEmbedText(title, slug, description, body) });
+            if (shouldEmbed) {
+              const { meta, body } = parseFrontmatter(content);
+              const { slug, title, description } = extractFtsMetadata(meta, body, filePath, baseDir);
+              if (!embeddedSlugs.has(slug)) {
+                toEmbed.push({ slug, text: buildEmbedText(title, slug, description, body) });
+              }
             }
-          }
 
-          continue;
+            continue;
+          }
+          // FTS5 missing — fall through to re-index
         }
 
         const { meta, body } = parseFrontmatter(content);
