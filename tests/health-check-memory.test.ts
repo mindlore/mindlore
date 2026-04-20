@@ -69,8 +69,9 @@ describe('Health check — memory directory handling', () => {
     try {
       output = runHealth();
     } catch (err: unknown) {
-      // Health check exits non-zero when failures found — capture stdout from error
-      output = (err as { stdout?: string }).stdout ?? '';
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- execSync error has stdout property
+      const execErr = err as { stdout?: string };
+      output = execErr.stdout ?? '';
     }
     expect(output).toContain('type-dir mismatch');
   });
