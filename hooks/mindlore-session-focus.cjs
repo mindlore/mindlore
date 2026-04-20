@@ -10,7 +10,7 @@
 
 const fs = require('fs');
 const path = require('path');
-const { findMindloreDir, readConfig, openDatabase, hasEpisodesTable, querySupersededChains, formatSupersededChains, getAllMdFiles, hookLog, getProjectName, parseFrontmatter } = require('./lib/mindlore-common.cjs');
+const { findMindloreDir, readConfig, openDatabase, hasEpisodesTable, querySupersededChains, formatSupersededChains, hookLog, getProjectName, parseFrontmatter, isDaemonRunning, getDaemonPidFile } = require('./lib/mindlore-common.cjs');
 
 function main() {
   const baseDir = findMindloreDir();
@@ -109,23 +109,21 @@ function main() {
             }
           } catch (_err) { /* consolidation_status column may not exist yet */ }
         }
+
+        // v0.5.5: Stale content check (reuses open DB handle)
+        try {
+          const thirtyDaysAgo = new Date(Date.now() - (30 * 24 * 60 * 60 * 1000)).toISOString();
+          const row = db.prepare('SELECT COUNT(*) as cnt FROM file_hashes WHERE last_indexed < ?').get(thirtyDaysAgo);
+          const staleCount = row?.cnt ?? 0;
+          if (staleCount > 3) {
+            output.push(`[Mindlore: ${staleCount} dosya 30+ gundur guncellenmemis — \`/mindlore-evolve\` dusun]`);
+          }
+        } catch (_staleErr) { /* file_hashes may not exist */ }
       } finally {
         db.close();
       }
     }
   } catch (_err) { /* graceful skip */ }
-
-  // v0.4.1: Lightweight stale content check (monitors fallback)
-  try {
-    const allFiles = getAllMdFiles(baseDir);
-    const thirtyDaysAgo = Date.now() - (30 * 24 * 60 * 60 * 1000);
-    const staleCount = allFiles.reduce((count, f) => {
-      try { return fs.statSync(f).mtimeMs < thirtyDaysAgo ? count + 1 : count; } catch { return count; }
-    }, 0);
-    if (staleCount > 3) {
-      output.push(`[Mindlore: ${staleCount} dosya 30+ gundur guncellenmemis — \`/mindlore-evolve\` dusun]`);
-    }
-  } catch (_healthErr) { /* skip */ }
 
   hookLog('session-focus', 'info', 'session started');
 
@@ -137,6 +135,30 @@ function main() {
   let joined = output.join('\n\n');
   if (joined.length > maxInjectChars) {
     joined = joined.slice(0, maxInjectChars) + '\n[...truncated by token budget]';
+  }
+
+  // v0.5.5: Auto-start embedding daemon if not already running
+  // Skip in test environments to avoid file lock issues
+  const skipDaemon = process.env.NODE_ENV === 'test' || baseDir.includes('.test-');
+  if (!skipDaemon) {
+    try {
+      const status = isDaemonRunning(getDaemonPidFile());
+      if (!status.running) {
+        const daemonScript = path.join(__dirname, '..', 'dist', 'scripts', 'mindlore-daemon.js');
+        if (fs.existsSync(daemonScript)) {
+          const { spawn } = require('child_process');
+          const child = spawn(process.execPath, [daemonScript, 'start'], {
+            detached: true,
+            stdio: 'ignore',
+            windowsHide: true,
+          });
+          child.unref();
+          hookLog('session-focus', 'info', 'Daemon auto-started, pid=' + child.pid);
+        }
+      }
+    } catch (_err) {
+      hookLog('session-focus', 'warn', 'Daemon auto-start failed: ' + (_err?.message || _err));
+    }
   }
 
   if (joined.length > 0) {

@@ -9,7 +9,25 @@ export function createPreEvictionTag(
   try {
     const slug = path.basename(filePath, '.md');
     const date = new Date().toISOString().slice(0, 10);
-    const tagName = `pre-evict/${slug}-${date}`;
+    let tagName = `pre-evict/${slug}-${date}`;
+
+    // Collision check: append suffix if tag already exists
+    try {
+      const existing = execSync('git tag -l "pre-evict/*"', { cwd: baseDir, encoding: 'utf8', stdio: ['pipe', 'pipe', 'pipe'] }).trim();
+      const tags = existing.split(/\r?\n/);
+      if (tags.includes(tagName)) {
+        let resolved = false;
+        for (let i = 2; i <= 10; i++) {
+          const candidate = `${tagName}-${i}`;
+          if (!tags.includes(candidate)) {
+            tagName = candidate;
+            resolved = true;
+            break;
+          }
+        }
+        if (!resolved) return null;
+      }
+    } catch { /* git tag -l failed, proceed with original name */ }
 
     execSync(`git tag -a "${tagName}" -m "${reason}: ${slug}"`, {
       cwd: baseDir,

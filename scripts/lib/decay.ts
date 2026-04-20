@@ -2,6 +2,8 @@ import type BetterSqlite3 from 'better-sqlite3';
 import { dbAll } from './db-helpers.js';
 import { DECAY_HALF_LIFE_DAYS, STALE_THRESHOLD } from './constants.js';
 
+const STALE_QUERY_LIMIT = 500;
+
 type Database = BetterSqlite3.Database;
 
 export interface DecayConfig {
@@ -66,6 +68,8 @@ export function listStaleDocuments(db: Database, threshold?: number, config?: De
     WHERE archived_at IS NULL
       AND path NOT LIKE '%MEMORY.md'
       AND path NOT LIKE '%INDEX.md'
+    ORDER BY last_indexed ASC
+    LIMIT ${STALE_QUERY_LIMIT}
   `);
 
   const stale: StaleDocument[] = [];

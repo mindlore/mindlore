@@ -10,7 +10,9 @@
 
 const fs = require('fs');
 const path = require('path');
-const { getAllDbs, openDatabase, extractHeadings, readHookStdin, extractKeywords, sanitizeKeyword, readConfig, loadSqliteVecCjs, hasVecTableCjs, hookLog, incrementRecallCount } = require('./lib/mindlore-common.cjs');
+const { getAllDbs, openDatabase, extractHeadings, readHookStdin, extractKeywords, sanitizeKeyword, readConfig, loadSqliteVecCjs, hasVecTableCjs, hookLog, incrementRecallCount, getDaemonPortFile } = require('./lib/mindlore-common.cjs');
+
+const { execFileSync } = require('child_process');
 
 const MAX_RESULTS = 3;
 const MIN_QUERY_WORDS = 3;
@@ -21,6 +23,23 @@ try {
   hybridSearchMod = require('../dist/scripts/lib/hybrid-search.js');
 } catch (_err) {
   // hybrid-search not built yet — pure FTS5 mode
+}
+
+// v0.5.5: Request embedding from daemon via execFileSync bridge
+function requestEmbeddingSync(query) {
+  try {
+    const portFile = getDaemonPortFile();
+    if (!fs.existsSync(portFile)) return null;
+    const clientScript = path.join(__dirname, '..', 'scripts', 'lib', 'daemon-client.js');
+    if (!fs.existsSync(clientScript)) return null;
+    const result = execFileSync(process.execPath, [clientScript, portFile, query, '300'], {
+      timeout: 500, encoding: 'utf8', stdio: ['pipe', 'pipe', 'pipe']
+    });
+    const parsed = JSON.parse(result.trim());
+    return parsed.type === 'embedding' ? parsed.embedding : null;
+  } catch {
+    return null;
+  }
 }
 
 /**
@@ -50,9 +69,21 @@ function searchDb(dbPath, keywords) {
         }
       }
 
+      // v0.5.5: Try to get queryEmbedding from daemon
+      let queryEmbedding = null;
+      try {
+        queryEmbedding = requestEmbeddingSync(expandedTerms.join(' '));
+        if (!queryEmbedding) {
+          hookLog('search', 'info', 'Daemon not available — FTS5-only hybrid mode');
+        }
+      } catch {
+        hookLog('search', 'info', 'Daemon connection failed — FTS5-only hybrid mode');
+      }
+
       const fusedResults = hybridSearchMod.hybridSearch(db, expandedTerms.join(' '), {
         maxResults: MAX_RESULTS,
         project: path.basename(process.cwd()),
+        queryEmbedding,
       });
 
       if (fusedResults.length > 0) {
@@ -245,6 +276,20 @@ function main() {
       const baseDir = path.dirname(dbPaths[0]);
       const tmpDir = path.join(baseDir, 'tmp');
       fs.mkdirSync(tmpDir, { recursive: true });
+
+      // Cleanup stale tmp files before writing new one (>1h old, keep max 20)
+      try {
+        const oneHourAgo = Date.now() - 3600000;
+        const files = fs.readdirSync(tmpDir)
+          .filter(f => f.startsWith('search-'))
+          .map(f => ({ name: f, mtime: fs.statSync(path.join(tmpDir, f)).mtimeMs }))
+          .sort((a, b) => b.mtime - a.mtime);
+        for (let i = 0; i < files.length; i++) {
+          if (i >= 20 || files[i].mtime < oneHourAgo) {
+            try { fs.unlinkSync(path.join(tmpDir, files[i].name)); } catch { /* ignore */ }
+          }
+        }
+      } catch { /* cleanup is best-effort */ }
       const fileName = `search-${Date.now()}.md`;
       const filePath = path.join(tmpDir, fileName);
       fs.writeFileSync(filePath, outputStr, 'utf8');

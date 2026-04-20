@@ -1,3 +1,10 @@
+---
+name: mindlore-query
+description: Search, ask, stats, brief — compounding pipeline
+context: fork
+allowed-tools: [Bash, Read, Grep, Glob]
+---
+
 # Skill: Mindlore Query
 
 Search, ask, analyze, and retrieve knowledge from `.mindlore/`.

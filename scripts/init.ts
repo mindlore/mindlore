@@ -492,6 +492,7 @@ function main(): void {
     episodes: { script: './mindlore-episodes.js', passArgs: true },
     'memory-sync': { script: './cc-memory-bulk-sync.js', passArgs: true },
     'fetch-raw': { script: './fetch-raw.js', passArgs: true },
+    daemon: { script: './mindlore-daemon.js', passArgs: true },
   };
 
   const cliCmd = command ? cliCommands[command] : undefined;
