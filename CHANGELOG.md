@@ -5,6 +5,32 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.5.5] — 2026-04-20
+
+### Added
+- **Embedding daemon** — background TCP localhost server, loads model once (~16s), responds to embed requests in ~113ms
+- `npx mindlore daemon start|stop|status` CLI subcommand
+- `daemon-client.js` — plain JS execFileSync bridge for sync hook → async daemon communication
+- Search hook now requests query-time embeddings from daemon → true hybrid search (FTS5 + vector + RRF)
+- SessionStart auto-starts daemon as detached process
+- Shared helpers in `mindlore-common.cjs`: `isDaemonRunning()`, `getDaemonPortFile()`, `getDaemonPidFile()`
+- Tag collision resolution in `createPreEvictionTag` — appends `-2` through `-10` suffix
+- `context: fork` added to health and query skills
+- Tmp file cleanup in search hook (1h TTL, max 20 files)
+
+### Changed
+- Session-focus stale check: FS walk + statSync → SQL COUNT (reuses existing DB handle)
+- `listStaleDocuments` bounded with `ORDER BY last_indexed ASC LIMIT 500`
+- `DAEMON_PORT_FILE`/`DAEMON_PID_FILE` constants reuse `GLOBAL_MINDLORE_DIR`
+- daemon.ts: TOCTOU fix (try/unlink instead of existsSync+unlink), 1MB buffer cap
+- Git tag collision: CRLF-safe split (`/\r?\n/`)
+- `mindlore-daemon.ts`: `forceCleanup()` helper eliminates duplicate stop logic
+- Query skill frontmatter added (was missing)
+
+### Fixed
+- Session-focus test isolation — unique timestamp dir per test (Windows EPERM fix)
+- `better-sqlite3` requirement downgraded to `^11.10.0` for broader compat
+
 ## [0.5.4] — 2026-04-19
 
 ### Added
