@@ -2,7 +2,8 @@ import fs from 'fs';
 import path from 'path';
 import { execSync } from 'child_process';
 
-const TEST_DIR = path.join(__dirname, '..', '.test-mindlore-session-focus');
+const TEST_BASE = path.join(__dirname, '..', '.test-mindlore-session-focus');
+let TEST_DIR: string;
 const HOOK_PATH = path.join(__dirname, '..', 'hooks', 'mindlore-session-focus.cjs');
 
 function createMindloreDir(): string {
@@ -25,11 +26,12 @@ function createDelta(mindloreDir: string, name: string, content: string): void {
 }
 
 beforeEach(() => {
+  // Unique dir per test — Windows EPERM on cleanup leaves stale files
+  TEST_DIR = path.join(TEST_BASE, `run-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`);
   fs.mkdirSync(TEST_DIR, { recursive: true });
 });
 
 afterEach(async () => {
-  // Windows: file handles from execSync may linger — retry with delay
   for (let attempt = 0; attempt < 3; attempt++) {
     try {
       fs.rmSync(TEST_DIR, { recursive: true, force: true });
@@ -38,6 +40,10 @@ afterEach(async () => {
       await new Promise(r => setTimeout(r, 200));
     }
   }
+});
+
+afterAll(() => {
+  try { fs.rmSync(TEST_BASE, { recursive: true, force: true }); } catch { /* best effort */ }
 });
 
 describe('Session Focus Hook', () => {
