@@ -5,6 +5,26 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.5.6] — 2026-04-20
+
+### Added
+- CC memory types (`feedback`, `user`, `project`, `reference`, `note`) to `FRONTMATTER_TYPES` and `TYPE_TO_DIR`
+- 70 CC memory files now searchable in FTS5
+- FTS5 sync gap recovery — re-indexes files when hash exists but FTS5 entry is missing
+- New test suite: `health-check-memory.test.ts` (3 tests)
+- Keyword overlap test for research guard
+- FTS5 sync gap test
+
+### Fixed
+- **Research guard false positive** — now requires at least 2 keyword overlap in slug+title before blocking
+- **FTS5 index sync gap** — `file_hashes` and `mindlore_fts` could get out of sync when external tools wrote hashes without FTS5 rows
+- **Health check memory skip** — CC memory files (no frontmatter) no longer fail frontmatter validation
+- **Health check type-dir tolerance** — CC memory types (`note`, `feedback`, etc.) allowed in `raw/` directory
+- Simplify: `db.prepare()` hoisted outside transaction loop in FTS5 indexer
+- Simplify: `ccMemoryTypes` Set replaced with `TYPE_TO_DIR` lookup (single source of truth)
+- Simplify: keywords pre-lowercased once in research guard filter
+- Daemon added to CLI help text
+
 ## [0.5.5] — 2026-04-20
 
 ### Added
