@@ -140,11 +140,20 @@ function main() {
   const matches = searchDbs(keywords);
   if (matches.length === 0) return;
 
-  // Check for high-quality recent matches
-  const strongMatches = matches.filter((m) => m.quality === 'high' && m.recent);
+  // Relevance check: match must share at least 2 keywords with the query
+  // This prevents false positives like "claude-code-repo" matching on generic words
+  const relevantMatches = matches.filter((m) => {
+    const haystack = `${m.slug} ${m.title}`.toLowerCase();
+    const overlap = keywords.filter((k) => haystack.includes(k.toLowerCase()));
+    return overlap.length >= 2;
+  });
+
+  if (relevantMatches.length === 0) return;
+
+  // Check for high-quality recent matches among relevant ones
+  const strongMatches = relevantMatches.filter((m) => m.quality === 'high' && m.recent);
 
   if (strongMatches.length > 0) {
-    // BLOCK: high quality + recent knowledge exists
     const slugList = strongMatches.map((m) => `  - ${m.slug} (${m.title})`).join('\n');
     const msg = `[mindlore-research-guard] BLOK: Bu konuda guncel, yuksek kaliteli bilgi DB'de zaten var.\n` +
       `Once mevcut bilgiyi oku:\n${slugList}\n` +
@@ -153,8 +162,8 @@ function main() {
     process.exit(2);
   }
 
-  // WARN: old or low-quality matches exist
-  const slugList = matches.map((m) => `${m.slug} (${m.quality}, ${m.date_captured || 'tarih yok'})`).join(', ');
+  // WARN: relevant but old or low-quality matches exist
+  const slugList = relevantMatches.map((m) => `${m.slug} (${m.quality}, ${m.date_captured || 'tarih yok'})`).join(', ');
   const output = {
     hookSpecificOutput: {
       hookEventName: 'PreToolUse',
