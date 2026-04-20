@@ -263,6 +263,10 @@ class HealthChecker {
       let wrongDir = 0;
 
       for (const file of mdFiles) {
+        // CC memory files have no frontmatter — skip validation
+        const relDir = path.basename(path.dirname(file));
+        if (relDir === 'memory') continue;
+
         const content = fs.readFileSync(file, 'utf8').replace(/\r\n/g, '\n');
         const fm = parseFrontmatter(content);
 
@@ -281,7 +285,9 @@ class HealthChecker {
         const expectedDir = TYPE_TO_DIR[fm.type];
         if (expectedDir) {
           const parentDir = path.basename(path.dirname(file));
-          if (parentDir !== expectedDir) {
+          // CC memory types (feedback/user/project/reference/note) can live in raw/ too
+          const ccMemoryTypes = new Set(['feedback', 'user', 'project', 'reference', 'note']);
+          if (parentDir !== expectedDir && !(ccMemoryTypes.has(fm.type) && parentDir === 'raw')) {
             wrongDir++;
           }
         }
