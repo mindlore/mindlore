@@ -2,6 +2,7 @@
 name: mindlore-health
 description: Run 16-point structural health check on .mindlore/ knowledge base
 effort: low
+context: fork
 allowed-tools: [Bash, Read]
 ---
 

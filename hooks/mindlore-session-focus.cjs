@@ -10,7 +10,7 @@
 
 const fs = require('fs');
 const path = require('path');
-const { findMindloreDir, readConfig, openDatabase, hasEpisodesTable, querySupersededChains, formatSupersededChains, getAllMdFiles, hookLog, getProjectName, parseFrontmatter, isDaemonRunning, getDaemonPidFile } = require('./lib/mindlore-common.cjs');
+const { findMindloreDir, readConfig, openDatabase, hasEpisodesTable, querySupersededChains, formatSupersededChains, hookLog, getProjectName, parseFrontmatter, isDaemonRunning, getDaemonPidFile } = require('./lib/mindlore-common.cjs');
 
 function main() {
   const baseDir = findMindloreDir();
@@ -115,15 +115,19 @@ function main() {
     }
   } catch (_err) { /* graceful skip */ }
 
-  // v0.4.1: Lightweight stale content check (monitors fallback)
+  // v0.5.5: Stale content check via SQL (replaces FS walk + statSync)
   try {
-    const allFiles = getAllMdFiles(baseDir);
-    const thirtyDaysAgo = Date.now() - (30 * 24 * 60 * 60 * 1000);
-    const staleCount = allFiles.reduce((count, f) => {
-      try { return fs.statSync(f).mtimeMs < thirtyDaysAgo ? count + 1 : count; } catch { return count; }
-    }, 0);
-    if (staleCount > 3) {
-      output.push(`[Mindlore: ${staleCount} dosya 30+ gundur guncellenmemis — \`/mindlore-evolve\` dusun]`);
+    const thirtyDaysAgo = new Date(Date.now() - (30 * 24 * 60 * 60 * 1000)).toISOString();
+    const dbPath = path.join(baseDir, 'mindlore.db');
+    if (!fs.existsSync(dbPath)) throw new Error('no db');
+    const staleDb = openDatabase(dbPath, { readonly: true });
+    if (staleDb) {
+      const row = staleDb.prepare('SELECT COUNT(*) as cnt FROM file_hashes WHERE last_indexed < ?').get(thirtyDaysAgo);
+      staleDb.close();
+      const staleCount = row?.cnt ?? 0;
+      if (staleCount > 3) {
+        output.push(`[Mindlore: ${staleCount} dosya 30+ gundur guncellenmemis — \`/mindlore-evolve\` dusun]`);
+      }
     }
   } catch (_healthErr) { /* skip */ }
 

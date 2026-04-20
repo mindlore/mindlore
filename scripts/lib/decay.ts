@@ -66,6 +66,8 @@ export function listStaleDocuments(db: Database, threshold?: number, config?: De
     WHERE archived_at IS NULL
       AND path NOT LIKE '%MEMORY.md'
       AND path NOT LIKE '%INDEX.md'
+    ORDER BY last_indexed ASC
+    LIMIT 500
   `);
 
   const stale: StaleDocument[] = [];

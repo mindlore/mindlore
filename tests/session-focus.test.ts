@@ -28,8 +28,16 @@ beforeEach(() => {
   fs.mkdirSync(TEST_DIR, { recursive: true });
 });
 
-afterEach(() => {
-  fs.rmSync(TEST_DIR, { recursive: true, force: true });
+afterEach(async () => {
+  // Windows: file handles from execSync may linger — retry with delay
+  for (let attempt = 0; attempt < 3; attempt++) {
+    try {
+      fs.rmSync(TEST_DIR, { recursive: true, force: true });
+      return;
+    } catch {
+      await new Promise(r => setTimeout(r, 200));
+    }
+  }
 });
 
 describe('Session Focus Hook', () => {
