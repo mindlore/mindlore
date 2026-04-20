@@ -209,7 +209,7 @@ describe('mindlore init', () => {
     const config = JSON.parse(fs.readFileSync(path.join(__dirname, '..', 'templates', 'config.json'), 'utf8'));
     expect(config.backup).toBeDefined();
     expect(config.reminders).toBeDefined();
-    expect(config.version).toBe('0.5.4');
+    expect(config.version).toBe('0.5.5');
   });
 
   test('should handle v0.5.3 schema without logs/memory dirs gracefully', () => {
