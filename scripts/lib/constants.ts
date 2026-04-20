@@ -192,6 +192,18 @@ export const DEFAULT_TOKEN_BUDGET = {
   perResult: 500,
 } as const;
 
+// v0.5.5: Embedding daemon — TCP localhost, port written to file
+export const DAEMON_HOST = '127.0.0.1';
+export const DAEMON_PORT_FILE = path.join(
+  process.env.MINDLORE_HOME ?? path.join(os.homedir(), MINDLORE_DIR),
+  'mindlore-daemon.port'
+);
+export const DAEMON_PID_FILE = path.join(
+  process.env.MINDLORE_HOME ?? path.join(os.homedir(), MINDLORE_DIR),
+  'mindlore-daemon.pid'
+);
+export const DAEMON_TIMEOUT_MS = 300;
+
 export const DECAY_HALF_LIFE_DAYS = 30;
 export const STALE_THRESHOLD = 0.3;
 export const CONSOLIDATION_THRESHOLD = 50;
