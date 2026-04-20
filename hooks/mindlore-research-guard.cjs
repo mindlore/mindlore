@@ -140,11 +140,11 @@ function main() {
   const matches = searchDbs(keywords);
   if (matches.length === 0) return;
 
-  // Relevance check: match must share at least 2 keywords with the query
-  // This prevents false positives like "claude-code-repo" matching on generic words
+  // Prevents false positives like "claude-code-repo" matching on generic words
+  const lcKeywords = keywords.map((k) => k.toLowerCase());
   const relevantMatches = matches.filter((m) => {
     const haystack = `${m.slug} ${m.title}`.toLowerCase();
-    const overlap = keywords.filter((k) => haystack.includes(k.toLowerCase()));
+    const overlap = lcKeywords.filter((k) => haystack.includes(k));
     return overlap.length >= 2;
   });
 

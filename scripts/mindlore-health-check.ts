@@ -285,9 +285,7 @@ class HealthChecker {
         const expectedDir = TYPE_TO_DIR[fm.type];
         if (expectedDir) {
           const parentDir = path.basename(path.dirname(file));
-          // CC memory types (feedback/user/project/reference/note) can live in raw/ too
-          const ccMemoryTypes = new Set(['feedback', 'user', 'project', 'reference', 'note']);
-          if (parentDir !== expectedDir && !(ccMemoryTypes.has(fm.type) && parentDir === 'raw')) {
+          if (parentDir !== expectedDir && !(TYPE_TO_DIR[fm.type] === 'memory' && parentDir === 'raw')) {
             wrongDir++;
           }
         }

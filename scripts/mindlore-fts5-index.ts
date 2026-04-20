@@ -115,6 +115,7 @@ async function main(): Promise<void> {
   `);
   const deleteFts = db.prepare('DELETE FROM mindlore_fts WHERE path = ?');
   const getHash = db.prepare('SELECT content_hash FROM file_hashes WHERE path = ?');
+  const checkFts = db.prepare('SELECT 1 FROM mindlore_fts WHERE path = ? LIMIT 1');
 
   const mdFiles = getAllMdFiles(baseDir);
   let indexed = 0;
@@ -141,7 +142,7 @@ async function main(): Promise<void> {
         const existing = getHash.get(filePath) as { content_hash: string } | undefined;
         if (existing && existing.content_hash === hash) {
           // Verify FTS5 entry exists — file_hashes and mindlore_fts can get out of sync
-          const ftsExists = db.prepare('SELECT 1 FROM mindlore_fts WHERE path = ? LIMIT 1').get(filePath);
+          const ftsExists = checkFts.get(filePath);
           if (ftsExists) {
             skipped++;
 
