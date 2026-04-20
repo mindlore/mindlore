@@ -12,15 +12,26 @@ function isDaemonRunning(): { running: boolean; pid?: number } {
     process.kill(pid, 0);
     return { running: true, pid };
   } catch {
-    fs.unlinkSync(DAEMON_PID_FILE);
+    try { fs.unlinkSync(DAEMON_PID_FILE); } catch { /* already gone */ }
     return { running: false };
   }
 }
 
 function getPort(): number | null {
-  if (!fs.existsSync(DAEMON_PORT_FILE)) return null;
-  const p = parseInt(fs.readFileSync(DAEMON_PORT_FILE, 'utf8').trim());
-  return isNaN(p) ? null : p;
+  try {
+    const p = parseInt(fs.readFileSync(DAEMON_PORT_FILE, 'utf8').trim());
+    return isNaN(p) ? null : p;
+  } catch {
+    return null;
+  }
+}
+
+function forceCleanup(pid?: number): void {
+  if (pid) {
+    try { process.kill(pid, 'SIGTERM'); } catch { /* already dead */ }
+  }
+  try { fs.unlinkSync(DAEMON_PID_FILE); } catch { /* ignore */ }
+  try { fs.unlinkSync(DAEMON_PORT_FILE); } catch { /* ignore */ }
 }
 
 async function start(): Promise<void> {
@@ -51,11 +62,7 @@ async function stop(): Promise<void> {
 
   const port = getPort();
   if (!port) {
-    if (status.pid) {
-      try { process.kill(status.pid, 'SIGTERM'); } catch { /* already dead */ }
-    }
-    if (fs.existsSync(DAEMON_PID_FILE)) fs.unlinkSync(DAEMON_PID_FILE);
-    if (fs.existsSync(DAEMON_PORT_FILE)) fs.unlinkSync(DAEMON_PORT_FILE);
+    forceCleanup(status.pid);
     console.log('Daemon force-stopped (no port file).');
     return;
   }
@@ -70,11 +77,7 @@ async function stop(): Promise<void> {
       resolve();
     });
     client.on('error', () => {
-      if (status.pid) {
-        try { process.kill(status.pid, 'SIGTERM'); } catch { /* already dead */ }
-      }
-      if (fs.existsSync(DAEMON_PID_FILE)) fs.unlinkSync(DAEMON_PID_FILE);
-      if (fs.existsSync(DAEMON_PORT_FILE)) fs.unlinkSync(DAEMON_PORT_FILE);
+      forceCleanup(status.pid);
       console.log('Daemon force-stopped.');
       resolve();
     });

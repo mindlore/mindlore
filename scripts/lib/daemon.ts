@@ -70,8 +70,14 @@ export function createDaemonServer(options: DaemonOptions): DaemonServer {
       return new Promise((resolve) => {
         server = net.createServer((conn) => {
           let buffer = '';
+          const MAX_BUFFER = 1024 * 1024;
           conn.on('data', async (data) => {
             buffer += data.toString();
+            if (buffer.length > MAX_BUFFER) {
+              conn.write(JSON.stringify({ type: 'error', error: 'Buffer overflow' } satisfies DaemonResponse) + '\n');
+              conn.destroy();
+              return;
+            }
             const lines = buffer.split('\n');
             buffer = lines.pop() ?? '';
 
@@ -111,11 +117,11 @@ export function createDaemonServer(options: DaemonOptions): DaemonServer {
 
     async stop(): Promise<void> {
       return new Promise((resolve) => {
-        if (options.pidFile && fs.existsSync(options.pidFile)) {
-          fs.unlinkSync(options.pidFile);
+        if (options.pidFile) {
+          try { fs.unlinkSync(options.pidFile); } catch { /* already gone */ }
         }
-        if (options.portFile && fs.existsSync(options.portFile)) {
-          fs.unlinkSync(options.portFile);
+        if (options.portFile) {
+          try { fs.unlinkSync(options.portFile); } catch { /* already gone */ }
         }
         if (server) {
           server.close(() => {

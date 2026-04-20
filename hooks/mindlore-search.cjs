@@ -10,9 +10,8 @@
 
 const fs = require('fs');
 const path = require('path');
-const { getAllDbs, openDatabase, extractHeadings, readHookStdin, extractKeywords, sanitizeKeyword, readConfig, loadSqliteVecCjs, hasVecTableCjs, hookLog, incrementRecallCount } = require('./lib/mindlore-common.cjs');
+const { getAllDbs, openDatabase, extractHeadings, readHookStdin, extractKeywords, sanitizeKeyword, readConfig, loadSqliteVecCjs, hasVecTableCjs, hookLog, incrementRecallCount, getDaemonPortFile } = require('./lib/mindlore-common.cjs');
 
-const os = require('os');
 const { execFileSync } = require('child_process');
 
 const MAX_RESULTS = 3;
@@ -27,17 +26,13 @@ try {
 }
 
 // v0.5.5: Request embedding from daemon via execFileSync bridge
-const DAEMON_PORT_FILE = path.join(
-  process.env.MINDLORE_HOME || path.join(os.homedir(), '.mindlore'),
-  'mindlore-daemon.port'
-);
-
 function requestEmbeddingSync(query) {
   try {
+    const portFile = getDaemonPortFile();
+    if (!fs.existsSync(portFile)) return null;
     const clientScript = path.join(__dirname, '..', 'scripts', 'lib', 'daemon-client.js');
     if (!fs.existsSync(clientScript)) return null;
-    if (!fs.existsSync(DAEMON_PORT_FILE)) return null;
-    const result = execFileSync(process.execPath, [clientScript, DAEMON_PORT_FILE, query, '300'], {
+    const result = execFileSync(process.execPath, [clientScript, portFile, query, '300'], {
       timeout: 500, encoding: 'utf8', stdio: ['pipe', 'pipe', 'pipe']
     });
     const parsed = JSON.parse(result.trim());

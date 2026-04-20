@@ -685,7 +685,31 @@ module.exports = {
   extractSkeleton,
   // Recall telemetry (v0.5.3)
   incrementRecallCount,
+  // Daemon helpers (v0.5.5)
+  isDaemonRunning,
+  getDaemonPortFile,
+  getDaemonPidFile,
 };
+
+function isDaemonRunning(pidFile) {
+  if (!fs.existsSync(pidFile)) return { running: false };
+  const pid = parseInt(fs.readFileSync(pidFile, 'utf8').trim());
+  try {
+    process.kill(pid, 0);
+    return { running: true, pid };
+  } catch {
+    try { fs.unlinkSync(pidFile); } catch { /* stale file already gone */ }
+    return { running: false };
+  }
+}
+
+function getDaemonPortFile() {
+  return path.join(globalDir(), 'mindlore-daemon.port');
+}
+
+function getDaemonPidFile() {
+  return path.join(globalDir(), 'mindlore-daemon.pid');
+}
 
 /**
  * Try to load sqlite-vec extension. Returns true if successful.
