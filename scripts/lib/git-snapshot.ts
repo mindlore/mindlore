@@ -16,13 +16,16 @@ export function createPreEvictionTag(
       const existing = execSync('git tag -l "pre-evict/*"', { cwd: baseDir, encoding: 'utf8', stdio: ['pipe', 'pipe', 'pipe'] }).trim();
       const tags = existing.split(/\r?\n/);
       if (tags.includes(tagName)) {
+        let resolved = false;
         for (let i = 2; i <= 10; i++) {
           const candidate = `${tagName}-${i}`;
           if (!tags.includes(candidate)) {
             tagName = candidate;
+            resolved = true;
             break;
           }
         }
+        if (!resolved) return null;
       }
     } catch { /* git tag -l failed, proceed with original name */ }
 
