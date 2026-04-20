@@ -103,3 +103,18 @@ describe('daemon server', () => {
     expect(server.isRunning()).toBe(false);
   }, 10000);
 });
+
+describe('daemon CLI registration', () => {
+  it('should be registered as CLI subcommand in init.ts', () => {
+    const initSource = fs.readFileSync(
+      path.join(__dirname, '..', 'scripts', 'init.ts'), 'utf8'
+    );
+    expect(initSource).toContain("daemon:");
+    expect(initSource).toContain('mindlore-daemon');
+  });
+
+  it('mindlore-daemon.ts script should exist', () => {
+    const scriptPath = path.join(__dirname, '..', 'scripts', 'mindlore-daemon.ts');
+    expect(fs.existsSync(scriptPath)).toBe(true);
+  });
+});
