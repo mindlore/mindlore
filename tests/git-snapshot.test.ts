@@ -26,11 +26,12 @@ describe('Git Snapshot (Pre-Eviction)', () => {
     expect(tags).toContain('pre-evict/');
   });
 
-  test('createPreEvictionTag returns null on duplicate tag', async () => {
+  test('createPreEvictionTag resolves collision with suffix on duplicate tag', async () => {
     const { createPreEvictionTag } = await import('../scripts/lib/git-snapshot.js');
-    createPreEvictionTag(mindloreDir, 'test.md');
+    const tag1 = createPreEvictionTag(mindloreDir, 'test.md');
+    expect(tag1).toMatch(/^pre-evict\/test-\d{4}-\d{2}-\d{2}$/);
     const tag2 = createPreEvictionTag(mindloreDir, 'test.md');
-    expect(tag2).toBeNull();
+    expect(tag2).toMatch(/^pre-evict\/test-\d{4}-\d{2}-\d{2}-2$/);
   });
 
   test('createPreEvictionTag accepts custom reason', async () => {
