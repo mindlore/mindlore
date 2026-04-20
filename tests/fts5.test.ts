@@ -467,6 +467,39 @@ describe('Quality to importance mapping', () => {
 });
 
 describe('Search Script Hybrid Mode', () => {
+  test('should re-index file when hash exists in file_hashes but FTS5 entry is missing', () => {
+    const db = new Database(DB_PATH);
+    const content = '---\nslug: orphan-hash\ntype: source\n---\n# Orphan Hash Test\n\nThis file has hash but no FTS5 entry.';
+    const hash = require('crypto').createHash('sha256').update(content, 'utf8').digest('hex');
+    const filePath = path.join(TEST_DIR, 'sources', 'orphan-hash.md');
+    const fs = require('fs');
+    fs.writeFileSync(filePath, content, 'utf8');
+
+    // Insert into file_hashes WITHOUT inserting into FTS5 — simulating the sync gap
+    db.prepare('INSERT INTO file_hashes (path, content_hash, last_indexed) VALUES (?, ?, ?)').run(filePath, hash, new Date().toISOString());
+
+    // Verify: file_hashes has entry, FTS5 does not
+    const hashRow = db.prepare('SELECT * FROM file_hashes WHERE path = ?').get(filePath);
+    expect(hashRow).toBeDefined();
+    const ftsRow = db.prepare('SELECT * FROM mindlore_fts WHERE path = ?').get(filePath);
+    expect(ftsRow).toBeUndefined();
+
+    db.close();
+
+    // Run the index script
+    const { execSync } = require('child_process');
+    execSync(`node ${path.join(__dirname, '..', 'dist', 'scripts', 'mindlore-fts5-index.js')}`, {
+      env: { ...process.env, MINDLORE_HOME: TEST_DIR },
+      timeout: 15000,
+    });
+
+    // After re-index: FTS5 should now have the entry
+    const db2 = new Database(DB_PATH, { readonly: true });
+    const ftsAfter = db2.prepare('SELECT * FROM mindlore_fts WHERE path = ?').get(filePath);
+    expect(ftsAfter).toBeDefined();
+    db2.close();
+  });
+
   test('should return results with score field in hybrid mode', () => {
     const { hybridSearch } = require('../scripts/lib/hybrid-search.js');
     const db = new Database(DB_PATH);

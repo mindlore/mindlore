@@ -206,6 +206,20 @@ describe('mindlore-research-guard', () => {
     expect(result.stderr).toContain('BLOK');
   });
 
+  test('should NOT block when match has insufficient keyword overlap', () => {
+    // "kastell doctor score server" should NOT be blocked by "cc-hooks-reference"
+    // because slug+title only shares ~1 keyword at best
+    const result = runHook({
+      tool_name: 'Agent',
+      tool_input: {
+        subagent_type: 'researcher',
+        prompt: 'Research kastell doctor score server health implementation',
+        description: 'Research Doctor Score implementations',
+      },
+    });
+    expect(result.exitCode).toBe(0);
+  });
+
   test('should handle empty stdin gracefully', () => {
     const result = spawnSync('node', [HOOK_PATH], {
       input: '',
