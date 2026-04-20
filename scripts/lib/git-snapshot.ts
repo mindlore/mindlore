@@ -14,10 +14,11 @@ export function createPreEvictionTag(
     // Collision check: append suffix if tag already exists
     try {
       const existing = execSync('git tag -l "pre-evict/*"', { cwd: baseDir, encoding: 'utf8', stdio: ['pipe', 'pipe', 'pipe'] }).trim();
-      if (existing.split('\n').includes(tagName)) {
+      const tags = existing.split(/\r?\n/);
+      if (tags.includes(tagName)) {
         for (let i = 2; i <= 10; i++) {
           const candidate = `${tagName}-${i}`;
-          if (!existing.split('\n').includes(candidate)) {
+          if (!tags.includes(candidate)) {
             tagName = candidate;
             break;
           }

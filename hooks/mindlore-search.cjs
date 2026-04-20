@@ -271,28 +271,25 @@ function main() {
   if (output.length > 0) {
     let outputStr = output.join('\n\n') + '\n';
 
-    // Cleanup stale tmp files (>1h old, keep max 20)
-    try {
-      const tmpCleanDir = path.join(path.dirname(dbPaths[0]), 'tmp');
-      if (fs.existsSync(tmpCleanDir)) {
-        const oneHourAgo = Date.now() - 3600000;
-        const files = fs.readdirSync(tmpCleanDir)
-          .filter(f => f.startsWith('search-'))
-          .map(f => ({ name: f, mtime: fs.statSync(path.join(tmpCleanDir, f)).mtimeMs }))
-          .sort((a, b) => b.mtime - a.mtime);
-        for (let i = 0; i < files.length; i++) {
-          if (i >= 20 || files[i].mtime < oneHourAgo) {
-            try { fs.unlinkSync(path.join(tmpCleanDir, files[i].name)); } catch { /* ignore */ }
-          }
-        }
-      }
-    } catch { /* cleanup is best-effort */ }
-
     const OFFLOAD_THRESHOLD = 10240; // 10KB
     if (outputStr.length > OFFLOAD_THRESHOLD) {
       const baseDir = path.dirname(dbPaths[0]);
       const tmpDir = path.join(baseDir, 'tmp');
       fs.mkdirSync(tmpDir, { recursive: true });
+
+      // Cleanup stale tmp files before writing new one (>1h old, keep max 20)
+      try {
+        const oneHourAgo = Date.now() - 3600000;
+        const files = fs.readdirSync(tmpDir)
+          .filter(f => f.startsWith('search-'))
+          .map(f => ({ name: f, mtime: fs.statSync(path.join(tmpDir, f)).mtimeMs }))
+          .sort((a, b) => b.mtime - a.mtime);
+        for (let i = 0; i < files.length; i++) {
+          if (i >= 20 || files[i].mtime < oneHourAgo) {
+            try { fs.unlinkSync(path.join(tmpDir, files[i].name)); } catch { /* ignore */ }
+          }
+        }
+      } catch { /* cleanup is best-effort */ }
       const fileName = `search-${Date.now()}.md`;
       const filePath = path.join(tmpDir, fileName);
       fs.writeFileSync(filePath, outputStr, 'utf8');
