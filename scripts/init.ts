@@ -522,6 +522,7 @@ function main(): void {
     console.log('       npx mindlore episodes list|search|show');
     console.log('       npx mindlore memory-sync');
     console.log('       npx mindlore fetch-raw <url>');
+    console.log('       npx mindlore daemon start|stop|status');
     process.exit(1);
   }
 
