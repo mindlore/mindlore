@@ -39,7 +39,7 @@ export const EMBEDDING_DIM_CONST = 384;
 export const FTS5_COLUMNS = ['path', 'slug', 'description', 'type', 'category', 'title', 'content', 'tags', 'quality', 'date_captured', 'project'] as const;
 export type FtsColumn = typeof FTS5_COLUMNS[number];
 
-export const FRONTMATTER_TYPES = ['raw', 'source', 'domain', 'analysis', 'diary', 'decision', 'insight', 'connection', 'learning'] as const;
+export const FRONTMATTER_TYPES = ['raw', 'source', 'domain', 'analysis', 'diary', 'decision', 'insight', 'connection', 'learning', 'feedback', 'user', 'project', 'reference', 'note'] as const;
 export type FrontmatterType = typeof FRONTMATTER_TYPES[number];
 
 export const QUALITY_VALUES = ['high', 'medium', 'low'] as const;
@@ -70,6 +70,11 @@ export const TYPE_TO_DIR: Record<string, string> = {
   learning: 'learnings',
   decision: 'decisions',
   diary: 'diary',
+  feedback: 'memory',
+  user: 'memory',
+  project: 'memory',
+  reference: 'memory',
+  note: 'memory',
 };
 
 /**

@@ -92,10 +92,10 @@ describe('Frontmatter Parser', () => {
   });
 
   test('should validate type-directory mapping', () => {
-    expect(Object.keys(TYPE_TO_DIR)).toHaveLength(9);
+    expect(Object.keys(TYPE_TO_DIR)).toHaveLength(14);
 
     const dirs = new Set(Object.values(TYPE_TO_DIR));
-    expect(dirs.size).toBe(9);
+    expect(dirs.size).toBe(10);
   });
 
   test('should extract tags for FTS5 indexing', () => {
