@@ -51,8 +51,9 @@ export function createDaemonServer(options: DaemonOptions): DaemonServer {
         try {
           const embedding = await embedFn(req.text);
           return { type: 'embedding', embedding };
-        } catch (e) {
-          return { type: 'error', error: (e as Error).message };
+        } catch (e: unknown) {
+          const msg = e instanceof Error ? e.message : String(e);
+          return { type: 'error', error: msg };
         }
       }
       case 'stop':
@@ -77,7 +78,7 @@ export function createDaemonServer(options: DaemonOptions): DaemonServer {
             for (const line of lines) {
               if (!line.trim()) continue;
               try {
-                const req = JSON.parse(line) as DaemonRequest;
+                const req: DaemonRequest = JSON.parse(line);
                 const res = await handleRequest(req);
                 conn.write(JSON.stringify(res) + '\n');
 
@@ -92,7 +93,7 @@ export function createDaemonServer(options: DaemonOptions): DaemonServer {
         });
 
         server.listen(0, DAEMON_HOST, () => {
-          const addr = server!.address();
+          const addr = server?.address();
           if (addr && typeof addr === 'object') {
             port = addr.port;
           }

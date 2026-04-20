@@ -141,10 +141,8 @@ function main() {
 
   // v0.5.5: Auto-start embedding daemon if not already running
   // Skip in test environments to avoid file lock issues
-  if (process.env.NODE_ENV === 'test' || baseDir.includes('.test-')) {
-    // no-op
-  } else try {
-    const os = require('os');
+  const skipDaemon = process.env.NODE_ENV === 'test' || baseDir.includes('.test-');
+  if (!skipDaemon) { try {
     const pidFile = path.join(baseDir, 'mindlore-daemon.pid');
     let daemonRunning = false;
 
@@ -173,7 +171,7 @@ function main() {
     }
   } catch (_err) {
     hookLog('session-focus', 'warn', 'Daemon auto-start failed: ' + (_err?.message || _err));
-  }
+  } }
 
   if (joined.length > 0) {
     process.stdout.write(joined + '\n');
