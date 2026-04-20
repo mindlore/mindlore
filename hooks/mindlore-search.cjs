@@ -12,6 +12,9 @@ const fs = require('fs');
 const path = require('path');
 const { getAllDbs, openDatabase, extractHeadings, readHookStdin, extractKeywords, sanitizeKeyword, readConfig, loadSqliteVecCjs, hasVecTableCjs, hookLog, incrementRecallCount } = require('./lib/mindlore-common.cjs');
 
+const os = require('os');
+const { execFileSync } = require('child_process');
+
 const MAX_RESULTS = 3;
 const MIN_QUERY_WORDS = 3;
 
@@ -21,6 +24,27 @@ try {
   hybridSearchMod = require('../dist/scripts/lib/hybrid-search.js');
 } catch (_err) {
   // hybrid-search not built yet — pure FTS5 mode
+}
+
+// v0.5.5: Request embedding from daemon via execFileSync bridge
+const DAEMON_PORT_FILE = path.join(
+  process.env.MINDLORE_HOME || path.join(os.homedir(), '.mindlore'),
+  'mindlore-daemon.port'
+);
+
+function requestEmbeddingSync(query) {
+  try {
+    const clientScript = path.join(__dirname, '..', 'scripts', 'lib', 'daemon-client.js');
+    if (!fs.existsSync(clientScript)) return null;
+    if (!fs.existsSync(DAEMON_PORT_FILE)) return null;
+    const result = execFileSync(process.execPath, [clientScript, DAEMON_PORT_FILE, query, '300'], {
+      timeout: 500, encoding: 'utf8', stdio: ['pipe', 'pipe', 'pipe']
+    });
+    const parsed = JSON.parse(result.trim());
+    return parsed.type === 'embedding' ? parsed.embedding : null;
+  } catch {
+    return null;
+  }
 }
 
 /**
@@ -50,9 +74,21 @@ function searchDb(dbPath, keywords) {
         }
       }
 
+      // v0.5.5: Try to get queryEmbedding from daemon
+      let queryEmbedding = null;
+      try {
+        queryEmbedding = requestEmbeddingSync(expandedTerms.join(' '));
+        if (!queryEmbedding) {
+          hookLog('search', 'info', 'Daemon not available — FTS5-only hybrid mode');
+        }
+      } catch {
+        hookLog('search', 'info', 'Daemon connection failed — FTS5-only hybrid mode');
+      }
+
       const fusedResults = hybridSearchMod.hybridSearch(db, expandedTerms.join(' '), {
         maxResults: MAX_RESULTS,
         project: path.basename(process.cwd()),
+        queryEmbedding,
       });
 
       if (fusedResults.length > 0) {
