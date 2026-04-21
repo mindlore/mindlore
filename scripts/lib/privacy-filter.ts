@@ -1,7 +1,6 @@
 export const DEFAULT_PATTERNS: RegExp[] = [
-  // Anthropic / OpenAI
-  /sk-(?:proj-)?[A-Za-z0-9_-]{20,}/g,
-  /sk-ant-[a-zA-Z0-9\-]{20,}/g,
+  // Anthropic / OpenAI (covers sk-proj-, sk-ant-, and plain sk-)
+  /sk-(?:proj-|ant-)?[A-Za-z0-9_-]{20,}/g,
   // AWS
   /AKIA[0-9A-Z]{16}/g,
   // GitHub

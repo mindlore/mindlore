@@ -133,8 +133,8 @@ function projectSlug(projectName: string): string {
   if (!prefixMatch?.[2]) return projectName;
 
   const rest = prefixMatch[2];
-  const knownLocations = ['Desktop', 'Documents', 'Downloads'];
-  for (const loc of knownLocations) {
+  const KNOWN_USER_DIRS = ['Desktop', 'Documents', 'Downloads', 'Projects', 'dev'] as const;
+  for (const loc of KNOWN_USER_DIRS) {
     if (rest.startsWith(loc + '-')) {
       return rest.substring(loc.length + 1);
     }
@@ -167,7 +167,15 @@ function extractSessionMeta(lines: string[]): { date: string; branch: string; cw
   return { date, branch, cwd, startTime };
 }
 
-export function convertJsonlToMd(jsonlPath: string, projectName: string): { md: string; date: string; userCount: number; assistantCount: number; isSubagent: boolean } {
+export interface SessionConversion {
+  md: string;
+  date: string;
+  userCount: number;
+  assistantCount: number;
+  isSubagent: boolean;
+}
+
+export function convertJsonlToMd(jsonlPath: string, projectName: string): SessionConversion {
   const raw = fs.readFileSync(jsonlPath, 'utf8').replace(/\r\n/g, '\n');
   const lines = raw.trim().split('\n');
 
@@ -276,8 +284,7 @@ export function syncSessions(
   const now = new Date();
   const nowIso = now.toISOString();
 
-  const syncOne = db.transaction((session: SessionFile) => {
-    const slug = projectSlug(session.projectName);
+  const syncOne = db.transaction((session: SessionFile, slug: string, shortId: string) => {
     const { md, date: sessionDate, userCount, assistantCount, isSubagent } = convertJsonlToMd(session.jsonlPath, session.projectName);
 
     if (userCount === 0 && assistantCount === 0) {
@@ -288,7 +295,6 @@ export function syncSessions(
     const hash = sha256(md);
     const destDir = path.join(mindloreDir, 'raw', 'sessions', slug);
     fs.mkdirSync(destDir, { recursive: true });
-    const shortId = sessionShortId(session.sessionId);
     const destPath = path.join(destDir, `${sessionDate}-${shortId}.md`);
 
     // eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- get() returns unknown
@@ -321,6 +327,9 @@ export function syncSessions(
   });
 
   for (const session of sessions) {
+    const slug = projectSlug(session.projectName);
+    const shortId = sessionShortId(session.sessionId);
+
     try {
       const ageMs = now.getTime() - session.mtime.getTime();
       if (ageMs < ACTIVE_SESSION_THRESHOLD_MS) {
@@ -329,28 +338,25 @@ export function syncSessions(
       }
 
       // mtime short-circuit: skip if source file hasn't changed since last sync
-      const slug = projectSlug(session.projectName);
       const destDir = path.join(mindloreDir, 'raw', 'sessions', slug);
-      const shortId = sessionShortId(session.sessionId);
-
-      if (fs.existsSync(destDir)) {
-        const matchingFiles = fs.readdirSync(destDir).filter(f => f.includes(shortId));
-        const firstMatch = matchingFiles[0];
-        if (firstMatch) {
-          const existingPath = path.join(destDir, firstMatch);
-          // eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- get() returns unknown
-          const cached = getHash.get(existingPath) as { last_indexed: string } | undefined;
-          if (cached && session.mtime <= new Date(cached.last_indexed)) {
-            result.skipped++;
-            continue;
-          }
+      const matchingFiles = fs.existsSync(destDir)
+        ? fs.readdirSync(destDir).filter(f => f.includes(shortId))
+        : [];
+      const firstMatch = matchingFiles[0];
+      if (firstMatch) {
+        const existingPath = path.join(destDir, firstMatch);
+        // eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- get() returns unknown
+        const cached = getHash.get(existingPath) as { last_indexed: string } | undefined;
+        if (cached && session.mtime <= new Date(cached.last_indexed)) {
+          result.skipped++;
+          continue;
         }
       }
 
-      syncOne(session);
+      syncOne(session, slug, shortId);
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);
-      result.errors.push(`${sessionShortId(session.sessionId)}: ${msg}`);
+      result.errors.push(`${shortId}: ${msg}`);
     }
   }
 

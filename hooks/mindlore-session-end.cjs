@@ -46,40 +46,23 @@ if (process.argv.includes('--worker')) {
     await safeRunAsync(() => writeBareEpisode(baseDir, project, commits, changedFiles, reads), 'episode');
     await safeRunAsync(() => writeEpisodeFile(baseDir, project, commits, changedFiles, reads), 'episode-file');
 
-    // CC memory bulk sync — synchronous with timeout
-    await safeRunAsync(async () => {
-      const syncScript = path.join(__dirname, '..', 'dist', 'scripts', 'cc-memory-bulk-sync.js');
-      if (fs.existsSync(syncScript)) {
-        const nodeExe = resolveWin32Bin('node') || process.execPath;
-        try {
-          execFileSync(nodeExe, [syncScript, '--auto'], {
-            timeout: 10000,
-            env: { ...process.env, MINDLORE_HOME: baseDir },
-          });
-          hookLog('session-end', 'info', 'CC memory sync completed');
-        } catch (syncErr) {
-          hookLog('session-end', 'warn', `CC memory sync failed: ${syncErr?.message || syncErr}`);
-        }
+    function runSyncScript(scriptName, args, timeoutMs, label) {
+      const scriptPath = path.join(__dirname, '..', 'dist', 'scripts', scriptName);
+      if (!fs.existsSync(scriptPath)) return;
+      const nodeExe = resolveWin32Bin('node') || process.execPath;
+      try {
+        execFileSync(nodeExe, [scriptPath, ...args], {
+          timeout: timeoutMs,
+          env: { ...process.env, MINDLORE_HOME: baseDir },
+        });
+        hookLog('session-end', 'info', label + ' completed');
+      } catch (err) {
+        hookLog('session-end', 'warn', `${label} failed: ${err?.message || err}`);
       }
-    }, 'cc-memory-sync');
+    }
 
-    // CC session transcript sync — convert JSONL to searchable MD
-    await safeRunAsync(async () => {
-      const sessionSyncScript = path.join(__dirname, '..', 'dist', 'scripts', 'cc-session-sync.js');
-      if (fs.existsSync(sessionSyncScript)) {
-        const nodeExe = resolveWin32Bin('node') || process.execPath;
-        try {
-          // 30s timeout: parses all JSONL files but mtime short-circuit skips unchanged ones
-          execFileSync(nodeExe, [sessionSyncScript], {
-            timeout: 30000,
-            env: { ...process.env, MINDLORE_HOME: baseDir },
-          });
-          hookLog('session-end', 'info', 'CC session sync completed');
-        } catch (syncErr) {
-          hookLog('session-end', 'warn', `CC session sync failed: ${syncErr?.message || syncErr}`);
-        }
-      }
-    }, 'cc-session-sync');
+    await safeRunAsync(() => runSyncScript('cc-memory-bulk-sync.js', ['--auto'], 10000, 'CC memory sync'), 'cc-memory-sync');
+    await safeRunAsync(() => runSyncScript('cc-session-sync.js', [], 30000, 'CC session sync'), 'cc-session-sync');
 
     // Embed trigger — detached, fire-and-forget
     await safeRunAsync(async () => {
