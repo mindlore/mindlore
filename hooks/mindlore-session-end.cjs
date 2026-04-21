@@ -12,7 +12,7 @@
 const fs = require('fs');
 const path = require('path');
 const os = require('os');
-const { execSync, spawn } = require('child_process');
+const { execSync, execFileSync, spawn } = require('child_process');
 const { findMindloreDir, globalDir, getProjectName, openDatabase, ensureEpisodesTable, hasEpisodesTable, insertBareEpisode, insertFtsRow, hookLog, SHARED_EXPORT_DIRS, resolveWin32Bin } = require('./lib/mindlore-common.cjs');
 
 const EXPORT_DIRS = SHARED_EXPORT_DIRS;
@@ -51,7 +51,6 @@ if (process.argv.includes('--worker')) {
       const syncScript = path.join(__dirname, '..', 'dist', 'scripts', 'cc-memory-bulk-sync.js');
       if (fs.existsSync(syncScript)) {
         const nodeExe = resolveWin32Bin('node') || process.execPath;
-        const { execFileSync } = require('child_process');
         try {
           execFileSync(nodeExe, [syncScript, '--auto'], {
             timeout: 10000,
@@ -63,6 +62,24 @@ if (process.argv.includes('--worker')) {
         }
       }
     }, 'cc-memory-sync');
+
+    // CC session transcript sync — convert JSONL to searchable MD
+    await safeRunAsync(async () => {
+      const sessionSyncScript = path.join(__dirname, '..', 'dist', 'scripts', 'cc-session-sync.js');
+      if (fs.existsSync(sessionSyncScript)) {
+        const nodeExe = resolveWin32Bin('node') || process.execPath;
+        try {
+          // 30s timeout: parses all JSONL files but mtime short-circuit skips unchanged ones
+          execFileSync(nodeExe, [sessionSyncScript], {
+            timeout: 30000,
+            env: { ...process.env, MINDLORE_HOME: baseDir },
+          });
+          hookLog('session-end', 'info', 'CC session sync completed');
+        } catch (syncErr) {
+          hookLog('session-end', 'warn', `CC session sync failed: ${syncErr?.message || syncErr}`);
+        }
+      }
+    }, 'cc-session-sync');
 
     // Embed trigger — detached, fire-and-forget
     await safeRunAsync(async () => {

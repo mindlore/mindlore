@@ -1,12 +1,31 @@
 export const DEFAULT_PATTERNS: RegExp[] = [
+  // Anthropic / OpenAI
   /sk-(?:proj-)?[A-Za-z0-9_-]{20,}/g,
+  /sk-ant-[a-zA-Z0-9\-]{20,}/g,
+  // AWS
   /AKIA[0-9A-Z]{16}/g,
+  // GitHub
   /ghp_[A-Za-z0-9]{36,}/g,
   /gho_[A-Za-z0-9]{36,}/g,
   /github_pat_[A-Za-z0-9_]{22,}/g,
+  // npm
   /npm_[A-Za-z0-9]{36,}/g,
+  // Slack
   /xox[bporas]-[A-Za-z0-9-]{10,}/g,
-  /(?:postgres|mysql|mongodb|redis|amqp):\/\/[^\s"']+/g,
+  // JWT
+  /eyJ[a-zA-Z0-9_\-]{20,}\.[a-zA-Z0-9_\-]{20,}\.[a-zA-Z0-9_\-]{20,}/g,
+  // Google
+  /AIza[0-9A-Za-z_\-]{30,}/g,
+  // Stripe
+  /sk_live_[a-zA-Z0-9]{20,}/g,
+  /pk_live_[a-zA-Z0-9]{20,}/g,
+  // Bearer tokens
+  /Bearer\s+[a-zA-Z0-9\-._~+/]+=*/g,
+  // Private keys
+  /-----BEGIN\s(?:RSA\s|EC\s|DSA\s|OPENSSH\s)?PRIVATE\sKEY-----/g,
+  // Connection strings
+  /(?:postgres|mysql|mongodb|redis|amqp)(?:\+srv)?:\/\/[^\s"']+/g,
+  // Env-style secrets
   /(?:PASSWORD|SECRET|TOKEN|API_KEY|PRIVATE_KEY|DATABASE_URL|DB_PASSWORD|AUTH_TOKEN|ACCESS_KEY|SECRET_KEY)=\S+/gi,
 ];
 
