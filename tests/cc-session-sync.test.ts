@@ -277,11 +277,10 @@ describe('cc-session-sync', () => {
       expect(ftsRow.project).toBe('C--sync-project');
       expect(ftsRow.type).toBe('raw');
 
-      // Verify source_type in file_hashes
       // eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- test assertion on DB row
       const hashRow = verifyDb.prepare("SELECT source_type FROM file_hashes WHERE path LIKE '%sync%'").get() as { source_type: string } | undefined;
-      expect(hashRow).toBeDefined();
-      expect(hashRow!.source_type).toBe('cc-session');
+      if (!hashRow) throw new Error('hashRow not found');
+      expect(hashRow.source_type).toBe('cc-session');
       verifyDb.close();
     });
 
@@ -317,8 +316,8 @@ describe('cc-session-sync', () => {
 
       // eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- test assertion on DB row
       const hashRow = verifyDb.prepare("SELECT source_type FROM file_hashes WHERE source_type = 'cc-subagent'").get() as { source_type: string } | undefined;
-      expect(hashRow).toBeDefined();
-      expect(hashRow!.source_type).toBe('cc-subagent');
+      if (!hashRow) throw new Error('hashRow not found');
+      expect(hashRow.source_type).toBe('cc-subagent');
       verifyDb.close();
     });
 
