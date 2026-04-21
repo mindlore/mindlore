@@ -8,11 +8,9 @@ allowed-tools: [Bash, Read]
 
 ## Script Resolution
 
-All script paths are relative to this skill's package root.
-Package root = 2 directories up from this skill's base directory.
-
-When CC loads this skill, it shows "Base directory for this skill: /path/to/skills/mindlore-health".
-Compute: `MINDLORE_PKG = {base_directory}/../..`
+Resolve `MINDLORE_PKG` (package root) using one of these methods, in order:
+1. If CC injected "Base directory for this skill: /path/to/skills/mindlore-health" → `MINDLORE_PKG = {base_directory}/../..`
+2. Fallback: run `node -e "console.log(require('path').join(require('child_process').execSync('npm root -g',{encoding:'utf8'}).trim(),'mindlore')))"`
 Use: `node "$MINDLORE_PKG/dist/scripts/..."` for all script commands.
 
 # /mindlore-health
