@@ -119,6 +119,13 @@ describe('cc-session-sync', () => {
       expect(md).toContain('project: la-roma-stock');
     });
 
+    it('should handle double-dash project names', () => {
+      createSampleJsonl(tmpDir, 'test-dd', 'C--Users-Omrfc--ownpilot-workspace');
+      const realPath = path.join(tmpDir, 'projects', 'C--Users-Omrfc--ownpilot-workspace', 'test-dd.jsonl');
+      const { md } = convertJsonlToMd(realPath, 'C--Users-Omrfc--ownpilot-workspace');
+      expect(md).toContain('project: ownpilot-workspace');
+    });
+
     it('should return zero counts for empty session', () => {
       const projDir = path.join(tmpDir, 'projects', 'C--empty');
       fs.mkdirSync(projDir, { recursive: true });
@@ -178,6 +185,36 @@ describe('cc-session-sync', () => {
 
     it('should return empty for non-existent claude dir', () => {
       const files = discoverSessionFiles(path.join(tmpDir, 'nonexistent'));
+      expect(files).toHaveLength(0);
+    });
+
+    it('should find JSONL files in nested UUID/subagents directories', () => {
+      const claudeDir = path.join(tmpDir, '.claude');
+      const projDir = path.join(claudeDir, 'projects', 'C--Users-Test-Desktop-myapp');
+      const subagentsDir = path.join(projDir, 'aaaabbbb-1111-2222-3333-444455556666', 'subagents');
+      fs.mkdirSync(subagentsDir, { recursive: true });
+
+      const lines = [
+        { type: 'user', message: { role: 'user', content: 'hello' }, timestamp: '2026-04-20T10:00:00Z' },
+      ];
+      writeJsonl(subagentsDir, 'agent-abc123.jsonl', lines);
+
+      // Also add a flat JSONL in the same project
+      createSampleJsonl(claudeDir, 'flat-session', 'C--Users-Test-Desktop-myapp');
+
+      const files = discoverSessionFiles(claudeDir);
+      expect(files).toHaveLength(2);
+      expect(files.map(f => f.sessionId).sort()).toEqual(['agent-abc123', 'flat-session']);
+    });
+
+    it('should skip memory directory when scanning nested dirs', () => {
+      const claudeDir = path.join(tmpDir, '.claude');
+      const projDir = path.join(claudeDir, 'projects', 'C--test-skip-memory');
+      const memDir = path.join(projDir, 'memory');
+      fs.mkdirSync(memDir, { recursive: true });
+      fs.writeFileSync(path.join(memDir, 'notes.jsonl'), '{}', 'utf8');
+
+      const files = discoverSessionFiles(claudeDir);
       expect(files).toHaveLength(0);
     });
   });

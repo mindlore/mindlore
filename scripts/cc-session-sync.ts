@@ -94,17 +94,32 @@ export function discoverSessionFiles(claudeDir: string): SessionFile[] {
     }
 
     for (const f of files) {
-      if (!f.isFile() || !f.name.endsWith('.jsonl')) continue;
-      const sessionId = f.name.replace('.jsonl', '');
-      const fullPath = path.join(projDir, f.name);
-      const stat = fs.statSync(fullPath);
+      // Flat JSONL: projects/{project}/{session-id}.jsonl
+      if (f.isFile() && f.name.endsWith('.jsonl')) {
+        const sessionId = f.name.replace('.jsonl', '');
+        const fullPath = path.join(projDir, f.name);
+        const stat = fs.statSync(fullPath);
+        results.push({ jsonlPath: fullPath, sessionId, projectName: entry.name, mtime: stat.mtime });
+        continue;
+      }
 
-      results.push({
-        jsonlPath: fullPath,
-        sessionId,
-        projectName: entry.name,
-        mtime: stat.mtime,
-      });
+      // Nested UUID dir: projects/{project}/{uuid}/subagents/*.jsonl
+      if (f.isDirectory() && f.name !== 'memory') {
+        const subagentsDir = path.join(projDir, f.name, 'subagents');
+        let subFiles: fs.Dirent[];
+        try {
+          subFiles = fs.readdirSync(subagentsDir, { withFileTypes: true });
+        } catch {
+          continue;
+        }
+        for (const sf of subFiles) {
+          if (!sf.isFile() || !sf.name.endsWith('.jsonl')) continue;
+          const sessionId = sf.name.replace('.jsonl', '');
+          const fullPath = path.join(subagentsDir, sf.name);
+          const stat = fs.statSync(fullPath);
+          results.push({ jsonlPath: fullPath, sessionId, projectName: entry.name, mtime: stat.mtime });
+        }
+      }
     }
   }
 
@@ -114,10 +129,18 @@ export function discoverSessionFiles(claudeDir: string): SessionFile[] {
 // ── JSONL → MD Conversion ─────────────────────────────────────────────
 
 function projectSlug(projectName: string): string {
-  // C--Users-Omrfc-Documents-mindlore → mindlore
-  // C--Users-Omrfc-Desktop-la-roma-stock → la-roma-stock
-  const match = projectName.match(/^C--Users-[^-]+-[^-]+-(.+)$/);
-  return match?.[1] ?? projectName;
+  const prefixMatch = projectName.match(/^C--Users-([^-]+)-(.*)$/);
+  if (!prefixMatch?.[2]) return projectName;
+
+  const rest = prefixMatch[2];
+  const knownLocations = ['Desktop', 'Documents', 'Downloads'];
+  for (const loc of knownLocations) {
+    if (rest.startsWith(loc + '-')) {
+      return rest.substring(loc.length + 1);
+    }
+  }
+
+  return rest.replace(/^-+/, '') || projectName;
 }
 
 function extractSessionMeta(lines: string[]): { date: string; branch: string; cwd: string; startTime: string } {
@@ -144,13 +167,14 @@ function extractSessionMeta(lines: string[]): { date: string; branch: string; cw
   return { date, branch, cwd, startTime };
 }
 
-export function convertJsonlToMd(jsonlPath: string, projectName: string): { md: string; date: string; userCount: number; assistantCount: number } {
+export function convertJsonlToMd(jsonlPath: string, projectName: string): { md: string; date: string; userCount: number; assistantCount: number; isSubagent: boolean } {
   const raw = fs.readFileSync(jsonlPath, 'utf8').replace(/\r\n/g, '\n');
   const lines = raw.trim().split('\n');
 
   const meta = extractSessionMeta(lines);
   const slug = projectSlug(projectName);
   const sessionId = path.basename(jsonlPath, '.jsonl');
+  const isSubagent = sessionId.startsWith('agent-');
 
   const mdParts: string[] = [];
   let userCount = 0;
@@ -195,20 +219,25 @@ export function convertJsonlToMd(jsonlPath: string, projectName: string): { md: 
     meta.startTime ? `start_time: ${meta.startTime}` : null,
     meta.branch ? `branch: ${meta.branch}` : null,
     `messages: ${userCount} user, ${assistantCount} assistant`,
-    `category: cc-session`,
+    `category: ${isSubagent ? 'cc-subagent' : 'cc-session'}`,
     '---',
     '',
-    `# Session ${meta.date} — ${slug}`,
+    `# ${isSubagent ? 'Subagent' : 'Session'} ${meta.date} — ${slug}`,
     '',
   ].filter(Boolean).join('\n');
 
   const md = frontmatter + mdParts.join('\n');
-  return { md, date: meta.date, userCount, assistantCount };
+  return { md, date: meta.date, userCount, assistantCount, isSubagent };
 }
 
 // ── Sync ──────────────────────────────────────────────────────────────
 
+function sessionShortId(sessionId: string): string {
+  return sessionId.startsWith('agent-') ? sessionId.slice(-8) : sessionId.substring(0, 8);
+}
+
 const SESSION_CATEGORY = 'cc-session';
+const SUBAGENT_CATEGORY = 'cc-subagent';
 // Skip files modified in the last 2 minutes — active session still being written to.
 // Session-end hook runs after close, so 2 min is generous; CLI invocations benefit from a small guard.
 const ACTIVE_SESSION_THRESHOLD_MS = 2 * 60 * 1000;
@@ -246,7 +275,7 @@ export function syncSessions(
 
   const syncOne = db.transaction((session: SessionFile) => {
     const slug = projectSlug(session.projectName);
-    const { md, date: sessionDate, userCount, assistantCount } = convertJsonlToMd(session.jsonlPath, session.projectName);
+    const { md, date: sessionDate, userCount, assistantCount, isSubagent } = convertJsonlToMd(session.jsonlPath, session.projectName);
 
     if (userCount === 0 && assistantCount === 0) {
       result.skipped++;
@@ -256,7 +285,8 @@ export function syncSessions(
     const hash = sha256(md);
     const destDir = path.join(mindloreDir, 'raw', 'sessions', slug);
     fs.mkdirSync(destDir, { recursive: true });
-    const destPath = path.join(destDir, `${sessionDate}-${session.sessionId.substring(0, 8)}.md`);
+    const shortId = sessionShortId(session.sessionId);
+    const destPath = path.join(destDir, `${sessionDate}-${shortId}.md`);
 
     // eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- get() returns unknown
     const existing = getHash.get(destPath) as { content_hash: string; last_indexed: string } | undefined;
@@ -267,16 +297,18 @@ export function syncSessions(
 
     fs.writeFileSync(destPath, md, 'utf8');
 
+    const category = isSubagent ? SUBAGENT_CATEGORY : SESSION_CATEGORY;
+
     deleteFts.run(destPath);
     insertFtsRow(db, {
       path: destPath,
-      slug: `session-${sessionDate}-${session.sessionId.substring(0, 8)}`,
-      description: `CC session transcript — ${slug} — ${sessionDate}`,
+      slug: `session-${sessionDate}-${shortId}`,
+      description: `CC ${isSubagent ? 'subagent' : 'session'} transcript — ${slug} — ${sessionDate}`,
       type: 'raw',
-      category: SESSION_CATEGORY,
-      title: `Session ${sessionDate} — ${slug}`,
+      category,
+      title: `${isSubagent ? 'Subagent' : 'Session'} ${sessionDate} — ${slug}`,
       content: md,
-      tags: `session,${slug},transcript`,
+      tags: `${isSubagent ? 'subagent' : 'session'},${slug},transcript`,
       dateCaptured: sessionDate,
       project: slug,
     });
@@ -296,7 +328,7 @@ export function syncSessions(
       // mtime short-circuit: skip if source file hasn't changed since last sync
       const slug = projectSlug(session.projectName);
       const destDir = path.join(mindloreDir, 'raw', 'sessions', slug);
-      const shortId = session.sessionId.substring(0, 8);
+      const shortId = sessionShortId(session.sessionId);
 
       if (fs.existsSync(destDir)) {
         const matchingFiles = fs.readdirSync(destDir).filter(f => f.includes(shortId));
@@ -315,7 +347,7 @@ export function syncSessions(
       syncOne(session);
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);
-      result.errors.push(`${session.sessionId.substring(0, 8)}: ${msg}`);
+      result.errors.push(`${sessionShortId(session.sessionId)}: ${msg}`);
     }
   }
 
