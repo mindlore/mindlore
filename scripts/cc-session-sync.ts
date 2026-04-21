@@ -189,23 +189,26 @@ export function convertJsonlToMd(jsonlPath: string, projectName: string): { md: 
       continue;
     }
 
-    if (obj.type === 'user') {
+    if (obj.type === 'user' || obj.type === 'assistant') {
       const content = obj.message?.content;
+      const role = obj.type === 'user' ? 'User' : 'Assistant';
+      const texts: string[] = [];
+
       if (typeof content === 'string' && content.trim()) {
-        const cleaned = redactSecrets(content.trim());
-        mdParts.push(`## User\n\n${cleaned}\n`);
-        userCount++;
-      }
-    } else if (obj.type === 'assistant') {
-      const msg = obj.message;
-      if (Array.isArray(msg?.content)) {
-        for (const block of msg.content) {
+        texts.push(content.trim());
+      } else if (Array.isArray(content)) {
+        for (const block of content) {
           if (block.type === 'text' && block.text?.trim()) {
-            const cleaned = redactSecrets(block.text.trim());
-            mdParts.push(`## Assistant\n\n${cleaned}\n`);
-            assistantCount++;
+            texts.push(block.text.trim());
           }
         }
+      }
+
+      for (const text of texts) {
+        const cleaned = redactSecrets(text);
+        mdParts.push(`## ${role}\n\n${cleaned}\n`);
+        if (obj.type === 'user') userCount++;
+        else assistantCount++;
       }
     }
   }

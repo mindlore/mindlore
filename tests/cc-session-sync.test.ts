@@ -126,6 +126,26 @@ describe('cc-session-sync', () => {
       expect(md).toContain('project: ownpilot-workspace');
     });
 
+    it('should extract array-format user content', () => {
+      const projDir = path.join(tmpDir, 'projects', 'C--array-test');
+      fs.mkdirSync(projDir, { recursive: true });
+
+      const lines = [
+        { type: 'user', message: { role: 'user', content: [{ type: 'text', text: 'array user message' }] }, timestamp: '2026-04-20T10:00:00Z' },
+        { type: 'assistant', message: { role: 'assistant', content: 'string assistant reply' } },
+        { type: 'user', message: { role: 'user', content: 'string user message' }, timestamp: '2026-04-20T10:01:00Z' },
+      ];
+
+      const jsonlPath = writeJsonl(projDir, 'arr.jsonl', lines);
+      const { md, userCount, assistantCount } = convertJsonlToMd(jsonlPath, 'C--array-test');
+
+      expect(userCount).toBe(2);
+      expect(assistantCount).toBe(1);
+      expect(md).toContain('array user message');
+      expect(md).toContain('string user message');
+      expect(md).toContain('string assistant reply');
+    });
+
     it('should return zero counts for empty session', () => {
       const projDir = path.join(tmpDir, 'projects', 'C--empty');
       fs.mkdirSync(projDir, { recursive: true });
