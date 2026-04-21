@@ -276,6 +276,49 @@ describe('cc-session-sync', () => {
       expect(ftsRow).toBeDefined();
       expect(ftsRow.project).toBe('C--sync-project');
       expect(ftsRow.type).toBe('raw');
+
+      // Verify source_type in file_hashes
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- test assertion on DB row
+      const hashRow = verifyDb.prepare("SELECT source_type FROM file_hashes WHERE path LIKE '%sync%'").get() as { source_type: string } | undefined;
+      expect(hashRow).toBeDefined();
+      expect(hashRow!.source_type).toBe('cc-session');
+      verifyDb.close();
+    });
+
+    it('should set source_type cc-subagent for nested subagent sessions', () => {
+      const claudeDir = path.join(tmpDir, '.claude');
+      const projDir = path.join(claudeDir, 'projects', 'C--subagent-proj');
+      const subagentsDir = path.join(projDir, 'aaaabbbb-1111-2222-3333-444455556666', 'subagents');
+      fs.mkdirSync(subagentsDir, { recursive: true });
+
+      const lines = [
+        { type: 'user', message: { role: 'user', content: 'research this topic' }, timestamp: '2026-04-20T10:00:00Z' },
+        { type: 'assistant', message: { role: 'assistant', content: 'Here are my findings' }, timestamp: '2026-04-20T10:01:00Z' },
+      ];
+      const jsonlPath = writeJsonl(subagentsDir, 'agent-sub1.jsonl', lines);
+      const oldTime = new Date(Date.now() - 20 * 60 * 1000);
+      fs.utimesSync(jsonlPath, oldTime, oldTime);
+
+      const mindloreDir = path.join(tmpDir, '.mindlore');
+      fs.mkdirSync(mindloreDir, { recursive: true });
+      const dbPath = path.join(mindloreDir, 'mindlore.db');
+      const db = createTestDb(dbPath);
+      db.close();
+
+      const sessions = discoverSessionFiles(claudeDir);
+      const result = syncSessions(dbPath, sessions, mindloreDir);
+
+      expect(result.synced).toBe(1);
+
+      const verifyDb = new Database(dbPath);
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- test assertion on DB row
+      const ftsRow = verifyDb.prepare("SELECT * FROM mindlore_fts WHERE category = 'cc-subagent'").get() as Record<string, string>;
+      expect(ftsRow).toBeDefined();
+
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- test assertion on DB row
+      const hashRow = verifyDb.prepare("SELECT source_type FROM file_hashes WHERE source_type = 'cc-subagent'").get() as { source_type: string } | undefined;
+      expect(hashRow).toBeDefined();
+      expect(hashRow!.source_type).toBe('cc-subagent');
       verifyDb.close();
     });
 

@@ -273,11 +273,12 @@ export function syncSessions(
 
   const getHash = db.prepare('SELECT content_hash, last_indexed FROM file_hashes WHERE path = ?');
   const upsertHash = db.prepare(`
-    INSERT INTO file_hashes (path, content_hash, last_indexed)
-    VALUES (?, ?, ?)
+    INSERT INTO file_hashes (path, content_hash, last_indexed, source_type)
+    VALUES (?, ?, ?, ?)
     ON CONFLICT(path) DO UPDATE SET
       content_hash = excluded.content_hash,
-      last_indexed = excluded.last_indexed
+      last_indexed = excluded.last_indexed,
+      source_type = excluded.source_type
   `);
   const deleteFts = db.prepare('DELETE FROM mindlore_fts WHERE path = ?');
 
@@ -322,7 +323,7 @@ export function syncSessions(
       project: slug,
     });
 
-    upsertHash.run(destPath, hash, nowIso);
+    upsertHash.run(destPath, hash, nowIso, category);
     result.synced++;
   });
 

@@ -91,6 +91,11 @@ describe('syncToDb', () => {
     // eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- .get() returns unknown
     const row = db.prepare("SELECT count(*) as cnt FROM mindlore_fts WHERE category = 'cc-memory'").get() as { cnt: number };
     expect(row.cnt).toBe(2);
+
+    // Verify source_type in file_hashes
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- .all() returns unknown[]
+    const hashRows = db.prepare("SELECT source_type FROM file_hashes WHERE source_type = 'cc-memory'").all() as { source_type: string }[];
+    expect(hashRows).toHaveLength(2);
     db.close();
   });
 

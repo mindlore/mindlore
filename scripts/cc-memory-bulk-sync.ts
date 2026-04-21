@@ -152,11 +152,12 @@ export function syncToDb(
 
   const getHash = db.prepare('SELECT content_hash FROM file_hashes WHERE path = ?');
   const upsertHash = db.prepare(`
-    INSERT INTO file_hashes (path, content_hash, last_indexed)
-    VALUES (?, ?, ?)
+    INSERT INTO file_hashes (path, content_hash, last_indexed, source_type)
+    VALUES (?, ?, ?, ?)
     ON CONFLICT(path) DO UPDATE SET
       content_hash = excluded.content_hash,
-      last_indexed = excluded.last_indexed
+      last_indexed = excluded.last_indexed,
+      source_type = excluded.source_type
   `);
   const deleteFts = db.prepare('DELETE FROM mindlore_fts WHERE path = ?');
 
@@ -206,7 +207,7 @@ export function syncToDb(
         // Copy file before DB write — if copy fails, DB stays clean
         fs.copyFileSync(srcPath, destPath);
 
-        upsertHash.run(destPath, hash, now);
+        upsertHash.run(destPath, hash, now, CC_MEMORY_CATEGORY);
 
         result.synced++;
       } catch (err) {

@@ -28,7 +28,15 @@ export function createTestDb(dbPath: string): Database.Database {
     CREATE TABLE IF NOT EXISTS file_hashes (
       path TEXT PRIMARY KEY,
       content_hash TEXT NOT NULL,
-      last_indexed TEXT NOT NULL
+      last_indexed TEXT NOT NULL,
+      created_at TEXT,
+      updated_at TEXT,
+      source_type TEXT DEFAULT 'mindlore',
+      project_scope TEXT,
+      recall_count INTEGER DEFAULT 0,
+      last_recalled_at TEXT,
+      archived_at TEXT,
+      importance REAL
     );
   `);
   return db;
