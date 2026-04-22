@@ -59,4 +59,17 @@ describe('Privacy Filter', () => {
     expect(Array.isArray(DEFAULT_PATTERNS)).toBe(true);
     expect(DEFAULT_PATTERNS.length).toBeGreaterThan(0);
   });
+
+  test('pre-screen should be faster on clean text', () => {
+    const cleanText = 'This is a normal log message with no secrets. '.repeat(100);
+    const iterations = 1000;
+
+    const start = performance.now();
+    for (let i = 0; i < iterations; i++) {
+      redactSecrets(cleanText);
+    }
+    const elapsed = performance.now() - start;
+
+    expect(elapsed).toBeLessThan(500);
+  });
 });
