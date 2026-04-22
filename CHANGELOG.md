@@ -5,6 +5,27 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.5.8] — 2026-04-22
+
+### Added
+- **Pre-compact episode recording** — `mindlore-pre-compact.cjs` writes episode snapshot to `episodes/` before context compaction to prevent context loss
+- **Connections section** in INDEX.md template
+- **Context fork** for 5 long-running skills (explore, evolve, diary, reflect, maintain)
+
+### Fixed
+- **TOCTOU race condition** — search hook `existsSync`+`readFileSync` replaced with `try/catch`
+- **Decay config not wired** — maintain skill now reads `halfLifeDays`/`staleThreshold` from `config.json`
+- Simplify: reuse `getExecStdout` helper, hoist `Date`/ISO, DRY loops in pre-compact test
+- Simplify: remove dead diary dir setup, update docstring in pre-compact
+- ESLint unsafe-type-assertion resolved in pre-compact test
+
+### Changed
+- **Regex pre-screen** — `redactSecrets` in privacy-filter uses `includes()` prefix check before running regex patterns (performance)
+- Bump actions/setup-node from 4 to 6
+- Bump jest from 29.7.0 to 30.3.0
+- Bump typescript from 6.0.2 to 6.0.3
+- Bump eslint from 10.2.0 to 10.2.1
+
 ## [0.5.7] — 2026-04-22
 
 ### Added
