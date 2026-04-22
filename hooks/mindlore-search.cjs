@@ -90,9 +90,11 @@ function searchDb(dbPath, keywords) {
         for (const r of fusedResults) {
           const filePath = r.path || '';
           let headings = [];
-          if (filePath && fs.existsSync(filePath)) {
-            const content = fs.readFileSync(filePath, 'utf8');
-            headings = extractHeadings(content, 3);
+          if (filePath) {
+            try {
+              const content = fs.readFileSync(filePath, 'utf8');
+              headings = extractHeadings(content, 3);
+            } catch (_err) { /* file may have been deleted */ }
           }
           results.push({
             path: filePath,
