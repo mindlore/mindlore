@@ -36,16 +36,13 @@ export function redactSecrets(text: string, extraPatterns?: RegExp[]): string {
     }
   }
 
-  for (const pattern of NO_PREFIX_PATTERNS) {
+  const remaining = extraPatterns
+    ? [...NO_PREFIX_PATTERNS, ...extraPatterns]
+    : NO_PREFIX_PATTERNS;
+
+  for (const pattern of remaining) {
     pattern.lastIndex = 0;
     result = result.replace(pattern, REPLACEMENT);
-  }
-
-  if (extraPatterns) {
-    for (const pattern of extraPatterns) {
-      pattern.lastIndex = 0;
-      result = result.replace(pattern, REPLACEMENT);
-    }
   }
 
   return result;

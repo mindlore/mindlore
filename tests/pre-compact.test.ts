@@ -1,6 +1,7 @@
 import fs from 'fs';
 import path from 'path';
 import { execFileSync } from 'child_process';
+import { getExecStdout } from './helpers/exec.js';
 
 const HOOK_PATH = path.join(__dirname, '..', 'hooks', 'mindlore-pre-compact.cjs');
 
@@ -13,10 +14,7 @@ function runHook(cwd: string): string {
       cwd,
     });
   } catch (err: unknown) {
-    if (err && typeof err === 'object' && 'stdout' in err) {
-      return String((err as Record<string, unknown>).stdout ?? '');
-    }
-    return '';
+    return getExecStdout(err);
   }
 }
 

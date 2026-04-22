@@ -31,37 +31,34 @@ function main() {
     }
   }
 
-  // Write a pre-compact marker to diary
-  const diaryDir = path.join(baseDir, 'diary');
-  if (!fs.existsSync(diaryDir)) return;
+  const now = new Date();
+  const iso = now.toISOString();
 
+  // Write pre-compact episode
   const episodesDir = path.join(baseDir, 'episodes');
-  if (fs.existsSync(episodesDir)) {
-    const now = new Date();
-    const ts = now.toISOString().replace(/[:.]/g, '-');
+  try {
+    const ts = iso.replace(/[:.]/g, '-');
     const episodePath = path.join(episodesDir, `pre-compact-${ts}.md`);
     const content = [
       '---',
       'type: episode',
       'subtype: pre-compact',
-      `date: ${now.toISOString().slice(0, 10)}`,
+      `date: ${iso.slice(0, 10)}`,
       `project: ${path.basename(process.cwd())}`,
       '---',
       '',
-      `Pre-compact snapshot at ${now.toISOString()}.`,
+      `Pre-compact snapshot at ${iso}.`,
       `Working directory: ${process.cwd()}`,
     ].join('\n');
-    try {
-      fs.writeFileSync(episodePath, content, 'utf8');
-    } catch (_err) { /* non-fatal */ }
-  }
+    fs.writeFileSync(episodePath, content, 'utf8');
+  } catch (_err) { /* episodes dir may not exist */ }
 
+  // Append log entry
   const logPath = path.join(baseDir, 'log.md');
-  if (fs.existsSync(logPath)) {
-    const now = new Date().toISOString();
-    const entry = `| ${now.slice(0, 10)} | pre-compact | FTS5 flush before compaction |\n`;
+  try {
+    const entry = `| ${iso.slice(0, 10)} | pre-compact | FTS5 flush before compaction |\n`;
     fs.appendFileSync(logPath, entry, 'utf8');
-  }
+  } catch (_err) { /* log file may not exist */ }
 
   process.stdout.write('[Mindlore: pre-compact FTS5 flush complete]\n');
 }

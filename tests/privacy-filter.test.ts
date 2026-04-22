@@ -60,7 +60,7 @@ describe('Privacy Filter', () => {
     expect(DEFAULT_PATTERNS.length).toBeGreaterThan(0);
   });
 
-  test('pre-screen should be faster on clean text', () => {
+  test('should complete 1000 iterations of clean text under 500ms', () => {
     const cleanText = 'This is a normal log message with no secrets. '.repeat(100);
     const iterations = 1000;
 
