@@ -5,8 +5,8 @@
  * mindlore-pre-compact — PreCompact hook
  *
  * Before context compaction:
- * 1. Write a delta snapshot to diary/ (if not already written this session)
- * 2. Ensure FTS5 index is up to date
+ * 1. Ensure FTS5 index is up to date
+ * 2. Write pre-compact episode to episodes/ and append log entry
  */
 
 const fs = require('fs');
