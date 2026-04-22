@@ -2,6 +2,7 @@
 name: mindlore-explore
 description: Discover unexpected connections between sources — undirected knowledge exploration
 effort: medium
+context: fork
 allowed-tools: [Read, Write, Edit, Bash, Grep, Glob, Agent]
 ---
 

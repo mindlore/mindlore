@@ -2,6 +2,7 @@
 name: mindlore-maintain
 description: KB maintenance — decay/archive, episode consolidation, contradiction detection
 effort: medium
+context: fork
 allowed-tools: [Read, Write, Edit, Bash, Grep, Glob]
 ---
 

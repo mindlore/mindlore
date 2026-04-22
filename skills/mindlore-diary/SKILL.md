@@ -1,6 +1,7 @@
 ---
 name: mindlore-diary
 description: LLM-powered session analysis — decisions, discoveries, frictions, learnings. Promotes episodes to semantic knowledge.
+context: fork
 ---
 
 ## Script Resolution

@@ -2,6 +2,7 @@
 name: mindlore-evolve
 description: Knowledge schema co-evolution — scan domains+sources, detect inconsistencies, suggest updates
 effort: medium
+context: fork
 allowed-tools: [Read, Write, Edit, Bash, Grep, Glob, Agent]
 ---
 

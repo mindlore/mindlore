@@ -1,6 +1,7 @@
 ---
 name: mindlore-reflect
 description: Pattern extraction from episodes — 3-tier confidence, nomination pipeline, CLAUDE.md update proposals.
+context: fork
 ---
 
 ## Script Resolution
