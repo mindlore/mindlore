@@ -35,6 +35,27 @@ function main() {
   const diaryDir = path.join(baseDir, 'diary');
   if (!fs.existsSync(diaryDir)) return;
 
+  const episodesDir = path.join(baseDir, 'episodes');
+  if (fs.existsSync(episodesDir)) {
+    const now = new Date();
+    const ts = now.toISOString().replace(/[:.]/g, '-');
+    const episodePath = path.join(episodesDir, `pre-compact-${ts}.md`);
+    const content = [
+      '---',
+      'type: episode',
+      'subtype: pre-compact',
+      `date: ${now.toISOString().slice(0, 10)}`,
+      `project: ${path.basename(process.cwd())}`,
+      '---',
+      '',
+      `Pre-compact snapshot at ${now.toISOString()}.`,
+      `Working directory: ${process.cwd()}`,
+    ].join('\n');
+    try {
+      fs.writeFileSync(episodePath, content, 'utf8');
+    } catch (_err) { /* non-fatal */ }
+  }
+
   const logPath = path.join(baseDir, 'log.md');
   if (fs.existsSync(logPath)) {
     const now = new Date().toISOString();
