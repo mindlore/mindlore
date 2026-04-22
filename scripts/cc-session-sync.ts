@@ -14,33 +14,14 @@ import fs from 'fs';
 import path from 'path';
 import os from 'os';
 import {
+  CC_SESSION_CATEGORY,
+  CC_SUBAGENT_CATEGORY,
   DB_NAME,
   GLOBAL_MINDLORE_DIR,
   resolveHookCommon,
 } from './lib/constants.js';
 import { redactSecrets } from './lib/privacy-filter.js';
-
-// ── Types ─────────────────────────────────────────────────────────────
-
-interface CommonModule {
-  sha256: (content: string) => string;
-  insertFtsRow: (
-    db: import('better-sqlite3').Database,
-    entry: {
-      path: string;
-      slug?: string;
-      description?: string;
-      type?: string;
-      category?: string;
-      title?: string;
-      content?: string;
-      tags?: string;
-      dateCaptured?: string | null;
-      project?: string | null;
-    },
-  ) => void;
-  openDatabase: (dbPath: string) => import('better-sqlite3').Database | null;
-}
+import { CommonModuleBase, UPSERT_HASH_SQL, getArg } from './lib/sync-helpers.js';
 
 export interface SessionSyncResult {
   synced: number;
@@ -247,8 +228,7 @@ function sessionShortId(sessionId: string): string {
   return sessionId.startsWith('agent-') ? sessionId.slice(-8) : sessionId.substring(0, 8);
 }
 
-const SESSION_CATEGORY = 'cc-session';
-const SUBAGENT_CATEGORY = 'cc-subagent';
+
 // Skip files modified in the last 2 minutes — active session still being written to.
 // Session-end hook runs after close, so 2 min is generous; CLI invocations benefit from a small guard.
 const ACTIVE_SESSION_THRESHOLD_MS = 2 * 60 * 1000;
@@ -262,7 +242,7 @@ export function syncSessions(
   if (sessions.length === 0) return result;
 
   // eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- resolveHookCommon validated at startup
-  const common = require(resolveHookCommon(__dirname)) as CommonModule;
+  const common = require(resolveHookCommon(__dirname)) as CommonModuleBase;
   const { sha256, insertFtsRow, openDatabase } = common;
 
   const db = openDatabase(dbPath);
@@ -272,14 +252,7 @@ export function syncSessions(
   }
 
   const getHash = db.prepare('SELECT content_hash, last_indexed FROM file_hashes WHERE path = ?');
-  const upsertHash = db.prepare(`
-    INSERT INTO file_hashes (path, content_hash, last_indexed, source_type)
-    VALUES (?, ?, ?, ?)
-    ON CONFLICT(path) DO UPDATE SET
-      content_hash = excluded.content_hash,
-      last_indexed = excluded.last_indexed,
-      source_type = excluded.source_type
-  `);
+  const upsertHash = db.prepare(UPSERT_HASH_SQL);
   const deleteFts = db.prepare('DELETE FROM mindlore_fts WHERE path = ?');
 
   const now = new Date();
@@ -307,7 +280,7 @@ export function syncSessions(
 
     fs.writeFileSync(destPath, md, 'utf8');
 
-    const category = isSubagent ? SUBAGENT_CATEGORY : SESSION_CATEGORY;
+    const category = isSubagent ? CC_SUBAGENT_CATEGORY : CC_SESSION_CATEGORY;
 
     deleteFts.run(destPath);
     insertFtsRow(db, {
@@ -370,15 +343,9 @@ export function syncSessions(
 const isMain = typeof require !== 'undefined' && require.main === module;
 if (isMain) {
   const args = process.argv.slice(2);
-
-  function getArg(flag: string): string | undefined {
-    const idx = args.indexOf(flag);
-    return idx !== -1 ? args[idx + 1] : undefined;
-  }
-
-  const claudeDir = getArg('--claude-dir') ?? path.join(os.homedir(), '.claude');
-  const mindloreDir = getArg('--mindlore-dir') ?? GLOBAL_MINDLORE_DIR;
-  const dbPath = getArg('--db') ?? path.join(mindloreDir, DB_NAME);
+  const claudeDir = getArg(args, '--claude-dir') ?? path.join(os.homedir(), '.claude');
+  const mindloreDir = getArg(args, '--mindlore-dir') ?? GLOBAL_MINDLORE_DIR;
+  const dbPath = getArg(args, '--db') ?? path.join(mindloreDir, DB_NAME);
 
   const sessions = discoverSessionFiles(claudeDir);
   console.log(`  Discovered ${sessions.length} session file(s)`);

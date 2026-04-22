@@ -18,45 +18,7 @@ import {
   CC_MEMORY_CATEGORY,
   resolveHookCommon,
 } from './lib/constants.js';
-
-// ── Types ─────────────────────────────────────────────────────────────
-
-interface CommonModule {
-  sha256: (content: string) => string;
-  parseFrontmatter: (content: string) => { meta: Record<string, string>; body: string };
-  extractFtsMetadata: (
-    meta: Record<string, string>,
-    body: string,
-    filePath: string,
-    baseDir: string,
-  ) => {
-    slug: string;
-    description: string;
-    type: string;
-    category: string;
-    title: string;
-    tags: string;
-    quality: string | null;
-    dateCaptured: string | null;
-  };
-  insertFtsRow: (
-    db: import('better-sqlite3').Database,
-    entry: {
-      path: string;
-      slug?: string;
-      description?: string;
-      type?: string;
-      category?: string;
-      title?: string;
-      content?: string;
-      tags?: string;
-      quality?: string | null;
-      dateCaptured?: string | null;
-      project?: string | null;
-    },
-  ) => void;
-  openDatabase: (dbPath: string) => import('better-sqlite3').Database | null;
-}
+import { CommonModuleWithFrontmatter, UPSERT_HASH_SQL, getArg } from './lib/sync-helpers.js';
 
 export interface SyncResult {
   synced: number;
@@ -137,7 +99,7 @@ export function syncToDb(
   if (files.length === 0) return result;
 
   // eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- resolveHookCommon validated at startup
-  const common = require(resolveHookCommon(__dirname)) as CommonModule;
+  const common = require(resolveHookCommon(__dirname)) as CommonModuleWithFrontmatter;
   const { sha256, parseFrontmatter, extractFtsMetadata, insertFtsRow, openDatabase } = common;
 
   const db = openDatabase(dbPath);
@@ -151,14 +113,7 @@ export function syncToDb(
   fs.mkdirSync(memoryDestDir, { recursive: true });
 
   const getHash = db.prepare('SELECT content_hash FROM file_hashes WHERE path = ?');
-  const upsertHash = db.prepare(`
-    INSERT INTO file_hashes (path, content_hash, last_indexed, source_type)
-    VALUES (?, ?, ?, ?)
-    ON CONFLICT(path) DO UPDATE SET
-      content_hash = excluded.content_hash,
-      last_indexed = excluded.last_indexed,
-      source_type = excluded.source_type
-  `);
+  const upsertHash = db.prepare(UPSERT_HASH_SQL);
   const deleteFts = db.prepare('DELETE FROM mindlore_fts WHERE path = ?');
 
   const now = new Date().toISOString();
@@ -228,15 +183,9 @@ export function syncToDb(
 const isMain = typeof require !== 'undefined' && require.main === module;
 if (isMain) {
   const args = process.argv.slice(2);
-
-  function getArg(flag: string): string | undefined {
-    const idx = args.indexOf(flag);
-    return idx !== -1 ? args[idx + 1] : undefined;
-  }
-
-  const claudeDir = getArg('--claude-dir') ?? path.join(os.homedir(), '.claude');
-  const mindloreDir = getArg('--mindlore-dir') ?? GLOBAL_MINDLORE_DIR;
-  const dbPath = getArg('--db') ?? path.join(mindloreDir, DB_NAME);
+  const claudeDir = getArg(args, '--claude-dir') ?? path.join(os.homedir(), '.claude');
+  const mindloreDir = getArg(args, '--mindlore-dir') ?? GLOBAL_MINDLORE_DIR;
+  const dbPath = getArg(args, '--db') ?? path.join(mindloreDir, DB_NAME);
 
   const files = discoverCcMemoryFiles(claudeDir);
   console.log(`  Discovered ${files.length} CC memory file(s)`);

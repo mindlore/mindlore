@@ -84,6 +84,8 @@ export const TYPE_TO_DIR: Record<string, string> = {
 export const CC_MEMORY_PATH_MARKER = path.join('.claude', 'projects');
 export const CC_MEMORY_DIR = 'memory';
 export const CC_MEMORY_CATEGORY = 'cc-memory';
+export const CC_SESSION_CATEGORY = 'cc-session';
+export const CC_SUBAGENT_CATEGORY = 'cc-subagent';
 export const CC_MEMORY_BOOST = 1.2;
 
 export function homedir(): string {
