@@ -6,6 +6,8 @@
 
 ### Concepts
 
+## Connections
+
 ## Recent
 
 ## Stats

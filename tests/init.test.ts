@@ -49,6 +49,9 @@ describe('mindlore init', () => {
     expect(fs.existsSync(path.join(mindloreDir, 'INDEX.md'))).toBe(true);
     expect(fs.existsSync(path.join(mindloreDir, 'log.md'))).toBe(true);
     expect(fs.existsSync(path.join(mindloreDir, 'SCHEMA.md'))).toBe(true);
+
+    const indexContent = fs.readFileSync(path.join(mindloreDir, 'INDEX.md'), 'utf8');
+    expect(indexContent).toContain('## Connections');
   });
 
   test('should create FTS5 database', () => {
