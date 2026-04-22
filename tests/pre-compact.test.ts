@@ -13,7 +13,10 @@ function runHook(cwd: string): string {
       cwd,
     });
   } catch (err: unknown) {
-    return (err as { stdout?: string }).stdout ?? '';
+    if (err && typeof err === 'object' && 'stdout' in err) {
+      return String((err as Record<string, unknown>).stdout ?? '');
+    }
+    return '';
   }
 }
 
