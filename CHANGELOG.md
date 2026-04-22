@@ -5,6 +5,25 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.5.7] — 2026-04-22
+
+### Added
+- **CC Session Transcript Sync** — `cc-session-sync.ts` indexes CC JSONL session transcripts to FTS5 with automatic project slug, date extraction, and subagent detection
+- `CC_SESSION_CATEGORY` and `CC_SUBAGENT_CATEGORY` constants in `constants.ts`
+- Shared `sync-helpers.ts` module — `CommonModuleBase`, `CommonModuleWithFrontmatter`, `UPSERT_HASH_SQL`, `getArg`
+- `npm root -g` fallback in all 9 skill Script Resolution blocks for non-standard install paths
+- 1 new test suite: `cc-session-sync.test.ts` (18 tests)
+- `source_type` assertions in `cc-memory-bulk-sync.test.ts`
+
+### Fixed
+- **`source_type` not written** — `cc-session-sync` and `cc-memory-bulk-sync` INSERT now correctly sets `source_type` in `file_hashes`
+- **Nested UUID discovery** — session sync handles subagent paths under nested UUID directories
+- **Array content extraction** — flat session JSONLs with array-format user content now parsed correctly
+- Simplify: non-null assertions replaced with if-guards in session sync
+- Simplify: `runSyncScript` helper extracted, sync loop flattened, regex overlap merged
+- Simplify: duplicate upsert SQL, CommonModule interface, and CLI boilerplate extracted to `sync-helpers.ts`
+- Test helper `createTestDb` expanded to full `file_hashes` schema (10 columns)
+
 ## [0.5.6] — 2026-04-20
 
 ### Added
