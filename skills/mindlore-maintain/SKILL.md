@@ -36,7 +36,12 @@ KB bakım skill'i. Reflect düşünür, maintain temizler.
      const path = require('path'), os = require('os');
      const dbPath = path.join(os.homedir(), '.mindlore', 'mindlore.db');
      const db = new Database(dbPath, {readonly: true});
-     const stale = listStaleDocuments(db);
+     let decayConfig = {};
+     try {
+       const configPath = path.join(os.homedir(), '.mindlore', 'config.json');
+       decayConfig = JSON.parse(require('fs').readFileSync(configPath, 'utf8')).decay || {};
+     } catch (_err) { /* use defaults if config missing or malformed */ }
+     const stale = listStaleDocuments(db, undefined, decayConfig);
      console.log(JSON.stringify(stale, null, 2));
      db.close();
    " "$DECAY_MOD"
