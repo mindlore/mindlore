@@ -5,6 +5,26 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.5.9] — 2026-04-24
+
+### Added
+- **`resolveProject` function** — frontmatter-first project resolution with 3-tier fallback (frontmatter → path-based → CWD)
+- **Ingest `project` frontmatter field** — CWD-based project name automatically added to ingested raw files
+- **Multi-URL batch ingest** — `/mindlore-ingest` now accepts space/comma-separated URLs with fail-forward processing
+- **Agent model keys** in `config.json` — `assistant`, `researcher`, `librarian` routing keys
+- **SCHEMA.md sections** — Database Tables (4 tables), Agents (3 agents), Session Storage
+
+### Fixed
+- **FTS5 project column inconsistency** — 3 indexing paths (fts5-index.ts, fts5-sync.cjs, mindlore-index.cjs) now use `resolveProject` instead of CWD-based detection
+- **48 dirty FTS5 records cleaned** — removed `.mindlore`, `C--Users-*` project name variants
+- **`agents/` missing from npm files** — `package.json` files array now includes `agents/`
+- **Ingest SKILL.md wrong scope** — removed non-existent "project-local scope" description
+- **Tracked `docs/prototypes/`** — removed from git (already in `.gitignore`)
+
+### Changed
+- **SCHEMA.md full update** v0.3.3 → v0.5.9 — all skills marked IMPLEMENTED, "Seven Operations" → "Ten Operations"
+- **CLAUDE.md** test suite version updated to v0.5.9
+
 ## [0.5.8] — 2026-04-22
 
 ### Added
