@@ -59,6 +59,7 @@ If URL already in the list, warn user: "This URL was ingested recently. Re-inges
 3. **Write sources/ summary from truncated content:**
    - Extract: title, description (first paragraph), key topics
    - Generate frontmatter: slug, type: source, source_url, date_captured, tags, quality
+   - `project: {path.basename(process.cwd()) ile CWD'den alınan proje adı}`
    - `source_type` is auto-detected from URL pattern (see Source Summary Format)
    - Write to `$MINDLORE_DIR/sources/{slug}.md`
 
@@ -147,7 +148,7 @@ After every ingest, verify all 7 checkpoints before reporting success:
    ```
    Eğer score > 0.7 olan sonuç varsa KULLANICIYA SOR: "Bu içerik '${slug}' ile benzer görünüyor. Yine de eklensin mi?"
    Kullanıcı onaylarsa devam et, yoksa atla.
-1. **raw/ file exists** — immutable capture written with frontmatter (slug, type, source_url)
+1. **raw/ file exists** — immutable capture written with frontmatter (slug, type, source_url, project)
 2. **sources/ summary exists** — processed summary with full frontmatter (slug, type, title, tags, quality, description)
 3. **INDEX.md updated** — stats line incremented, Recent section has new entry
 4. **Domain updated** — if relevant domain exists, new finding added (max 1 domain per ingest)
