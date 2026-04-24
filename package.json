@@ -63,6 +63,7 @@
     "typescript": "^6.0.2"
   },
   "files": [
+    "agents/",
     "dist/",
     "hooks/",
     "skills/",
