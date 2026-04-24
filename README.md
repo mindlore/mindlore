@@ -73,6 +73,18 @@ npx mindlore episodes count                 # Episode count per project
 | `/mindlore-explore` | Cross-reference discovery between sources |
 | `/mindlore-maintain` | KB maintenance: decay reports, consolidation, contradiction detection |
 
+## Agents
+
+3 delegatable agents for subagent workflows:
+
+| Agent | Model | Description |
+|-------|-------|-------------|
+| `mindlore-assistant` | sonnet | Knowledge base Q&A — hybrid FTS5 search, top-3 result synthesis, cited answers |
+| `mindlore-researcher` | sonnet | Independent web research — checks existing KB first, fetches new sources, writes structured analyses with contradiction flagging |
+| `mindlore-librarian` | haiku | Periodic maintenance — health checks, stale content detection, FTS5 consistency, cleanup recommendations |
+
+Agents are spawned via Claude Code's Agent tool with `team_name` or directly. The `model-router` hook reads `config.json` and routes `[mindlore:SKILL]` markers to cost-optimized models automatically.
+
 ## Architecture
 
 Knowledge flows through a compiler-like pipeline:
