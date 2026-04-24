@@ -21,11 +21,10 @@ Add a new knowledge source to the `.mindlore/` knowledge base.
 
 ## Scope
 
-Determine target directory using `getActiveMindloreDir()` logic:
-- If CWD has `.mindlore/` → write to project scope
-- Otherwise → write to global `~/.mindlore/`
-- `--global` flag: force write to `~/.mindlore/` even if project scope exists
-- Never hardcode `.mindlore/` path — always resolve dynamically
+Tüm ingest işlemleri global `~/.mindlore/` dizinine yazılır.
+Proje ayrımı frontmatter'daki `project` alanı ile yapılır.
+`raw/` altına proje bazlı klasörleme yapılmaz (session sync hariç).
+Frontmatter'a `project: {CWD project adı}` otomatik eklenir.
 
 ## Trigger
 
