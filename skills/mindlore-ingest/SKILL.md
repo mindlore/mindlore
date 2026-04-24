@@ -30,6 +30,27 @@ Frontmatter'a `project: {CWD project adı}` otomatik eklenir.
 
 User shares a URL, text, file, or says "kaynak ekle", "source ingest", "bu linki kaydet", "knowledge ingest".
 
+## Multi-URL Support
+
+Birden fazla URL verildiğinde (boşluk veya virgülle ayrılmış):
+
+1. URL'leri parse et — boşluk veya virgülle split
+2. Her URL için sırayla mevcut URL Mode pipeline'ını çalıştır:
+   - Fetch → raw/ yazımı → sources/ dönüşümü → INDEX.md güncelle → log → FTS5 sync
+3. Her URL için ayrı `skill-memory` dedup kontrolü yap
+4. Her URL sonrası 7-point quality gate uygula
+5. Hata olan URL'yi raporla ama sonrakine devam et (fail-forward)
+6. Tüm URL'ler bittikten sonra toplu rapor döndür:
+
+```json
+{ "processed": 3, "failed": 0, "skipped": 1, "sources": ["slug1", "slug2", "slug3"] }
+```
+
+Örnek kullanım:
+```
+/mindlore-ingest https://docs.aws.amazon.com/lambda/latest/dg/best-practices.html https://docs.aws.amazon.com/dynamodb/latest/developerguide/best-practices.html
+```
+
 ## Modes
 
 ### URL Mode (v0.5.2 — Zero-Token Pipeline)
