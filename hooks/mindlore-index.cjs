@@ -10,7 +10,7 @@
 
 const fs = require('fs');
 const path = require('path');
-const { MINDLORE_DIR, DB_NAME, SKIP_FILES, sha256, openDatabase, parseFrontmatter, extractFtsMetadata, insertFtsRow, readHookStdin, getProjectName, globalDir, hookLog } = require('./lib/mindlore-common.cjs');
+const { MINDLORE_DIR, DB_NAME, SKIP_FILES, sha256, openDatabase, parseFrontmatter, extractFtsMetadata, insertFtsRow, readHookStdin, getProjectName, resolveProject, globalDir, hookLog } = require('./lib/mindlore-common.cjs');
 
 function main() {
   const filePath = readHookStdin(['path', 'file_path']);
@@ -77,12 +77,12 @@ function main() {
 
     // Parse frontmatter for rich FTS5 columns
     const { meta, body } = parseFrontmatter(content);
-    const { slug, description, type, category, title, tags, quality, dateCaptured } = extractFtsMetadata(meta, body, filePath, baseDir);
+    const { slug, description, type, category, title, tags, quality, dateCaptured, project: ftsProject } = extractFtsMetadata(meta, body, filePath, baseDir);
 
     // Update FTS5 + hash atomically
     const updateIndex = db.transaction(() => {
       db.prepare('DELETE FROM mindlore_fts WHERE path = ?').run(filePath);
-      insertFtsRow(db, { path: filePath, slug, description, type, category, title, content: body, tags, quality, dateCaptured, project: getProjectName() });
+      insertFtsRow(db, { path: filePath, slug, description, type, category, title, content: body, tags, quality, dateCaptured, project: resolveProject(ftsProject, filePath, getProjectName()) });
       db.prepare(
         `INSERT INTO file_hashes (path, content_hash, last_indexed)
          VALUES (?, ?, ?)
@@ -197,7 +197,7 @@ function catchUpScan(baseDir, dbPath) {
 
         const update = db.transaction(() => {
           db.prepare('DELETE FROM mindlore_fts WHERE path = ?').run(filePath);
-          insertFtsRow(db, { path: filePath, ...ftsData, project: getProjectName() });
+          insertFtsRow(db, { path: filePath, ...ftsData, project: resolveProject(ftsData.project, filePath, getProjectName()) });
           db.prepare(
             `INSERT INTO file_hashes (path, content_hash, last_indexed)
              VALUES (?, ?, ?)

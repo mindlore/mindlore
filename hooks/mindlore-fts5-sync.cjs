@@ -13,7 +13,7 @@
 
 const fs = require('fs');
 const path = require('path');
-const { MINDLORE_DIR, DB_NAME, sha256, openDatabase, getAllMdFiles, parseFrontmatter, extractFtsMetadata, insertFtsRow, readHookStdin, getActiveMindloreDir, getProjectName, hookLog } = require('./lib/mindlore-common.cjs');
+const { MINDLORE_DIR, DB_NAME, sha256, openDatabase, getAllMdFiles, parseFrontmatter, extractFtsMetadata, insertFtsRow, readHookStdin, getActiveMindloreDir, getProjectName, resolveProject, hookLog } = require('./lib/mindlore-common.cjs');
 
 function main() {
   const filePath = readHookStdin(['path', 'file_path']);
@@ -60,9 +60,9 @@ function main() {
         if (existing && existing.content_hash === hash) continue;
 
         const { meta, body } = parseFrontmatter(content);
-        const { slug, description, type, category, title, tags, quality, dateCaptured } = extractFtsMetadata(meta, body, file, baseDir);
+        const { slug, description, type, category, title, tags, quality, dateCaptured, project: ftsProject } = extractFtsMetadata(meta, body, file, baseDir);
         deleteFts.run(file);
-        insertFtsRow(db, { path: file, slug, description, type, category, title, content: body, tags, quality, dateCaptured, project });
+        insertFtsRow(db, { path: file, slug, description, type, category, title, content: body, tags, quality, dateCaptured, project: resolveProject(ftsProject, file, project) });
         upsertHash.run(file, hash, now);
       }
     });

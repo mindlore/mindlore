@@ -37,14 +37,16 @@ const common: {
     tags: string;
     quality: string | null;
     dateCaptured: string | null;
+    project: string | null;
   };
   insertFtsRow: (db: import('better-sqlite3').Database, entry: {
     path: string; slug?: string; description?: string; type?: string;
     category?: string; title?: string; content?: string; tags?: string;
     quality?: string | null; dateCaptured?: string | null; project?: string | null;
   }) => void;
+  resolveProject: (ftsProject: string | null, filePath: string, cwdFallback: string) => string;
 } = require(resolveHookCommon(__dirname));
-const { sha256, getAllMdFiles, openDatabase, parseFrontmatter, extractFtsMetadata, insertFtsRow } = common;
+const { sha256, getAllMdFiles, openDatabase, parseFrontmatter, extractFtsMetadata, insertFtsRow, resolveProject } = common;
 
 // ── Types ─────────────────────────────────────────────────────────────
 
@@ -160,10 +162,10 @@ async function main(): Promise<void> {
         }
 
         const { meta, body } = parseFrontmatter(content);
-        const { slug, description, type, category, title, tags, quality, dateCaptured } =
+        const { slug, description, type, category, title, tags, quality, dateCaptured, project: ftsProject } =
           extractFtsMetadata(meta, body, filePath, baseDir);
         deleteFts.run(filePath);
-        insertFtsRow(db, { path: filePath, slug, description, type, category, title, content: body, tags, quality, dateCaptured, project: projectName });
+        insertFtsRow(db, { path: filePath, slug, description, type, category, title, content: body, tags, quality, dateCaptured, project: resolveProject(ftsProject, filePath, projectName) });
 
         upsertHash.run(filePath, hash, now, projectName, qualityToImportance(quality));
         indexed++;
