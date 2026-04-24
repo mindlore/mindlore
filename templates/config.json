@@ -4,6 +4,9 @@
     "ingest": "haiku",
     "evolve": "sonnet",
     "explore": "sonnet",
+    "assistant": "sonnet",
+    "researcher": "sonnet",
+    "librarian": "haiku",
     "default": "haiku"
   },
   "reflect": {
