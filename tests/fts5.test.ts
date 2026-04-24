@@ -1,7 +1,7 @@
 import path from 'path';
 import Database from 'better-sqlite3';
 import fs from 'fs';
-import { createTestDb, insertFts, setupTestDir, teardownTestDir, sha256 } from './helpers/db.js';
+import { createTestDb, insertFts, setupTestDir, teardownTestDir, sha256, parseFrontmatter, extractFtsMetadata, resolveProject } from './helpers/db.js';
 import { dbAll, dbGet } from '../scripts/lib/db-helpers.js';
 
 interface TimestampRow {
@@ -520,5 +520,65 @@ describe('Search Script Hybrid Mode', () => {
     expect(results[0].score).toBeGreaterThan(0);
 
     db.close();
+  });
+});
+
+describe('resolveProject — frontmatter-first project resolution', () => {
+  test('should use frontmatter project when available', () => {
+    const content = '---\nslug: kastell-session\nproject: kastell\ntype: raw\n---\nSession content';
+    const testPath = path.join(TEST_DIR, 'sources', 'kastell-session.md');
+    fs.writeFileSync(testPath, content);
+    const { meta, body } = parseFrontmatter(content);
+    const ftsData = extractFtsMetadata(meta, body, testPath, TEST_DIR);
+    const project = resolveProject(ftsData.project, testPath, 'wrong-cwd');
+    expect(project).toBe('kastell');
+  });
+
+  test('should use path-based project for session files without frontmatter project', () => {
+    const sessionDir = path.join(TEST_DIR, 'raw', 'sessions', 'kastell');
+    fs.mkdirSync(sessionDir, { recursive: true });
+    const content = '---\nslug: test-session\ntype: raw\n---\nNo project field';
+    const testPath = path.join(sessionDir, '2026-04-24-abc123.md');
+    fs.writeFileSync(testPath, content);
+    const { meta, body } = parseFrontmatter(content);
+    const ftsData = extractFtsMetadata(meta, body, testPath, TEST_DIR);
+    const project = resolveProject(ftsData.project, testPath, 'wrong-cwd');
+    expect(project).toBe('kastell');
+  });
+
+  test('should use path-based project for diary files', () => {
+    const diaryDir = path.join(TEST_DIR, 'diary', 'mindlore');
+    fs.mkdirSync(diaryDir, { recursive: true });
+    const content = '---\nslug: diary-entry\ntype: diary\n---\nDiary content';
+    const testPath = path.join(diaryDir, 'delta-2026-04-24.md');
+    fs.writeFileSync(testPath, content);
+    const { meta, body } = parseFrontmatter(content);
+    const ftsData = extractFtsMetadata(meta, body, testPath, TEST_DIR);
+    const project = resolveProject(ftsData.project, testPath, 'wrong-cwd');
+    expect(project).toBe('mindlore');
+  });
+
+  test('should fall back to CWD when no frontmatter or path hint', () => {
+    const content = '---\nslug: generic-source\ntype: source\n---\nGeneric content';
+    const testPath = path.join(TEST_DIR, 'sources', 'generic.md');
+    fs.writeFileSync(testPath, content);
+    const { meta, body } = parseFrontmatter(content);
+    const ftsData = extractFtsMetadata(meta, body, testPath, TEST_DIR);
+    const project = resolveProject(ftsData.project, testPath, 'my-project');
+    expect(project).toBe('my-project');
+  });
+
+  test('extractFtsMetadata should return project from frontmatter', () => {
+    const content = '---\nslug: test\nproject: kastell\n---\nBody';
+    const { meta, body } = parseFrontmatter(content);
+    const ftsData = extractFtsMetadata(meta, body, '/tmp/test.md', '/tmp');
+    expect(ftsData.project).toBe('kastell');
+  });
+
+  test('extractFtsMetadata should return null project when not in frontmatter', () => {
+    const content = '---\nslug: test\n---\nBody';
+    const { meta, body } = parseFrontmatter(content);
+    const ftsData = extractFtsMetadata(meta, body, '/tmp/test.md', '/tmp');
+    expect(ftsData.project).toBeNull();
   });
 });

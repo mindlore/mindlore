@@ -10,10 +10,13 @@ import { V052_MIGRATIONS } from '../../scripts/lib/migrations-v052.js';
 import { V053_MIGRATIONS } from '../../scripts/lib/migrations-v053.js';
 
 // Hook'lar .cjs kalıyor — SQL constants'ları oradan import ediyoruz
-const { SQL_FTS_CREATE, insertFtsRow, ensureEpisodesTable: ensureEpisodesTableCjs }: {
+const { SQL_FTS_CREATE, insertFtsRow, ensureEpisodesTable: ensureEpisodesTableCjs, parseFrontmatter: parseFrontmatterCjs, extractFtsMetadata: extractFtsMetadataCjs, resolveProject: resolveProjectCjs }: {
   SQL_FTS_CREATE: string;
   insertFtsRow: (db: Database.Database, entry: Record<string, unknown>) => void;
   ensureEpisodesTable: (db: Database.Database) => void;
+  parseFrontmatter: (content: string) => { meta: Record<string, string>; body: string };
+  extractFtsMetadata: (meta: Record<string, string>, body: string, filePath: string, baseDir: string) => { slug: string; description: string; type: string; category: string; title: string; tags: string; quality: string | null; dateCaptured: string | null; project: string | null };
+  resolveProject: (ftsProject: string | null, filePath: string, cwdFallback: string) => string;
 } = require('../../hooks/lib/mindlore-common.cjs');
 
 export function sha256(content: string): string {
@@ -118,6 +121,10 @@ export function createTestDbWithVec(dbPath: string): { db: Database.Database; ve
   }
   return { db, vecLoaded };
 }
+
+export const parseFrontmatter = parseFrontmatterCjs;
+export const extractFtsMetadata = extractFtsMetadataCjs;
+export const resolveProject = resolveProjectCjs;
 
 export function insertVec(db: Database.Database, slug: string, embedding: Float32Array, model: string = 'test-model'): void {
   db.prepare('INSERT INTO documents_vec (slug, embedding, created_at, model_name) VALUES (?, ?, ?, ?)').run(

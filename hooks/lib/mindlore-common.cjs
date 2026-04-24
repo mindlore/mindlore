@@ -62,6 +62,16 @@ function getProjectName() {
   return path.basename(process.cwd());
 }
 
+function resolveProject(ftsProject, filePath, cwdFallback) {
+  if (ftsProject) return ftsProject;
+  const normalized = filePath.replace(/\\/g, '/');
+  const sessionMatch = normalized.match(/raw\/sessions\/([^/]+)\//);
+  if (sessionMatch) return sessionMatch[1];
+  const diaryMatch = normalized.match(/diary\/([^/]+)\//);
+  if (diaryMatch) return diaryMatch[1];
+  return cwdFallback;
+}
+
 function getLatestDelta(diaryDir) {
   if (!fs.existsSync(diaryDir)) return null;
 
@@ -131,7 +141,8 @@ function extractFtsMetadata(meta, body, filePath, baseDir) {
   }
   const quality = meta.quality !== undefined && meta.quality !== null ? meta.quality : null;
   const dateCaptured = meta.date_captured || meta.date || null;
-  return { slug, description, type, category, title, tags, quality, dateCaptured };
+  const project = meta.project || null;
+  return { slug, description, type, category, title, tags, quality, dateCaptured, project };
 }
 
 /**
@@ -653,6 +664,7 @@ module.exports = {
   readConfig,
   detectSchemaVersion,
   getProjectName,
+  resolveProject,
   DEFAULT_MODELS,
   // Episodes (v0.4.1)
   EPISODE_KINDS_CJS,
