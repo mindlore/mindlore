@@ -11,7 +11,7 @@
 
 const fs = require('fs');
 const path = require('path');
-const { findMindloreDir, hookLog } = require('./lib/mindlore-common.cjs');
+const { findMindloreDir, hookLog, withTelemetry } = require('./lib/mindlore-common.cjs');
 
 function main() {
   const baseDir = findMindloreDir();
@@ -63,4 +63,7 @@ function main() {
   process.stdout.write('[Mindlore: pre-compact FTS5 flush complete]\n');
 }
 
-try { main(); } catch (err) { hookLog('pre-compact', 'error', err?.message ?? String(err)); }
+withTelemetry('mindlore-pre-compact', main).catch(err => {
+  if (process.env.MINDLORE_DEBUG === '1') process.stderr.write(`[mindlore-pre-compact] ${err.message}\n`);
+  process.exit(0);
+});

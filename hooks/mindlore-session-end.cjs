@@ -13,7 +13,7 @@ const fs = require('fs');
 const path = require('path');
 const os = require('os');
 const { execSync, execFileSync, spawn } = require('child_process');
-const { findMindloreDir, globalDir, getProjectName, openDatabase, ensureEpisodesTable, hasEpisodesTable, insertBareEpisode, insertFtsRow, hookLog, SHARED_EXPORT_DIRS, resolveWin32Bin } = require('./lib/mindlore-common.cjs');
+const { findMindloreDir, globalDir, getProjectName, openDatabase, ensureEpisodesTable, hasEpisodesTable, insertBareEpisode, insertFtsRow, hookLog, SHARED_EXPORT_DIRS, resolveWin32Bin, withTelemetry } = require('./lib/mindlore-common.cjs');
 
 const EXPORT_DIRS = SHARED_EXPORT_DIRS;
 
@@ -516,5 +516,8 @@ function syncGlobalRepo() {
 }
 
 if (!process.argv.includes('--worker')) {
-  main();
+  withTelemetry('mindlore-session-end', main).catch(err => {
+    if (process.env.MINDLORE_DEBUG === '1') process.stderr.write(`[mindlore-session-end] ${err.message}\n`);
+    process.exit(0);
+  });
 }

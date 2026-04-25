@@ -9,7 +9,7 @@
  * Does NOT block (exit 0) — advisory only.
  */
 
-const { findMindloreDir, readHookStdin, hookLog } = require('./lib/mindlore-common.cjs');
+const { findMindloreDir, readHookStdin, hookLog, withTelemetry } = require('./lib/mindlore-common.cjs');
 
 const SIGNALS_TR = [
   'karar verdik', 'karar verildi', 'kararlastirdik', 'kararlaştırdık',
@@ -48,4 +48,7 @@ function main() {
   }
 }
 
-try { main(); } catch (err) { hookLog('decision-detector', 'error', err?.message ?? String(err)); }
+withTelemetry('mindlore-decision-detector', main).catch(err => {
+  if (process.env.MINDLORE_DEBUG === '1') process.stderr.write(`[mindlore-decision-detector] ${err.message}\n`);
+  process.exit(0);
+});

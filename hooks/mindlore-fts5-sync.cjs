@@ -13,7 +13,7 @@
 
 const fs = require('fs');
 const path = require('path');
-const { MINDLORE_DIR, DB_NAME, sha256, openDatabase, getAllMdFiles, parseFrontmatter, extractFtsMetadata, insertFtsRow, readHookStdin, getActiveMindloreDir, getProjectName, resolveProject, hookLog } = require('./lib/mindlore-common.cjs');
+const { MINDLORE_DIR, DB_NAME, sha256, openDatabase, getAllMdFiles, parseFrontmatter, extractFtsMetadata, insertFtsRow, readHookStdin, getActiveMindloreDir, getProjectName, resolveProject, hookLog, withTelemetry } = require('./lib/mindlore-common.cjs');
 
 function main() {
   const filePath = readHookStdin(['path', 'file_path']);
@@ -75,4 +75,7 @@ function main() {
   // process.stdout.write kaldırıldı (kimse görmüyor)
 }
 
-try { main(); } catch (err) { hookLog('fts5-sync', 'error', err?.message ?? String(err)); }
+withTelemetry('mindlore-fts5-sync', main).catch(err => {
+  if (process.env.MINDLORE_DEBUG === '1') process.stderr.write(`[mindlore-fts5-sync] ${err.message}\n`);
+  process.exit(0);
+});

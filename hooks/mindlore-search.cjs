@@ -10,7 +10,7 @@
 
 const fs = require('fs');
 const path = require('path');
-const { getAllDbs, openDatabase, extractHeadings, readHookStdin, extractKeywords, sanitizeKeyword, readConfig, loadSqliteVecCjs, hasVecTableCjs, hookLog, incrementRecallCount, getDaemonPortFile } = require('./lib/mindlore-common.cjs');
+const { getAllDbs, openDatabase, extractHeadings, readHookStdin, extractKeywords, sanitizeKeyword, readConfig, loadSqliteVecCjs, hasVecTableCjs, hookLog, incrementRecallCount, getDaemonPortFile, withTelemetry } = require('./lib/mindlore-common.cjs');
 
 const { execFileSync } = require('child_process');
 
@@ -307,4 +307,7 @@ function main() {
   }
 }
 
-try { main(); } catch (err) { hookLog('search', 'error', err?.message ?? String(err)); }
+withTelemetry('mindlore-search', main).catch(err => {
+  if (process.env.MINDLORE_DEBUG === '1') process.stderr.write(`[mindlore-search] ${err.message}\n`);
+  process.exit(0);
+});

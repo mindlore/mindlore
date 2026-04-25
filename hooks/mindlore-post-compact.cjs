@@ -14,7 +14,7 @@
 
 const fs = require('fs');
 const path = require('path');
-const { findMindloreDir, getLatestDelta, hookLog } = require('./lib/mindlore-common.cjs');
+const { findMindloreDir, getLatestDelta, hookLog, withTelemetry } = require('./lib/mindlore-common.cjs');
 
 function main() {
   const baseDir = findMindloreDir();
@@ -43,4 +43,7 @@ function main() {
   }
 }
 
-try { main(); } catch (err) { hookLog('post-compact', 'error', err?.message ?? String(err)); }
+withTelemetry('mindlore-post-compact', main).catch(err => {
+  if (process.env.MINDLORE_DEBUG === '1') process.stderr.write(`[mindlore-post-compact] ${err.message}\n`);
+  process.exit(0);
+});

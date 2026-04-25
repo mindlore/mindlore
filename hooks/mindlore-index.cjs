@@ -10,7 +10,7 @@
 
 const fs = require('fs');
 const path = require('path');
-const { MINDLORE_DIR, DB_NAME, SKIP_FILES, sha256, openDatabase, parseFrontmatter, extractFtsMetadata, insertFtsRow, readHookStdin, getProjectName, resolveProject, globalDir, hookLog } = require('./lib/mindlore-common.cjs');
+const { MINDLORE_DIR, DB_NAME, SKIP_FILES, sha256, openDatabase, parseFrontmatter, extractFtsMetadata, insertFtsRow, readHookStdin, getProjectName, resolveProject, globalDir, hookLog, withTelemetry } = require('./lib/mindlore-common.cjs');
 
 function main() {
   const filePath = readHookStdin(['path', 'file_path']);
@@ -218,4 +218,7 @@ function catchUpScan(baseDir, dbPath) {
   }
 }
 
-main();
+withTelemetry('mindlore-index', main).catch(err => {
+  if (process.env.MINDLORE_DEBUG === '1') process.stderr.write(`[mindlore-index] ${err.message}\n`);
+  process.exit(0);
+});
