@@ -40,7 +40,9 @@ tests/      # Jest test suites
 - `plugin.json` for CC plugin manifest (npx skills add)
 - Uninstall: `npx mindlore uninstall [--all]`
 
-## Hooks (v0.5.4 — 14 hooks)
+## Hooks (v0.6.0 — 14 hooks)
+
+> v0.6.0: Tüm hook'lar `withTelemetry` / `withTelemetrySync` ile sarmalandı (`.mindlore/telemetry.jsonl`).
 
 | Event | Hook | Purpose |
 |-------|------|---------|

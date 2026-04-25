@@ -343,6 +343,8 @@ Dedup tablosu — content-hash ile aynı dosyanın tekrar indexlenmesini engelle
 | archived_at | TEXT | Arşivlenme zamanı (null = aktif) |
 | importance | REAL | Kalite→önem dönüşümü (0.0–1.0) |
 
+> v0.6.0: `QUALITY_HEURISTICS` artık `cc-session`/`cc-subagent` source_type'larını tanıyor (önce eksikti).
+
 ### episodes
 
 Session ve bilgi olayları — decision, discovery, friction, learning, reflection.

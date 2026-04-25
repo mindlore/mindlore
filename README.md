@@ -125,7 +125,7 @@ Nine directories, each mapping to a frontmatter `type`:
 npx mindlore
 ```
 
-Requires: Node.js 20+, `better-sqlite3` (installed automatically).
+Requires: Node.js 20+ (24 supported), `better-sqlite3` ^12 (installed automatically).
 
 ### Recommended
 

@@ -5,6 +5,24 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.6.0] - 2026-04-25
+
+### Breaking
+- `@xenova/transformers@2` → `@huggingface/transformers@4.2.0`. Model ID ve embedding boyutu (e5-small, 384) aynı; mevcut FTS5/vec dataları geçerli.
+
+### Changed
+- `better-sqlite3` v11.10 → v12.9 (Node 24 prebuild desteği).
+- CI matrix Node 24 eklendi (3 OS × 3 Node = 9 kombinasyon).
+
+### Added
+- `withTelemetry` / `withTelemetrySync` helper — 14 hook sarmalandı, `.mindlore/telemetry.jsonl` append-only log.
+- `npm run cleanup` — raw/ frontmatter project backfill + FTS5 gap raporu.
+- `tests/sqlite-vec-v12.test.ts` — vec0 v12 uyum smoke test.
+
+### Fixed
+- (Bulgu 5) `QUALITY_HEURISTICS` artık `cc-session`/`cc-subagent` source_type'larını tanıyor.
+- (Bulgu 11) `loadObsidianHelpers` → `getObsidianHelpers` top-level cache + `MINDLORE_DEBUG=1` warn.
+
 ## [0.5.9] — 2026-04-24
 
 ### Added

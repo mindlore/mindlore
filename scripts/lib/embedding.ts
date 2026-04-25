@@ -22,7 +22,7 @@ export async function generateEmbedding(text: string): Promise<number[]> {
     ? text
     : `passage: ${text}`;
   // Pipeline is callable — returns Tensor with tolist()
-  // eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- @huggingface/transformers pipeline is callable but untyped
+  // eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- dynamic import returns typed pipeline but callable signature requires explicit cast
   const run = embedder as (input: string[], opts: Record<string, unknown>) => Promise<{ tolist: () => number[][] }>;
   // normalize: true in pipeline options already returns L2-normalized vectors
   const result = await run([prefixed], { pooling: 'mean', normalize: true });
