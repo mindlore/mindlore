@@ -3,7 +3,10 @@ import fs from 'fs';
 import path from 'path';
 
 // eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- dynamic CJS require, typed by mindlore-common.d.cts
-const common = require('../../hooks/lib/mindlore-common.cjs') as {
+import { resolveHookCommon } from './constants.js';
+
+// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- dynamic CJS require, typed by mindlore-common.d.cts
+const common = require(resolveHookCommon(__dirname)) as {
   parseFrontmatter: (content: string) => { meta: Record<string, unknown>; body: string };
 };
 

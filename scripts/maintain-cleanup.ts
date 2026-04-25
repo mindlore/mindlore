@@ -2,9 +2,10 @@
 
 import fs from 'fs';
 import path from 'path';
-import { GLOBAL_MINDLORE_DIR, DB_NAME } from './lib/constants.js';
+import { GLOBAL_MINDLORE_DIR, DB_NAME, resolveHookCommon } from './lib/constants.js';
 
-const common = require('../hooks/lib/mindlore-common.cjs') as {
+// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- dynamic CJS require, typed by mindlore-common.d.cts
+const common = require(resolveHookCommon(__dirname)) as {
   getAllMdFiles: (dir: string, skip: Set<string>) => string[];
   resolveProject: (ftsProject: string | null, filePath: string, cwdFallback: string | null) => string | null;
 };
