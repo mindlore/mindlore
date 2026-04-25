@@ -10,7 +10,7 @@
 
 const fs = require('fs');
 const path = require('path');
-const { findMindloreDir, readConfig, openDatabase, hasEpisodesTable, querySupersededChains, formatSupersededChains, hookLog, getProjectName, parseFrontmatter, isDaemonRunning, getDaemonPidFile } = require('./lib/mindlore-common.cjs');
+const { findMindloreDir, readConfig, openDatabase, hasEpisodesTable, querySupersededChains, formatSupersededChains, hookLog, getProjectName, parseFrontmatter, isDaemonRunning, getDaemonPidFile, withTelemetry } = require('./lib/mindlore-common.cjs');
 
 function main() {
   const baseDir = findMindloreDir();
@@ -166,4 +166,7 @@ function main() {
   }
 }
 
-main();
+withTelemetry('mindlore-session-focus', async () => main()).catch(err => {
+  if (process.env.MINDLORE_DEBUG === '1') process.stderr.write(`[mindlore-session-focus] ${err.message}\n`);
+  process.exit(0);
+});

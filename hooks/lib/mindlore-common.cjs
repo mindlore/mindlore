@@ -640,6 +640,55 @@ const extractSkeleton = (() => {
   }
 })();
 
+// --- Telemetry (v0.6.0) ---
+async function withTelemetry(hookName, fn) {
+  const start = Date.now();
+  let ok = true;
+  let result;
+  let thrown;
+  try {
+    result = await fn();
+  } catch (err) {
+    ok = false;
+    thrown = err;
+  }
+  const duration_ms = Date.now() - start;
+  try {
+    const dir = globalDir();
+    if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
+    fs.appendFileSync(
+      path.join(dir, 'telemetry.jsonl'),
+      JSON.stringify({ ts: new Date().toISOString(), hook: hookName, duration_ms, ok }) + '\n'
+    );
+  } catch { /* silent — telemetry must never crash hook */ }
+  if (thrown) throw thrown;
+  return result;
+}
+
+function withTelemetrySync(hookName, fn) {
+  const start = Date.now();
+  let ok = true;
+  let result;
+  let thrown;
+  try {
+    result = fn();
+  } catch (err) {
+    ok = false;
+    thrown = err;
+  }
+  const duration_ms = Date.now() - start;
+  try {
+    const dir = globalDir();
+    if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
+    fs.appendFileSync(
+      path.join(dir, 'telemetry.jsonl'),
+      JSON.stringify({ ts: new Date().toISOString(), hook: hookName, duration_ms, ok }) + '\n'
+    );
+  } catch { /* silent */ }
+  if (thrown) throw thrown;
+  return result;
+}
+
 module.exports = {
   MINDLORE_DIR,
   GLOBAL_MINDLORE_DIR,
@@ -701,6 +750,9 @@ module.exports = {
   isDaemonRunning,
   getDaemonPortFile,
   getDaemonPidFile,
+  // Telemetry (v0.6.0)
+  withTelemetry,
+  withTelemetrySync,
 };
 
 function isDaemonRunning(pidFile) {
