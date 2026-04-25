@@ -76,6 +76,6 @@ function main() {
 }
 
 withTelemetry('mindlore-fts5-sync', main).catch(err => {
-  if (process.env.MINDLORE_DEBUG === '1') process.stderr.write(`[mindlore-fts5-sync] ${err.message}\n`);
+  hookLog('mindlore-fts5-sync', 'error', err?.message ?? String(err));
   process.exit(0);
 });

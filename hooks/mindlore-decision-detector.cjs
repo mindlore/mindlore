@@ -49,6 +49,6 @@ function main() {
 }
 
 withTelemetry('mindlore-decision-detector', main).catch(err => {
-  if (process.env.MINDLORE_DEBUG === '1') process.stderr.write(`[mindlore-decision-detector] ${err.message}\n`);
+  hookLog('mindlore-decision-detector', 'error', err?.message ?? String(err));
   process.exit(0);
 });

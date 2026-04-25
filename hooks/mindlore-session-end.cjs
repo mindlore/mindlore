@@ -517,7 +517,7 @@ function syncGlobalRepo() {
 
 if (!process.argv.includes('--worker')) {
   withTelemetry('mindlore-session-end', main).catch(err => {
-    if (process.env.MINDLORE_DEBUG === '1') process.stderr.write(`[mindlore-session-end] ${err.message}\n`);
+    hookLog('mindlore-session-end', 'error', err?.message ?? String(err));
     process.exit(0);
   });
 }

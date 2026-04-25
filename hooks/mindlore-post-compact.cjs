@@ -44,6 +44,6 @@ function main() {
 }
 
 withTelemetry('mindlore-post-compact', main).catch(err => {
-  if (process.env.MINDLORE_DEBUG === '1') process.stderr.write(`[mindlore-post-compact] ${err.message}\n`);
+  hookLog('mindlore-post-compact', 'error', err?.message ?? String(err));
   process.exit(0);
 });

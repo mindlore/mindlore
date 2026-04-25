@@ -219,6 +219,6 @@ function catchUpScan(baseDir, dbPath) {
 }
 
 withTelemetry('mindlore-index', main).catch(err => {
-  if (process.env.MINDLORE_DEBUG === '1') process.stderr.write(`[mindlore-index] ${err.message}\n`);
+  hookLog('mindlore-index', 'error', err?.message ?? String(err));
   process.exit(0);
 });

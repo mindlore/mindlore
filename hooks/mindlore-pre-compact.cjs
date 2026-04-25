@@ -64,6 +64,6 @@ function main() {
 }
 
 withTelemetry('mindlore-pre-compact', main).catch(err => {
-  if (process.env.MINDLORE_DEBUG === '1') process.stderr.write(`[mindlore-pre-compact] ${err.message}\n`);
+  hookLog('mindlore-pre-compact', 'error', err?.message ?? String(err));
   process.exit(0);
 });

@@ -640,7 +640,16 @@ const extractSkeleton = (() => {
   }
 })();
 
-// --- Telemetry (v0.6.0) ---
+function _writeTelemetry(hookName, duration_ms, ok) {
+  try {
+    fs.mkdirSync(GLOBAL_MINDLORE_DIR, { recursive: true });
+    fs.appendFileSync(
+      path.join(GLOBAL_MINDLORE_DIR, 'telemetry.jsonl'),
+      JSON.stringify({ ts: new Date().toISOString(), hook: hookName, duration_ms, ok }) + '\n'
+    );
+  } catch { /* silent — telemetry must never crash hook */ }
+}
+
 async function withTelemetry(hookName, fn) {
   const start = Date.now();
   let ok = true;
@@ -652,15 +661,7 @@ async function withTelemetry(hookName, fn) {
     ok = false;
     thrown = err;
   }
-  const duration_ms = Date.now() - start;
-  try {
-    const dir = globalDir();
-    if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
-    fs.appendFileSync(
-      path.join(dir, 'telemetry.jsonl'),
-      JSON.stringify({ ts: new Date().toISOString(), hook: hookName, duration_ms, ok }) + '\n'
-    );
-  } catch { /* silent — telemetry must never crash hook */ }
+  _writeTelemetry(hookName, Date.now() - start, ok);
   if (thrown) throw thrown;
   return result;
 }
@@ -676,15 +677,7 @@ function withTelemetrySync(hookName, fn) {
     ok = false;
     thrown = err;
   }
-  const duration_ms = Date.now() - start;
-  try {
-    const dir = globalDir();
-    if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
-    fs.appendFileSync(
-      path.join(dir, 'telemetry.jsonl'),
-      JSON.stringify({ ts: new Date().toISOString(), hook: hookName, duration_ms, ok }) + '\n'
-    );
-  } catch { /* silent */ }
+  _writeTelemetry(hookName, Date.now() - start, ok);
   if (thrown) throw thrown;
   return result;
 }

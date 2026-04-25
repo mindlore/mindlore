@@ -166,7 +166,7 @@ function main() {
   }
 }
 
-withTelemetry('mindlore-session-focus', async () => main()).catch(err => {
-  if (process.env.MINDLORE_DEBUG === '1') process.stderr.write(`[mindlore-session-focus] ${err.message}\n`);
+withTelemetry('mindlore-session-focus', main).catch(err => {
+  hookLog('mindlore-session-focus', 'error', err?.message ?? String(err));
   process.exit(0);
 });

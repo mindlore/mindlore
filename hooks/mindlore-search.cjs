@@ -308,6 +308,6 @@ function main() {
 }
 
 withTelemetry('mindlore-search', main).catch(err => {
-  if (process.env.MINDLORE_DEBUG === '1') process.stderr.write(`[mindlore-search] ${err.message}\n`);
+  hookLog('mindlore-search', 'error', err?.message ?? String(err));
   process.exit(0);
 });
