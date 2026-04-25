@@ -369,19 +369,32 @@ function writeEpisodeFile(baseDir, project, commits, changedFiles, reads) {
   fs.writeFileSync(filePath, lines.join('\n'), 'utf8');
 }
 
+let _obsidianHelpersCache = undefined; // undefined = not yet attempted
 /**
  * Load obsidian-helpers from compiled dist (single source of truth for wikilink conversion).
  * Returns null if helpers not available (e.g. dev environment without build).
+ * Result is cached — require() runs at most once per process.
  */
-function loadObsidianHelpers() {
+function getObsidianHelpers() {
+  if (_obsidianHelpersCache !== undefined) return _obsidianHelpersCache;
   try {
-    // Resolve from package root (hooks/ is sibling to dist/)
     const hookDir = __dirname;
     const pkgRoot = path.dirname(hookDir);
     const helpersPath = path.join(pkgRoot, 'dist', 'scripts', 'lib', 'obsidian-helpers.js');
-    if (!fs.existsSync(helpersPath)) return null;
-    return require(helpersPath);
-  } catch (_err) {
+    if (!fs.existsSync(helpersPath)) {
+      if (process.env.MINDLORE_DEBUG === '1') {
+        process.stderr.write(`[mindlore] obsidian-helpers not found at ${helpersPath}\n`);
+      }
+      _obsidianHelpersCache = null;
+      return null;
+    }
+    _obsidianHelpersCache = require(helpersPath);
+    return _obsidianHelpersCache;
+  } catch (err) {
+    if (process.env.MINDLORE_DEBUG === '1') {
+      process.stderr.write(`[mindlore] obsidian-helpers load failed: ${err.message}\n`);
+    }
+    _obsidianHelpersCache = null;
     return null;
   }
 }
@@ -419,7 +432,7 @@ function syncObsidian(baseDir) {
     if (!vaultPath || typeof vaultPath !== 'string') return;
     if (!fs.existsSync(vaultPath)) return;
 
-    const helpers = loadObsidianHelpers();
+    const helpers = getObsidianHelpers();
     // Fallback regex if helpers unavailable (strips path prefixes like the canonical version)
     const convertFn = helpers?.convertToWikilinks
       ?? ((c) => c.replace(/\[([^\]]+)\]\((?:\.\.?\/)?(?:[\w-]+\/)*([^/)]+)\.md\)/g, '[[$2]]'));
