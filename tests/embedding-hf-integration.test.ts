@@ -10,7 +10,6 @@ try {
 
 (pkgAvailable ? describe : describe.skip)('HF Transformers smoke', () => {
   test('Xenova/multilingual-e5-small loads from HF package', async () => {
-    // @ts-ignore — module available after HF swap (Task 3b)
     const { pipeline } = await import('@huggingface/transformers');
     const embedder = await pipeline('feature-extraction', 'Xenova/multilingual-e5-small', {
       dtype: 'q8',
@@ -21,7 +20,6 @@ try {
   }, 60_000);
 
   test('alternative ID intfloat/multilingual-e5-small loads', async () => {
-    // @ts-ignore — module available after HF swap (Task 3b)
     const { pipeline } = await import('@huggingface/transformers');
     const embedder = await pipeline('feature-extraction', 'intfloat/multilingual-e5-small');
     const result = await (embedder as any)(['passage: hello'], { pooling: 'mean', normalize: true });
@@ -31,7 +29,7 @@ try {
 
 let embeddingAvailable = false;
 try {
-  require('@xenova/transformers');
+  require('@huggingface/transformers');
   embeddingAvailable = true;
 } catch { /* ESM-only module — Jest CJS mode cannot load it */ }
 

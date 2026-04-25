@@ -7,10 +7,10 @@ let cachedPipeline: unknown = null;
 async function getEmbedder(): Promise<unknown> {
   if (cachedPipeline) return cachedPipeline;
 
-  // Dynamic import — @xenova/transformers is ESM
-  const { pipeline: createPipeline } = await import('@xenova/transformers');
+  // Dynamic import — @huggingface/transformers v4
+  const { pipeline: createPipeline } = await import('@huggingface/transformers');
   cachedPipeline = await createPipeline('feature-extraction', EMBEDDING_MODEL, {
-    quantized: true, // int8 quantization — smaller, faster
+    dtype: 'q8', // int8 quantization — smaller, faster
   });
   return cachedPipeline;
 }
@@ -22,7 +22,7 @@ export async function generateEmbedding(text: string): Promise<number[]> {
     ? text
     : `passage: ${text}`;
   // Pipeline is callable — returns Tensor with tolist()
-  // eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- @xenova/transformers pipeline is callable but untyped
+  // eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- @huggingface/transformers pipeline is callable but untyped
   const run = embedder as (input: string[], opts: Record<string, unknown>) => Promise<{ tolist: () => number[][] }>;
   // normalize: true in pipeline options already returns L2-normalized vectors
   const result = await run([prefixed], { pooling: 'mean', normalize: true });

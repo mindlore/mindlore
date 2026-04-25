@@ -1,10 +1,10 @@
 /**
- * Embedding module unit tests — mock @xenova/transformers (pure ESM, Jest CJS uyumsuz).
+ * Embedding module unit tests — mock @huggingface/transformers.
  * Real model integration test → Task 14 standalone script.
  */
 
 // Mock the dynamic import before any imports
-jest.mock('@xenova/transformers', () => {
+jest.mock('@huggingface/transformers', () => {
   // Return a fake 384-dim embedding based on text hash for deterministic results
   function fakeEmbed(texts: string[]): { tolist: () => number[][] } {
     const embeddings = texts.map(text => {
