@@ -381,18 +381,11 @@ function getObsidianHelpers() {
     const hookDir = __dirname;
     const pkgRoot = path.dirname(hookDir);
     const helpersPath = path.join(pkgRoot, 'dist', 'scripts', 'lib', 'obsidian-helpers.js');
-    if (!fs.existsSync(helpersPath)) {
-      if (process.env.MINDLORE_DEBUG === '1') {
-        process.stderr.write(`[mindlore] obsidian-helpers not found at ${helpersPath}\n`);
-      }
-      _obsidianHelpersCache = null;
-      return null;
-    }
     _obsidianHelpersCache = require(helpersPath);
     return _obsidianHelpersCache;
   } catch (err) {
     if (process.env.MINDLORE_DEBUG === '1') {
-      process.stderr.write(`[mindlore] obsidian-helpers load failed: ${err.message}\n`);
+      process.stderr.write(`[mindlore] obsidian-helpers not available: ${err.message}\n`);
     }
     _obsidianHelpersCache = null;
     return null;

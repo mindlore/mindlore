@@ -2,26 +2,16 @@ import Database from 'better-sqlite3';
 import fs from 'fs';
 import path from 'path';
 
+// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- dynamic CJS require, typed by mindlore-common.d.cts
+const common = require('../../hooks/lib/mindlore-common.cjs') as {
+  parseFrontmatter: (content: string) => { meta: Record<string, unknown>; body: string };
+};
+
 export interface BackfillResult {
   createdAtFixed: number;
   importanceMapped: number;
   projectScopeSet: number;
   totalRows: number;
-}
-
-function parseFrontmatterSimple(content: string): Record<string, string> {
-  const match = content.match(/^---\n([\s\S]*?)\n---/);
-  if (!match) return {};
-  const block = match[1];
-  if (!block) return {};
-  const result: Record<string, string> = {};
-  for (const line of block.split('\n')) {
-    const idx = line.indexOf(':');
-    if (idx > 0) {
-      result[line.slice(0, idx).trim()] = line.slice(idx + 1).trim();
-    }
-  }
-  return result;
 }
 
 function qualityToImportance(quality: string | undefined): number {
@@ -56,9 +46,9 @@ export function runBackfill(db: Database.Database, baseDir: string): BackfillRes
     if (row.importance === 1.0 && fs.existsSync(row.path)) {
       try {
         const content = fs.readFileSync(row.path, 'utf8');
-        const meta = parseFrontmatterSimple(content);
+        const meta = common.parseFrontmatter(content).meta;
         if (meta.quality) {
-          const mapped = qualityToImportance(meta.quality);
+          const mapped = qualityToImportance(String(meta.quality));
           if (mapped !== 1.0) {
             updateImportance.run(mapped, row.path);
             result.importanceMapped++;

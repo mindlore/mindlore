@@ -1,6 +1,11 @@
 import fs from 'fs';
 import path from 'path';
 
+// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- dynamic CJS require, typed by mindlore-common.d.cts
+const common = require('../../hooks/lib/mindlore-common.cjs') as {
+  parseFrontmatter: (content: string) => { meta: Record<string, unknown>; body: string };
+};
+
 export interface Contradiction {
   rule: string;
   files: string[];
@@ -15,24 +20,11 @@ interface FileMeta {
   content: string;
 }
 
-function parseFrontmatterSimple(raw: string): Record<string, string> {
-  const match = raw.match(/^---\n([\s\S]*?)\n---/);
-  if (!match) return {};
-  const result: Record<string, string> = {};
-  const block = match[1];
-  if (!block) return result;
-  for (const line of block.split('\n')) {
-    const idx = line.indexOf(':');
-    if (idx > 0) {
-      result[line.slice(0, idx).trim()] = line.slice(idx + 1).trim();
-    }
-  }
-  return result;
-}
-
-function parseTags(raw: string | undefined): string[] {
+function parseTags(raw: unknown): string[] {
   if (!raw) return [];
-  return raw.replace(/^\[|\]$/g, '').split(',').map(t => t.trim().replace(/['"]/g, '')).filter(Boolean);
+  if (Array.isArray(raw)) return raw.map(String).filter(Boolean);
+  if (typeof raw === 'string') return raw.replace(/^\[|\]$/g, '').split(',').map(t => t.trim().replace(/['"]/g, '')).filter(Boolean);
+  return [];
 }
 
 function loadFiles(baseDir: string): FileMeta[] {
@@ -45,11 +37,11 @@ function loadFiles(baseDir: string): FileMeta[] {
       if (!file.endsWith('.md')) continue;
       const filePath = path.join(dirPath, file);
       const rawContent = fs.readFileSync(filePath, 'utf8').replace(/\r\n/g, '\n');
-      const meta = parseFrontmatterSimple(rawContent);
+      const meta = common.parseFrontmatter(rawContent).meta;
       files.push({
         path: filePath,
-        slug: meta.slug ?? '',
-        type: meta.type ?? '',
+        slug: String(meta.slug ?? ''),
+        type: String(meta.type ?? ''),
         tags: parseTags(meta.tags),
         content: rawContent.replace(/^---\n[\s\S]*?\n---\n?/, ''),
       });

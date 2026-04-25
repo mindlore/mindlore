@@ -643,10 +643,17 @@ const extractSkeleton = (() => {
 function _writeTelemetry(hookName, duration_ms, ok) {
   try {
     fs.mkdirSync(GLOBAL_MINDLORE_DIR, { recursive: true });
-    fs.appendFileSync(
-      path.join(GLOBAL_MINDLORE_DIR, 'telemetry.jsonl'),
-      JSON.stringify({ ts: new Date().toISOString(), hook: hookName, duration_ms, ok }) + '\n'
-    );
+    const telPath = path.join(GLOBAL_MINDLORE_DIR, 'telemetry.jsonl');
+    const line = JSON.stringify({ ts: new Date().toISOString(), hook: hookName, duration_ms, ok }) + '\n';
+    // Rotate if > 500KB — keep last 200 lines
+    try {
+      const stat = fs.statSync(telPath);
+      if (stat.size > 512000) {
+        const lines = fs.readFileSync(telPath, 'utf8').split('\n');
+        fs.writeFileSync(telPath, lines.slice(-200).join('\n'), 'utf8');
+      }
+    } catch { /* file may not exist yet */ }
+    fs.appendFileSync(telPath, line);
   } catch { /* silent — telemetry must never crash hook */ }
 }
 
