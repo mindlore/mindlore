@@ -1,7 +1,6 @@
 import fs from 'fs';
 import path from 'path';
 
-// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- dynamic CJS require, typed by mindlore-common.d.cts
 import { resolveHookCommon } from './constants.js';
 
 // eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- dynamic CJS require, typed by mindlore-common.d.cts

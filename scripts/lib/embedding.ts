@@ -7,7 +7,7 @@ let cachedPipeline: unknown = null;
 async function getEmbedder(): Promise<unknown> {
   if (cachedPipeline) return cachedPipeline;
 
-  // Dynamic import — @huggingface/transformers v4
+  // ESM-only package in CJS context — must use dynamic import
   const { pipeline: createPipeline } = await import('@huggingface/transformers');
   cachedPipeline = await createPipeline('feature-extraction', EMBEDDING_MODEL, {
     dtype: 'q8', // int8 quantization — smaller, faster

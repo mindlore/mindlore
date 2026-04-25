@@ -58,30 +58,31 @@ export async function runCleanup(opts: CleanupOptions = {}): Promise<CleanupRepo
   }
 
   const dbPath = path.join(baseDir, DB_NAME);
-  if (fs.existsSync(dbPath)) {
+  try {
+    const Database: typeof import('better-sqlite3') = require('better-sqlite3');
+    const db = new Database(dbPath, { readonly: true });
     try {
-      const Database: typeof import('better-sqlite3') = require('better-sqlite3');
-      const db = new Database(dbPath, { readonly: true });
-      try {
-        const tables = db.prepare("SELECT name FROM sqlite_master WHERE type='table' AND name='mindlore_fts'").all();
-        if (tables.length > 0) {
-          const indexed = new Set(
-            (db.prepare('SELECT path FROM mindlore_fts').all() as Array<{ path: string }>).map(  // eslint-disable-line @typescript-eslint/no-unsafe-type-assertion -- FTS5 schema guarantees path column
-              r => norm(r.path)
-            )
-          );
-          for (const file of allFiles) {
-            const normalized = norm(file);
-            if (!indexed.has(normalized)) {
-              report.fts5Gaps.push(normalized);
-            }
+      const tables = db.prepare("SELECT name FROM sqlite_master WHERE type='table' AND name='mindlore_fts'").all();
+      if (tables.length > 0) {
+        const indexed = new Set(
+          (db.prepare('SELECT path FROM mindlore_fts').all() as Array<{ path: string }>).map(  // eslint-disable-line @typescript-eslint/no-unsafe-type-assertion -- FTS5 schema guarantees path column
+            r => norm(r.path)
+          )
+        );
+        for (const file of allFiles) {
+          const normalized = norm(file);
+          if (!indexed.has(normalized)) {
+            report.fts5Gaps.push(normalized);
           }
         }
-      } finally {
-        db.close();
       }
-    } catch (err) {
-      report.errors.push(`fts5 gap check error: ${(err as Error).message}`);
+    } finally {
+      db.close();
+    }
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
+    if (!/SQLITE_CANTOPEN|no such file/.test(msg)) {
+      report.errors.push(`fts5 gap check error: ${msg}`);
     }
   }
 

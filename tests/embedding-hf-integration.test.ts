@@ -13,9 +13,9 @@ try {
 (pkgAvailable && !isNode24 ? describe : describe.skip)('HF Transformers smoke', () => {
   test('Xenova/multilingual-e5-small loads from HF package', async () => {
     const { pipeline } = await import('@huggingface/transformers');
-    const embedder = await pipeline('feature-extraction', 'Xenova/multilingual-e5-small', {
-      dtype: 'q8',
-    } as any);
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion, @typescript-eslint/no-explicit-any -- ESM pipeline type unresolvable in CJS Jest
+    const embedder = await pipeline('feature-extraction', 'Xenova/multilingual-e5-small', { dtype: 'q8' } as any);
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion, @typescript-eslint/no-explicit-any -- callable pipeline signature
     const result = await (embedder as any)(['passage: hello'], { pooling: 'mean', normalize: true });
     const list = result.tolist();
     expect(list[0]).toHaveLength(384);
@@ -24,6 +24,7 @@ try {
   test('alternative ID intfloat/multilingual-e5-small loads', async () => {
     const { pipeline } = await import('@huggingface/transformers');
     const embedder = await pipeline('feature-extraction', 'intfloat/multilingual-e5-small');
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion, @typescript-eslint/no-explicit-any -- callable pipeline signature
     const result = await (embedder as any)(['passage: hello'], { pooling: 'mean', normalize: true });
     expect(result.tolist()[0]).toHaveLength(384);
   }, 60_000);

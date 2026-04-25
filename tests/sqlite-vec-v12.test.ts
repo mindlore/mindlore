@@ -30,8 +30,10 @@ describe('sqlite-vec on better-sqlite3 v12', () => {
       'SELECT rowid, distance FROM vec_items WHERE embedding MATCH ? ORDER BY distance LIMIT 2'
     ).all(Buffer.from(new Float32Array([1, 0, 0]).buffer));
     expect(rows.length).toBe(2);
-    expect((rows[0] as VecRow).rowid).toBe(1);
-    expect((rows[0] as VecRow).distance).toBeCloseTo(0);
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- sqlite row shape guaranteed by vec0 schema
+    const first = rows[0] as VecRow;
+    expect(first.rowid).toBe(1);
+    expect(first.distance).toBeCloseTo(0);
   });
 
   test('better-sqlite3 prepare + run works', () => {
