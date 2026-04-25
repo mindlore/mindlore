@@ -31,12 +31,20 @@ describe('maintain-cleanup', () => {
     db.exec(
       "CREATE VIRTUAL TABLE mindlore_fts USING fts5(path UNINDEXED, slug, description, type UNINDEXED, category, title, content, tags, quality UNINDEXED, date_captured UNINDEXED, project UNINDEXED, tokenize='porter unicode61')"
     );
+    // Insert a known file so it is NOT a gap
+    const knownFile = path.join(baseDir, 'raw', 'sessions', 'foo', 'known.md');
+    fs.writeFileSync(knownFile, '---\nproject: foo\n---\nknown', 'utf8');
+    const knownPath = knownFile.replace(/\\/g, '/');
+    db.prepare('INSERT INTO mindlore_fts(path, slug, description, type, category, title, content, tags) VALUES(?,?,?,?,?,?,?,?)')
+      .run(knownPath, '', '', '', '', '', '', '');
     db.close();
-    const file = path.join(baseDir, 'raw', 'sessions', 'foo', 'orphan.md');
-    fs.writeFileSync(file, '---\nproject: test\n---\nx', 'utf8');
+    // Orphan file — on disk but NOT in DB
+    const orphan = path.join(baseDir, 'raw', 'sessions', 'foo', 'orphan.md');
+    fs.writeFileSync(orphan, '---\nproject: test\n---\nx', 'utf8');
     const { runCleanup } = await import('../scripts/maintain-cleanup.js');
     const report = await runCleanup({ baseDir, dryRun: true });
-    expect(report.fts5Gaps.length).toBeGreaterThan(0);
+    expect(report.fts5Gaps.length).toBe(1);
+    expect(report.fts5Gaps[0]).toContain('orphan.md');
   });
 
   test('dryRun does not modify files', async () => {

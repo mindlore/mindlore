@@ -90,7 +90,7 @@ export async function runCleanup(opts: CleanupOptions = {}): Promise<CleanupRepo
       }
       report.backfilled.push(file);
     } catch (err) {
-      report.errors.push(`backfill error ${file}: ${(err as Error).message}`);
+      report.errors.push(`backfill error ${file}: ${err instanceof Error ? err.message : String(err)}`);
     }
   }
 
@@ -104,12 +104,14 @@ export async function runCleanup(opts: CleanupOptions = {}): Promise<CleanupRepo
         const tables = db.prepare("SELECT name FROM sqlite_master WHERE type='table' AND name='mindlore_fts'").all();
         if (tables.length > 0) {
           const indexed = new Set(
-            (db.prepare('SELECT path FROM mindlore_fts').all() as Array<{ path: string }>).map(r => r.path)
+            (db.prepare('SELECT path FROM mindlore_fts').all() as Array<{ path: string }>).map(  // eslint-disable-line @typescript-eslint/no-unsafe-type-assertion -- FTS5 schema guarantees path column
+              r => r.path.replace(/\\/g, '/')
+            )
           );
           for (const file of allFiles) {
-            const rel = path.relative(baseDir, file).replace(/\\/g, '/');
-            if (!indexed.has(rel)) {
-              report.fts5Gaps.push(rel);
+            const normalized = file.replace(/\\/g, '/');
+            if (!indexed.has(normalized)) {
+              report.fts5Gaps.push(normalized);
             }
           }
         }
