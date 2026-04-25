@@ -4,6 +4,11 @@ import fs from 'fs';
 import path from 'path';
 import { GLOBAL_MINDLORE_DIR, DB_NAME } from './lib/constants.js';
 
+const common = require('../hooks/lib/mindlore-common.cjs') as {
+  getAllMdFiles: (dir: string, skip: Set<string>) => string[];
+  resolveProject: (ftsProject: string | null, filePath: string, cwdFallback: string | null) => string | null;
+};
+
 export interface CleanupReport {
   fts5Gaps: string[];
   backfilled: string[];
@@ -15,49 +20,7 @@ interface CleanupOptions {
   dryRun?: boolean;
 }
 
-const FM_REGEX = /^---\r?\n([\s\S]*?)\r?\n---/;
-
-function parseFrontmatterSimple(content: string): { meta: Record<string, string>; body: string; raw: string } | null {
-  const match = content.match(FM_REGEX);
-  if (!match || !match[1]) return null;
-  const raw: string = match[1];
-  const meta: Record<string, string> = {};
-  for (const line of raw.split(/\r?\n/)) {
-    const idx = line.indexOf(':');
-    if (idx > 0) {
-      const key = line.slice(0, idx).trim();
-      const val = line.slice(idx + 1).trim();
-      meta[key] = val;
-    }
-  }
-  const body = content.slice(match[0].length);
-  return { meta, body, raw };
-}
-
-function getAllMdFilesRecursive(dir: string): string[] {
-  const results: string[] = [];
-  if (!fs.existsSync(dir)) return results;
-  const entries = fs.readdirSync(dir, { withFileTypes: true });
-  for (const entry of entries) {
-    const full = path.join(dir, entry.name);
-    if (entry.isDirectory()) {
-      results.push(...getAllMdFilesRecursive(full));
-    } else if (entry.name.endsWith('.md')) {
-      results.push(full);
-    }
-  }
-  return results;
-}
-
-function deriveProjectFromPath(filePath: string, baseDir: string): string | null {
-  const rel = path.relative(path.join(baseDir, 'raw', 'sessions'), filePath).replace(/\\/g, '/');
-  const parts = rel.split('/');
-  const first = parts[0];
-  if (parts.length >= 2 && first && !first.startsWith('..')) {
-    return first;
-  }
-  return null;
-}
+const norm = (p: string): string => p.replace(/\\/g, '/');
 
 export async function runCleanup(opts: CleanupOptions = {}): Promise<CleanupReport> {
   const baseDir = opts.baseDir ?? GLOBAL_MINDLORE_DIR;
@@ -70,22 +33,21 @@ export async function runCleanup(opts: CleanupOptions = {}): Promise<CleanupRepo
   };
 
   const rawDir = path.join(baseDir, 'raw');
-  const allFiles = getAllMdFilesRecursive(rawDir);
+  const allFiles = common.getAllMdFiles(rawDir, new Set());
 
-  // --- Backfill missing project frontmatter ---
   for (const file of allFiles) {
     try {
       const content = fs.readFileSync(file, 'utf8');
-      const parsed = parseFrontmatterSimple(content);
-      if (!parsed) continue;
-      if (parsed.meta['project']) continue;
+      const fmMatch = content.match(/^---\r?\n([\s\S]*?)\r?\n---/);
+      if (!fmMatch) continue;
+      const rawFm = fmMatch[0];
+      if (/^project:\s/m.test(rawFm)) continue;
 
-      const project = deriveProjectFromPath(file, baseDir);
+      const project = common.resolveProject(null, file, null);
       if (!project) continue;
 
       if (!dryRun) {
-        const newFm = parsed.raw + '\nproject: ' + project;
-        const newContent = content.replace(parsed.raw, newFm);
+        const newContent = content.replace(/\n---/, `\nproject: ${project}\n---`);
         fs.writeFileSync(file, newContent, 'utf8');
       }
       report.backfilled.push(file);
@@ -94,7 +56,6 @@ export async function runCleanup(opts: CleanupOptions = {}): Promise<CleanupRepo
     }
   }
 
-  // --- FTS5 gap detection ---
   const dbPath = path.join(baseDir, DB_NAME);
   if (fs.existsSync(dbPath)) {
     try {
@@ -105,11 +66,11 @@ export async function runCleanup(opts: CleanupOptions = {}): Promise<CleanupRepo
         if (tables.length > 0) {
           const indexed = new Set(
             (db.prepare('SELECT path FROM mindlore_fts').all() as Array<{ path: string }>).map(  // eslint-disable-line @typescript-eslint/no-unsafe-type-assertion -- FTS5 schema guarantees path column
-              r => r.path.replace(/\\/g, '/')
+              r => norm(r.path)
             )
           );
           for (const file of allFiles) {
-            const normalized = file.replace(/\\/g, '/');
+            const normalized = norm(file);
             if (!indexed.has(normalized)) {
               report.fts5Gaps.push(normalized);
             }
