@@ -14,7 +14,7 @@
 
 const fs = require('fs');
 const path = require('path');
-const { getAllDbs, requireDatabase, extractKeywords, sanitizeKeyword, hookLog } = require('./lib/mindlore-common.cjs');
+const { getAllDbs, requireDatabase, extractKeywords, sanitizeKeyword, hookLog, withTelemetrySync } = require('./lib/mindlore-common.cjs');
 
 // Keywords that signal a research/web-search intent in agent prompts
 // Note: entries with dots/stars are regex patterns, rest are literals
@@ -173,4 +173,4 @@ function main() {
   process.stdout.write(JSON.stringify(output));
 }
 
-try { main(); } catch (err) { hookLog('research-guard', 'error', err?.message ?? String(err)); }
+try { withTelemetrySync('mindlore-research-guard', main); } catch (err) { hookLog('research-guard', 'error', err?.message ?? String(err)); }

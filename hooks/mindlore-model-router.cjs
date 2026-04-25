@@ -6,7 +6,7 @@
  */
 
 const fs = require('fs');
-const { findMindloreDir, readConfig, DEFAULT_MODELS, hookLog } = require('./lib/mindlore-common.cjs');
+const { findMindloreDir, readConfig, DEFAULT_MODELS, hookLog, withTelemetrySync } = require('./lib/mindlore-common.cjs');
 
 const SKILL_KEYS = Object.keys(DEFAULT_MODELS).filter((k) => k !== 'default');
 const MARKER_REGEX = new RegExp(`\\[mindlore:(${SKILL_KEYS.join('|')})\\]`);
@@ -51,4 +51,4 @@ function main() {
   process.stdout.write(JSON.stringify(output));
 }
 
-try { main(); } catch (err) { hookLog('model-router', 'error', err?.message ?? String(err)); }
+try { withTelemetrySync('mindlore-model-router', main); } catch (err) { hookLog('model-router', 'error', err?.message ?? String(err)); }

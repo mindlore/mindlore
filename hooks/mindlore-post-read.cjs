@@ -13,7 +13,7 @@
 
 const fs = require('fs');
 const path = require('path');
-const { findMindloreDir, getProjectName, hookLog } = require('./lib/mindlore-common.cjs');
+const { findMindloreDir, getProjectName, hookLog, withTelemetry } = require('./lib/mindlore-common.cjs');
 
 const CODE_EXTS = new Set(['.ts', '.tsx', '.js', '.jsx', '.py', '.rs', '.go', '.java', '.c', '.cpp', '.h', '.css', '.scss', '.sql', '.sh', '.yaml', '.yml', '.json', '.toml', '.xml', '.cjs', '.mjs']);
 const PROSE_EXTS = new Set(['.md', '.txt', '.rst', '.adoc']);
@@ -103,4 +103,4 @@ function main() {
   });
 }
 
-try { main(); } catch (err) { hookLog('post-read', 'error', err?.message ?? String(err)); }
+withTelemetry('mindlore-post-read', main).catch(err => { hookLog('post-read', 'error', err?.message ?? String(err)); });

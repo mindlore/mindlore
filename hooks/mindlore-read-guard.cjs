@@ -14,7 +14,7 @@
 
 const fs = require('fs');
 const path = require('path');
-const { findMindloreDir, readHookStdin, getProjectName, hookLog, extractSkeleton } = require('./lib/mindlore-common.cjs');
+const { findMindloreDir, readHookStdin, getProjectName, hookLog, extractSkeleton, withTelemetrySync } = require('./lib/mindlore-common.cjs');
 
 function main() {
   const baseDir = findMindloreDir();
@@ -102,4 +102,4 @@ function main() {
   }
 }
 
-try { main(); } catch (err) { hookLog('read-guard', 'error', err?.message ?? String(err)); }
+try { withTelemetrySync('mindlore-read-guard', main); } catch (err) { hookLog('read-guard', 'error', err?.message ?? String(err)); }
