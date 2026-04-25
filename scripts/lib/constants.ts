@@ -58,6 +58,8 @@ export const QUALITY_HEURISTICS: Record<string, QualityValue> = {
   'text-paste': 'low',
   'snippet': 'low',
   'forum': 'low',
+  'cc-session': 'low',
+  'cc-subagent': 'low',
 };
 
 export const TYPE_TO_DIR: Record<string, string> = {

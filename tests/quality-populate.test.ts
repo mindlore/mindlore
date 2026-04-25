@@ -187,6 +187,22 @@ describe('Quality populate — bulk script', () => {
     expect(readSourceQuality('unknown.md')).toBe('medium');
   });
 
+  test('cc-session source_type gets quality = low', () => {
+    writeSource('cc-session-test.md', 'slug: cc-session-test\ntype: source\nsource_type: cc-session', '# CC Session Test');
+
+    runPopulate();
+
+    expect(readSourceQuality('cc-session-test.md')).toBe('low');
+  });
+
+  test('cc-subagent source_type gets quality = low', () => {
+    writeSource('cc-subagent-test.md', 'slug: cc-subagent-test\ntype: source\nsource_type: cc-subagent', '# CC Subagent Test');
+
+    runPopulate();
+
+    expect(readSourceQuality('cc-subagent-test.md')).toBe('low');
+  });
+
   test('should report correct counts', () => {
     writeSource('needs-quality.md', 'slug: needs-quality\ntype: source\nsource_type: blog', '# Needs Quality');
     writeSource('has-quality.md', 'slug: has-quality\ntype: source\nquality: low', '# Has Quality');
