@@ -19,6 +19,33 @@ interface FetchResult {
 }
 
 function slugFromUrl(url: string): string {
+  const parsed = new URL(url);
+
+  // GitHub repo: owner/repo → repo slug
+  const ghMatch = parsed.pathname.match(/^\/([^/]+)\/([^/]+)\/?$/);
+  if (parsed.hostname === 'github.com' && ghMatch) {
+    return ghMatch[2]!.replace(/\.git$/, '').toLowerCase();
+  }
+
+  // Strip common noise from pathname
+  const segments = parsed.pathname
+    .replace(/\/$/, '')
+    .split('/')
+    .filter(s => s && !['index.html', 'index.htm', 'README.md'].includes(s));
+
+  if (segments.length > 0) {
+    // Take last 2 meaningful segments max
+    const tail = segments.slice(-2).join('-');
+    const slug = tail
+      .replace(/\.[^.]+$/, '')       // strip extension
+      .replace(/[^a-zA-Z0-9-]/g, '-') // non-alphanumeric → dash
+      .replace(/-{2,}/g, '-')         // collapse dashes
+      .replace(/^-|-$/g, '')          // trim dashes
+      .toLowerCase();
+    if (slug.length >= 3) return slug;
+  }
+
+  // Fallback: hash (only if URL has no useful path)
   return crypto.createHash('sha256').update(url).digest('hex').slice(0, 12);
 }
 
