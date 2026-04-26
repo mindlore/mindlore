@@ -54,6 +54,7 @@ if (process.argv.includes('--worker')) {
         execFileSync(nodeExe, [scriptPath, ...args], {
           timeout: timeoutMs,
           env: { ...process.env, MINDLORE_HOME: baseDir },
+          windowsHide: true,
         });
         hookLog('session-end', 'info', label + ' completed');
       } catch (err) {
@@ -112,6 +113,7 @@ function getRecentGitInfo() {
       encoding: 'utf8',
       timeout: 5000,
       stdio: ['pipe', 'pipe', 'pipe'],
+      windowsHide: true,
     }).trim();
     if (!raw) return { commits: [], changedFiles: [] };
 
@@ -234,6 +236,7 @@ function main() {
       detached: true,
       stdio: 'ignore',
       cwd: process.cwd(),
+      windowsHide: true,
     });
     child.unref();
   } catch (_err) {
@@ -490,7 +493,7 @@ function syncGlobalRepo() {
   if (!fs.existsSync(gitDir)) return;
 
   const git = resolveGitBin();
-  const execOpts = (timeout) => ({ cwd: gDir, encoding: 'utf8', timeout, stdio: 'pipe' });
+  const execOpts = (timeout) => ({ cwd: gDir, encoding: 'utf8', timeout, stdio: 'pipe', windowsHide: true });
 
   // Check for changes
   const status = execSync(`"${git}" status --porcelain`, execOpts(5000)).trim();

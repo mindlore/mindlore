@@ -33,7 +33,7 @@ function requestEmbeddingSync(query) {
     const clientScript = path.join(__dirname, '..', 'scripts', 'lib', 'daemon-client.js');
     if (!fs.existsSync(clientScript)) return null;
     const result = execFileSync(process.execPath, [clientScript, portFile, query, '300'], {
-      timeout: 500, encoding: 'utf8', stdio: ['pipe', 'pipe', 'pipe']
+      timeout: 500, encoding: 'utf8', stdio: ['pipe', 'pipe', 'pipe'], windowsHide: true,
     });
     const parsed = JSON.parse(result.trim());
     return parsed.type === 'embedding' ? parsed.embedding : null;

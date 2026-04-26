@@ -25,6 +25,7 @@ function main() {
       spawnSync('node', [indexScript, baseDir], {
         timeout: 10000,
         stdio: 'pipe',
+        windowsHide: true,
       });
     } catch (_err) {
       // Non-fatal — index might fail if better-sqlite3 not available

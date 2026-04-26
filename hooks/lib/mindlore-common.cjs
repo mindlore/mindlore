@@ -623,7 +623,7 @@ function resolveWin32Bin(name) {
   if (process.platform === 'win32') {
     try {
       return require('child_process')
-        .execSync(`where ${name}`, { encoding: 'utf8', timeout: 3000 })
+        .execSync(`where ${name}`, { encoding: 'utf8', timeout: 3000, windowsHide: true })
         .trim().split('\n')[0].trim();
     } catch (_e) { /* fall through */ }
   }
