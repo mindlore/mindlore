@@ -24,6 +24,42 @@ function setupDb(): Database.Database {
   return db;
 }
 
+describe('migrations-v061 step 2: table split', () => {
+  it('moves cc-subagent and cc-session rows to sessions table', () => {
+    const db = setupDb();
+    db.prepare(
+      "INSERT INTO mindlore_fts (path, slug, type, category, project) VALUES (?, ?, ?, ?, ?)"
+    ).run('/source.md', 'src', 'source', 'sources', 'mindlore');
+    db.prepare(
+      "INSERT INTO mindlore_fts (path, slug, type, category, project) VALUES (?, ?, ?, ?, ?)"
+    ).run('/sub1.md', 'sub1', 'cc-subagent', 'cc-subagent', 'mindlore');
+    db.prepare(
+      "INSERT INTO mindlore_fts (path, slug, type, category, project) VALUES (?, ?, ?, ?, ?)"
+    ).run('/sess1.md', 'sess1', 'cc-session', 'cc-session', 'mindlore');
+
+    runMigrations(db, V061_MIGRATIONS);
+
+    expect(getSchemaVersion(db)).toBe(7);
+
+    const knowledge = db.prepare("SELECT * FROM mindlore_fts").all();
+    expect(knowledge).toHaveLength(1);
+    expect((knowledge[0] as {category: string}).category).toBe('sources');
+
+    const sessions = db.prepare("SELECT * FROM mindlore_fts_sessions").all();
+    expect(sessions).toHaveLength(2);
+
+    db.close();
+  });
+
+  it('adds table_target column to file_hashes', () => {
+    const db = setupDb();
+    runMigrations(db, V061_MIGRATIONS);
+    const cols = db.pragma('table_info(file_hashes)') as Array<{name: string}>;
+    expect(cols.map(c => c.name)).toContain('table_target');
+    db.close();
+  });
+});
+
 describe('migrations-v061 step 1: cleanup', () => {
   it('normalizes dirty project values', () => {
     const db = setupDb();

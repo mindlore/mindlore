@@ -21,4 +21,39 @@ export const V061_MIGRATIONS: Migration[] = [
       `);
     },
   },
+  {
+    version: 7,
+    name: 'split_fts_sessions',
+    up: (db: Database) => {
+      db.exec(`
+        CREATE VIRTUAL TABLE IF NOT EXISTS mindlore_fts_sessions USING fts5(
+          path, slug, description, type, category, title, content, tags,
+          quality, date_captured, project
+        )
+      `);
+
+      db.exec('BEGIN');
+      try {
+        db.exec(`
+          INSERT INTO mindlore_fts_sessions (path, slug, description, type, category, title, content, tags, quality, date_captured, project)
+          SELECT path, slug, description, type, category, title, content, tags, quality, date_captured, project
+          FROM mindlore_fts
+          WHERE category IN ('cc-subagent', 'cc-session')
+        `);
+        db.exec(`
+          DELETE FROM mindlore_fts WHERE category IN ('cc-subagent', 'cc-session')
+        `);
+        db.exec('COMMIT');
+      } catch (err) {
+        db.exec('ROLLBACK');
+        throw err;
+      }
+
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- pragma returns array of objects
+      const cols = db.pragma('table_info(file_hashes)') as Array<{ name: string }>;
+      if (!cols.some(c => c.name === 'table_target')) {
+        db.exec("ALTER TABLE file_hashes ADD COLUMN table_target TEXT DEFAULT 'mindlore_fts'");
+      }
+    },
+  },
 ];
