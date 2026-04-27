@@ -10,7 +10,7 @@
 
 import fs from 'fs';
 import path from 'path';
-import { DB_NAME, GLOBAL_MINDLORE_DIR, resolveHookCommon } from './lib/constants.js';
+import { DB_NAME, GLOBAL_MINDLORE_DIR, resolveHookCommon, isSessionCategory } from './lib/constants.js';
 import { dbAll, loadSqliteVec, ensureVecTable } from './lib/db-helpers.js';
 import { ensureSchemaTable, runMigrations } from './lib/schema-version.js';
 import { V050_MIGRATIONS, V051_MIGRATIONS } from './lib/migrations.js';
@@ -125,10 +125,6 @@ async function main(): Promise<void> {
   const getHash = db.prepare('SELECT content_hash FROM file_hashes WHERE path = ?');
   const checkFts = db.prepare('SELECT 1 FROM mindlore_fts WHERE path = ? LIMIT 1');
   const checkFtsSessions = db.prepare('SELECT 1 FROM mindlore_fts_sessions WHERE path = ? LIMIT 1');
-
-  function isSessionCategory(cat: string): boolean {
-    return cat === 'cc-subagent' || cat === 'cc-session';
-  }
 
   const mdFiles = getAllMdFiles(baseDir);
   let indexed = 0;

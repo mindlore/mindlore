@@ -154,6 +154,23 @@ const SQL_FTS_CREATE =
 const SQL_FTS_INSERT =
   'INSERT INTO mindlore_fts (path, slug, description, type, category, title, content, tags, quality, date_captured, project) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)';
 
+const SQL_FTS_SESSIONS_CREATE =
+  "CREATE VIRTUAL TABLE IF NOT EXISTS mindlore_fts_sessions USING fts5(path, slug, description, type, category, title, content, tags, quality, date_captured, project)";
+
+const SQL_FTS_SESSIONS_INSERT =
+  'INSERT INTO mindlore_fts_sessions (path, slug, description, type, category, title, content, tags, quality, date_captured, project) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)';
+
+const SESSION_CATEGORIES = ['cc-subagent', 'cc-session'];
+
+function isSessionCategory(category) {
+  return SESSION_CATEGORIES.includes(category);
+}
+
+const VERSION_RE = /v(\d+)\.(\d+)(?:\.(\d+))?/g;
+function fixVersionTokens(query) {
+  return query.replace(VERSION_RE, (_m, a, b, c) => c ? `"v${a} ${b} ${c}"` : `"v${a} ${b}"`);
+}
+
 /**
  * Insert a row into FTS5 using an object parameter (replaces positional args).
  */
@@ -731,6 +748,11 @@ module.exports = {
   readHookStdin,
   SQL_FTS_CREATE,
   SQL_FTS_INSERT,
+  SQL_FTS_SESSIONS_CREATE,
+  SQL_FTS_SESSIONS_INSERT,
+  SESSION_CATEGORIES,
+  isSessionCategory,
+  fixVersionTokens,
   insertFtsRow,
   extractHeadings,
   requireDatabase,

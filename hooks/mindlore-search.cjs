@@ -10,18 +10,12 @@
 
 const fs = require('fs');
 const path = require('path');
-const { getAllDbs, openDatabase, extractHeadings, readHookStdin, extractKeywords, sanitizeKeyword, readConfig, loadSqliteVecCjs, hasVecTableCjs, hookLog, incrementRecallCount, getDaemonPortFile, withTelemetry } = require('./lib/mindlore-common.cjs');
+const { getAllDbs, openDatabase, extractHeadings, readHookStdin, extractKeywords, sanitizeKeyword, readConfig, loadSqliteVecCjs, hasVecTableCjs, hookLog, incrementRecallCount, getDaemonPortFile, withTelemetry, fixVersionTokens } = require('./lib/mindlore-common.cjs');
 
 const { execFileSync } = require('child_process');
 
 const MAX_RESULTS = 3;
 const MIN_QUERY_WORDS = 3;
-
-// v0.6.1: Version tokenization — FTS5 unicode61 tokenizes "v0.6.1" as tokens [v0, 6, 1]
-const VERSION_RE = /v(\d+)\.(\d+)(?:\.(\d+))?/g;
-function fixVersionTokens(query) {
-  return query.replace(VERSION_RE, (_m, a, b, c) => c ? `"v${a} ${b} ${c}"` : `"v${a} ${b}"`);
-}
 
 // Try to load hybrid search module (built TS)
 let hybridSearchMod;
@@ -253,17 +247,16 @@ function main() {
   let totalUsed = 0;
   for (const r of relevant) {
     if (totalUsed >= totalChars) break;
-    const meta = r.meta || {};
     const relativePath = path.relative(r.baseDir, r.path).replace(/\\/g, '/');
 
     const headings = r.headings || [];
 
-    const category = meta.category || path.dirname(relativePath).split('/')[0];
-    const title = meta.title || meta.slug || path.basename(r.path, '.md');
-    const description = meta.description || '';
+    const category = r.category || path.dirname(relativePath).split('/')[0];
+    const title = r.title || r.slug || path.basename(r.path, '.md');
+    const description = r.description || '';
 
     const headingStr = headings.length > 0 ? `\nBasliklar: ${headings.join(', ')}` : '';
-    const tagsStr = meta.tags ? `\nTags: ${meta.tags}` : '';
+    const tagsStr = r.tags ? `\nTags: ${r.tags}` : '';
     const entry = `[Mindlore: ${category}/${title}] ${description}\nDosya: ${relativePath}${tagsStr}${headingStr}`;
     const truncated = entry.slice(0, perResultChars);
     totalUsed += truncated.length;

@@ -74,25 +74,23 @@ function main() {
 
     if (db) {
       // v0.6.1: Integrity check — auto-recover corrupt DB
-      try {
-        const check = db.pragma('integrity_check(1)');
-        const result = Array.isArray(check) ? check[0]?.integrity_check : check;
-        if (result !== 'ok') {
-          db.close();
-          const bakPath = dbPath + '.corrupt.bak';
-          try { fs.copyFileSync(dbPath, bakPath); } catch { /* best effort */ }
-          try { fs.unlinkSync(dbPath); } catch { /* best effort */ }
-          hookLog('session-focus', 'warn', `Corrupt DB detected, backed up to ${bakPath}. Run 'npm run index' to rebuild.`);
-          if (output.length > 0) process.stdout.write(output.join('\n\n'));
-          return;
-        }
-      } catch (err) {
+      const recoverCorruptDb = (reason) => {
         db.close();
         const bakPath = dbPath + '.corrupt.bak';
         try { fs.copyFileSync(dbPath, bakPath); } catch { /* best effort */ }
         try { fs.unlinkSync(dbPath); } catch { /* best effort */ }
-        hookLog('session-focus', 'warn', `DB integrity check failed: ${err.message}`);
+        hookLog('session-focus', 'warn', reason);
         if (output.length > 0) process.stdout.write(output.join('\n\n'));
+      };
+      try {
+        const check = db.pragma('integrity_check(1)');
+        const result = Array.isArray(check) ? check[0]?.integrity_check : check;
+        if (result !== 'ok') {
+          recoverCorruptDb(`Corrupt DB detected, backed up. Run 'npm run index' to rebuild.`);
+          return;
+        }
+      } catch (err) {
+        recoverCorruptDb(`DB integrity check failed: ${err.message}`);
         return;
       }
       try {

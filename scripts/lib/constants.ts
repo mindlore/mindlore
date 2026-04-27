@@ -36,6 +36,18 @@ export const SCHEMA_VERSION = 1;
 export const EMBEDDING_MODEL_NAME = 'Xenova/multilingual-e5-small';
 export const EMBEDDING_DIM_CONST = 384;
 
+export const SESSION_CATEGORIES = ['cc-subagent', 'cc-session'] as const;
+export type SessionCategory = typeof SESSION_CATEGORIES[number];
+
+export function isSessionCategory(category: string): category is SessionCategory {
+  return (SESSION_CATEGORIES as readonly string[]).includes(category);
+}
+
+const VERSION_RE = /v(\d+)\.(\d+)(?:\.(\d+))?/g;
+export function fixVersionTokens(query: string): string {
+  return query.replace(VERSION_RE, (_m, a, b, c) => c ? `"v${a} ${b} ${c}"` : `"v${a} ${b}"`);
+}
+
 export const FTS5_COLUMNS = ['path', 'slug', 'description', 'type', 'category', 'title', 'content', 'tags', 'quality', 'date_captured', 'project'] as const;
 export type FtsColumn = typeof FTS5_COLUMNS[number];
 

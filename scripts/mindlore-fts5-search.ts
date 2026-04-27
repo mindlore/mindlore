@@ -13,7 +13,7 @@
 import fs from 'fs';
 import path from 'path';
 import type { Database } from 'better-sqlite3';
-import { DB_NAME, GLOBAL_MINDLORE_DIR, getProjectName, resolveHookCommon } from './lib/constants.js';
+import { DB_NAME, GLOBAL_MINDLORE_DIR, getProjectName, resolveHookCommon, fixVersionTokens } from './lib/constants.js';
 import { dbAll, loadSqliteVec } from './lib/db-helpers.js';
 import { hybridSearch } from './lib/hybrid-search.js';
 import { generateEmbedding } from './lib/embedding.js';
@@ -88,13 +88,9 @@ async function main(): Promise<void> {
     process.exit(1);
   }
 
-  // v0.6.1: Version tokenization — FTS5 unicode61 tokenizes "v0.6.1" as [v0, 6, 1]
-  const VERSION_RE = /v(\d+)\.(\d+)(?:\.(\d+))?/g;
-  const sanitized = query
-    .replace(/[(){}[\]*:^~!]/g, ' ')
-    .replace(VERSION_RE, (_m: string, a: string, b: string, c: string | undefined) => c ? `"v${a} ${b} ${c}"` : `"v${a} ${b}"`)
-    .replace(/'/g, ' ')
-    .trim();
+  const sanitized = fixVersionTokens(
+    query.replace(/[(){}[\]*:^~!]/g, ' ').replace(/'/g, ' ')
+  ).trim();
   if (!sanitized) {
     console.log('  No valid search terms.');
     process.exit(0);

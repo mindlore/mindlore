@@ -13,7 +13,7 @@
 
 const fs = require('fs');
 const path = require('path');
-const { MINDLORE_DIR, DB_NAME, sha256, openDatabase, getAllMdFiles, parseFrontmatter, extractFtsMetadata, insertFtsRow, readHookStdin, getActiveMindloreDir, getProjectName, resolveProject, hookLog, withTelemetry } = require('./lib/mindlore-common.cjs');
+const { MINDLORE_DIR, DB_NAME, sha256, openDatabase, getAllMdFiles, parseFrontmatter, extractFtsMetadata, insertFtsRow, readHookStdin, getActiveMindloreDir, getProjectName, resolveProject, hookLog, withTelemetry, SQL_FTS_SESSIONS_CREATE, SQL_FTS_SESSIONS_INSERT, isSessionCategory } = require('./lib/mindlore-common.cjs');
 
 function main() {
   const filePath = readHookStdin(['path', 'file_path']);
@@ -37,21 +37,10 @@ function main() {
   const mdFiles = getAllMdFiles(baseDir);
 
 
-  // v0.6.1: Ensure sessions table exists (migration may not have run yet)
-  try {
-    db.exec(`CREATE VIRTUAL TABLE IF NOT EXISTS mindlore_fts_sessions USING fts5(
-      path, slug, description, type, category, title, content, tags,
-      quality, date_captured, project
-    )`);
-  } catch { /* table already exists */ }
-
   const getHash = db.prepare('SELECT content_hash FROM file_hashes WHERE path = ?');
   const deleteFts = db.prepare('DELETE FROM mindlore_fts WHERE path = ?');
   const deleteFtsSessions = db.prepare('DELETE FROM mindlore_fts_sessions WHERE path = ?');
-  const insertFtsSessions = db.prepare(
-    `INSERT INTO mindlore_fts_sessions (path, slug, description, type, category, title, content, tags, quality, date_captured, project)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
-  );
+  const insertFtsSessions = db.prepare(SQL_FTS_SESSIONS_INSERT);
   const upsertHash = db.prepare(`
     INSERT INTO file_hashes (path, content_hash, last_indexed)
     VALUES (?, ?, ?)
@@ -77,7 +66,7 @@ function main() {
         const resolvedProject = resolveProject(ftsProject, file, project);
         deleteFts.run(file);
         deleteFtsSessions.run(file);
-        if (category === 'cc-subagent' || category === 'cc-session') {
+        if (isSessionCategory(category)) {
           insertFtsSessions.run(file, slug, description, type, category, title, body, tags, quality ?? null, dateCaptured ?? null, resolvedProject);
         } else {
           insertFtsRow(db, { path: file, slug, description, type, category, title, content: body, tags, quality, dateCaptured, project: resolvedProject });
@@ -90,8 +79,6 @@ function main() {
     db.close();
   }
 
-  // FileChanged event stdout'u yutulur — log gerekiyorsa dosyaya yaz
-  // process.stdout.write kaldırıldı (kimse görmüyor)
 }
 
 withTelemetry('mindlore-fts5-sync', main).catch(err => {

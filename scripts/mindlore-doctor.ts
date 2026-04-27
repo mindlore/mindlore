@@ -116,7 +116,7 @@ export function checkFtsTables(baseDir: string): CheckResult {
     const Database = require('better-sqlite3');
     const db = new Database(dbPath, { readonly: true });
     const tables = db.prepare(
-      "SELECT name FROM sqlite_master WHERE type IN ('table', 'shadow') AND name LIKE 'mindlore_%' OR name = 'file_hashes' OR name = 'episodes' OR name = 'schema_versions'"
+      "SELECT name FROM sqlite_master WHERE (type IN ('table', 'shadow') AND name LIKE 'mindlore_%') OR name IN ('file_hashes', 'episodes', 'schema_versions')"
     ).all() as Array<{ name: string }>;
     db.close();
 
