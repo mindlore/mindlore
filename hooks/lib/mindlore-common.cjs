@@ -654,14 +654,17 @@ function _rotateFile(filePath, maxBytes, keepLines) {
 
 let _telDirEnsured = false;
 
-function _writeTelemetry(hookName, duration_ms, ok) {
+function _writeTelemetry(hookName, duration_ms, ok, extra) {
   try {
     if (!_telDirEnsured) {
       fs.mkdirSync(GLOBAL_MINDLORE_DIR, { recursive: true });
       _telDirEnsured = true;
     }
     const telPath = path.join(GLOBAL_MINDLORE_DIR, 'telemetry.jsonl');
-    const line = JSON.stringify({ ts: new Date().toISOString(), hook: hookName, duration_ms, ok }) + '\n';
+    const entry = { ts: new Date().toISOString(), hook: hookName, duration_ms, ok };
+    if (extra?.injected_tokens) entry.injected_tokens = extra.injected_tokens;
+    if (extra?.full_read_tokens) entry.full_read_tokens = extra.full_read_tokens;
+    const line = JSON.stringify(entry) + '\n';
     _rotateFile(telPath, HOOK_LOG_MAX_BYTES, TELEMETRY_KEEP_LINES);
     fs.appendFileSync(telPath, line);
   } catch { /* silent — telemetry must never crash hook */ }

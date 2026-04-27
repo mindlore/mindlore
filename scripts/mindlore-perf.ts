@@ -9,6 +9,8 @@ interface TelemetryEntry {
   hook: string;
   duration_ms: number;
   ok: boolean;
+  injected_tokens?: number;
+  full_read_tokens?: number;
 }
 
 interface Percentiles {
@@ -108,7 +110,29 @@ function main(): void {
     return;
   }
 
+  if (process.argv.includes('--savings')) {
+    const withTokens = entries.filter(e => e.injected_tokens && e.full_read_tokens);
+    if (withTokens.length === 0) {
+      console.log('No savings data found. Hooks need to emit injected_tokens/full_read_tokens.');
+      return;
+    }
+    let totalInjected = 0;
+    let totalFull = 0;
+    for (const e of withTokens) {
+      totalInjected += e.injected_tokens!;
+      totalFull += e.full_read_tokens!;
+    }
+    const saved = totalFull - totalInjected;
+    const pct = totalFull > 0 ? ((saved / totalFull) * 100).toFixed(1) : '0';
+    console.log(`\nContext Savings Report (${withTokens.length} entries)`);
+    console.log('='.repeat(40));
+    console.log(`  Full read tokens:     ${totalFull}`);
+    console.log(`  Injected tokens:      ${totalInjected}`);
+    console.log(`  Tokens saved:         ${saved} (${pct}%)\n`);
+    return;
+  }
+
   console.log(formatReport(entries));
 }
 
-main();
+if (require.main === module) main();

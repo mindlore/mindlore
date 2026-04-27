@@ -532,7 +532,8 @@ function main(): void {
   // Project-local .mindlore/ was removed in v0.3.3 and is migrated to .mindlore.bak/ below.
   const baseDir = GLOBAL_MINDLORE_DIR;
 
-  console.log(`\n  Mindlore — AI-native knowledge system [global (~/.mindlore/)]\n`);
+  const isUpgrade = process.argv.includes('--upgrade');
+  console.log(`\n  Mindlore — AI-native knowledge system [${isUpgrade ? 'upgrade' : 'global'} (~/.mindlore/)]\n`);
 
   // v0.3.3 Migration: rename existing project .mindlore/ → .mindlore.bak/
   const projectMindlore = path.join(process.cwd(), MINDLORE_DIR);
@@ -546,15 +547,17 @@ function main(): void {
     }
   }
 
-  // Step 1: Directories
-  const dirsCreated = createDirectories(baseDir);
-  log(
-    dirsCreated > 0
-      ? `Created ${dirsCreated} directories in ${MINDLORE_DIR}/`
-      : 'All directories already exist',
-  );
+  // Step 1: Directories (skip on upgrade — dirs already exist)
+  if (!isUpgrade) {
+    const dirsCreated = createDirectories(baseDir);
+    log(
+      dirsCreated > 0
+        ? `Created ${dirsCreated} directories in ${MINDLORE_DIR}/`
+        : 'All directories already exist',
+    );
+  }
 
-  // Step 2: Templates
+  // Step 2: Templates (always run — may have new templates)
   const filesCopied = copyTemplates(baseDir, packageRoot);
   log(
     filesCopied > 0

@@ -10,7 +10,7 @@
 
 const fs = require('fs');
 const path = require('path');
-const { findMindloreDir, readConfig, openDatabase, hasEpisodesTable, querySupersededChains, formatSupersededChains, hookLog, getProjectName, parseFrontmatter, isDaemonRunning, getDaemonPidFile, withTelemetry } = require('./lib/mindlore-common.cjs');
+const { findMindloreDir, readConfig, openDatabase, hasEpisodesTable, querySupersededChains, formatSupersededChains, hookLog, getProjectName, parseFrontmatter, withTelemetry } = require('./lib/mindlore-common.cjs');
 
 function main() {
   const baseDir = findMindloreDir();
@@ -160,29 +160,7 @@ function main() {
     joined = joined.slice(0, maxInjectChars) + '\n[...truncated by token budget]';
   }
 
-  // v0.5.5: Auto-start embedding daemon if not already running
-  // Skip in test environments to avoid file lock issues
-  const skipDaemon = process.env.NODE_ENV === 'test' || baseDir.includes('.test-');
-  if (!skipDaemon) {
-    try {
-      const status = isDaemonRunning(getDaemonPidFile());
-      if (!status.running) {
-        const daemonScript = path.join(__dirname, '..', 'dist', 'scripts', 'mindlore-daemon.js');
-        if (fs.existsSync(daemonScript)) {
-          const { spawn } = require('child_process');
-          const child = spawn(process.execPath, [daemonScript, 'start'], {
-            detached: true,
-            stdio: 'ignore',
-            windowsHide: true,
-          });
-          child.unref();
-          hookLog('session-focus', 'info', 'Daemon auto-started, pid=' + child.pid);
-        }
-      }
-    } catch (_err) {
-      hookLog('session-focus', 'warn', 'Daemon auto-start failed: ' + (_err?.message || _err));
-    }
-  }
+  // v0.6.1: Daemon auto-start removed (daemon deprecated — MCP Server in v0.7)
 
   if (joined.length > 0) {
     process.stdout.write(joined + '\n');
