@@ -52,6 +52,34 @@ describe('Hook Smoke Tests', () => {
     }
   });
 
+  describe('withTimeoutDb', () => {
+    it('returns result within timeout', () => {
+      const { withTimeoutDb, requireDatabase } = require('../hooks/lib/mindlore-common.cjs');
+      const Database = requireDatabase();
+      if (!Database) return; // skip if better-sqlite3 not available
+      const db = new Database(':memory:');
+      const result = withTimeoutDb(db, 'SELECT 1 as val', [], 3000);
+      expect(result).toEqual([{ val: 1 }]);
+      db.close();
+    });
+
+    it('returns empty array on null db', () => {
+      const { withTimeoutDb } = require('../hooks/lib/mindlore-common.cjs');
+      const result = withTimeoutDb(null, 'SELECT 1', [], 100);
+      expect(result).toEqual([]);
+    });
+
+    it('returns empty array on invalid SQL', () => {
+      const { withTimeoutDb, requireDatabase } = require('../hooks/lib/mindlore-common.cjs');
+      const Database = requireDatabase();
+      if (!Database) return;
+      const db = new Database(':memory:');
+      const result = withTimeoutDb(db, 'SELECT * FROM nonexistent_table', [], 100);
+      expect(result).toEqual([]);
+      db.close();
+    });
+  });
+
   test('hook count should match plan (14 hooks)', () => {
     const hookFiles = fs
       .readdirSync(HOOKS_DIR)

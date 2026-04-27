@@ -699,6 +699,19 @@ function withTelemetrySync(hookName, fn) {
   return result;
 }
 
+function withTimeoutDb(db, sql, params = [], timeoutMs = 3000) {
+  if (!db) return [];
+  try {
+    db.pragma(`busy_timeout = ${timeoutMs}`);
+    const stmt = db.prepare(sql);
+    return params.length > 0 ? stmt.all(...params) : stmt.all();
+  } catch (err) {
+    hookLog('timeout', 'warn', `DB query timeout/error: ${err.message}`);
+    _writeTelemetry('db_timeout', 0, false);
+    return [];
+  }
+}
+
 module.exports = {
   MINDLORE_DIR,
   GLOBAL_MINDLORE_DIR,
@@ -763,6 +776,8 @@ module.exports = {
   // Telemetry (v0.6.0)
   withTelemetry,
   withTelemetrySync,
+  // DB timeout wrapper (v0.6.1)
+  withTimeoutDb,
 };
 
 function isDaemonRunning(pidFile) {
