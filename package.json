@@ -20,7 +20,8 @@
     "quality": "node dist/scripts/quality-populate.js",
     "fetch-raw": "node dist/scripts/fetch-raw.js",
     "cc-sync": "node dist/scripts/cc-memory-bulk-sync.js",
-    "cleanup": "node dist/scripts/maintain-cleanup.js"
+    "cleanup": "node dist/scripts/maintain-cleanup.js",
+    "perf": "node dist/scripts/mindlore-perf.js"
   },
   "keywords": [
     "claude-code",
