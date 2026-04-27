@@ -29,9 +29,18 @@ export function parseTelemetry(telPath: string): TelemetryEntry[] {
   for (const line of lines) {
     if (!line.trim()) continue;
     try {
-      const parsed = JSON.parse(line) as TelemetryEntry;
-      if (parsed.hook && typeof parsed.duration_ms === 'number') {
-        entries.push(parsed);
+      const raw: unknown = JSON.parse(line);
+      if (typeof raw !== 'object' || raw === null) continue;
+      const obj = raw as Record<string, unknown>; // eslint-disable-line @typescript-eslint/no-unsafe-type-assertion -- narrowed by typeof+null check
+      if (typeof obj.hook === 'string' && typeof obj.duration_ms === 'number') {
+        entries.push({
+          ts: typeof obj.ts === 'string' ? obj.ts : '',
+          hook: obj.hook,
+          duration_ms: obj.duration_ms,
+          ok: typeof obj.ok === 'boolean' ? obj.ok : true,
+          injected_tokens: typeof obj.injected_tokens === 'number' ? obj.injected_tokens : undefined,
+          full_read_tokens: typeof obj.full_read_tokens === 'number' ? obj.full_read_tokens : undefined,
+        });
       }
     } catch { /* skip malformed lines */ }
   }
@@ -42,7 +51,7 @@ export function groupByHook(entries: TelemetryEntry[]): Record<string, Telemetry
   const groups: Record<string, TelemetryEntry[]> = {};
   for (const e of entries) {
     if (!groups[e.hook]) groups[e.hook] = [];
-    groups[e.hook]!.push(e);
+    (groups[e.hook] ?? []).push(e);
   }
   return groups;
 }
@@ -50,7 +59,7 @@ export function groupByHook(entries: TelemetryEntry[]): Record<string, Telemetry
 function percentile(sorted: number[], p: number): number {
   if (sorted.length === 0) return 0;
   const idx = Math.ceil((p / 100) * sorted.length) - 1;
-  return sorted[Math.max(0, idx)]!;
+  return sorted[Math.max(0, idx)] ?? 0;
 }
 
 export function calculatePercentiles(entries: TelemetryEntry[], hookName: string): Percentiles {
@@ -119,8 +128,8 @@ function main(): void {
     let totalInjected = 0;
     let totalFull = 0;
     for (const e of withTokens) {
-      totalInjected += e.injected_tokens!;
-      totalFull += e.full_read_tokens!;
+      totalInjected += e.injected_tokens ?? 0;
+      totalFull += e.full_read_tokens ?? 0;
     }
     const saved = totalFull - totalInjected;
     const pct = totalFull > 0 ? ((saved / totalFull) * 100).toFixed(1) : '0';

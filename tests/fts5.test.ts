@@ -591,6 +591,7 @@ describe('search project filter (v0.6.1)', () => {
     db.prepare("INSERT INTO mindlore_fts (path, slug, project, category, content) VALUES (?, ?, ?, ?, ?)").run('/mindlore/spec.md', 'spec', 'mindlore', 'sources', 'roadmap plan');
     db.prepare("INSERT INTO mindlore_fts (path, slug, project, category, content) VALUES (?, ?, ?, ?, ?)").run('/kastell/spec.md', 'kspec', 'kastell', 'sources', 'roadmap plan');
 
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- test-only, known schema
     const projectRows = db.prepare(
       "SELECT slug, project FROM mindlore_fts WHERE project = ? AND mindlore_fts MATCH ? ORDER BY rank LIMIT 5"
     ).all('mindlore', 'roadmap') as Array<{slug: string; project: string}>;
@@ -609,6 +610,7 @@ describe('version tokenization (v0.6.1)', () => {
     db.prepare("INSERT INTO mindlore_fts (path, slug, content, category) VALUES (?, ?, ?, ?)").run('/roadmap.md', 'roadmap', 'v0.6.1 roadmap plan details', 'sources');
 
     // FTS5 unicode61 tokenizes "v0.6.1" as tokens [v0, 6, 1] — phrase match
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- test-only, known schema
     const rows = db.prepare(
       'SELECT slug FROM mindlore_fts WHERE mindlore_fts MATCH ? LIMIT 5'
     ).all('"v0 6 1"') as Array<{slug: string}>;

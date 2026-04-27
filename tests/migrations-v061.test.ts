@@ -43,6 +43,7 @@ describe('migrations-v061 step 2: table split', () => {
 
     const knowledge = db.prepare("SELECT * FROM mindlore_fts").all();
     expect(knowledge).toHaveLength(1);
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- test-only, known schema
     expect((knowledge[0] as {category: string}).category).toBe('sources');
 
     const sessions = db.prepare("SELECT * FROM mindlore_fts_sessions").all();
@@ -54,6 +55,7 @@ describe('migrations-v061 step 2: table split', () => {
   it('adds table_target column to file_hashes', () => {
     const db = setupDb();
     runMigrations(db, V061_MIGRATIONS);
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- test-only, known pragma schema
     const cols = db.pragma('table_info(file_hashes)') as Array<{name: string}>;
     expect(cols.map(c => c.name)).toContain('table_target');
     db.close();
@@ -73,6 +75,7 @@ describe('migrations-v061 step 1: cleanup', () => {
     runMigrations(db, V061_MIGRATIONS.slice(0, 1));
 
     expect(getSchemaVersion(db)).toBe(6);
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- test-only, known schema
     const rows = db.prepare("SELECT project FROM mindlore_fts").all() as Array<{project: string}>;
     for (const row of rows) {
       expect(row.project).not.toMatch(/^\.mindlore|^C--/);

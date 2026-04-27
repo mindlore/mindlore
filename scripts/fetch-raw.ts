@@ -24,7 +24,7 @@ function slugFromUrl(url: string): string {
   // GitHub repo: owner/repo → repo slug
   const ghMatch = parsed.pathname.match(/^\/([^/]+)\/([^/]+)\/?$/);
   if (parsed.hostname === 'github.com' && ghMatch) {
-    return ghMatch[2]!.replace(/\.git$/, '').toLowerCase();
+    return (ghMatch[2] ?? '').replace(/\.git$/, '').toLowerCase();
   }
 
   // Strip common noise from pathname
