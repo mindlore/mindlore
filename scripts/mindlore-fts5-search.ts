@@ -88,7 +88,13 @@ async function main(): Promise<void> {
     process.exit(1);
   }
 
-  const sanitized = query.replace(/['"(){}[\]*:^~!]/g, ' ').trim();
+  // v0.6.1: Version tokenization — FTS5 unicode61 tokenizes "v0.6.1" as [v0, 6, 1]
+  const VERSION_RE = /v(\d+)\.(\d+)(?:\.(\d+))?/g;
+  const sanitized = query
+    .replace(/[(){}[\]*:^~!]/g, ' ')
+    .replace(VERSION_RE, (_m: string, a: string, b: string, c: string | undefined) => c ? `"v${a} ${b} ${c}"` : `"v${a} ${b}"`)
+    .replace(/'/g, ' ')
+    .trim();
   if (!sanitized) {
     console.log('  No valid search terms.');
     process.exit(0);

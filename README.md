@@ -45,12 +45,19 @@ To add your first source:
 ### CLI Commands
 
 ```bash
-npx mindlore health          # 16-point structural health check
-npx mindlore search "query"  # FTS5 keyword search
-npx mindlore index           # Full FTS5 re-index
-npx mindlore quality         # Bulk quality assignment for sources
-npx mindlore backup init     # Git-based backup for ~/.mindlore/
-npx mindlore backup status   # Show backup status + last commit
+npx mindlore                  # Install / upgrade
+npx mindlore --upgrade        # Upgrade only (skip dir creation)
+npx mindlore health           # 16-point structural health check
+npx mindlore doctor           # 7-point runtime validation (Node, DB, hooks, skills)
+npx mindlore perf             # Hook latency report (p50/p95/p99)
+npx mindlore perf --top 10    # Top 10 slowest hook calls
+npx mindlore perf --savings   # Context token savings report
+npx mindlore search "query"   # FTS5 keyword search (knowledge)
+npx mindlore search "query" --sessions  # Search session data (cc-subagent, cc-session)
+npx mindlore index            # Full FTS5 re-index
+npx mindlore quality          # Bulk quality assignment for sources
+npx mindlore backup init      # Git-based backup for ~/.mindlore/
+npx mindlore backup status    # Show backup status + last commit
 npx mindlore obsidian export --vault /path  # Export to Obsidian vault
 npx mindlore obsidian import --vault /path  # Import from Obsidian vault
 npx mindlore episodes list                  # List recent episodes
@@ -114,7 +121,7 @@ Nine directories, each mapping to a frontmatter `type`:
 ├── decisions/      # Decision records
 ├── INDEX.md        # Navigation map (~15 lines)
 ├── SCHEMA.md       # LLM specification
-└── mindlore.db     # FTS5 search database
+└── mindlore.db     # FTS5 search database (mindlore_fts + mindlore_fts_sessions)
 ```
 
 ## Installation
@@ -125,7 +132,7 @@ Nine directories, each mapping to a frontmatter `type`:
 npx mindlore
 ```
 
-Requires: Node.js 20+ (24 supported), `better-sqlite3` ^12 (installed automatically).
+Requires: Node.js 20+ (22, 24 supported), `better-sqlite3` ^12 (installed automatically).
 
 ### Recommended
 
@@ -177,8 +184,8 @@ SESSION START                      DURING SESSION                         SESSIO
 - **Single global store** — `~/.mindlore/` shared across projects; `project` FTS5 column namespaces per `path.basename(cwd)`
 - **Project-scoped search** — results filtered by current project, falls back to all projects if none found
 - **No `.mindlore/`?** — hooks silently skip, zero overhead
-- **FTS5 search** — SQLite full-text search with BM25 ranking, no external services
-- **Hybrid search** — RRF fusion combining FTS5 keyword + sqlite-vec vector results with synonym expansion
+- **FTS5 search** — SQLite full-text search with BM25 ranking, no external services. Knowledge and session data in separate tables for better IDF quality
+- **Hybrid search** — RRF fusion combining FTS5 keyword + sqlite-vec vector results with synonym expansion + category boost
 - **Content-hash dedup** — SHA256 prevents re-indexing unchanged files
 
 ## Daily Usage
@@ -211,12 +218,12 @@ Skills spawn subagents with `[mindlore:SKILL]` markers — the model-router hook
 
 ## Hooks
 
-14 Claude Code lifecycle hooks (v0.5.9):
+14 Claude Code lifecycle hooks (v0.6.1):
 
 | Event | Hook | What it does |
 |-------|------|-------------|
-| SessionStart | session-focus | Injects last delta + INDEX + last 3 episodes + version check |
-| UserPromptSubmit | search | FTS5 search + episodes recall, project-scoped |
+| SessionStart | session-focus | Injects last delta + INDEX + episodes + corrupt DB auto-recovery |
+| UserPromptSubmit | search | FTS5 search + episodes recall, project-scoped + version tokenization |
 | UserPromptSubmit | decision-detector | TR+EN decision signal detection |
 | FileChanged | index | Sync changed files to FTS5 |
 | FileChanged | fts5-sync | Incremental batch re-index |

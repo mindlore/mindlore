@@ -1,6 +1,7 @@
 import path from 'path';
 import Database from 'better-sqlite3';
 import { setupTestDir, teardownTestDir, createTestDb, insertFts } from './helpers/db.js';
+import { getCategoryWeight } from '../scripts/lib/hybrid-search.js';
 
 const TEST_DIR = path.join(__dirname, '..', '.test-hybrid-search');
 const DB_PATH = path.join(TEST_DIR, 'mindlore.db');
@@ -131,5 +132,37 @@ describe('Hybrid Search Integration', () => {
     expect(results[0].slug).toBe('fallback-doc');
 
     db.close();
+  });
+});
+
+describe('category boost (v0.6.1)', () => {
+  test('sources weight is higher than cc-session', () => {
+    expect(getCategoryWeight('sources')).toBeGreaterThan(getCategoryWeight('cc-session'));
+  });
+
+  test('domains weight is higher than cc-subagent', () => {
+    expect(getCategoryWeight('domains')).toBeGreaterThan(getCategoryWeight('cc-subagent'));
+  });
+
+  test('unknown category returns 1.0', () => {
+    expect(getCategoryWeight('unknown-category')).toBe(1.0);
+  });
+
+  test('category boost affects FTS-only hybrid results', () => {
+    const dbPath = path.join(TEST_DIR, 'boost.db');
+    setupTestDir(TEST_DIR, ['sources']);
+    const db = createTestDb(dbPath);
+
+    insertFts(db, { path: '/src.md', slug: 'src', content: 'karar alindi mimari', category: 'sources' });
+    insertFts(db, { path: '/sess.md', slug: 'sess', content: 'karar alindi mimari', category: 'cc-session' });
+
+    const { hybridSearch } = require('../scripts/lib/hybrid-search.js');
+    const results = hybridSearch(db, 'karar', { maxResults: 5 });
+
+    expect(results.length).toBe(2);
+    expect(results[0].category).toBe('sources');
+
+    db.close();
+    teardownTestDir(TEST_DIR);
   });
 });

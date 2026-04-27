@@ -582,3 +582,39 @@ describe('resolveProject — frontmatter-first project resolution', () => {
     expect(ftsData.project).toBeNull();
   });
 });
+
+describe('search project filter (v0.6.1)', () => {
+  test('project-scoped FTS5 returns matching project first', () => {
+    const Database = require('better-sqlite3');
+    const db = new Database(':memory:');
+    db.exec(`CREATE VIRTUAL TABLE mindlore_fts USING fts5(path, slug, description, type, category, title, content, tags, quality, date_captured, project)`);
+    db.prepare("INSERT INTO mindlore_fts (path, slug, project, category, content) VALUES (?, ?, ?, ?, ?)").run('/mindlore/spec.md', 'spec', 'mindlore', 'sources', 'roadmap plan');
+    db.prepare("INSERT INTO mindlore_fts (path, slug, project, category, content) VALUES (?, ?, ?, ?, ?)").run('/kastell/spec.md', 'kspec', 'kastell', 'sources', 'roadmap plan');
+
+    const projectRows = db.prepare(
+      "SELECT slug, project FROM mindlore_fts WHERE project = ? AND mindlore_fts MATCH ? ORDER BY rank LIMIT 5"
+    ).all('mindlore', 'roadmap') as Array<{slug: string; project: string}>;
+
+    expect(projectRows.length).toBeGreaterThan(0);
+    expect(projectRows[0]!.project).toBe('mindlore');
+    db.close();
+  });
+});
+
+describe('version tokenization (v0.6.1)', () => {
+  test('version numbers can be found via merged digit tokens', () => {
+    const Database = require('better-sqlite3');
+    const db = new Database(':memory:');
+    db.exec(`CREATE VIRTUAL TABLE mindlore_fts USING fts5(path, slug, description, type, category, title, content, tags, quality, date_captured, project)`);
+    db.prepare("INSERT INTO mindlore_fts (path, slug, content, category) VALUES (?, ?, ?, ?)").run('/roadmap.md', 'roadmap', 'v0.6.1 roadmap plan details', 'sources');
+
+    // FTS5 unicode61 tokenizes "v0.6.1" as tokens [v0, 6, 1] — phrase match
+    const rows = db.prepare(
+      'SELECT slug FROM mindlore_fts WHERE mindlore_fts MATCH ? LIMIT 5'
+    ).all('"v0 6 1"') as Array<{slug: string}>;
+
+    expect(rows.length).toBeGreaterThan(0);
+    expect(rows[0]!.slug).toBe('roadmap');
+    db.close();
+  });
+});

@@ -17,10 +17,10 @@ const { execFileSync } = require('child_process');
 const MAX_RESULTS = 3;
 const MIN_QUERY_WORDS = 3;
 
-// v0.6.1: Version numbers as phrase match (e.g. "0.6.1" → "0 6 1")
-const VERSION_RE = /\b(\d+\.\d+(?:\.\d+)?)\b/g;
+// v0.6.1: Version tokenization — FTS5 unicode61 tokenizes "v0.6.1" as tokens [v0, 6, 1]
+const VERSION_RE = /v(\d+)\.(\d+)(?:\.(\d+))?/g;
 function fixVersionTokens(query) {
-  return query.replace(VERSION_RE, (match) => '"' + match.split('.').join(' ') + '"');
+  return query.replace(VERSION_RE, (_m, a, b, c) => c ? `"v${a} ${b} ${c}"` : `"v${a} ${b}"`);
 }
 
 // Try to load hybrid search module (built TS)
