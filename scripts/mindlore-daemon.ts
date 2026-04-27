@@ -1,3 +1,5 @@
+console.warn('[DEPRECATED] mindlore daemon will be replaced by MCP Server in v0.7. No new features will be added.');
+
 import fs from 'fs';
 import net from 'net';
 import { DAEMON_PORT_FILE, DAEMON_PID_FILE, DAEMON_HOST } from './lib/constants.js';

@@ -27,6 +27,7 @@ interface DaemonServer {
   getPort: () => number | null;
 }
 
+/** @deprecated Will be replaced by MCP Server in v0.7 */
 export function createDaemonServer(options: DaemonOptions): DaemonServer {
   let server: net.Server | null = null;
   let port: number | null = null;
