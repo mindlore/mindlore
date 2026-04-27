@@ -146,8 +146,9 @@ Discover unexpected connections between sources. Cross-reference analysis.
 ### FTS5 Search (hooks + scripts)
 
 - Database: `.mindlore/mindlore.db`
-- Table: `mindlore_fts` (columns: path, content)
-- Dedup: `file_hashes` table with SHA256 content-hash
+- Table: `mindlore_fts` — knowledge content (sources, domains, analyses, decisions, diary)
+- Table: `mindlore_fts_sessions` — session content (cc-subagent, cc-session) — v0.6.1
+- Dedup: `file_hashes` table with SHA256 content-hash + `table_target` column (v0.6.1)
 - Tokenizer: `unicode61`
 - Max results: 3 per query (BM25 ranking)
 - Hook injects: file path + first 2 headings

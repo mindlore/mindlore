@@ -14,6 +14,8 @@ npm run lint       # eslint scripts/ hooks/ tests/
 npm run health     # dist/scripts/mindlore-health-check.js
 npm run index      # dist/scripts/mindlore-fts5-index.js (full re-index)
 npm run search     # dist/scripts/mindlore-fts5-search.js "query"
+npm run doctor     # dist/scripts/mindlore-doctor.js (7-point runtime check)
+npm run perf       # dist/scripts/mindlore-perf.js (hook latency report)
 ```
 
 ## Architecture
@@ -22,8 +24,8 @@ Hybrid: deterministic work in CJS scripts, intelligent work in MD skills.
 
 ```
 scripts/    # Deterministic (health check, FTS5 index/search, init)
-hooks/      # CC lifecycle hooks (14 in v0.5.3)
-skills/     # LLM agent skills (10 in v0.5.3)
+hooks/      # CC lifecycle hooks (14 in v0.6.0)
+skills/     # LLM agent skills (10 in v0.5.4)
 templates/  # Init copies these to .mindlore/
 tests/      # Jest test suites
 ```
@@ -31,7 +33,7 @@ tests/      # Jest test suites
 ## Key Conventions
 
 - Scripts use `.ts` (source) / `.js` (dist), hooks use `.cjs` (CommonJS)
-- FTS5 database: `.mindlore/mindlore.db`
+- FTS5 database: `.mindlore/mindlore.db` (v0.6.1: `mindlore_fts` knowledge + `mindlore_fts_sessions` sessions)
 - Content-hash dedup: SHA256, skip unchanged files on re-index
 - Frontmatter: 11 directories (see SCHEMA.md)
 - Hook prefix: `mindlore-` (avoid collisions with user hooks)
@@ -83,7 +85,7 @@ npm test                    # all suites
 npx jest tests/fts5.test.ts  # specific suite
 ```
 
-70 active suites in v0.5.9: fts5, fts5-sync, dedup, init, frontmatter, hook-smoke, uninstall, search-hook, session-focus, compounding, decision, read-guard, log, global-layer, cwd-changed, dont-repeat, post-read, upgrade, schemas, quality-populate, reflect, e2e-pipeline, evolve, explore, model-router, project-namespace, backup, obsidian, episodes, episodes-inject, diary, research-guard, research-guard-scope, skill-path-resolution, migrations-v053, cc-memory-bulk-sync, recall-telemetry, decay, git-snapshot, consolidation, backfill, session-payload, contradiction-extended, session-focus, daemon, daemon-integration, health-check-memory, cc-session-sync, pre-compact.
+76 active suites in v0.6.1: fts5, fts5-sync, dedup, init, frontmatter, hook-smoke, uninstall, search-hook, session-focus, compounding, decision, read-guard, log, global-layer, cwd-changed, dont-repeat, post-read, upgrade, schemas, quality-populate, reflect, e2e-pipeline, evolve, explore, model-router, project-namespace, backup, obsidian, episodes, episodes-inject, diary, research-guard, research-guard-scope, skill-path-resolution, migrations-v053, cc-memory-bulk-sync, recall-telemetry, decay, git-snapshot, consolidation, backfill, session-payload, contradiction-extended, session-focus, daemon, daemon-integration, health-check-memory, cc-session-sync, pre-compact, migrations-v061, telemetry-perf, doctor.
 
 ## Release
 

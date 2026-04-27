@@ -5,6 +5,35 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.6.1] - 2026-04-27
+
+### Added
+- **FTS table split:** Knowledge (`mindlore_fts`) ve session (`mindlore_fts_sessions`) tabloları ayrıldı. IDF kalitesi artırıldı (#11).
+- **Category boost:** sources/domains/analyses daha yüksek, cc-session/cc-subagent daha düşük ağırlık.
+- **Project-scoped search:** FTS5 fallback artık proje bazlı arama yapıyor, sonuç yoksa global fallback.
+- **Version tokenization fix:** `0.6.1` gibi version numaraları FTS5 phrase match olarak aranıyor.
+- **Recall shield:** `recall_count >= 3` olan dokümanlar decay'den muaf (#16).
+- **Corrupt DB auto-recovery:** Session start'ta integrity check, corrupt DB yedeklenip silinir (#2).
+- **`withTimeoutDb` wrapper:** Hook DB sorgularında busy_timeout güvenliği (#29).
+- **`mindlore perf` CLI:** Hook latency raporu (p50/p95/p99), `--top N` ve `--savings` flagleri (#1).
+- **`mindlore doctor` CLI:** 7 noktalı runtime doğrulama — Node, DB, config, FTS tabloları, hooks, skills, agents (#28).
+- **Init agent registration:** `agents/` dizini otomatik `~/.claude/agents/` altına kopyalanıyor (#8).
+- **Init `--upgrade` flag:** Mevcut kurulumda sadece hooks/skills/config günceller, dizin oluşturmayı atlar.
+- **Init auto-doctor:** Kurulum sonunda otomatik doctor çalıştırılıyor.
+- **DB migration v6:** Dirty project/category değerleri normalize edildi (#24).
+- **DB migration v7:** FTS tablo split + `file_hashes.table_target` kolonu.
+- **`--sessions` flag:** CLI search'te `mindlore_fts_sessions` tablosunu sorgulamak için.
+- **Telemetry savings metric:** `_writeTelemetry` artık `injected_tokens`/`full_read_tokens` kabul ediyor (producer'lar v0.6.2'de).
+
+### Changed
+- Git push timeout 15s → 30s (#10).
+- FTS index routing: cc-subagent/cc-session dokümanları `mindlore_fts_sessions` tablosuna yönlendiriliyor.
+- FTS sync hook: Aynı tablo routing mantığı (knowledge vs sessions).
+
+### Deprecated
+- **Daemon** (`mindlore-daemon`): v0.7'de MCP Server ile değiştirilecek. Yeni özellik eklenmeyecek (#27).
+- Session-focus hook'tan daemon auto-start kaldırıldı.
+
 ## [0.6.0] - 2026-04-25
 
 ### Breaking
