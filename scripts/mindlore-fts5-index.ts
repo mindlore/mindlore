@@ -117,8 +117,18 @@ async function main(): Promise<void> {
       importance = excluded.importance
   `);
   const deleteFts = db.prepare('DELETE FROM mindlore_fts WHERE path = ?');
+  const deleteFtsSessions = db.prepare('DELETE FROM mindlore_fts_sessions WHERE path = ?');
+  const insertFtsSessions = db.prepare(
+    `INSERT INTO mindlore_fts_sessions (path, slug, description, type, category, title, content, tags, quality, date_captured, project)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+  );
   const getHash = db.prepare('SELECT content_hash FROM file_hashes WHERE path = ?');
   const checkFts = db.prepare('SELECT 1 FROM mindlore_fts WHERE path = ? LIMIT 1');
+  const checkFtsSessions = db.prepare('SELECT 1 FROM mindlore_fts_sessions WHERE path = ? LIMIT 1');
+
+  function isSessionCategory(cat: string): boolean {
+    return cat === 'cc-subagent' || cat === 'cc-session';
+  }
 
   const mdFiles = getAllMdFiles(baseDir);
   let indexed = 0;
@@ -145,7 +155,7 @@ async function main(): Promise<void> {
         const existing = getHash.get(filePath) as { content_hash: string } | undefined;
         if (existing && existing.content_hash === hash) {
           // Verify FTS5 entry exists — file_hashes and mindlore_fts can get out of sync
-          const ftsExists = checkFts.get(filePath);
+          const ftsExists = checkFts.get(filePath) || checkFtsSessions.get(filePath);
           if (ftsExists) {
             skipped++;
 
@@ -165,8 +175,14 @@ async function main(): Promise<void> {
         const { meta, body } = parseFrontmatter(content);
         const { slug, description, type, category, title, tags, quality, dateCaptured, project: ftsProject } =
           extractFtsMetadata(meta, body, filePath, baseDir);
+        const resolvedProject = resolveProject(ftsProject, filePath, projectName);
         deleteFts.run(filePath);
-        insertFtsRow(db, { path: filePath, slug, description, type, category, title, content: body, tags, quality, dateCaptured, project: resolveProject(ftsProject, filePath, projectName) });
+        deleteFtsSessions.run(filePath);
+        if (isSessionCategory(category)) {
+          insertFtsSessions.run(filePath, slug, description, type, category, title, body, tags, quality ?? null, dateCaptured ?? null, resolvedProject);
+        } else {
+          insertFtsRow(db, { path: filePath, slug, description, type, category, title, content: body, tags, quality, dateCaptured, project: resolvedProject });
+        }
 
         upsertHash.run(filePath, hash, now, projectName, qualityToImportance(quality));
         indexed++;
@@ -195,6 +211,7 @@ async function main(): Promise<void> {
     for (const row of allIndexed) {
       if (!existingPaths.has(row.path)) {
         deleteFts.run(row.path);
+        deleteFtsSessions.run(row.path);
         deleteHash.run(row.path);
         removed++;
       }
