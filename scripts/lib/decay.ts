@@ -27,6 +27,9 @@ interface StaleDocument {
 }
 
 export function calculateDecayScore(input: DecayInput, config?: DecayConfig): number {
+  // v0.6.1: Recall shield — frequently recalled items are exempt from decay
+  if (input.recall_count >= 3) return 1.0;
+
   const halfLife = config?.halfLifeDays ?? DECAY_HALF_LIFE_DAYS;
   const now = Date.now();
   const lastAccess = input.last_recalled_at

@@ -76,6 +76,38 @@ describe('calculateDecayScore', () => {
   });
 });
 
+describe('recall shield', () => {
+  test('exempts frequently recalled items from decay', () => {
+    const score = calculateDecayScore({
+      created_at: new Date(Date.now() - 90 * 24 * 60 * 60 * 1000).toISOString(),
+      last_recalled_at: new Date().toISOString(),
+      recall_count: 5,
+      importance: 1.0,
+    });
+    expect(score).toBe(1.0);
+  });
+
+  test('does not shield items with low recall count', () => {
+    const score = calculateDecayScore({
+      created_at: new Date(Date.now() - 90 * 24 * 60 * 60 * 1000).toISOString(),
+      last_recalled_at: null,
+      recall_count: 1,
+      importance: 1.0,
+    });
+    expect(score).toBeLessThan(1.0);
+  });
+
+  test('shields at exactly recall_count = 3', () => {
+    const score = calculateDecayScore({
+      created_at: new Date(Date.now() - 90 * 24 * 60 * 60 * 1000).toISOString(),
+      last_recalled_at: null,
+      recall_count: 3,
+      importance: 0.5,
+    });
+    expect(score).toBe(1.0);
+  });
+});
+
 describe('archiveDocument / restoreDocument', () => {
   test('archiveDocument sets archived_at, restoreDocument clears it', () => {
     db.prepare(
