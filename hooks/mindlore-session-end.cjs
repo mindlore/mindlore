@@ -505,7 +505,7 @@ function syncGlobalRepo() {
 
   // Push — graceful fail if no remote or offline
   try {
-    execSync(`"${git}" push`, execOpts(15000));
+    execSync(`"${git}" push`, execOpts(30000));
   } catch (_pushErr) {
     hookLog('session-end', 'warn', 'git push failed (offline?): ' + (_pushErr?.message ?? '').slice(0, 100));
   }
