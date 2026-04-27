@@ -21,15 +21,21 @@ const EXPECTED_HOOKS = [
 ];
 
 export function checkHooks(settings: Record<string, unknown>): CheckResult {
-  const hooks = settings?.hooks as Record<string, unknown[]> | undefined;
+  const hooks = settings?.hooks as Record<string, unknown> | undefined;
   if (!hooks) return { name: 'Hooks', pass: false, message: 'No hooks configured', found: 0, expected: EXPECTED_HOOKS.length };
 
   const allCommands = new Set<string>();
-  for (const entries of Object.values(hooks)) {
-    if (!Array.isArray(entries)) continue;
-    for (const e of entries) {
-      const cmd = (e as Record<string, string>)?.command ?? '';
-      if (cmd.includes('mindlore-')) allCommands.add(cmd.replace(/^.*[/\\]/, '').replace(/\.cjs$/, ''));
+  for (const val of Object.values(hooks)) {
+    // CC settings: hooks.EventName = [{matcher, hooks: [{type, command}]}] or direct array
+    const topEntries = Array.isArray(val) ? val : [(val as Record<string, unknown>)];
+    for (const top of topEntries) {
+      const inner = (top as Record<string, unknown>)?.hooks;
+      const commandList = Array.isArray(inner) ? inner : [top];
+      for (const e of commandList) {
+        const cmd = (e as Record<string, string>)?.command ?? '';
+        const match = cmd.match(/mindlore-[\w-]+/);
+        if (match) allCommands.add(match[0]);
+      }
     }
   }
 
@@ -131,10 +137,21 @@ export function checkFtsTables(baseDir: string): CheckResult {
   }
 }
 
+function resolvePackageDir(subdir: string): string | null {
+  for (const rel of ['..', '../..']) {
+    const p = path.join(__dirname, rel, subdir);
+    if (fs.existsSync(p)) return p;
+  }
+  return null;
+}
+
 export function checkSkills(): CheckResult {
-  const skillsDir = path.join(__dirname, '..', 'skills');
-  if (!fs.existsSync(skillsDir)) return { name: 'Skills', pass: false, message: 'skills/ not found', found: 0 };
-  const skills = fs.readdirSync(skillsDir).filter(f => f.endsWith('.md'));
+  const skillsDir = resolvePackageDir('skills');
+  if (!skillsDir) return { name: 'Skills', pass: false, message: 'skills/ not found', found: 0 };
+  const skills = fs.readdirSync(skillsDir).filter(f => {
+    const stat = fs.statSync(path.join(skillsDir, f));
+    return stat.isDirectory() || f.endsWith('.md');
+  });
   return {
     name: 'Skills',
     pass: skills.length >= 8,
@@ -144,8 +161,8 @@ export function checkSkills(): CheckResult {
 }
 
 export function checkAgents(): CheckResult {
-  const agentsDir = path.join(__dirname, '..', 'agents');
-  if (!fs.existsSync(agentsDir)) return { name: 'Agents', pass: true, message: 'No agents/ dir (optional)', found: 0 };
+  const agentsDir = resolvePackageDir('agents');
+  if (!agentsDir) return { name: 'Agents', pass: true, message: 'No agents/ dir (optional)', found: 0 };
   const agents = fs.readdirSync(agentsDir).filter(f => f.endsWith('.md'));
   return {
     name: 'Agents',
