@@ -71,7 +71,30 @@ function main() {
   try {
     const dbPath = path.join(baseDir, 'mindlore.db');
     const db = openDatabase(dbPath, { readonly: true });
+
     if (db) {
+      // v0.6.1: Integrity check — auto-recover corrupt DB
+      try {
+        const check = db.pragma('integrity_check(1)');
+        const result = Array.isArray(check) ? check[0]?.integrity_check : check;
+        if (result !== 'ok') {
+          db.close();
+          const bakPath = dbPath + '.corrupt.bak';
+          try { fs.copyFileSync(dbPath, bakPath); } catch { /* best effort */ }
+          try { fs.unlinkSync(dbPath); } catch { /* best effort */ }
+          hookLog('session-focus', 'warn', `Corrupt DB detected, backed up to ${bakPath}. Run 'npm run index' to rebuild.`);
+          if (output.length > 0) process.stdout.write(output.join('\n\n'));
+          return;
+        }
+      } catch (err) {
+        db.close();
+        const bakPath = dbPath + '.corrupt.bak';
+        try { fs.copyFileSync(dbPath, bakPath); } catch { /* best effort */ }
+        try { fs.unlinkSync(dbPath); } catch { /* best effort */ }
+        hookLog('session-focus', 'warn', `DB integrity check failed: ${err.message}`);
+        if (output.length > 0) process.stdout.write(output.join('\n\n'));
+        return;
+      }
       try {
         // Session payload: Session summary, Decisions, Friction, Learnings
         try {

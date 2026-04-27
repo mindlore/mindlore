@@ -206,6 +206,24 @@ describe('Session Focus Hook', () => {
   });
 });
 
+describe('corrupt DB recovery', () => {
+  test('recovers from corrupt database', () => {
+    const mindloreDir = createMindloreDir();
+    const dbPath = path.join(mindloreDir, 'mindlore.db');
+    fs.writeFileSync(dbPath, 'THIS IS NOT A SQLITE DATABASE');
+
+    const output = execSync(`node "${HOOK_PATH}"`, {
+      cwd: TEST_DIR,
+      encoding: 'utf8',
+      timeout: 5000,
+      env: { ...process.env, MINDLORE_HOME: mindloreDir },
+    });
+
+    expect(output).toContain('[Mindlore INDEX]');
+    expect(fs.existsSync(dbPath + '.corrupt.bak')).toBe(true);
+  });
+});
+
 describe('session-payload integration', () => {
   test('should still inject INDEX when session-payload module is available', () => {
     createMindloreDir();
