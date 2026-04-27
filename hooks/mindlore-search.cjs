@@ -17,6 +17,12 @@ const { execFileSync } = require('child_process');
 const MAX_RESULTS = 3;
 const MIN_QUERY_WORDS = 3;
 
+// v0.6.1: Version numbers as phrase match (e.g. "0.6.1" → "0 6 1")
+const VERSION_RE = /\b(\d+\.\d+(?:\.\d+)?)\b/g;
+function fixVersionTokens(query) {
+  return query.replace(VERSION_RE, (match) => '"' + match.split('.').join(' ') + '"');
+}
+
 // Try to load hybrid search module (built TS)
 let hybridSearchMod;
 try {
@@ -122,11 +128,21 @@ function searchDb(dbPath, keywords) {
     const sanitized = keywords.map(sanitizeKeyword).filter(Boolean);
     if (sanitized.length === 0) { db.close(); return results; }
 
-    const ftsQuery = sanitized.join(' OR ');
-    const rows = db.prepare(
+    const ftsQuery = fixVersionTokens(sanitized.join(' OR '));
+    const project = path.basename(process.cwd());
+
+    // v0.6.1: Project-scoped search with global fallback
+    let rows = db.prepare(
       `SELECT path, slug, description, category, title, tags, rank
-       FROM mindlore_fts WHERE mindlore_fts MATCH ? ORDER BY rank LIMIT ?`
-    ).all(ftsQuery, MAX_RESULTS * 2);
+       FROM mindlore_fts WHERE project = ? AND mindlore_fts MATCH ? ORDER BY rank LIMIT ?`
+    ).all(project, ftsQuery, MAX_RESULTS * 2);
+
+    if (rows.length === 0) {
+      rows = db.prepare(
+        `SELECT path, slug, description, category, title, tags, rank
+         FROM mindlore_fts WHERE mindlore_fts MATCH ? ORDER BY rank LIMIT ?`
+      ).all(ftsQuery, MAX_RESULTS * 2);
+    }
 
     for (const r of rows) {
       results.push({
