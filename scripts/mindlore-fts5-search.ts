@@ -36,15 +36,15 @@ interface SearchResult extends Record<string, unknown> {
   rank: number;
 }
 
-function queryDb(db: Database, sanitized: string, projectFilter?: string): SearchResult[] {
+function queryDb(db: Database, sanitized: string, projectFilter?: string, table = 'mindlore_fts'): SearchResult[] {
   try {
     if (projectFilter) {
       return dbAll<SearchResult>(
         db,
-        `SELECT path, snippet(mindlore_fts, 1, '>>>', '<<<', '...', 40) as snippet,
+        `SELECT path, snippet(${table}, 1, '>>>', '<<<', '...', 40) as snippet,
                 rank
-         FROM mindlore_fts
-         WHERE mindlore_fts MATCH ? AND project = ?
+         FROM ${table}
+         WHERE ${table} MATCH ? AND project = ?
          ORDER BY rank
          LIMIT ?`,
         sanitized, projectFilter, MAX_RESULTS,
@@ -52,10 +52,10 @@ function queryDb(db: Database, sanitized: string, projectFilter?: string): Searc
     }
     return dbAll<SearchResult>(
       db,
-      `SELECT path, snippet(mindlore_fts, 1, '>>>', '<<<', '...', 40) as snippet,
+      `SELECT path, snippet(${table}, 1, '>>>', '<<<', '...', 40) as snippet,
               rank
-       FROM mindlore_fts
-       WHERE mindlore_fts MATCH ?
+       FROM ${table}
+       WHERE ${table} MATCH ?
        ORDER BY rank
        LIMIT ?`,
       sanitized, MAX_RESULTS,
@@ -70,6 +70,7 @@ function queryDb(db: Database, sanitized: string, projectFilter?: string): Searc
 async function main(): Promise<void> {
   const args = process.argv.slice(2);
   const isAll = args.includes('--all');
+  const isSessions = args.includes('--sessions');
   const isHybrid = args.includes('--hybrid');
   const projectIdx = args.indexOf('--project');
   const explicitProject = projectIdx !== -1 ? args[projectIdx + 1] : undefined;
@@ -149,10 +150,11 @@ async function main(): Promise<void> {
       }
     } else {
       // ── FTS5-only search path (unchanged) ───────────────────────
-      let relevant = queryDb(db, sanitized, projectFilter);
+      const tableName = isSessions ? 'mindlore_fts_sessions' : 'mindlore_fts';
+      let relevant = queryDb(db, sanitized, projectFilter, tableName);
       // If project-scoped search returns nothing, fallback to all projects
       if (relevant.length === 0 && projectFilter) {
-        relevant = queryDb(db, sanitized);
+        relevant = queryDb(db, sanitized, undefined, tableName);
       }
 
       if (relevant.length === 0) {

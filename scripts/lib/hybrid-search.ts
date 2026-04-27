@@ -47,6 +47,22 @@ export interface HybridSearchOptions {
   queryEmbedding?: number[];
 }
 
+// ── Category Weights (v0.6.1) ─────────────────────────────────────
+
+const CATEGORY_WEIGHTS: Record<string, number> = {
+  sources: 2.0,
+  domains: 1.8,
+  analyses: 1.6,
+  decisions: 1.5,
+  diary: 1.0,
+  'cc-session': 0.8,
+  'cc-subagent': 0.5,
+};
+
+export function getCategoryWeight(category: string): number {
+  return CATEGORY_WEIGHTS[category] ?? 1.0;
+}
+
 // ── Utility Functions ──────────────────────────────────────────────
 
 /**
@@ -126,6 +142,7 @@ export function computeRRF(
   const results = Array.from(scores.values());
   for (const r of results) {
     if (r.category === CC_MEMORY_CATEGORY) r.score *= CC_MEMORY_BOOST;
+    r.score *= getCategoryWeight(r.category ?? '');
   }
   return results.sort((a, b) => b.score - a.score);
 }
@@ -216,7 +233,7 @@ export function hybridSearch(
   if (vecResults.length === 0) {
     return ftsResults.slice(0, maxResults).map(r => ({
       slug: r.slug,
-      score: normalizeBM25(r.rank),
+      score: normalizeBM25(r.rank) * getCategoryWeight(r.category ?? ''),
       ftsRank: r.rank,
       path: r.path,
       description: r.description,
