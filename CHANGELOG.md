@@ -25,6 +25,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **`--sessions` flag:** CLI search'te `mindlore_fts_sessions` tablosunu sorgulamak için.
 - **Telemetry savings metric:** `_writeTelemetry` artık `injected_tokens`/`full_read_tokens` kabul ediyor (producer'lar v0.6.2'de).
 
+### Fixed
+- **Search output bug:** `r.meta` dead access — category, title, tags artık search inject'te doğru gösteriliyor.
+- **Doctor SQL precedence:** FTS table check'te OR clause parantezlenmemişti, yanlış match olabiliyordu.
+- **Doctor path resolution:** Skills/agents dizin çözümlemesi ve hook detection düzeltildi.
+- **Shared constants dedup:** `SESSION_CATEGORIES`, `isSessionCategory`, `fixVersionTokens`, `SQL_FTS_SESSIONS_*` ortak modüle taşındı (4 dosyadaki duplikasyon kaldırıldı).
+- **FTS sync hot-path:** Per-event `CREATE TABLE IF NOT EXISTS` kaldırıldı, migration'a güveniliyor.
+
 ### Changed
 - Git push timeout 15s → 30s (#10).
 - FTS index routing: cc-subagent/cc-session dokümanları `mindlore_fts_sessions` tablosuna yönlendiriliyor.
