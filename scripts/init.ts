@@ -693,7 +693,48 @@ function main(): void {
   fs.writeFileSync(pkgVersionPath, packageJson.version, 'utf8');
   log(`Version: ${packageJson.version}`);
 
+  // Step 12: Register agents (v0.6.1)
+  const agentsAdded = registerAgents(packageRoot);
+  if (agentsAdded > 0) {
+    log(`Registered ${agentsAdded} agents in ~/.claude/agents/`);
+  }
+
+  // Step 13: Auto-doctor (v0.6.1)
+  runDoctor(packageRoot);
+
   console.log('\n  Done! Start with: /mindlore-ingest\n');
+}
+
+function registerAgents(packageRoot: string): number {
+  const agentsDir = path.join(packageRoot, 'agents');
+  if (!fs.existsSync(agentsDir)) return 0;
+
+  const targetDir = path.join(homedir(), '.claude', 'agents');
+  ensureDir(targetDir);
+
+  let copied = 0;
+  for (const file of fs.readdirSync(agentsDir)) {
+    const src = path.join(agentsDir, file);
+    const dest = path.join(targetDir, file);
+    if (!fs.statSync(src).isFile()) continue;
+    if (!fs.existsSync(dest) || fs.readFileSync(src, 'utf8') !== fs.readFileSync(dest, 'utf8')) {
+      fs.copyFileSync(src, dest);
+      copied++;
+    }
+  }
+  return copied;
+}
+
+function runDoctor(packageRoot: string): void {
+  try {
+    const doctorScript = path.join(packageRoot, 'dist', 'scripts', 'mindlore-doctor.js');
+    if (fs.existsSync(doctorScript)) {
+      const { execFileSync } = require('child_process');
+      execFileSync(process.execPath, [doctorScript], {
+        stdio: 'inherit', timeout: 10000, windowsHide: true,
+      });
+    }
+  } catch { /* doctor failure is non-blocking */ }
 }
 
 main();
