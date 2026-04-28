@@ -13,6 +13,7 @@ import path from 'path';
 import { DIRECTORIES, TYPE_TO_DIR, DB_NAME, GLOBAL_MINDLORE_DIR, resolveHookCommon, isContentFile, CC_MEMORY_CATEGORY } from './lib/constants.js';
 import { dbGet, dbAll, withReadonlyDb } from './lib/db-helpers.js';
 import { detectContradictions } from './lib/contradiction.js';
+import { listUnpromoted } from './lib/triage.js';
 import type BetterSqlite3 from 'better-sqlite3';
 
 type Database = BetterSqlite3.Database;
@@ -522,16 +523,7 @@ export function getHealthDashboard(db: Database, baseDir: string): DashboardResu
   const recentRow = dbGet<{ cnt: number }>(db, "SELECT COUNT(*) as cnt FROM file_hashes WHERE last_indexed > ?", sevenDaysAgo);
   const recent = recentRow?.cnt ?? 0;
 
-  const rawDir = path.join(baseDir, 'raw');
-  const sourcesDir = path.join(baseDir, 'sources');
-  let orphan = 0;
-  if (fs.existsSync(rawDir)) {
-    const rawFiles = fs.readdirSync(rawDir).filter(f => f.endsWith('.md'));
-    const sourceFiles = fs.existsSync(sourcesDir)
-      ? new Set(fs.readdirSync(sourcesDir).filter(f => f.endsWith('.md')))
-      : new Set<string>();
-    orphan = rawFiles.filter(f => !sourceFiles.has(f)).length;
-  }
+  const orphan = listUnpromoted(baseDir).length;
 
   return { stale, orphan, lowQuality, recent };
 }

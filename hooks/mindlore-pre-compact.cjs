@@ -34,11 +34,10 @@ function main() {
 
   const now = new Date();
   const iso = now.toISOString();
+  const ts = iso.replace(/[:.]/g, '-');
 
-  // Write pre-compact episode
   const episodesDir = path.join(baseDir, 'episodes');
   try {
-    const ts = iso.replace(/[:.]/g, '-');
     const episodePath = path.join(episodesDir, `pre-compact-${ts}.md`);
     const content = [
       '---',
@@ -66,7 +65,6 @@ function main() {
   try {
     const sections = [];
 
-    // Recent episodes from DB
     try {
       const dbPath = path.join(baseDir, 'mindlore.db');
       const db = openDatabase(dbPath, { readonly: true });
@@ -94,18 +92,16 @@ function main() {
       }
     } catch (_err) { /* graceful skip */ }
 
-    // Git diff stat
     try {
       const { execSync } = require('child_process');
       const diffStat = execSync('git diff --stat HEAD 2>/dev/null || echo ""', {
-        encoding: 'utf8', timeout: 5000, windowsHide: true,
+        encoding: 'utf8', timeout: 2000, windowsHide: true,
       }).trim();
       if (diffStat) {
         sections.push('## Changed Files (uncommitted)', '```', diffStat, '```');
       }
     } catch (_err) { /* no git */ }
 
-    // Active plan
     try {
       const plansDir = path.join(process.cwd(), '.claude', 'plans');
       if (fs.existsSync(plansDir)) {
@@ -117,9 +113,7 @@ function main() {
       }
     } catch (_err) { /* skip */ }
 
-    // Write snapshot
     if (sections.length > 0) {
-      const ts = iso.replace(/[:.]/g, '-');
       const snapshotContent = [
         '---',
         'type: compaction-snapshot',
@@ -132,7 +126,6 @@ function main() {
       fs.writeFileSync(path.join(diaryDir, `compaction-snapshot-${ts}.md`), snapshotContent);
     }
 
-    // Retention: keep last 5 snapshots
     const snapshots = fs.readdirSync(diaryDir)
       .filter(f => f.startsWith('compaction-snapshot-'))
       .sort();

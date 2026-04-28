@@ -151,16 +151,14 @@ function main(): void {
   const safeUrl = parsedUrl.href;
   const slug = slugFromUrl(safeUrl);
 
-  if (!forceFlag) {
-    const existing = findExistingFile(outDir, slug);
-    if (existing) {
-      const stat = fs.statSync(existing);
-      const ageMs = Date.now() - stat.mtimeMs;
-      if (ageMs < CACHE_TTL_MS) {
-        const hoursAgo = Math.round(ageMs / (60 * 60 * 1000));
-        console.log(JSON.stringify({ cached: true, file: existing, hours_ago: hoursAgo }));
-        return;
-      }
+  let cachedPath = findExistingFile(outDir, slug);
+  if (!forceFlag && cachedPath) {
+    const stat = fs.statSync(cachedPath);
+    const ageMs = Date.now() - stat.mtimeMs;
+    if (ageMs < CACHE_TTL_MS) {
+      const hoursAgo = Math.round(ageMs / (60 * 60 * 1000));
+      console.log(JSON.stringify({ cached: true, file: cachedPath, hours_ago: hoursAgo }));
+      return;
     }
   }
 
@@ -191,15 +189,15 @@ function main(): void {
   const fullContent = frontmatter + content;
 
   const newHash = crypto.createHash('sha256').update(content).digest('hex');
-  const existing = findExistingFile(outDir, slug);
-  if (existing && !forceFlag) {
-    const oldContent = fs.readFileSync(existing, 'utf8');
+  if (!cachedPath) cachedPath = findExistingFile(outDir, slug);
+  if (cachedPath && !forceFlag) {
+    const oldContent = fs.readFileSync(cachedPath, 'utf8');
     const bodyStart = oldContent.indexOf('---', 4);
     const oldBody = bodyStart > 0 ? oldContent.slice(bodyStart + 3).trim() : oldContent;
     const oldHash = crypto.createHash('sha256').update(oldBody).digest('hex');
     if (newHash === oldHash) {
-      fs.utimesSync(existing, new Date(), new Date());
-      console.log(JSON.stringify({ cached: true, file: existing, reason: 'content_unchanged' }));
+      fs.utimesSync(cachedPath, new Date(), new Date());
+      console.log(JSON.stringify({ cached: true, file: cachedPath, reason: 'content_unchanged' }));
       return;
     }
   }

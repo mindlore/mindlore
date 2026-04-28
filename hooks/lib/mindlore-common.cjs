@@ -679,7 +679,11 @@ function _writeTelemetry({ hookName, duration_ms, ok, extra }) {
     }
     const telPath = path.join(GLOBAL_MINDLORE_DIR, 'telemetry.jsonl');
     const entry = { ts: new Date().toISOString(), hook: hookName, duration_ms, ok };
-    if (extra && typeof extra === 'object') Object.assign(entry, extra);
+    if (extra && typeof extra === 'object') {
+      for (const key of ['inject_tokens', 'source_tokens', 'injected_tokens', 'full_read_tokens']) {
+        if (typeof extra[key] === 'number') entry[key] = extra[key];
+      }
+    }
     const line = JSON.stringify(entry) + '\n';
     _rotateFile(telPath, HOOK_LOG_MAX_BYTES, TELEMETRY_KEEP_LINES);
     fs.appendFileSync(telPath, line);

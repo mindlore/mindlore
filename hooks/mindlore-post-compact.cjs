@@ -14,7 +14,7 @@
 
 const fs = require('fs');
 const path = require('path');
-const { findMindloreDir, getLatestDelta, hookLog, withTelemetry } = require('./lib/mindlore-common.cjs');
+const { findMindloreDir, getLatestDelta, readConfig, hookLog, withTelemetry } = require('./lib/mindlore-common.cjs');
 
 function main() {
   const baseDir = findMindloreDir();
@@ -29,8 +29,8 @@ function main() {
     output.push(`[Mindlore INDEX (post-compact)]\n${content}`);
   }
 
-  // Re-inject latest delta
   const diaryDir = path.join(baseDir, 'diary');
+
   const latestDelta = getLatestDelta(diaryDir);
   if (latestDelta) {
     const deltaContent = fs.readFileSync(latestDelta, 'utf8').trim();
@@ -38,7 +38,6 @@ function main() {
     output.push(`[Mindlore Delta (post-compact): ${deltaName}]\n${deltaContent}`);
   }
 
-  // Inject latest compaction snapshot (#17)
   try {
     const snapshots = fs.readdirSync(diaryDir)
       .filter(f => f.startsWith('compaction-snapshot-'))
@@ -50,10 +49,17 @@ function main() {
       ).trim();
       output.push(`[Mindlore Compaction Resume]\n${snapshotContent}`);
     }
-  } catch (_err) { /* skip */ }
+  } catch (_err) { /* snapshot best-effort */ }
 
   if (output.length > 0) {
-    process.stdout.write(output.join('\n\n') + '\n');
+    const config = readConfig(baseDir);
+    const budgetConfig = config?.tokenBudget ?? {};
+    const maxInjectChars = (budgetConfig.sessionInject || 2000) * 4;
+    let joined = output.join('\n\n');
+    if (joined.length > maxInjectChars) {
+      joined = joined.slice(0, maxInjectChars) + '\n[...truncated by token budget]';
+    }
+    process.stdout.write(joined + '\n');
   }
 }
 
