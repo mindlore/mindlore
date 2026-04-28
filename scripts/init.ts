@@ -720,10 +720,13 @@ function registerAgents(packageRoot: string): number {
     const src = path.join(agentsDir, file);
     const dest = path.join(targetDir, file);
     if (!fs.statSync(src).isFile()) continue;
-    if (!fs.existsSync(dest) || fs.readFileSync(src, 'utf8') !== fs.readFileSync(dest, 'utf8')) {
-      fs.copyFileSync(src, dest);
-      copied++;
+    if (fs.existsSync(dest)) {
+      const srcStat = fs.statSync(src);
+      const destStat = fs.statSync(dest);
+      if (srcStat.size === destStat.size && srcStat.mtimeMs <= destStat.mtimeMs) continue;
     }
+    fs.copyFileSync(src, dest);
+    copied++;
   }
   return copied;
 }
