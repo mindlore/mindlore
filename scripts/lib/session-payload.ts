@@ -102,6 +102,23 @@ export function buildSessionPayload(
   const learnings = buildLearnings(db, project);
   sections.push({ label: 'Learnings', content: learnings, tokens: estimateTokens(learnings) });
 
+  // Session summaries from recent sessions (#9)
+  try {
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- better-sqlite3 .all() returns unknown[]
+    const summaries = db.prepare(
+      `SELECT session_summary, created_at FROM episodes
+       WHERE kind = 'session-summary' AND project = ? AND session_summary IS NOT NULL
+       ORDER BY created_at DESC LIMIT 3`,
+    ).all(project) as Array<{ session_summary: string; created_at: string }>;
+
+    if (summaries.length > 0) {
+      const content = summaries.map(s =>
+        `- ${s.created_at.slice(0, 16)}: ${s.session_summary}`
+      ).join('\n');
+      sections.push({ label: 'Session', content: `# Son Sessionlar\n${content}`, tokens: estimateTokens(content) });
+    }
+  } catch { /* session_summary column may not exist */ }
+
   let totalTokens = sections.reduce((sum, s) => sum + s.tokens, 0);
   while (totalTokens > tokenBudget && sections.length > 1) {
     const removed = sections.pop();

@@ -222,6 +222,54 @@ export function convertJsonlToMd(jsonlPath: string, projectName: string): Sessio
   return { md, date: meta.date, userCount, assistantCount, isSubagent };
 }
 
+// ── Session Summary ──────────────────────────────────────────────────
+
+const DECISION_KEYWORDS = [
+  'karar:', 'ertele', 'seçtik', 'yapma:',
+  'decision:', 'defer', 'chose', 'skip:',
+  'blocker:', 'ertelendi',
+];
+
+export function extractSessionSummary(transcriptMd: string): string {
+  const lines = transcriptMd.split('\n');
+  const userMessages: string[] = [];
+  const decisions: string[] = [];
+  let inUser = false;
+
+  for (const line of lines) {
+    if (line.startsWith('## User')) {
+      inUser = true;
+      continue;
+    }
+    if (line.startsWith('## ')) {
+      inUser = false;
+      continue;
+    }
+    if (inUser && line.trim()) {
+      userMessages.push(line.trim());
+      const lower = line.toLowerCase();
+      if (DECISION_KEYWORDS.some(kw => lower.includes(kw))) {
+        decisions.push(line.trim());
+      }
+    }
+  }
+
+  if (userMessages.length === 0) return '';
+
+  const firstIntent = userMessages[0]?.slice(0, 100) ?? '';
+  const lastIntent = userMessages[userMessages.length - 1]?.slice(0, 100) ?? '';
+
+  const parts = [`Intent: ${firstIntent}`];
+  if (lastIntent && lastIntent !== firstIntent) {
+    parts.push(`Son: ${lastIntent}`);
+  }
+  if (decisions.length > 0) {
+    parts.push(`Kararlar: ${decisions.slice(0, 5).join('; ')}`);
+  }
+
+  return parts.join(' | ');
+}
+
 // ── Sync ──────────────────────────────────────────────────────────────
 
 function sessionShortId(sessionId: string): string {
@@ -297,6 +345,22 @@ export function syncSessions(
     });
 
     upsertHash.run(destPath, hash, nowIso, category);
+
+    // Session summary injection (#9)
+    if (!isSubagent) {
+      try {
+        const sessionSummary = extractSessionSummary(md);
+        if (sessionSummary) {
+          const epSlug = `session-summary-${sessionDate}-${shortId}`;
+          const shortSummary = sessionSummary.slice(0, 300);
+          db.prepare(
+            `INSERT OR REPLACE INTO episodes (id, kind, scope, project, summary, session_summary, created_at)
+             VALUES (?, 'session-summary', 'project', ?, ?, ?, ?)`
+          ).run(epSlug, slug, shortSummary, sessionSummary, nowIso);
+        }
+      } catch { /* session_summary column may not exist */ }
+    }
+
     result.synced++;
   });
 
