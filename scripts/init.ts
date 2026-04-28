@@ -481,6 +481,12 @@ function main(): void {
     return;
   }
 
+  if (command === 'upgrade') {
+    process.argv = [...process.argv.slice(0, 2), 'init', '--upgrade'];
+    main();
+    return;
+  }
+
   // CLI subcommands — delegate to dist scripts
   const cliCommands: Record<string, { script: string; passArgs: boolean }> = {
     health: { script: './mindlore-health-check.js', passArgs: false },
@@ -523,6 +529,7 @@ function main(): void {
     console.log('       npx mindlore memory-sync');
     console.log('       npx mindlore fetch-raw <url>');
     console.log('       npx mindlore daemon start|stop|status');
+    console.log('       npx mindlore upgrade');
     process.exit(1);
   }
 
