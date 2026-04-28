@@ -24,6 +24,7 @@ KB bakım skill'i. Reflect düşünür, maintain temizler.
 - `/mindlore-maintain decay` — stale doc listesi + archive flow
 - `/mindlore-maintain consolidate` — episode gruplama + dosyaya promote
 - `/mindlore-maintain contradictions` — çelişki analizi
+- `/mindlore-maintain triage` — unpromoted raw dosyaları listele + metadata göster
 
 ## Decay Mode
 
