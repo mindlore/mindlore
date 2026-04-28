@@ -499,6 +499,43 @@ class HealthChecker {
 
 // ── Main ───────────────────────────────────────────────────────────────
 
+export interface DashboardResult {
+  stale: number;
+  orphan: number;
+  lowQuality: number;
+  recent: number;
+}
+
+export function getHealthDashboard(db: Database, baseDir: string): DashboardResult {
+  const ninetyDaysAgo = new Date(Date.now() - 90 * 24 * 60 * 60 * 1000).toISOString();
+  const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString();
+
+  const staleRow = dbGet<{ cnt: number }>(db, "SELECT COUNT(*) as cnt FROM file_hashes WHERE last_indexed < ?", ninetyDaysAgo);
+  const stale = staleRow?.cnt ?? 0;
+
+  let lowQuality = 0;
+  try {
+    const lqRow = dbGet<{ cnt: number }>(db, "SELECT COUNT(*) as cnt FROM mindlore_fts WHERE quality = 'low' OR quality IS NULL");
+    lowQuality = lqRow?.cnt ?? 0;
+  } catch { /* FTS table may differ */ }
+
+  const recentRow = dbGet<{ cnt: number }>(db, "SELECT COUNT(*) as cnt FROM file_hashes WHERE last_indexed > ?", sevenDaysAgo);
+  const recent = recentRow?.cnt ?? 0;
+
+  const rawDir = path.join(baseDir, 'raw');
+  const sourcesDir = path.join(baseDir, 'sources');
+  let orphan = 0;
+  if (fs.existsSync(rawDir)) {
+    const rawFiles = fs.readdirSync(rawDir).filter(f => f.endsWith('.md'));
+    const sourceFiles = fs.existsSync(sourcesDir)
+      ? new Set(fs.readdirSync(sourcesDir).filter(f => f.endsWith('.md')))
+      : new Set<string>();
+    orphan = rawFiles.filter(f => !sourceFiles.has(f)).length;
+  }
+
+  return { stale, orphan, lowQuality, recent };
+}
+
 function main(): void {
   const baseDir = process.argv[2] ?? GLOBAL_MINDLORE_DIR;
 
@@ -510,6 +547,15 @@ function main(): void {
 
   const checker = new HealthChecker(baseDir);
   const healthy = checker.run().report();
+
+  try {
+    withReadonlyDb(baseDir, (db) => {
+      const d = getHealthDashboard(db, baseDir);
+      console.log('  Knowledge Dashboard:');
+      console.log(`    Stale (90d+): ${d.stale} | Orphan raw: ${d.orphan} | Low quality: ${d.lowQuality} | Recent (7d): ${d.recent}\n`);
+    });
+  } catch { /* dashboard is optional */ }
+
   process.exit(healthy ? 0 : 1);
 }
 
