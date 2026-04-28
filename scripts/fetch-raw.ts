@@ -119,8 +119,20 @@ function generateFrontmatter(url: string, slug: string, content: string): string
   ].join('\n');
 }
 
+function findExistingFile(outDir: string, slug: string): string | null {
+  if (!fs.existsSync(outDir)) return null;
+  const files = fs.readdirSync(outDir).filter(f => f.endsWith(`-${slug}.md`));
+  if (files.length === 0) return null;
+  files.sort();
+  const latest = files[files.length - 1];
+  return latest ? path.join(outDir, latest) : null;
+}
+
+const CACHE_TTL_MS = 24 * 60 * 60 * 1000;
+
 function main(): void {
   const args = process.argv.slice(2);
+  const forceFlag = args.includes('--force');
   const outDirFlag = args.indexOf('--out-dir');
   const skipIndices = new Set<number>();
   if (outDirFlag >= 0) { skipIndices.add(outDirFlag); skipIndices.add(outDirFlag + 1); }
@@ -131,12 +143,26 @@ function main(): void {
     : path.join(process.env.MINDLORE_HOME ?? path.join(os.homedir(), '.mindlore'), 'raw');
 
   if (!url) {
-    console.error('Usage: node fetch-raw.js <URL> [--out-dir <path>]');
+    console.error('Usage: node fetch-raw.js <URL> [--out-dir <path>] [--force]');
     process.exit(1);
   }
 
   const parsedUrl = validateUrl(url);
   const safeUrl = parsedUrl.href;
+  const slug = slugFromUrl(safeUrl);
+
+  if (!forceFlag) {
+    const existing = findExistingFile(outDir, slug);
+    if (existing) {
+      const stat = fs.statSync(existing);
+      const ageMs = Date.now() - stat.mtimeMs;
+      if (ageMs < CACHE_TTL_MS) {
+        const hoursAgo = Math.round(ageMs / (60 * 60 * 1000));
+        console.log(JSON.stringify({ cached: true, file: existing, hours_ago: hoursAgo }));
+        return;
+      }
+    }
+  }
 
   let content: string | null = null;
   let method: FetchResult['method'] = 'curl';
@@ -161,9 +187,22 @@ function main(): void {
     process.exit(1);
   }
 
-  const slug = slugFromUrl(safeUrl);
   const frontmatter = generateFrontmatter(safeUrl, slug, content);
   const fullContent = frontmatter + content;
+
+  const newHash = crypto.createHash('sha256').update(content).digest('hex');
+  const existing = findExistingFile(outDir, slug);
+  if (existing && !forceFlag) {
+    const oldContent = fs.readFileSync(existing, 'utf8');
+    const bodyStart = oldContent.indexOf('---', 4);
+    const oldBody = bodyStart > 0 ? oldContent.slice(bodyStart + 3).trim() : oldContent;
+    const oldHash = crypto.createHash('sha256').update(oldBody).digest('hex');
+    if (newHash === oldHash) {
+      fs.utimesSync(existing, new Date(), new Date());
+      console.log(JSON.stringify({ cached: true, file: existing, reason: 'content_unchanged' }));
+      return;
+    }
+  }
 
   fs.mkdirSync(outDir, { recursive: true });
   const fileName = `${new Date().toISOString().split('T')[0]}-${slug}.md`;
