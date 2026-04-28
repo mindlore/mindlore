@@ -436,27 +436,23 @@ function syncObsidian(baseDir) {
     const destBase = path.join(vaultPath, 'mindlore');
     let exported = 0;
 
-    for (const dir of EXPORT_DIRS) {
-      const srcDir = path.join(baseDir, dir);
-      if (!fs.existsSync(srcDir)) continue;
-
-      const destDir = path.join(destBase, dir);
+    function walkAndExport(srcDir, destDir) {
+      if (!fs.existsSync(srcDir)) return;
       fs.mkdirSync(destDir, { recursive: true });
-
-      for (const file of fs.readdirSync(srcDir).filter(f => f.endsWith('.md') && !f.startsWith('_'))) {
-        if (exportMdFile(path.join(srcDir, file), path.join(destDir, file), convertFn)) exported++;
-      }
-
-      // One-level subdirectories (e.g. diary/mindlore/)
       for (const entry of fs.readdirSync(srcDir, { withFileTypes: true })) {
-        if (!entry.isDirectory() || entry.name.startsWith('_') || entry.name.startsWith('.')) continue;
-        const subSrc = path.join(srcDir, entry.name);
-        const subDest = path.join(destDir, entry.name);
-        fs.mkdirSync(subDest, { recursive: true });
-        for (const file of fs.readdirSync(subSrc).filter(f => f.endsWith('.md') && !f.startsWith('_'))) {
-          if (exportMdFile(path.join(subSrc, file), path.join(subDest, file), convertFn)) exported++;
+        if (entry.name.startsWith('_') || entry.name.startsWith('.')) continue;
+        const srcPath = path.join(srcDir, entry.name);
+        const destPath = path.join(destDir, entry.name);
+        if (entry.isDirectory()) {
+          walkAndExport(srcPath, destPath);
+        } else if (entry.isFile() && entry.name.endsWith('.md')) {
+          if (exportMdFile(srcPath, destPath, convertFn)) exported++;
         }
       }
+    }
+
+    for (const dir of EXPORT_DIRS) {
+      walkAndExport(path.join(baseDir, dir), path.join(destBase, dir));
     }
 
     for (const rootFile of ['INDEX.md', 'log.md']) {
