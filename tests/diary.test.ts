@@ -39,10 +39,10 @@ describe('episode kinds', () => {
     expect(EPISODE_KINDS).toContain('discovery');
   });
 
-  test('all 8 kinds are present', () => {
-    expect(EPISODE_KINDS).toHaveLength(8);
+  test('all 9 kinds are present', () => {
+    expect(EPISODE_KINDS).toHaveLength(9);
     expect([...EPISODE_KINDS]).toEqual([
-      'session', 'decision', 'event', 'preference', 'learning', 'friction', 'discovery', 'nomination',
+      'session', 'decision', 'event', 'preference', 'learning', 'friction', 'discovery', 'nomination', 'session-summary',
     ]);
   });
 

@@ -225,6 +225,10 @@ function createDatabase(baseDir: string): boolean {
   // Idempotent: pre-v0.4 installs won't have this table
   ensureEpisodesTableCjs(db);
 
+  // v0.6.2 migrations (raw_metadata + session_summary)
+  ensureSchemaTable(db);
+  runMigrations(db, V062_MIGRATIONS);
+
   db.close();
   return true;
 }

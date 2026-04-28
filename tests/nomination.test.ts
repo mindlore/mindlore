@@ -24,7 +24,7 @@ afterEach(() => {
 describe('nomination kind', () => {
   test('EPISODE_KINDS includes nomination', () => {
     expect(EPISODE_KINDS).toContain('nomination');
-    expect(EPISODE_KINDS).toHaveLength(8);
+    expect(EPISODE_KINDS).toHaveLength(9);
   });
 
   test('can create nomination episode', () => {

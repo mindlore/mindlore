@@ -115,7 +115,7 @@ export function buildSessionPayload(
       const content = summaries.map(s =>
         `- ${s.created_at.slice(0, 16)}: ${s.session_summary}`
       ).join('\n');
-      sections.push({ label: 'Session', content: `# Son Sessionlar\n${content}`, tokens: estimateTokens(content) });
+      sections.push({ label: 'Past Sessions', content: `# Son Sessionlar\n${content}`, tokens: estimateTokens(content) });
     }
   } catch { /* session_summary column may not exist */ }
 

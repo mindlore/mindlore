@@ -14,7 +14,7 @@ type Database = BetterSqlite3.Database;
 
 // ── Types ────────────────────────────────────────────────────────────
 
-export const EPISODE_KINDS = ['session', 'decision', 'event', 'preference', 'learning', 'friction', 'discovery', 'nomination'] as const;
+export const EPISODE_KINDS = ['session', 'decision', 'event', 'preference', 'learning', 'friction', 'discovery', 'nomination', 'session-summary'] as const;
 export type EpisodeKind = typeof EPISODE_KINDS[number];
 
 export const EPISODE_SCOPES = ['project', 'global'] as const;

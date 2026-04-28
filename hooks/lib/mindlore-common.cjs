@@ -347,7 +347,7 @@ CREATE TABLE IF NOT EXISTS episodes (
 // ~625 tokens context budget for multi-session inject (~4 chars/token)
 const MULTI_SESSION_TOKEN_CAP_CHARS = 2500;
 
-const EPISODE_KINDS_CJS = ['session', 'decision', 'event', 'preference', 'learning', 'friction', 'discovery', 'nomination'];
+const EPISODE_KINDS_CJS = ['session', 'decision', 'event', 'preference', 'learning', 'friction', 'discovery', 'nomination', 'session-summary'];
 
 /**
  * Valid episode statuses. CO-EVOLUTION: mirrors EPISODE_STATUSES in scripts/lib/episodes.ts
