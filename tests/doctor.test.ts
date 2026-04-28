@@ -68,4 +68,21 @@ describe('mindlore-doctor', () => {
     expect(result.pass).toBe(false);
     fs.rmSync(tmpDir, { recursive: true, force: true });
   });
+
+  it('derives EXPECTED_HOOKS from plugin.json', () => {
+    const { loadExpectedHooks } = require('../dist/scripts/mindlore-doctor.js');
+    const pluginPath = path.join(__dirname, '..', 'plugin.json');
+    const plugin = JSON.parse(fs.readFileSync(pluginPath, 'utf8'));
+    const hookNames: string[] = plugin.hooks.map(
+      (h: { name?: string; script?: string }) => h.name ?? path.basename(h.script ?? '', '.cjs'),
+    ).filter(Boolean);
+
+    const derived = loadExpectedHooks();
+    expect(derived.length).toBeGreaterThanOrEqual(14);
+    expect(derived).toContain('mindlore-session-focus');
+    expect(derived).toContain('mindlore-search');
+    for (const name of hookNames) {
+      expect(derived).toContain(name);
+    }
+  });
 });

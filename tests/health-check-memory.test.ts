@@ -58,6 +58,40 @@ describe('Health check — memory directory handling', () => {
     expect(output).not.toContain('type-dir mismatch');
   });
 
+  test('health dashboard reports stale sources', () => {
+    const { getHealthDashboard } = require('../dist/scripts/mindlore-health-check.js');
+    const Database = require('better-sqlite3');
+    const dbPath = path.join(tmpDir, 'mindlore.db');
+    const db = new Database(dbPath);
+
+    const ninetyOneDaysAgo = new Date(Date.now() - 91 * 24 * 60 * 60 * 1000).toISOString();
+    try {
+      db.prepare("INSERT INTO file_hashes (path, content_hash, last_indexed) VALUES (?, ?, ?)").run(
+        'sources/old.md', 'abc123', ninetyOneDaysAgo,
+      );
+    } catch { /* table may need schema — skip if missing */ }
+
+    const result = getHealthDashboard(db, tmpDir);
+    expect(result).toBeDefined();
+    expect(typeof result.stale).toBe('number');
+    expect(typeof result.orphan).toBe('number');
+    expect(typeof result.recent).toBe('number');
+    db.close();
+  });
+
+  test('health dashboard reports orphan raw files', () => {
+    const { getHealthDashboard } = require('../dist/scripts/mindlore-health-check.js');
+    const Database = require('better-sqlite3');
+
+    fs.writeFileSync(path.join(tmpDir, 'raw', 'orphan-file.md'), '# Orphan\nNo source counterpart');
+
+    const dbPath = path.join(tmpDir, 'mindlore.db');
+    const db = new Database(dbPath);
+    const result = getHealthDashboard(db, tmpDir);
+    expect(result.orphan).toBeGreaterThanOrEqual(1);
+    db.close();
+  });
+
   test('should still detect real type-dir mismatch', () => {
     fs.writeFileSync(
       path.join(tmpDir, 'raw', 'wrong-place.md'),

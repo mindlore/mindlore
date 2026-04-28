@@ -60,4 +60,12 @@ describe('mindlore-perf', () => {
     expect(groups['search']).toHaveLength(3);
     expect(groups['session-focus']).toHaveLength(2);
   });
+
+  it('withTelemetry works when fn returns undefined (S1 regression)', async () => {
+    const commonPath = require.resolve('../hooks/lib/mindlore-common.cjs');
+    delete require.cache[commonPath];
+    const { withTelemetry } = require(commonPath);
+    const fn = () => { /* no return — most hooks do this */ };
+    await expect(withTelemetry('test-no-return', fn)).resolves.not.toThrow();
+  });
 });

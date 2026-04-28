@@ -241,6 +241,31 @@ describe('mindlore init', () => {
     expect(fs.existsSync(path.join(mindloreDir, 'domains'))).toBe(true);
   });
 
+  test('should recognize --upgrade flag and run upgrade path', () => {
+    const env = { ...process.env, HOME: TEST_PROJECT, USERPROFILE: TEST_PROJECT };
+
+    // First init to create base structure
+    execSync(`node "${INIT_SCRIPT}" init`, { cwd: TEST_PROJECT, stdio: 'pipe', env });
+
+    // Write old version to config to simulate upgrade scenario
+    const configPath = path.join(TEST_PROJECT, '.mindlore', 'config.json');
+    const config = JSON.parse(fs.readFileSync(configPath, 'utf8'));
+    config.version = '0.5.0';
+    fs.writeFileSync(configPath, JSON.stringify(config, null, 2) + '\n');
+
+    // Run with --upgrade flag
+    execSync(`node "${INIT_SCRIPT}" upgrade`, {
+      cwd: TEST_PROJECT,
+      stdio: 'pipe',
+      env,
+    });
+
+    // Config version should be updated
+    const updated = JSON.parse(fs.readFileSync(configPath, 'utf8'));
+    const pkg = JSON.parse(fs.readFileSync(path.join(__dirname, '..', 'package.json'), 'utf8'));
+    expect(updated.version).toBe(pkg.version);
+  });
+
   test('--global should create ~/.mindlore/ instead of project .mindlore/', () => {
     const globalDir = path.join(TEST_PROJECT, '.mindlore');
     const env = { ...process.env, HOME: TEST_PROJECT, USERPROFILE: TEST_PROJECT };

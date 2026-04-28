@@ -20,7 +20,7 @@ const FALLBACK_HOOKS = [
   'mindlore-model-router', 'mindlore-research-guard',
 ];
 
-function loadExpectedHooks(): string[] {
+export function loadExpectedHooks(): string[] {
   const candidates = [
     path.resolve(__dirname, '..', '..', 'plugin.json'),
     path.resolve(__dirname, '..', 'plugin.json'),
