@@ -9,8 +9,8 @@ interface TelemetryEntry {
   hook: string;
   duration_ms: number;
   ok: boolean;
-  injected_tokens?: number;
-  full_read_tokens?: number;
+  inject_tokens?: number;
+  source_tokens?: number;
 }
 
 interface Percentiles {
@@ -38,8 +38,10 @@ export function parseTelemetry(telPath: string): TelemetryEntry[] {
           hook: obj.hook,
           duration_ms: obj.duration_ms,
           ok: typeof obj.ok === 'boolean' ? obj.ok : true,
-          injected_tokens: typeof obj.injected_tokens === 'number' ? obj.injected_tokens : undefined,
-          full_read_tokens: typeof obj.full_read_tokens === 'number' ? obj.full_read_tokens : undefined,
+          inject_tokens: typeof obj.inject_tokens === 'number' ? obj.inject_tokens
+            : typeof obj.injected_tokens === 'number' ? obj.injected_tokens : undefined,
+          source_tokens: typeof obj.source_tokens === 'number' ? obj.source_tokens
+            : typeof obj.full_read_tokens === 'number' ? obj.full_read_tokens : undefined,
         });
       }
     } catch { /* skip malformed lines */ }
@@ -120,16 +122,16 @@ function main(): void {
   }
 
   if (process.argv.includes('--savings')) {
-    const withTokens = entries.filter(e => e.injected_tokens && e.full_read_tokens);
+    const withTokens = entries.filter(e => e.inject_tokens && e.source_tokens);
     if (withTokens.length === 0) {
-      console.log('No savings data found. Hooks need to emit injected_tokens/full_read_tokens.');
+      console.log('No savings data found. Hooks need to emit inject_tokens/source_tokens.');
       return;
     }
     let totalInjected = 0;
     let totalFull = 0;
     for (const e of withTokens) {
-      totalInjected += e.injected_tokens ?? 0;
-      totalFull += e.full_read_tokens ?? 0;
+      totalInjected += e.inject_tokens ?? 0;
+      totalFull += e.source_tokens ?? 0;
     }
     const saved = totalFull - totalInjected;
     const pct = totalFull > 0 ? ((saved / totalFull) * 100).toFixed(1) : '0';

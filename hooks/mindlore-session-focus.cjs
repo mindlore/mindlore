@@ -20,11 +20,13 @@ function main() {
   const output = [];
   const config = readConfig(baseDir);
   const timings = {};
+  let sourceChars = 0;
 
   // Inject INDEX.md
   const tIndex = Date.now();
   const indexPath = path.join(baseDir, 'INDEX.md');
   if (fs.existsSync(indexPath)) {
+    sourceChars += fs.statSync(indexPath).size;
     const content = fs.readFileSync(indexPath, 'utf8').trim();
     output.push(`[Mindlore INDEX]\n${content}`);
   }
@@ -41,6 +43,7 @@ function main() {
         const sorted = [...diaryFiles].sort();
         const latestName = sorted[sorted.length - 1];
         const latestPath = path.join(diaryDir, latestName);
+        sourceChars += fs.statSync(latestPath).size;
         const deltaContent = fs.readFileSync(latestPath, 'utf8').trim();
         const { meta } = parseFrontmatter(deltaContent);
         const deltaProject = meta.project || null;
@@ -77,6 +80,7 @@ function main() {
 
   // v0.5.4: Consolidated session payload (replaces scattered episodes/activity/alerts injection)
   const tDb = Date.now();
+  const outputLenBeforeDb = output.reduce((s, o) => s + o.length, 0);
   try {
     const dbPath = path.join(baseDir, 'mindlore.db');
     const tDbOpen = Date.now();
@@ -160,6 +164,8 @@ function main() {
       }
     }
   } catch (_err) { /* graceful skip */ }
+  const outputLenAfterDb = output.reduce((s, o) => s + o.length, 0);
+  sourceChars += (outputLenAfterDb - outputLenBeforeDb);
   timings.db_total = Date.now() - tDb;
 
   timings.total = Date.now() - t0;
@@ -180,6 +186,10 @@ function main() {
   if (joined.length > 0) {
     process.stdout.write(joined + '\n');
   }
+
+  const inject_tokens = Math.ceil(joined.length / 4);
+  const source_tokens = Math.ceil(sourceChars / 4);
+  return { inject_tokens, source_tokens };
 }
 
 withTelemetry('mindlore-session-focus', main).catch(err => {
