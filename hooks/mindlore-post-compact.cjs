@@ -39,7 +39,6 @@ function main() {
   }
 
   // Inject latest compaction snapshot (#17)
-  const diaryDir = path.join(baseDir, 'diary');
   try {
     const snapshots = fs.readdirSync(diaryDir)
       .filter(f => f.startsWith('compaction-snapshot-'))
