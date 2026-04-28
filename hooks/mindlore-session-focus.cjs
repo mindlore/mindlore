@@ -13,20 +13,25 @@ const path = require('path');
 const { findMindloreDir, readConfig, openDatabase, hasEpisodesTable, querySupersededChains, formatSupersededChains, hookLog, getProjectName, parseFrontmatter, withTelemetry } = require('./lib/mindlore-common.cjs');
 
 function main() {
+  const t0 = Date.now();
   const baseDir = findMindloreDir();
   if (!baseDir) return; // No .mindlore/ found, silently skip
 
   const output = [];
   const config = readConfig(baseDir);
+  const timings = {};
 
   // Inject INDEX.md
+  const tIndex = Date.now();
   const indexPath = path.join(baseDir, 'INDEX.md');
   if (fs.existsSync(indexPath)) {
     const content = fs.readFileSync(indexPath, 'utf8').trim();
     output.push(`[Mindlore INDEX]\n${content}`);
   }
+  timings.index_read = Date.now() - tIndex;
 
   // Inject latest delta + reflect trigger (single readdirSync)
+  const tDiary = Date.now();
   const diaryDir = path.join(baseDir, 'diary');
   if (fs.existsSync(diaryDir)) {
     try {
@@ -52,8 +57,10 @@ function main() {
       }
     } catch (_err) { /* skip */ }
   }
+  timings.diary_walk = Date.now() - tDiary;
 
   // Version check: compare .version (installed) vs .pkg-version (package)
+  const tVersion = Date.now();
   // Both are flat strings written by init — no JSON parse needed on session start
   const versionPath = path.join(baseDir, '.version');
   const pkgVersionPath = path.join(baseDir, '.pkg-version');
@@ -66,14 +73,19 @@ function main() {
       }
     }
   } catch (_err) { /* skip */ }
+  timings.version_check = Date.now() - tVersion;
 
   // v0.5.4: Consolidated session payload (replaces scattered episodes/activity/alerts injection)
+  const tDb = Date.now();
   try {
     const dbPath = path.join(baseDir, 'mindlore.db');
+    const tDbOpen = Date.now();
     const db = openDatabase(dbPath, { readonly: true });
+    timings.db_open = Date.now() - tDbOpen;
 
     if (db) {
       // v0.6.1: Integrity check — auto-recover corrupt DB
+      const tIntegrity = Date.now();
       const recoverCorruptDb = (reason) => {
         db.close();
         const bakPath = dbPath + '.corrupt.bak';
@@ -93,8 +105,10 @@ function main() {
         recoverCorruptDb(`DB integrity check failed: ${err.message}`);
         return;
       }
+      timings.db_integrity = Date.now() - tIntegrity;
       try {
         // Session payload: Session summary, Decisions, Friction, Learnings
+        const tPayload = Date.now();
         try {
           const { buildSessionPayload } = require('../dist/scripts/lib/session-payload.js');
           const project = path.basename(process.cwd());
@@ -108,8 +122,10 @@ function main() {
         } catch (_payloadErr) {
           // Session payload is optional — don't break session start
         }
+        timings.db_payload = Date.now() - tPayload;
 
         // v0.4.1: Supersedes chain display (kept — not covered by session-payload)
+        const tSuperseded = Date.now();
         if (hasEpisodesTable(db)) {
           const project = path.basename(process.cwd());
 
@@ -130,8 +146,10 @@ function main() {
             }
           } catch (_err) { /* consolidation_status column may not exist yet */ }
         }
+        timings.db_episodes = Date.now() - tSuperseded;
 
         // v0.5.5: Stale content check (reuses open DB handle)
+        const tStale = Date.now();
         try {
           const thirtyDaysAgo = new Date(Date.now() - (30 * 24 * 60 * 60 * 1000)).toISOString();
           const row = db.prepare('SELECT COUNT(*) as cnt FROM file_hashes WHERE last_indexed < ?').get(thirtyDaysAgo);
@@ -140,13 +158,16 @@ function main() {
             output.push(`[Mindlore: ${staleCount} dosya 30+ gundur guncellenmemis — \`/mindlore-evolve\` dusun]`);
           }
         } catch (_staleErr) { /* file_hashes may not exist */ }
+        timings.db_stale = Date.now() - tStale;
       } finally {
         db.close();
       }
     }
   } catch (_err) { /* graceful skip */ }
+  timings.db_total = Date.now() - tDb;
 
-  hookLog('session-focus', 'info', 'session started');
+  timings.total = Date.now() - t0;
+  hookLog('session-focus', 'info', `timings: ${JSON.stringify(timings)}`);
 
   // Token budget for session inject
   // Defaults match DEFAULT_TOKEN_BUDGET in scripts/lib/constants.ts
