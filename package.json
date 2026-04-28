@@ -22,7 +22,8 @@
     "cc-sync": "node dist/scripts/cc-memory-bulk-sync.js",
     "cleanup": "node dist/scripts/maintain-cleanup.js",
     "perf": "node dist/scripts/mindlore-perf.js",
-    "doctor": "node dist/scripts/mindlore-doctor.js"
+    "doctor": "node dist/scripts/mindlore-doctor.js",
+    "audit": "npm audit --audit-level=moderate"
   },
   "keywords": [
     "claude-code",
