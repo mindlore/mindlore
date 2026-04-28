@@ -62,8 +62,8 @@ function percentile(sorted: number[], p: number): number {
   return sorted[Math.max(0, idx)] ?? 0;
 }
 
-export function calculatePercentiles(entries: TelemetryEntry[], hookName: string): Percentiles {
-  const filtered = entries.filter(e => e.hook === hookName);
+export function calculatePercentiles(entries: TelemetryEntry[], hookName?: string): Percentiles {
+  const filtered = hookName ? entries.filter(e => e.hook === hookName) : entries;
   if (filtered.length === 0) return { p50: 0, p95: 0, p99: 0, count: 0, errorCount: 0, mean: 0 };
 
   const durations = filtered.map(e => e.duration_ms).sort((a, b) => a - b);
@@ -87,7 +87,7 @@ function formatReport(entries: TelemetryEntry[]): string {
   const lines: string[] = ['Mindlore Performance Report', '='.repeat(40), ''];
 
   for (const hook of hooks) {
-    const percs = calculatePercentiles(entries, hook);
+    const percs = calculatePercentiles(groups[hook] ?? []);
     lines.push(`${hook} (${percs.count} calls, ${percs.errorCount} errors)`);
     lines.push(`  p50: ${percs.p50}ms  p95: ${percs.p95}ms  p99: ${percs.p99}ms  mean: ${percs.mean}ms`);
     lines.push('');
