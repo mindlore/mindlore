@@ -12,13 +12,35 @@ interface CheckResult {
   expected?: number;
 }
 
-const EXPECTED_HOOKS = [
+const FALLBACK_HOOKS = [
   'mindlore-session-focus', 'mindlore-search', 'mindlore-decision-detector',
   'mindlore-index', 'mindlore-fts5-sync', 'mindlore-session-end',
   'mindlore-pre-compact', 'mindlore-post-compact', 'mindlore-read-guard',
   'mindlore-post-read', 'mindlore-dont-repeat', 'mindlore-cwd-changed',
   'mindlore-model-router', 'mindlore-research-guard',
 ];
+
+function loadExpectedHooks(): string[] {
+  const candidates = [
+    path.resolve(__dirname, '..', '..', 'plugin.json'),
+    path.resolve(__dirname, '..', 'plugin.json'),
+  ];
+  const pluginPath = candidates.find(p => fs.existsSync(p));
+  if (!pluginPath) return FALLBACK_HOOKS;
+  try {
+    const raw: unknown = JSON.parse(fs.readFileSync(pluginPath, 'utf8'));
+    if (isRecord(raw) && Array.isArray(raw.hooks)) {
+      const hooks = raw.hooks as Array<Record<string, unknown>>;
+      const names = hooks
+        .map(h => typeof h.name === 'string' ? h.name : (typeof h.script === 'string' ? path.basename(h.script, '.cjs') : ''))
+        .filter(Boolean);
+      if (names.length > 0) return names;
+    }
+  } catch { /* fallback */ }
+  return FALLBACK_HOOKS;
+}
+
+const EXPECTED_HOOKS = loadExpectedHooks();
 
 function isRecord(v: unknown): v is Record<string, unknown> {
   return typeof v === 'object' && v !== null && !Array.isArray(v);
