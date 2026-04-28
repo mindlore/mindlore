@@ -44,6 +44,30 @@ interface PluginManifest {
 
 // ── Helpers ────────────────────────────────────────────────────────────
 
+function mergeDefaults(target: Record<string, unknown>, defaults: Record<string, unknown>): { result: Record<string, unknown>; changed: boolean } {
+  const result = { ...target };
+  let changed = false;
+  for (const [key, defaultValue] of Object.entries(defaults)) {
+    if (!(key in result) || result[key] === undefined || result[key] === null) {
+      result[key] = defaultValue;
+      changed = true;
+    } else if (
+      typeof result[key] === 'object' && result[key] !== null && !Array.isArray(result[key]) &&
+      typeof defaultValue === 'object' && defaultValue !== null && !Array.isArray(defaultValue)
+    ) {
+      const nested = mergeDefaults(
+        result[key] as Record<string, unknown>,
+        defaultValue as Record<string, unknown>,
+      );
+      if (nested.changed) {
+        result[key] = nested.result;
+        changed = true;
+      }
+    }
+  }
+  return { result, changed };
+}
+
 function resolvePackageRoot(): string {
   // When compiled to dist/scripts/, go up two levels to reach package root
   // When running as .ts (ts-jest), go up one level
@@ -411,50 +435,17 @@ function ensureConfig(baseDir: string, packageRoot: string): boolean {
     changed = true;
   }
 
-  // v0.5.0: merge new fields from template if missing
+  // Merge missing fields from template (handles top-level + nested objects)
   if (fs.existsSync(configSrc)) {
     const template = readJsonFile<MindloreConfig>(configSrc);
-    if (!config.synonyms && template.synonyms) {
-      config.synonyms = template.synonyms;
+    const { result: merged, changed: mergeChanged } = mergeDefaults(
+      config as unknown as Record<string, unknown>,
+      template as unknown as Record<string, unknown>,
+    );
+    if (mergeChanged) {
+      Object.assign(config, merged);
       changed = true;
     }
-    if (!config.hybrid && template.hybrid) {
-      config.hybrid = template.hybrid;
-      changed = true;
-    }
-    // Backfill tokenBudget from template for pre-v0.5.1 configs
-    if (!config.tokenBudget && template.tokenBudget) {
-      config.tokenBudget = template.tokenBudget;
-      changed = true;
-    }
-    // Backfill backup from template for pre-v0.5.4 configs
-    if (!config.backup && template.backup) {
-      config.backup = template.backup;
-      changed = true;
-    }
-    // Backfill reminders from template for pre-v0.5.4 configs
-    if (!config.reminders && template.reminders) {
-      config.reminders = template.reminders;
-      changed = true;
-    }
-    // Merge nested session_focus keys
-    if (typeof config.session_focus === 'object' && config.session_focus !== null
-      && typeof template.session_focus === 'object' && template.session_focus !== null) {
-      const merged = parseJsonObject<Record<string, unknown>>(JSON.stringify(template.session_focus)); // lint-safe cast
-      const existing = parseJsonObject<Record<string, unknown>>(JSON.stringify(config.session_focus)); // defensive copy
-      let sfChanged = false;
-      for (const subKey of Object.keys(merged)) {
-        if (!(subKey in existing)) {
-          existing[subKey] = merged[subKey];
-          sfChanged = true;
-        }
-      }
-      if (sfChanged) {
-        config.session_focus = existing;
-        changed = true;
-      }
-    }
-    // Update version to match template
     if (config.version !== template.version) {
       config.version = template.version;
       changed = true;
