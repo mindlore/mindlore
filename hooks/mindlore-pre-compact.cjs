@@ -11,7 +11,7 @@
 
 const fs = require('fs');
 const path = require('path');
-const { findMindloreDir, hookLog, withTelemetry } = require('./lib/mindlore-common.cjs');
+const { findMindloreDir, openDatabase, hookLog, withTelemetry } = require('./lib/mindlore-common.cjs');
 
 function main() {
   const baseDir = findMindloreDir();
@@ -60,6 +60,87 @@ function main() {
     const entry = `| ${iso.slice(0, 10)} | pre-compact | FTS5 flush before compaction |\n`;
     fs.appendFileSync(logPath, entry, 'utf8');
   } catch (_err) { /* log file may not exist */ }
+
+  // Build compaction snapshot (#17)
+  const diaryDir = path.join(baseDir, 'diary');
+  try {
+    const sections = [];
+
+    // Recent episodes from DB
+    try {
+      const dbPath = path.join(baseDir, 'mindlore.db');
+      const db = openDatabase(dbPath, { readonly: true });
+      if (db) {
+        try {
+          const episodes = db.prepare(
+            "SELECT kind, summary FROM episodes WHERE created_at > datetime('now', '-4 hours') ORDER BY created_at DESC LIMIT 20"
+          ).all();
+          if (episodes.length > 0) {
+            const grouped = {};
+            for (const ep of episodes) {
+              const kind = ep.kind || 'other';
+              if (!grouped[kind]) grouped[kind] = [];
+              grouped[kind].push(ep.summary);
+            }
+            sections.push('## Session Episodes');
+            for (const [kind, items] of Object.entries(grouped)) {
+              sections.push(`### ${kind}`);
+              for (const item of items) sections.push(`- ${item}`);
+            }
+          }
+        } finally {
+          db.close();
+        }
+      }
+    } catch (_err) { /* graceful skip */ }
+
+    // Git diff stat
+    try {
+      const { execSync } = require('child_process');
+      const diffStat = execSync('git diff --stat HEAD 2>/dev/null || echo ""', {
+        encoding: 'utf8', timeout: 5000, windowsHide: true,
+      }).trim();
+      if (diffStat) {
+        sections.push('## Changed Files (uncommitted)', '```', diffStat, '```');
+      }
+    } catch (_err) { /* no git */ }
+
+    // Active plan
+    try {
+      const plansDir = path.join(process.cwd(), '.claude', 'plans');
+      if (fs.existsSync(plansDir)) {
+        const plans = fs.readdirSync(plansDir).filter(f => f.endsWith('.md'));
+        if (plans.length > 0) {
+          const latestPlan = plans.sort().pop();
+          sections.push(`## Active Plan: ${latestPlan}`);
+        }
+      }
+    } catch (_err) { /* skip */ }
+
+    // Write snapshot
+    if (sections.length > 0) {
+      const ts = iso.replace(/[:.]/g, '-');
+      const snapshotContent = [
+        '---',
+        'type: compaction-snapshot',
+        `date: ${iso.slice(0, 10)}`,
+        `project: ${path.basename(process.cwd())}`,
+        '---',
+        '',
+        ...sections,
+      ].join('\n');
+      fs.writeFileSync(path.join(diaryDir, `compaction-snapshot-${ts}.md`), snapshotContent);
+    }
+
+    // Retention: keep last 5 snapshots
+    const snapshots = fs.readdirSync(diaryDir)
+      .filter(f => f.startsWith('compaction-snapshot-'))
+      .sort();
+    while (snapshots.length > 5) {
+      const oldest = snapshots.shift();
+      if (oldest) fs.unlinkSync(path.join(diaryDir, oldest));
+    }
+  } catch (_err) { /* snapshot is best-effort */ }
 
   process.stdout.write('[Mindlore: pre-compact FTS5 flush complete]\n');
 }

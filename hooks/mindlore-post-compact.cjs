@@ -38,6 +38,21 @@ function main() {
     output.push(`[Mindlore Delta (post-compact): ${deltaName}]\n${deltaContent}`);
   }
 
+  // Inject latest compaction snapshot (#17)
+  const diaryDir = path.join(baseDir, 'diary');
+  try {
+    const snapshots = fs.readdirSync(diaryDir)
+      .filter(f => f.startsWith('compaction-snapshot-'))
+      .sort();
+    if (snapshots.length > 0) {
+      const latestSnapshot = snapshots[snapshots.length - 1];
+      const snapshotContent = fs.readFileSync(
+        path.join(diaryDir, latestSnapshot), 'utf8'
+      ).trim();
+      output.push(`[Mindlore Compaction Resume]\n${snapshotContent}`);
+    }
+  } catch (_err) { /* skip */ }
+
   if (output.length > 0) {
     process.stdout.write(output.join('\n\n') + '\n');
   }
