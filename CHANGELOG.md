@@ -5,6 +5,45 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.6.2] - 2026-04-28
+
+### Added
+- Compaction snapshot — preserve context across `/compact` with auto-resume injection (#17)
+- Raw inbox triage — `listUnpromoted`, `extractRawMetadata`, birikme uyarısı (#15)
+- Session summary injection — mekanik intent/karar extraction from transcripts (#9)
+- Knowledge health dashboard — `getHealthDashboard()` stale/orphan/low-quality/recent (#26)
+- URL cache with 24h TTL + content hash dedup for `fetch-raw` (#25)
+- Context savings metric — `inject_tokens` + `source_tokens` in telemetry (#1)
+- Upgrade subcommand routing — `npx mindlore upgrade` (#8)
+- `detectOpenHandles` in Jest config (#4)
+- `npm run audit` script for dependency security (#5)
+- V0.6.2 migrations — `raw_metadata` table (v8) + `episodes.session_summary` column (v9)
+
+### Fixed
+- Code review + simplify findings — telemetry allowlist, token budget, git timeout, orphan counting, double file call (7 fixes)
+- Fresh DB migration — V062 migrations now applied on `init` for new installs
+- Session label collision — renamed to 'Past Sessions' to avoid FTS conflict
+- `episode-kind` whitelist — `session-summary` added to EPISODE_KINDS
+- Post-compact duplicate `diaryDir` declaration removed
+- Obsidian recursive walk for deep directory sync (`raw/sessions/project/`)
+
+### Changed
+- **Session-focus perf: 2262ms → 52ms** — lazy integrity check, 98% improvement (#31B)
+- Session-focus profiling markers for bottleneck identification (#31A)
+- Perf report: pre-group by hook name — O(H*N) → O(N) filter
+- Session-focus nesting refactor — `tryOpenDb` + `loadDbContent` extracted
+- Doctor derives `EXPECTED_HOOKS` from plugin.json (no more hardcoded list)
+- `_writeTelemetry` positional → object param refactor
+- `withTimeoutDb` wired to DB queries + get mode
+- `mergeDefaults` utility extracted for config merge
+- `registerAgents` mtime+size guard (skip if unchanged)
+- 81 suites, 585 tests (up from 76 suites, 558 tests in v0.6.1)
+
+### Dependencies
+- `@typescript-eslint/eslint-plugin` 8.58.2 → 8.59.0
+- `@typescript-eslint/parser` 8.58.2 → 8.59.0
+- `actions/cache` 4 → 5
+
 ## [0.6.1] - 2026-04-27
 
 ### Added
