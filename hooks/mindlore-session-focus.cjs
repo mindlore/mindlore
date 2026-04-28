@@ -84,28 +84,20 @@ function main() {
     timings.db_open = Date.now() - tDbOpen;
 
     if (db) {
-      // v0.6.1: Integrity check — auto-recover corrupt DB
-      const tIntegrity = Date.now();
+      // v0.6.2: Lazy integrity — recover only on SQLITE_CORRUPT (was: pragma integrity_check every session, ~2200ms)
       const recoverCorruptDb = (reason) => {
-        db.close();
+        try { db.close(); } catch { /* already closed */ }
         const bakPath = dbPath + '.corrupt.bak';
         try { fs.copyFileSync(dbPath, bakPath); } catch { /* best effort */ }
         try { fs.unlinkSync(dbPath); } catch { /* best effort */ }
         hookLog('session-focus', 'warn', reason);
-        if (output.length > 0) process.stdout.write(output.join('\n\n'));
       };
-      try {
-        const check = db.pragma('integrity_check(1)');
-        const result = Array.isArray(check) ? check[0]?.integrity_check : check;
-        if (result !== 'ok') {
-          recoverCorruptDb(`Corrupt DB detected, backed up. Run 'npm run index' to rebuild.`);
-          return;
-        }
-      } catch (err) {
-        recoverCorruptDb(`DB integrity check failed: ${err.message}`);
-        return;
-      }
-      timings.db_integrity = Date.now() - tIntegrity;
+      const isCorruptionError = (err) => {
+        const code = err?.code ?? '';
+        const msg = String(err?.message ?? err);
+        return code === 'SQLITE_CORRUPT' || code === 'SQLITE_NOTADB' || /corrupt|malformed/i.test(msg);
+      };
+      timings.db_integrity = 0;
       try {
         // Session payload: Session summary, Decisions, Friction, Learnings
         const tPayload = Date.now();
@@ -159,8 +151,12 @@ function main() {
           }
         } catch (_staleErr) { /* file_hashes may not exist */ }
         timings.db_stale = Date.now() - tStale;
+      } catch (err) {
+        if (isCorruptionError(err)) {
+          recoverCorruptDb(`Corrupt DB detected during query: ${err?.message ?? err}`);
+        }
       } finally {
-        db.close();
+        try { db.close(); } catch { /* already closed by recovery */ }
       }
     }
   } catch (_err) { /* graceful skip */ }
