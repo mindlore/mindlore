@@ -55,10 +55,12 @@ function mergeDefaults(target: Record<string, unknown>, defaults: Record<string,
       typeof result[key] === 'object' && result[key] !== null && !Array.isArray(result[key]) &&
       typeof defaultValue === 'object' && defaultValue !== null && !Array.isArray(defaultValue)
     ) {
+      /* eslint-disable @typescript-eslint/no-unsafe-type-assertion -- narrowed by typeof+null+array checks above */
       const nested = mergeDefaults(
         result[key] as Record<string, unknown>,
         defaultValue as Record<string, unknown>,
       );
+      /* eslint-enable @typescript-eslint/no-unsafe-type-assertion */
       if (nested.changed) {
         result[key] = nested.result;
         changed = true;
@@ -438,10 +440,12 @@ function ensureConfig(baseDir: string, packageRoot: string): boolean {
   // Merge missing fields from template (handles top-level + nested objects)
   if (fs.existsSync(configSrc)) {
     const template = readJsonFile<MindloreConfig>(configSrc);
+    /* eslint-disable @typescript-eslint/no-unsafe-type-assertion -- MindloreConfig is a plain object, safe to cast */
     const { result: merged, changed: mergeChanged } = mergeDefaults(
       config as unknown as Record<string, unknown>,
       template as unknown as Record<string, unknown>,
     );
+    /* eslint-enable @typescript-eslint/no-unsafe-type-assertion */
     if (mergeChanged) {
       Object.assign(config, merged);
       changed = true;

@@ -30,6 +30,7 @@ function loadExpectedHooks(): string[] {
   try {
     const raw: unknown = JSON.parse(fs.readFileSync(pluginPath, 'utf8'));
     if (isRecord(raw) && Array.isArray(raw.hooks)) {
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- guarded by isRecord+Array.isArray above
       const hooks = raw.hooks as Array<Record<string, unknown>>;
       const names = hooks
         .map(h => typeof h.name === 'string' ? h.name : (typeof h.script === 'string' ? path.basename(h.script, '.cjs') : ''))

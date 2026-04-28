@@ -20,15 +20,20 @@ describe('fetch-raw script', () => {
     expect(fs.existsSync(parsed.saved)).toBe(true);
   });
 
-  it('outputs valid JSON with saved path and char count', () => {
+  it('outputs valid JSON with saved path and char count (or cache hit)', () => {
     const result = execSync(
       `node dist/scripts/fetch-raw.js https://raw.githubusercontent.com/anthropics/claude-code/main/README.md --out-dir "${tmpDir}"`,
       { encoding: 'utf8', timeout: 30000 }
     );
     const parsed = JSON.parse(result.trim());
-    expect(parsed).toHaveProperty('saved');
-    expect(parsed).toHaveProperty('chars');
-    expect(typeof parsed.chars).toBe('number');
+    const filePath = parsed.saved ?? parsed.file;
+    expect(filePath).toBeTruthy();
+    if (parsed.saved) {
+      expect(parsed).toHaveProperty('chars');
+      expect(typeof parsed.chars).toBe('number');
+    } else {
+      expect(parsed.cached).toBe(true);
+    }
   });
 
   it('generates frontmatter with slug and date', () => {
@@ -37,7 +42,8 @@ describe('fetch-raw script', () => {
       { encoding: 'utf8', timeout: 30000 }
     );
     const parsed = JSON.parse(result.trim());
-    const content = fs.readFileSync(parsed.saved, 'utf8');
+    const filePath = parsed.saved ?? parsed.file;
+    const content = fs.readFileSync(filePath, 'utf8');
     expect(content).toContain('---');
     expect(content).toContain('slug:');
     expect(content).toContain('date_captured:');
