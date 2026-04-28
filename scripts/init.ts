@@ -17,6 +17,8 @@ import { MINDLORE_DIR, GLOBAL_MINDLORE_DIR, DB_NAME, DIRECTORIES, CONFIG_FILE, D
 import type { Settings } from './lib/constants.js';
 import { dbPragma } from './lib/db-helpers.js';
 import { parseJsonObject, readJsonFile } from './lib/safe-parse.js';
+import { ensureSchemaTable, runMigrations } from './lib/schema-version.js';
+import { V062_MIGRATIONS } from './lib/migrations-v062.js';
 
 // eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- dynamic CJS require, typed by mindlore-common.d.cts
 const { SQL_FTS_CREATE, ensureEpisodesTable: ensureEpisodesTableCjs } = require(resolveHookCommon(__dirname)) as {
@@ -201,6 +203,8 @@ function createDatabase(baseDir: string): boolean {
     // Idempotent: ensure episodes table on pre-v0.4 databases
     const dbEp = new DatabaseCtor(dbPath);
     ensureEpisodesTableCjs(dbEp);
+    ensureSchemaTable(dbEp);
+    runMigrations(dbEp, V062_MIGRATIONS);
     dbEp.close();
     return migrated;
   }
