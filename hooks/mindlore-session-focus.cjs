@@ -10,7 +10,7 @@
 
 const fs = require('fs');
 const path = require('path');
-const { findMindloreDir, readConfig, openDatabase, hasEpisodesTable, querySupersededChains, formatSupersededChains, hookLog, getProjectName, parseFrontmatter, withTelemetry } = require('./lib/mindlore-common.cjs');
+const { findMindloreDir, readConfig, openDatabase, hasEpisodesTable, querySupersededChains, formatSupersededChains, hookLog, getProjectName, parseFrontmatter, withTelemetry, withTimeoutDb } = require('./lib/mindlore-common.cjs');
 
 function main() {
   const t0 = Date.now();
@@ -132,9 +132,9 @@ function main() {
 
           // v0.5.3: Episode consolidation reminder (kept — threshold-based reminder)
           try {
-            const rawCount = db.prepare(
-              "SELECT COUNT(*) as cnt FROM episodes WHERE consolidation_status = 'raw' OR consolidation_status IS NULL"
-            ).get();
+            const rawCount = withTimeoutDb(db,
+              "SELECT COUNT(*) as cnt FROM episodes WHERE consolidation_status = 'raw' OR consolidation_status IS NULL",
+              [], { mode: 'get' });
             const cnt = rawCount?.cnt ?? 0;
             const consolThreshold = config?.consolidation?.threshold ?? 50;
             if (cnt >= consolThreshold) {
@@ -148,7 +148,7 @@ function main() {
         const tStale = Date.now();
         try {
           const thirtyDaysAgo = new Date(Date.now() - (30 * 24 * 60 * 60 * 1000)).toISOString();
-          const row = db.prepare('SELECT COUNT(*) as cnt FROM file_hashes WHERE last_indexed < ?').get(thirtyDaysAgo);
+          const row = withTimeoutDb(db, 'SELECT COUNT(*) as cnt FROM file_hashes WHERE last_indexed < ?', [thirtyDaysAgo], { mode: 'get' });
           const staleCount = row?.cnt ?? 0;
           if (staleCount > 3) {
             output.push(`[Mindlore: ${staleCount} dosya 30+ gundur guncellenmemis — \`/mindlore-evolve\` dusun]`);

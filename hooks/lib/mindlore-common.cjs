@@ -720,16 +720,19 @@ function withTelemetrySync(hookName, fn) {
   return result;
 }
 
-function withTimeoutDb(db, sql, params = [], timeoutMs = 3000) {
-  if (!db) return [];
+function withTimeoutDb(db, sql, params = [], { timeoutMs = 3000, mode = 'all' } = {}) {
+  if (!db) return mode === 'get' ? undefined : [];
   try {
     db.pragma(`busy_timeout = ${timeoutMs}`);
     const stmt = db.prepare(sql);
+    if (mode === 'get') {
+      return params.length > 0 ? stmt.get(...params) : stmt.get();
+    }
     return params.length > 0 ? stmt.all(...params) : stmt.all();
   } catch (err) {
     hookLog('timeout', 'warn', `DB query timeout/error: ${err.message}`);
     _writeTelemetry({ hookName: 'db_timeout', duration_ms: 0, ok: false });
-    return [];
+    return mode === 'get' ? undefined : [];
   }
 }
 
