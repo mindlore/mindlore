@@ -12,6 +12,79 @@ const fs = require('fs');
 const path = require('path');
 const { findMindloreDir, readConfig, openDatabase, hasEpisodesTable, querySupersededChains, formatSupersededChains, hookLog, getProjectName, parseFrontmatter, withTelemetry, withTimeoutDb } = require('./lib/mindlore-common.cjs');
 
+function isCorruptionError(err) {
+  const code = err?.code ?? '';
+  const msg = String(err?.message ?? err);
+  return code === 'SQLITE_CORRUPT' || code === 'SQLITE_NOTADB' || /corrupt|malformed/i.test(msg);
+}
+
+function recoverCorruptDb(db, dbPath, reason) {
+  try { db.close(); } catch { /* already closed */ }
+  const bakPath = dbPath + '.corrupt.bak';
+  try { fs.copyFileSync(dbPath, bakPath); } catch { /* best effort */ }
+  try { fs.unlinkSync(dbPath); } catch { /* best effort */ }
+  hookLog('session-focus', 'warn', reason);
+}
+
+function tryOpenDb(dbPath) {
+  return openDatabase(dbPath, { readonly: true });
+}
+
+function loadDbContent(db, baseDir, config, output, timings) {
+  // Session payload: Session summary, Decisions, Friction, Learnings
+  const tPayload = Date.now();
+  try {
+    const { buildSessionPayload } = require('../dist/scripts/lib/session-payload.js');
+    const project = path.basename(process.cwd());
+    const payloadBudget = config?.tokenBudget?.sessionInject ?? 2000;
+    const payload = buildSessionPayload(db, baseDir, project, payloadBudget);
+    if (!payload.skipInjection) {
+      for (const section of payload.sections) {
+        output.push(`[Mindlore ${section.label}]\n${section.content}`);
+      }
+    }
+  } catch (_payloadErr) {
+    // Session payload is optional — don't break session start
+  }
+  timings.db_payload = Date.now() - tPayload;
+
+  // Supersedes chain display
+  const tSuperseded = Date.now();
+  if (hasEpisodesTable(db)) {
+    const project = path.basename(process.cwd());
+
+    const chains = querySupersededChains(db, { project, days: 7, limit: 5 });
+    if (chains.length > 0) {
+      output.push(`[Mindlore Supersedes]\n${formatSupersededChains(chains)}`);
+    }
+
+    // Episode consolidation reminder
+    try {
+      const rawCount = withTimeoutDb(db,
+        "SELECT COUNT(*) as cnt FROM episodes WHERE consolidation_status = 'raw' OR consolidation_status IS NULL",
+        [], { mode: 'get' });
+      const cnt = rawCount?.cnt ?? 0;
+      const consolThreshold = config?.consolidation?.threshold ?? 50;
+      if (cnt >= consolThreshold) {
+        output.push(`[Mindlore] ${cnt} raw episode birikti — \`/mindlore-maintain consolidate\` ile birleştirmeyi düşün.`);
+      }
+    } catch (_err) { /* consolidation_status column may not exist yet */ }
+  }
+  timings.db_episodes = Date.now() - tSuperseded;
+
+  // Stale content check
+  const tStale = Date.now();
+  try {
+    const thirtyDaysAgo = new Date(Date.now() - (30 * 24 * 60 * 60 * 1000)).toISOString();
+    const row = withTimeoutDb(db, 'SELECT COUNT(*) as cnt FROM file_hashes WHERE last_indexed < ?', [thirtyDaysAgo], { mode: 'get' });
+    const staleCount = row?.cnt ?? 0;
+    if (staleCount > 3) {
+      output.push(`[Mindlore: ${staleCount} dosya 30+ gundur guncellenmemis — \`/mindlore-evolve\` dusun]`);
+    }
+  } catch (_staleErr) { /* file_hashes may not exist */ }
+  timings.db_stale = Date.now() - tStale;
+}
+
 function main() {
   const t0 = Date.now();
   const baseDir = findMindloreDir();
@@ -84,80 +157,16 @@ function main() {
   try {
     const dbPath = path.join(baseDir, 'mindlore.db');
     const tDbOpen = Date.now();
-    const db = openDatabase(dbPath, { readonly: true });
+    const db = tryOpenDb(dbPath);
     timings.db_open = Date.now() - tDbOpen;
+    timings.db_integrity = 0;
 
     if (db) {
-      // v0.6.2: Lazy integrity — recover only on SQLITE_CORRUPT (was: pragma integrity_check every session, ~2200ms)
-      const recoverCorruptDb = (reason) => {
-        try { db.close(); } catch { /* already closed */ }
-        const bakPath = dbPath + '.corrupt.bak';
-        try { fs.copyFileSync(dbPath, bakPath); } catch { /* best effort */ }
-        try { fs.unlinkSync(dbPath); } catch { /* best effort */ }
-        hookLog('session-focus', 'warn', reason);
-      };
-      const isCorruptionError = (err) => {
-        const code = err?.code ?? '';
-        const msg = String(err?.message ?? err);
-        return code === 'SQLITE_CORRUPT' || code === 'SQLITE_NOTADB' || /corrupt|malformed/i.test(msg);
-      };
-      timings.db_integrity = 0;
       try {
-        // Session payload: Session summary, Decisions, Friction, Learnings
-        const tPayload = Date.now();
-        try {
-          const { buildSessionPayload } = require('../dist/scripts/lib/session-payload.js');
-          const project = path.basename(process.cwd());
-          const payloadBudget = config?.tokenBudget?.sessionInject ?? 2000;
-          const payload = buildSessionPayload(db, baseDir, project, payloadBudget);
-          if (!payload.skipInjection) {
-            for (const section of payload.sections) {
-              output.push(`[Mindlore ${section.label}]\n${section.content}`);
-            }
-          }
-        } catch (_payloadErr) {
-          // Session payload is optional — don't break session start
-        }
-        timings.db_payload = Date.now() - tPayload;
-
-        // v0.4.1: Supersedes chain display (kept — not covered by session-payload)
-        const tSuperseded = Date.now();
-        if (hasEpisodesTable(db)) {
-          const project = path.basename(process.cwd());
-
-          const chains = querySupersededChains(db, { project, days: 7, limit: 5 });
-          if (chains.length > 0) {
-            output.push(`[Mindlore Supersedes]\n${formatSupersededChains(chains)}`);
-          }
-
-          // v0.5.3: Episode consolidation reminder (kept — threshold-based reminder)
-          try {
-            const rawCount = withTimeoutDb(db,
-              "SELECT COUNT(*) as cnt FROM episodes WHERE consolidation_status = 'raw' OR consolidation_status IS NULL",
-              [], { mode: 'get' });
-            const cnt = rawCount?.cnt ?? 0;
-            const consolThreshold = config?.consolidation?.threshold ?? 50;
-            if (cnt >= consolThreshold) {
-              output.push(`[Mindlore] ${cnt} raw episode birikti — \`/mindlore-maintain consolidate\` ile birleştirmeyi düşün.`);
-            }
-          } catch (_err) { /* consolidation_status column may not exist yet */ }
-        }
-        timings.db_episodes = Date.now() - tSuperseded;
-
-        // v0.5.5: Stale content check (reuses open DB handle)
-        const tStale = Date.now();
-        try {
-          const thirtyDaysAgo = new Date(Date.now() - (30 * 24 * 60 * 60 * 1000)).toISOString();
-          const row = withTimeoutDb(db, 'SELECT COUNT(*) as cnt FROM file_hashes WHERE last_indexed < ?', [thirtyDaysAgo], { mode: 'get' });
-          const staleCount = row?.cnt ?? 0;
-          if (staleCount > 3) {
-            output.push(`[Mindlore: ${staleCount} dosya 30+ gundur guncellenmemis — \`/mindlore-evolve\` dusun]`);
-          }
-        } catch (_staleErr) { /* file_hashes may not exist */ }
-        timings.db_stale = Date.now() - tStale;
+        loadDbContent(db, baseDir, config, output, timings);
       } catch (err) {
         if (isCorruptionError(err)) {
-          recoverCorruptDb(`Corrupt DB detected during query: ${err?.message ?? err}`);
+          recoverCorruptDb(db, dbPath, `Corrupt DB detected during query: ${err?.message ?? err}`);
         }
       } finally {
         try { db.close(); } catch { /* already closed by recovery */ }
