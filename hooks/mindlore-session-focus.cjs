@@ -16,14 +16,14 @@ function tryOpenDb(dbPath) {
   return openDatabase(dbPath, { readonly: true });
 }
 
-function loadDbContent(db, baseDir, config, output, timings) {
+function loadDbContent(db, baseDir, config, output, timings, latestDeltaContent) {
   // Session payload: Session summary, Decisions, Friction, Learnings
   const tPayload = Date.now();
   try {
     const { buildSessionPayload } = require('../dist/scripts/lib/session-payload.js');
     const project = path.basename(process.cwd());
     const payloadBudget = config?.tokenBudget?.sessionInject ?? 2000;
-    const payload = buildSessionPayload(db, baseDir, project, payloadBudget);
+    const payload = buildSessionPayload(db, baseDir, project, payloadBudget, latestDeltaContent);
     for (const section of payload.sections) {
       output.push(`[Mindlore ${section.label}]\n${section.content}`);
     }
@@ -92,6 +92,7 @@ function main() {
   // Inject latest delta + reflect trigger (single readdirSync)
   const tDiary = Date.now();
   const diaryDir = path.join(baseDir, 'diary');
+  let latestDeltaContent = undefined;
   if (fs.existsSync(diaryDir)) {
     try {
       const diaryFiles = listSnapshots(diaryDir).filter(f => f.startsWith('delta-'));
@@ -101,6 +102,7 @@ function main() {
         const latestPath = path.join(diaryDir, latestName);
         sourceChars += fs.statSync(latestPath).size;
         const deltaContent = fs.readFileSync(latestPath, 'utf8').trim();
+        latestDeltaContent = deltaContent;
         const { meta } = parseFrontmatter(deltaContent);
         const deltaProject = meta.project || null;
         const currentProject = getProjectName();
@@ -146,7 +148,7 @@ function main() {
 
     if (db) {
       try {
-        loadDbContent(db, baseDir, config, output, timings);
+        loadDbContent(db, baseDir, config, output, timings, latestDeltaContent);
       } catch (err) {
         if (isCorruptionError(err)) {
           recoverCorruptDb(db, dbPath, 'session-focus');

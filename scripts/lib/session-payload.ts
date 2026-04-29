@@ -32,7 +32,11 @@ function estimateTokens(text: string): number {
   return Math.ceil(text.length / CHARS_PER_TOKEN);
 }
 
-function buildSessionSummary(baseDir: string): string {
+function buildSessionSummary(baseDir: string, latestDeltaContent?: string): string {
+  if (latestDeltaContent) {
+    const lines = latestDeltaContent.split('\n').filter(l => l.startsWith('- ') || l.startsWith('# '));
+    return lines.slice(0, 10).join('\n') || 'No previous session data.';
+  }
   const diaryDir = path.join(baseDir, 'diary');
   if (!fs.existsSync(diaryDir)) return 'No previous session data.';
   const deltas = fs.readdirSync(diaryDir).filter(f => f.startsWith('delta-')).sort();
@@ -74,10 +78,11 @@ export function buildSessionPayload(
   baseDir: string,
   project: string,
   tokenBudget: number = 2000,
+  latestDeltaContent?: string,
 ): SessionPayload {
   const sections: SessionSection[] = [];
 
-  const summary = buildSessionSummary(baseDir);
+  const summary = buildSessionSummary(baseDir, latestDeltaContent);
   sections.push({ label: 'Session', content: summary, tokens: estimateTokens(summary) });
 
   const episodes = buildEpisodeSections(db, project);
