@@ -64,12 +64,58 @@ function fetchGitHubReadme(url: string): string | null {
   }
 }
 
-function fetchCurl(url: string): string | null {
+interface CachedHeaders {
+  etag?: string;
+  lastModified?: string;
+}
+
+function loadCachedHeaders(outDir: string, slug: string): CachedHeaders {
+  const metaPath = path.join(outDir, `.${slug}.meta.json`);
+  if (!fs.existsSync(metaPath)) return {};
   try {
+    const parsed: unknown = JSON.parse(fs.readFileSync(metaPath, 'utf8'));
+    if (typeof parsed !== 'object' || parsed === null) return {};
+    const obj = Object.fromEntries(Object.entries(parsed));
+    const result: CachedHeaders = {};
+    if (typeof obj.etag === 'string') result.etag = obj.etag;
+    if (typeof obj.lastModified === 'string') result.lastModified = obj.lastModified;
+    return result;
+  } catch { return {}; }
+}
+
+function saveCachedHeaders(outDir: string, slug: string, headers: CachedHeaders): void {
+  fs.mkdirSync(outDir, { recursive: true });
+  fs.writeFileSync(path.join(outDir, `.${slug}.meta.json`), JSON.stringify(headers));
+}
+
+function parseResponseHeaders(headerFile: string): CachedHeaders {
+  if (!fs.existsSync(headerFile)) return {};
+  try {
+    const raw = fs.readFileSync(headerFile, 'utf8');
+    const result: CachedHeaders = {};
+    const etagMatch = raw.match(/^etag:\s*(.+)$/mi);
+    if (etagMatch) result.etag = etagMatch[1]?.trim();
+    const lmMatch = raw.match(/^last-modified:\s*(.+)$/mi);
+    if (lmMatch) result.lastModified = lmMatch[1]?.trim();
+    return result;
+  } catch { return {}; }
+}
+
+function fetchCurl(url: string, cachedHeaders?: CachedHeaders): { content: string | null; responseHeaders: CachedHeaders } {
+  const headerFile = path.join(os.tmpdir(), `mindlore-headers-${Date.now()}.txt`);
+  try {
+    const args = ['-sL', '--max-time', '20', '--max-filesize', '5242880', '--dump-header', headerFile];
+    if (cachedHeaders?.etag) args.push('-H', `If-None-Match: ${cachedHeaders.etag}`);
+    if (cachedHeaders?.lastModified) args.push('-H', `If-Modified-Since: ${cachedHeaders.lastModified}`);
+    args.push(url);
     const raw = execFileSync(
-      'curl', ['-sL', '--max-time', '20', '--max-filesize', '5242880', url],
+      'curl', args,
       { encoding: 'utf8', timeout: 25000, stdio: ['pipe', 'pipe', 'pipe'] }
     );
+    const respHeaders = parseResponseHeaders(headerFile);
+    // Check for 304 by reading header file
+    const headerContent = fs.existsSync(headerFile) ? fs.readFileSync(headerFile, 'utf8') : '';
+    if (headerContent.includes(' 304 ')) return { content: null, responseHeaders: respHeaders };
     if (raw.includes('<html') || raw.includes('<!DOCTYPE')) {
       let cleaned = raw;
       let prev: string;
@@ -79,14 +125,17 @@ function fetchCurl(url: string): string | null {
           .replace(/<script[^>]*>[\s\S]*?<\/script\s*>/gi, '')
           .replace(/<style[^>]*>[\s\S]*?<\/style\s*>/gi, '');
       } while (cleaned !== prev);
-      return cleaned
+      const text = cleaned
         .replace(/<[^>]+>/g, ' ')
         .replace(/\s{2,}/g, ' ')
         .trim();
+      return { content: text, responseHeaders: respHeaders };
     }
-    return raw;
+    return { content: raw, responseHeaders: respHeaders };
   } catch {
-    return null;
+    return { content: null, responseHeaders: {} };
+  } finally {
+    try { if (fs.existsSync(headerFile)) fs.unlinkSync(headerFile); } catch { /* cleanup */ }
   }
 }
 
@@ -100,6 +149,19 @@ function fetchJina(url: string): string | null {
   } catch {
     return null;
   }
+}
+
+function resolveSlugCollision(slug: string, url: string, outDir: string): string {
+  if (!fs.existsSync(outDir)) return slug;
+  const existing = fs.readdirSync(outDir).find(f => f.endsWith(`-${slug}.md`));
+  if (!existing) return slug;
+  const content = fs.readFileSync(path.join(outDir, existing), 'utf8');
+  const urlMatch = content.match(/^source_url:\s*(.+)$/m);
+  if (urlMatch && urlMatch[1]?.trim() !== url) {
+    const hash = crypto.createHash('sha256').update(url).digest('hex').slice(0, 8);
+    return `${slug}-${hash}`;
+  }
+  return slug;
 }
 
 function generateFrontmatter(url: string, slug: string, content: string): string {
@@ -149,7 +211,7 @@ function main(): void {
 
   const parsedUrl = validateUrl(url);
   const safeUrl = parsedUrl.href;
-  const slug = slugFromUrl(safeUrl);
+  const slug = resolveSlugCollision(slugFromUrl(safeUrl), safeUrl, outDir);
 
   let cachedPath = findExistingFile(outDir, slug);
   if (!forceFlag && cachedPath) {
@@ -164,6 +226,7 @@ function main(): void {
 
   let content: string | null = null;
   let method: FetchResult['method'] = 'curl';
+  const cached = loadCachedHeaders(outDir, slug);
 
   if (parsedUrl.hostname === 'github.com' || parsedUrl.hostname.endsWith('.github.com')) {
     content = fetchGitHubReadme(safeUrl);
@@ -171,8 +234,20 @@ function main(): void {
   }
 
   if (!content) {
-    content = fetchCurl(safeUrl);
+    const curlResult = fetchCurl(safeUrl, cached);
+    if (curlResult.content === null && (cached.etag || cached.lastModified)) {
+      // 304 Not Modified
+      if (cachedPath) {
+        fs.utimesSync(cachedPath, new Date(), new Date());
+        console.log(JSON.stringify({ cached: true, file: cachedPath, reason: '304_not_modified' }));
+        return;
+      }
+    }
+    content = curlResult.content;
     method = 'curl';
+    if (curlResult.responseHeaders.etag || curlResult.responseHeaders.lastModified) {
+      saveCachedHeaders(outDir, slug, curlResult.responseHeaders);
+    }
   }
 
   if (!content || content.length < 100) {
