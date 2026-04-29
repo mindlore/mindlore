@@ -20,6 +20,8 @@ function cleanup(dir: string, db?: Database.Database): void {
   fs.rmSync(dir, { recursive: true, force: true });
 }
 
+/* eslint-disable @typescript-eslint/no-unsafe-type-assertion */
+
 describe('v0.6.3 migrations', () => {
   test('migration creates trigram table', () => {
     const dir = makeTmpDir();

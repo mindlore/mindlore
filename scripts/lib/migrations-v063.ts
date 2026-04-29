@@ -14,6 +14,7 @@ export const V063_MIGRATIONS: Migration[] = [
     name: 'fts_trigram_table',
     up: (db: Database) => {
       db.exec(SQL_FTS_TRIGRAM_CREATE);
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- better-sqlite3 .get() returns unknown
       const porterCount = (db.prepare('SELECT COUNT(*) as c FROM mindlore_fts').get() as { c: number }).c;
       if (porterCount > 0) {
         db.exec(`

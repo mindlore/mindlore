@@ -50,6 +50,7 @@ function main(): void {
   const projectFilter = isAll ? undefined : (explicitProject ?? getProjectName());
   const config = readConfig(GLOBAL_MINDLORE_DIR);
   const synonyms = (config && typeof config === 'object' && 'synonyms' in config)
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- config shape validated above
     ? config.synonyms as Record<string, string[]>
     : {};
 
