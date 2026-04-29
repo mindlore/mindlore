@@ -154,6 +154,9 @@ const SQL_FTS_CREATE =
 const SQL_FTS_INSERT =
   'INSERT INTO mindlore_fts (path, slug, description, type, category, title, content, tags, quality, date_captured, project) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)';
 
+const SQL_FTS_TRIGRAM_INSERT =
+  'INSERT INTO mindlore_fts_trigram (path, slug, description, type, category, title, content, tags, quality, date_captured, project) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)';
+
 const SQL_FTS_SESSIONS_CREATE =
   "CREATE VIRTUAL TABLE IF NOT EXISTS mindlore_fts_sessions USING fts5(path, slug, description, type, category, title, content, tags, quality, date_captured, project)";
 
@@ -175,8 +178,7 @@ function fixVersionTokens(query) {
  * Insert a row into FTS5 using an object parameter (replaces positional args).
  */
 function insertFtsRow(db, entry) {
-  const stmt = db.prepare(SQL_FTS_INSERT);
-  stmt.run(
+  const vals = [
     entry.path || '',
     entry.slug || '',
     entry.description || '',
@@ -188,7 +190,13 @@ function insertFtsRow(db, entry) {
     entry.quality || null,
     entry.dateCaptured || null,
     entry.project || null,
-  );
+  ];
+  db.prepare(SQL_FTS_INSERT).run(...vals);
+  try {
+    db.prepare(SQL_FTS_TRIGRAM_INSERT).run(...vals);
+  } catch (_err) {
+    // trigram table may not exist yet (pre-v0.6.3)
+  }
 }
 
 /**
@@ -756,6 +764,7 @@ module.exports = {
   readHookStdin,
   SQL_FTS_CREATE,
   SQL_FTS_INSERT,
+  SQL_FTS_TRIGRAM_INSERT,
   SQL_FTS_SESSIONS_CREATE,
   SQL_FTS_SESSIONS_INSERT,
   SESSION_CATEGORIES,
