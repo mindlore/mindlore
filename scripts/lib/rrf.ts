@@ -1,0 +1,96 @@
+import type BetterSqlite3 from 'better-sqlite3';
+type Database = BetterSqlite3.Database;
+import { dbAll } from './db-helpers.js';
+
+export interface RankedResult {
+  slug: string;
+  rank: number;
+  path: string;
+  score: number;
+  description?: string;
+  title?: string;
+  category?: string;
+  tags?: string;
+  content?: string;
+}
+
+export interface RRFOptions {
+  k?: number;
+  dedupByPath?: boolean;
+}
+
+export function computeRRF(
+  porterResults: RankedResult[],
+  trigramResults: RankedResult[],
+  options: RRFOptions = {},
+): RankedResult[] {
+  const k = options.k ?? 60;
+  const scores = new Map<string, RankedResult>();
+
+  for (const r of porterResults) {
+    const existing = scores.get(r.slug);
+    const rrfScore = 1 / (k + r.rank);
+    if (existing) {
+      existing.score += rrfScore;
+    } else {
+      scores.set(r.slug, { ...r, score: rrfScore });
+    }
+  }
+
+  for (const r of trigramResults) {
+    const existing = scores.get(r.slug);
+    const rrfScore = 1 / (k + r.rank);
+    if (existing) {
+      existing.score += rrfScore;
+    } else {
+      scores.set(r.slug, { ...r, score: rrfScore });
+    }
+  }
+
+  let results = Array.from(scores.values()).sort((a, b) => b.score - a.score);
+
+  if (options.dedupByPath) {
+    const seen = new Set<string>();
+    results = results.filter(r => {
+      if (seen.has(r.path)) return false;
+      seen.add(r.path);
+      return true;
+    });
+  }
+
+  return results;
+}
+
+export function searchPorter(
+  db: Database,
+  query: string,
+  limit: number,
+  project?: string,
+): RankedResult[] {
+  const sanitized = query.replace(/["*(){}[\]^~:]/g, '').trim();
+  if (!sanitized) return [];
+  const sql = project
+    ? 'SELECT path, slug, description, title, category, tags, content, bm25(mindlore_fts, 1, 1, 1, 5.0, 1, 1) as bm FROM mindlore_fts WHERE mindlore_fts MATCH ? AND project = ? ORDER BY bm LIMIT ?'
+    : 'SELECT path, slug, description, title, category, tags, content, bm25(mindlore_fts, 1, 1, 1, 5.0, 1, 1) as bm FROM mindlore_fts WHERE mindlore_fts MATCH ? ORDER BY bm LIMIT ?';
+  const params = project ? [sanitized, project, limit] : [sanitized, limit];
+  return dbAll<RankedResult & { bm: number }>(db, sql, ...params).map((r, i) => ({ ...r, rank: i + 1, score: 0 }));
+}
+
+export function searchTrigram(
+  db: Database,
+  query: string,
+  limit: number,
+  project?: string,
+): RankedResult[] {
+  const sanitized = query.replace(/["*(){}[\]^~:]/g, '').trim();
+  if (!sanitized) return [];
+  try {
+    const sql = project
+      ? 'SELECT path, slug, description, title, category, tags, content, rank FROM mindlore_fts_trigram WHERE mindlore_fts_trigram MATCH ? AND project = ? ORDER BY rank LIMIT ?'
+      : 'SELECT path, slug, description, title, category, tags, content, rank FROM mindlore_fts_trigram WHERE mindlore_fts_trigram MATCH ? ORDER BY rank LIMIT ?';
+    const params = project ? [sanitized, project, limit] : [sanitized, limit];
+    return dbAll<RankedResult>(db, sql, ...params).map((r, i) => ({ ...r, rank: i + 1, score: 0 }));
+  } catch (_err) {
+    return [];
+  }
+}
