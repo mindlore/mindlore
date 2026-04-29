@@ -82,6 +82,14 @@ if (process.argv.includes('--worker')) {
       }
     }, 'embed-trigger');
 
+    // Raw accumulation warning (moved from main to worker — off hot path)
+    await safeRunAsync(() => {
+      const unpromoted = getUnpromotedRawFiles(baseDir);
+      if (unpromoted.length >= 5) {
+        hookLog('session-end', 'info', `${unpromoted.length} raw files unpromoted`);
+      }
+    }, 'raw-check');
+
     // Obsidian + git-sync are independent — run in parallel
     await Promise.allSettled([
       safeRunAsync(() => syncObsidian(baseDir), 'obsidian'),
@@ -220,14 +228,6 @@ function main() {
     const logEntry = `| ${now.toISOString().slice(0, 10)} | session-end | delta-${dateStr}.md |\n`;
     fs.appendFileSync(logPath, logEntry, 'utf8');
   }
-
-  // Raw accumulation warning
-  try {
-    const unpromoted = getUnpromotedRawFiles(baseDir);
-    if (unpromoted.length >= 5) {
-      process.stdout.write(`[Mindlore] ${unpromoted.length} raw dosya promote bekliyor — \`/mindlore-maintain triage\` ile listele\n`);
-    }
-  } catch (_err) { /* graceful skip */ }
 
   // Heavy ops: detach into child process so CC can exit immediately.
   // Fixes "Hook cancelled" when CC kills the hook before completion.
