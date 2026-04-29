@@ -61,25 +61,25 @@ npm@0.6.1 yayında. 24 commit, 76 suite, 558 test, 0 lint error. Simplify review
 
 | #31 | Session-Focus Performans | | ✅ | p50=3093ms → hedef <500ms |
 
-**v0.6.1 = 12 madde** (çoğu küçük-orta, net scope)
-**v0.6.2 = 15 madde** (brainstorm gerektiren büyük özellikler + DX + 2 kısmi taşıma + perf + simplify 7 bulgu)
+**v0.6.1 = 12 madde** (çoğu küçük-orta, net scope) ✅ RELEASED (2026-04-27)
+**v0.6.2 = 15 madde** (brainstorm gerektiren büyük özellikler + DX + 2 kısmi taşıma + perf + simplify 7 bulgu) ✅ RELEASED (2026-04-28)
 **v0.6.4 = #13 Non-Blocking Ingest + #18 llms.txt + #15 toplu promote** (inbox pattern, skill bloklama çözümü, toplu LLM processing)
 
 ### v0.6.1 Simplify'dan Ertelenen Bulgular (2026-04-27, v0.6.1'e dahil edildi)
 
 3 paralel review agent (reuse, quality, efficiency) 40 bulgu üretti. 11'i v0.6.1'de fix'lendi, geri kalanı:
 
-| Bulgu | Açıklama | Neden Ertelendi |
-|-------|----------|-----------------|
-| Search hook 3 DB open | Her UserPromptSubmit'te 3 ayrı `openDatabase` çağrısı. Tek handle reuse edilmeli | → v0.6.3 Search Engine Overhaul'da çözülecek — hook zaten baştan yazılacak |
-| sqlite-vec per-event load | `loadSqliteVecCjs(db)` her prompt'ta extension yüklüyor. CC hook'ları ayrı process, module cache geçersiz | Mimari kısıt — MCP Server'a geçişte çözülecek (v0.7) |
-| withTimeoutDb zero callers | Export + test var, production'da kullanılmıyor | v0.6.2'de hook'lara wire edilecek |
-| _writeTelemetry object param | 4 positional param → single object refactor | Minor, kırıcı değişiklik değil |
-| Perf O(H*N) filter | `calculatePercentiles` her hook için full array filter | Trivial dataset, ölçülebilir fark yok |
-| Doctor EXPECTED_HOOKS drift | Hand-maintained array, plugin.json'dan derive edilebilir | Style, runtime risk yok |
-| Session-focus 4-level nesting | DB section try-in-try-in-if-in-try | Büyük refactor, fonksiyon extract gerekli |
-| Init config merge nesting | 4 seviye iç içe if/for | Generic `mergeDefaults` utility gerekli |
-| registerAgents content compare | Her init'te readFileSync ile karşılaştırma | mtime+size guard eklenebilir, init nadir çalışır |
+| Bulgu | Açıklama | Neden Ertelendi | v0.6.3 Scope |
+|-------|----------|-----------------|--------------|
+| Search hook 3 DB open | Her UserPromptSubmit'te 3 ayrı `openDatabase` çağrısı. Tek handle reuse edilmeli | → v0.6.3 Search Engine Overhaul'da çözülecek — hook zaten baştan yazılacak | ✅ S1-S13 rewrite'da otomatik çözülecek |
+| sqlite-vec per-event load | `loadSqliteVecCjs(db)` her prompt'ta extension yüklüyor. CC hook'ları ayrı process, module cache geçersiz | Mimari kısıt — MCP Server'a geçişte çözülecek (v0.7) | → v0.7 (MCP Server) |
+| withTimeoutDb zero callers | Export + test var, production'da kullanılmıyor | v0.6.2'de hook'lara wire edilecek | ✅ → S27 |
+| _writeTelemetry object param | 4 positional param → single object refactor | Minor, kırıcı değişiklik değil | ✅ → S28 |
+| Perf O(H*N) filter | `calculatePercentiles` her hook için full array filter | Trivial dataset, ölçülebilir fark yok | ❌ Atlandı (ölçülebilir fark yok) |
+| Doctor EXPECTED_HOOKS drift | Hand-maintained array, plugin.json'dan derive edilebilir | Style, runtime risk yok | ✅ → S29 |
+| Session-focus 4-level nesting | DB section try-in-try-in-if-in-try | Büyük refactor, fonksiyon extract gerekli | ✅ → S19 (zaten planlanmış) |
+| Init config merge nesting | 4 seviye iç içe if/for | Generic `mergeDefaults` utility gerekli | ✅ → S30 |
+| registerAgents content compare | Her init'te readFileSync ile karşılaştırma | mtime+size guard eklenebilir, init nadir çalışır | ✅ → S31 |
 
 ### 1. Hook Telemetry Genişletme
 v0.6.0'da sadece `.mindlore/telemetry.jsonl` append-only. v0.6.1'de:
@@ -610,6 +610,20 @@ FTS5 arama motorunu context-mode seviyesine çıkarma. Tüm maddeler arama kalit
 - S25: Fetch-raw slug collision guard (aynı slug, farklı URL → false cache hit riski, URL-keyed lookup)
 - S26: Session-focus + session-payload double diary scan eliminasyonu (tek readdirSync, sonucu paylaş)
 
+**v0.6.1 simplify'dan eklenen maddeler (scope kararı: 2026-04-28):**
+- S27: withTimeoutDb wire — export+test var ama production'da kullanılmıyor, hook'lara wire et
+- S28: _writeTelemetry object param — 4 positional param → single object refactor
+- S29: Doctor EXPECTED_HOOKS derive — hand-maintained array → plugin.json'dan oku
+- S30: Init config merge nesting — 4 seviye iç içe if/for → generic `mergeDefaults` utility
+- S31: registerAgents mtime+size guard — her init'te readFileSync yerine mtime+size check
+
+**v0.7'ye taşınanlar:**
+- sqlite-vec per-event load → v0.7 MCP Server'a bırakıldı (mimari kısıt, hook process isolation)
+- Perf O(H*N) filter → v0.7'de MCP Server'a geçişte çözülecek (dataset büyüdüğünde anlamlı olur)
+
+**Zaten planlanmış:**
+- Session-focus 4-level nesting → S19'da (Pre-Compact Nesting Extraction)
+
 ### Release Bölme Tablosu (v0.6.3)
 
 | Madde | Başlık | Efor | Bağımlılık |
@@ -640,6 +654,11 @@ FTS5 arama motorunu context-mode seviyesine çıkarma. Tüm maddeler arama kalit
 | S24 | Raw Accumulation → Worker | Küçük | — |
 | S25 | Fetch-Raw Slug Collision Guard | Küçük | — |
 | S26 | Session-Focus Double Diary Scan | Küçük | — |
+| S27 | withTimeoutDb Wire | Küçük | — |
+| S28 | _writeTelemetry Object Param | Küçük | ✅ DONE (v0.6.2) |
+| S29 | Doctor EXPECTED_HOOKS Derive | Küçük | ✅ DONE (v0.6.2) |
+| S30 | Init Config Merge Nesting | Küçük | — |
+| S31 | registerAgents mtime Guard | Küçük | — |
 
 ### S1. Title Boost — BM25 Weight Parametreleri
 - **Problem:** Tüm FTS5 kolonları eşit ağırlıkta. Başlık eşleşmesi body eşleşmesinden ayırt edilemiyor.
@@ -824,11 +843,45 @@ FTS5 arama motorunu context-mode seviyesine çıkarma. Tüm maddeler arama kalit
 - **Bağımlılık:** S12 (TTL Cache)
 - **Efor:** Küçük.
 
+### S27. withTimeoutDb Wire (v0.6.1 simplify'dan)
+- **Problem:** `withTimeoutDb` export + test var ama production hook'larda kullanılmıyor.
+- **Çözüm:** Uzun sürebilecek DB operasyonlarında (search, session-payload) `withTimeoutDb` wrapper'ı ile sarmalama.
+- **Etkilenen:** `hooks/mindlore-search.cjs`, `hooks/mindlore-session-focus.cjs`
+- **Efor:** Küçük.
+
+### S28. _writeTelemetry Object Param (v0.6.1 simplify'dan)
+- **Problem:** `_writeTelemetry(hookName, event, durationMs, extra)` — 4 positional param, sıra karışabilir.
+- **Çözüm:** Single object param: `_writeTelemetry({ hook, event, durationMs, extra })`.
+- **Etkilenen:** `hooks/lib/mindlore-common.cjs` + tüm çağrı noktaları
+- **Efor:** Küçük.
+
+### S29. Doctor EXPECTED_HOOKS Derive (v0.6.1 simplify'dan)
+- **Problem:** `mindlore-doctor.ts`'de EXPECTED_HOOKS array'i elle tutulmuş. Yeni hook ekleyince güncellemeyi unutma riski.
+- **Çözüm:** `plugin.json`'daki hook tanımlarından runtime'da derive et.
+- **Etkilenen:** `scripts/mindlore-doctor.ts`
+- **Efor:** Küçük.
+
+### S30. Init Config Merge Nesting (v0.6.1 simplify'dan)
+- **Problem:** `init.ts`'de config merge 4 seviye iç içe if/for.
+- **Çözüm:** Generic `mergeDefaults(target, source)` utility fonksiyonu — `scripts/lib/` altına.
+- **Etkilenen:** `scripts/init.ts`
+- **Efor:** Küçük.
+
+### S31. registerAgents mtime Guard (v0.6.1 simplify'dan)
+- **Problem:** Her `init` çalışmasında agent dosyalarını readFileSync ile okuyup content compare yapıyor. Init nadir çalışır ama gereksiz IO.
+- **Çözüm:** mtime + size guard — dosya değişmemişse content compare atla.
+- **Etkilenen:** `scripts/init.ts`
+- **Efor:** Küçük.
+
 ---
 
 ## v0.7 — Capability Expansion
 
 Kapsamı geniş, spec/brainstorm gerektiren özellikler.
+
+**v0.6.3'ten taşınan simplify bulguları (MCP Server geçişinde çözülecek):**
+- sqlite-vec per-event load — `loadSqliteVecCjs(db)` her prompt'ta extension yüklüyor. MCP Server'da tek process = module cache çalışır
+- Perf O(H*N) filter — `calculatePercentiles` her hook için full array filter. MCP Server'da dataset büyüyünce anlamlı olacak
 
 ### 7. MCP Server — Cross-Host Memory Layer
 - **Ne:** Mindlore'u MCP protocol üzerinden Claude Code + Cursor + Codex + Cline + Windsurf + Claude Desktop'a açmak
@@ -873,6 +926,12 @@ Kapsamı geniş, spec/brainstorm gerektiren özellikler.
 - **Context-Mode notu:** Embedding modeli kullanmıyor — pure FTS5 + BM25 (keyword-based). Semantic search yok.
 - **Gerekli:** Corpus üzerinde A/B test, recall@k ölçümü
 - **Karar:** v0.7'de measurement, v0.8'de implement (eğer kazanç varsa)
+- **Dependency Stratejisi — Lazy Download (Lemma Pattern):**
+  - **Problem:** `@huggingface/transformers` şu an devDependencies'de, 946 MB. v0.7'de embedding aktif olunca dependencies'e taşınırsa her kullanıcı 946 MB indirecek.
+  - **Çözüm:** Model dosyası npm paketine dahil edilmez. `@huggingface/transformers` optionalDependencies'e taşınır. İlk embedding çağrısında model (~134 MB) otomatik indirilir ve `~/.mindlore/models/` altına cache'lenir. Sonraki çağrılar cache'den okur (<100ms).
+  - **Graceful degradation:** HuggingFace kurulu değilse veya model indirilemezse sistem FTS5-only modda çalışır. Semantic search devre dışı kalır, keyword search çalışmaya devam eder.
+  - **Kullanıcı deneyimi:** `npx mindlore` hafif kalır (~16 MB). Embedding isteyen kullanıcı ilk seferde tek seferlik ~134 MB model indirir. İstemeyenler hiç indirmez.
+  - **Referans:** Lemma repo'su aynı pattern'i kullanıyor (opsiyonel bağımlılık, ilk kullanımda lazy download).
 
 ### 10. Plugin Manifest v2
 - **Ne:** Kullanıcıların kendi skill/hook'larını eklemesi için manifest schema
