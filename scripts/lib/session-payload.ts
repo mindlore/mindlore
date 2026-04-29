@@ -1,6 +1,6 @@
 /**
  * session-payload — builds 4 structured injection sections for SessionStart.
- * Token budget enforcement + content-hash cache-lock.
+ * Token budget enforcement + content-hash.
  */
 
 import Database from 'better-sqlite3';
@@ -18,7 +18,6 @@ export interface SessionPayload {
   sections: SessionSection[];
   totalTokens: number;
   contentHash: string;
-  skipInjection: boolean;
 }
 
 interface EpisodeRow {
@@ -30,12 +29,6 @@ const CHARS_PER_TOKEN = 4;
 
 function estimateTokens(text: string): number {
   return Math.ceil(text.length / CHARS_PER_TOKEN);
-}
-
-let lastHash: string | null = null;
-
-export function resetCache(): void {
-  lastHash = null;
 }
 
 function buildSessionSummary(baseDir: string): string {
@@ -128,8 +121,6 @@ export function buildSessionPayload(
 
   const allContent = sections.map(s => s.content).join('|');
   const contentHash = crypto.createHash('md5').update(allContent).digest('hex').slice(0, 8);
-  const skipInjection = contentHash === lastHash;
-  lastHash = contentHash;
 
-  return { sections, totalTokens, contentHash, skipInjection };
+  return { sections, totalTokens, contentHash };
 }

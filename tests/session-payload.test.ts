@@ -1,5 +1,5 @@
 /**
- * session-payload tests — 4-section builder with token budget + cache-lock.
+ * session-payload tests — 4-section builder with token budget.
  */
 
 import fs from 'fs';
@@ -9,7 +9,6 @@ import { createEpisodesTestEnv, destroyEpisodesTestEnv } from './helpers/db.js';
 import type { EpisodesTestEnv } from './helpers/db.js';
 import {
   buildSessionPayload,
-  resetCache,
 } from '../scripts/lib/session-payload.js';
 
 let env: EpisodesTestEnv;
@@ -47,7 +46,6 @@ beforeEach(() => {
   env = createEpisodesTestEnv('session-payload');
   db = env.db;
   baseDir = env.tmpDir;
-  resetCache();
 });
 
 afterEach(() => {
@@ -69,7 +67,6 @@ describe('buildSessionPayload', () => {
     expect(payload.sections[2]!.label).toBe('Friction');
     expect(payload.sections[3]!.label).toBe('Learnings');
     expect(payload.totalTokens).toBeGreaterThan(0);
-    expect(payload.skipInjection).toBe(false);
     expect(payload.contentHash).toMatch(/^[0-9a-f]{8}$/);
   });
 
@@ -96,24 +93,10 @@ describe('buildSessionPayload', () => {
     const sessionTokens = full.sections[0]!.tokens;
     const decisionTokens = full.sections[1]!.tokens;
 
-    resetCache();
-
     const budgetFor2 = sessionTokens + decisionTokens + 1;
     const trimmed = buildSessionPayload(db, baseDir, PROJECT, budgetFor2);
 
     expect(trimmed.sections.map(s => s.label)).toEqual(['Session', 'Decisions']);
-  });
-
-  test('skips injection when content unchanged (cache-lock)', () => {
-    writeDelta('delta-2026-04-19.md', '# Session\n- Same content');
-    insertEpisode('decision', 'Same decision');
-
-    const first = buildSessionPayload(db, baseDir, PROJECT);
-    expect(first.skipInjection).toBe(false);
-
-    const second = buildSessionPayload(db, baseDir, PROJECT);
-    expect(second.skipInjection).toBe(true);
-    expect(second.contentHash).toBe(first.contentHash);
   });
 
   test('handles empty DB gracefully', () => {
@@ -124,7 +107,6 @@ describe('buildSessionPayload', () => {
     expect(payload.sections[1]!.content).toContain('No recent decisions');
     expect(payload.sections[2]!.content).toContain('No active friction');
     expect(payload.sections[3]!.content).toContain('No recent learnings');
-    expect(payload.skipInjection).toBe(false);
   });
 
   test('handles missing diary directory', () => {

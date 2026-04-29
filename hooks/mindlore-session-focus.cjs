@@ -38,10 +38,8 @@ function loadDbContent(db, baseDir, config, output, timings) {
     const project = path.basename(process.cwd());
     const payloadBudget = config?.tokenBudget?.sessionInject ?? 2000;
     const payload = buildSessionPayload(db, baseDir, project, payloadBudget);
-    if (!payload.skipInjection) {
-      for (const section of payload.sections) {
-        output.push(`[Mindlore ${section.label}]\n${section.content}`);
-      }
+    for (const section of payload.sections) {
+      output.push(`[Mindlore ${section.label}]\n${section.content}`);
     }
   } catch (_payloadErr) {
     // Session payload is optional — don't break session start
