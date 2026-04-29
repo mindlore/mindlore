@@ -816,7 +816,24 @@ module.exports = {
   // Snapshot helpers (v0.6.3)
   listSnapshots,
   getLatestSnapshot,
+  // DB corruption recovery (v0.6.3)
+  isCorruptionError,
+  recoverCorruptDb,
 };
+
+function isCorruptionError(err) {
+  const code = err?.code ?? '';
+  const msg = String(err?.message ?? err);
+  return code === 'SQLITE_CORRUPT' || code === 'SQLITE_NOTADB' || /corrupt|malformed/i.test(msg);
+}
+
+function recoverCorruptDb(db, dbPath, hookName) {
+  try { db.close(); } catch { /* already closed */ }
+  const bakPath = dbPath + '.corrupt.bak';
+  try { fs.copyFileSync(dbPath, bakPath); } catch { /* best effort */ }
+  try { fs.unlinkSync(dbPath); } catch { /* best effort */ }
+  hookLog(hookName, 'warn', 'corrupt DB detected, backed up and removed: ' + dbPath);
+}
 
 function listSnapshots(diaryDir) {
   if (!fs.existsSync(diaryDir)) return [];

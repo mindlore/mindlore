@@ -10,21 +10,7 @@
 
 const fs = require('fs');
 const path = require('path');
-const { findMindloreDir, readConfig, openDatabase, hasEpisodesTable, querySupersededChains, formatSupersededChains, hookLog, getProjectName, parseFrontmatter, withTelemetry, withTimeoutDb, listSnapshots } = require('./lib/mindlore-common.cjs');
-
-function isCorruptionError(err) {
-  const code = err?.code ?? '';
-  const msg = String(err?.message ?? err);
-  return code === 'SQLITE_CORRUPT' || code === 'SQLITE_NOTADB' || /corrupt|malformed/i.test(msg);
-}
-
-function recoverCorruptDb(db, dbPath, reason) {
-  try { db.close(); } catch { /* already closed */ }
-  const bakPath = dbPath + '.corrupt.bak';
-  try { fs.copyFileSync(dbPath, bakPath); } catch { /* best effort */ }
-  try { fs.unlinkSync(dbPath); } catch { /* best effort */ }
-  hookLog('session-focus', 'warn', reason);
-}
+const { findMindloreDir, readConfig, openDatabase, hasEpisodesTable, querySupersededChains, formatSupersededChains, hookLog, getProjectName, parseFrontmatter, withTelemetry, withTimeoutDb, listSnapshots, isCorruptionError, recoverCorruptDb } = require('./lib/mindlore-common.cjs');
 
 function tryOpenDb(dbPath) {
   return openDatabase(dbPath, { readonly: true });
@@ -163,7 +149,7 @@ function main() {
         loadDbContent(db, baseDir, config, output, timings);
       } catch (err) {
         if (isCorruptionError(err)) {
-          recoverCorruptDb(db, dbPath, `Corrupt DB detected during query: ${err?.message ?? err}`);
+          recoverCorruptDb(db, dbPath, 'session-focus');
         }
       } finally {
         try { db.close(); } catch { /* already closed by recovery */ }
