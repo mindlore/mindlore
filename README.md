@@ -5,7 +5,7 @@
 ![CI](https://github.com/mindlore/mindlore/actions/workflows/ci.yml/badge.svg)
 [![npm](https://img.shields.io/npm/v/mindlore)](https://www.npmjs.com/package/mindlore)
 ![Node](https://img.shields.io/node/v/mindlore)
-![License](https://img.shields.io/badge/license-MIT-blue)
+![License](https://img.shields.io/badge/license-AGPL--3.0-blue)
 ![Zero Telemetry](https://img.shields.io/badge/telemetry-zero-brightgreen)
 
 > AI-native knowledge system for [Claude Code](https://claude.ai/claude-code)
@@ -256,4 +256,4 @@ See [CHANGELOG.md](CHANGELOG.md) for version history and release notes.
 
 ## License
 
-[MIT](LICENSE)
+[AGPL-3.0](LICENSE)
