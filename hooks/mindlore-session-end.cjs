@@ -13,7 +13,7 @@ const fs = require('fs');
 const path = require('path');
 const os = require('os');
 const { execSync, execFileSync, spawn } = require('child_process');
-const { findMindloreDir, globalDir, getProjectName, openDatabase, ensureEpisodesTable, hasEpisodesTable, insertBareEpisode, insertFtsRow, hookLog, SHARED_EXPORT_DIRS, resolveWin32Bin, withTelemetry } = require('./lib/mindlore-common.cjs');
+const { findMindloreDir, globalDir, getProjectName, openDatabase, ensureEpisodesTable, hasEpisodesTable, insertBareEpisode, insertFtsRow, hookLog, SHARED_EXPORT_DIRS, resolveWin32Bin, withTelemetry, getUnpromotedRawFiles } = require('./lib/mindlore-common.cjs');
 
 const EXPORT_DIRS = SHARED_EXPORT_DIRS;
 
@@ -223,15 +223,9 @@ function main() {
 
   // Raw accumulation warning
   try {
-    const rawDir = path.join(baseDir, 'raw');
-    const sourcesDir = path.join(baseDir, 'sources');
-    if (fs.existsSync(rawDir) && fs.existsSync(sourcesDir)) {
-      const rawFiles = fs.readdirSync(rawDir).filter(f => f.endsWith('.md'));
-      const sourceFiles = new Set(fs.readdirSync(sourcesDir).filter(f => f.endsWith('.md')));
-      const unpromoted = rawFiles.filter(f => !sourceFiles.has(f)).length;
-      if (unpromoted >= 5) {
-        process.stdout.write(`[Mindlore] ${unpromoted} raw dosya promote bekliyor — \`/mindlore-maintain triage\` ile listele\n`);
-      }
+    const unpromoted = getUnpromotedRawFiles(baseDir);
+    if (unpromoted.length >= 5) {
+      process.stdout.write(`[Mindlore] ${unpromoted.length} raw dosya promote bekliyor — \`/mindlore-maintain triage\` ile listele\n`);
     }
   } catch (_err) { /* graceful skip */ }
 

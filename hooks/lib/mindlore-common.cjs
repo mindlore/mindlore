@@ -811,7 +811,19 @@ module.exports = {
   withTelemetrySync,
   // DB timeout wrapper (v0.6.1)
   withTimeoutDb,
+  // Raw file helpers (v0.6.3)
+  getUnpromotedRawFiles,
 };
+
+function getUnpromotedRawFiles(baseDir) {
+  const rawDir = path.join(baseDir, 'raw');
+  const sourcesDir = path.join(baseDir, 'sources');
+  if (!fs.existsSync(rawDir)) return [];
+  const sourceNames = fs.existsSync(sourcesDir)
+    ? new Set(fs.readdirSync(sourcesDir).filter(f => f.endsWith('.md')))
+    : new Set();
+  return fs.readdirSync(rawDir).filter(f => f.endsWith('.md') && !sourceNames.has(f));
+}
 
 function isDaemonRunning(pidFile) {
   if (!fs.existsSync(pidFile)) return { running: false };
