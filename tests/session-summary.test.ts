@@ -1,6 +1,9 @@
 import fs from 'fs';
 import path from 'path';
 import { extractSessionSummary, DECISION_KEYWORDS } from '../scripts/cc-session-sync.js';
+import { buildSessionPayload } from '../scripts/lib/session-payload.js';
+import { ensureSchemaTable, runMigrations } from '../scripts/lib/schema-version.js';
+import { V062_MIGRATIONS } from '../scripts/lib/migrations-v062.js';
 import { createEpisodesTestEnv, destroyEpisodesTestEnv, type EpisodesTestEnv } from './helpers/db.js';
 
 describe('session summary extraction', () => {
@@ -115,12 +118,6 @@ describe('session summary → DB → payload integration', () => {
 
   beforeEach(() => {
     env = createEpisodesTestEnv('session-summary-int');
-    // Run migrations to add session_summary column
-    const { ensureSchemaTable, runMigrations } = require('../scripts/lib/schema-version.js') as {
-      ensureSchemaTable: (db: import('better-sqlite3').Database) => void;
-      runMigrations: (db: import('better-sqlite3').Database, m: unknown[]) => void;
-    };
-    const { V062_MIGRATIONS } = require('../scripts/lib/migrations-v062.js') as { V062_MIGRATIONS: unknown[] };
     ensureSchemaTable(env.db);
     runMigrations(env.db, V062_MIGRATIONS);
     fs.mkdirSync(path.join(env.tmpDir, 'diary'), { recursive: true });
@@ -129,9 +126,6 @@ describe('session summary → DB → payload integration', () => {
   afterEach(() => destroyEpisodesTestEnv(env));
 
   it('session-summary episode is readable by buildSessionPayload', () => {
-    const { buildSessionPayload } = require('../scripts/lib/session-payload.js') as {
-      buildSessionPayload: (db: import('better-sqlite3').Database, baseDir: string, project: string, budget?: number) => { sections: Array<{ label: string; content: string }> };
-    };
 
     const summary = 'Intent: v0.6.3 search engine | Son: commit atıldı';
     env.db.prepare(

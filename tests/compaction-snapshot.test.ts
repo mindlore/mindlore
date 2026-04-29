@@ -75,6 +75,7 @@ describe('compaction snapshot — hook integration', () => {
   afterEach(() => destroyEpisodesTestEnv(env));
 
   it('collectRecentEpisodes groups by kind', () => {
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- better-sqlite3 .all() returns unknown[]
     const episodes = env.db.prepare(
       "SELECT kind, summary FROM episodes WHERE created_at > datetime('now', '-4 hours') ORDER BY created_at DESC",
     ).all() as Array<{ kind: string; summary: string }>;
