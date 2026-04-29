@@ -58,8 +58,9 @@ function buildEpisodeSections(db: Database.Database, project: string): { decisio
 
   const grouped = { decision: [] as EpisodeRow[], friction: [] as EpisodeRow[], learning: [] as EpisodeRow[] };
   for (const row of rows) {
-    if (row.kind in grouped) {
-      grouped[row.kind as keyof typeof grouped].push(row);
+    const kind = row.kind;
+    if (kind === 'decision' || kind === 'friction' || kind === 'learning') {
+      grouped[kind].push(row);
     }
   }
 
