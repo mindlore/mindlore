@@ -1,3 +1,4 @@
+/** @deprecated Use search-engine.ts + rrf.ts instead. Kept for backward compat until Faz 3. */
 import type BetterSqlite3 from 'better-sqlite3';
 import { dbAll, hasVecTable } from './db-helpers.js';
 import { CC_MEMORY_CATEGORY, CC_MEMORY_BOOST } from './constants.js';
