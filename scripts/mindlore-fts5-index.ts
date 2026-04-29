@@ -230,6 +230,14 @@ async function main(): Promise<void> {
 
   cleanupTransaction();
 
+  // FTS5 segment optimization after full re-index
+  if (indexed > 0) {
+    db.exec("INSERT INTO mindlore_fts(mindlore_fts) VALUES('optimize')");
+    try {
+      db.exec("INSERT INTO mindlore_fts_trigram(mindlore_fts_trigram) VALUES('optimize')");
+    } catch (_err) { /* trigram table may not exist */ }
+  }
+
   console.log(
     `\n  FTS5 Index: ${indexed} indexed, ${skipped} unchanged, ${removed} removed, ${errors} errors`,
   );
