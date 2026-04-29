@@ -122,7 +122,7 @@ async function main(): Promise<void> {
     `INSERT INTO mindlore_fts_sessions (path, slug, description, type, category, title, content, tags, quality, date_captured, project)
      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
   );
-  const getHash = db.prepare('SELECT content_hash FROM file_hashes WHERE path = ?');
+  const getHash = db.prepare('SELECT content_hash, last_indexed FROM file_hashes WHERE path = ?');
   const checkFts = db.prepare('SELECT 1 FROM mindlore_fts WHERE path = ? LIMIT 1');
   const checkFtsSessions = db.prepare('SELECT 1 FROM mindlore_fts_sessions WHERE path = ? LIMIT 1');
 
@@ -144,11 +144,25 @@ async function main(): Promise<void> {
   const transaction = db.transaction(() => {
     for (const filePath of mdFiles) {
       try {
+        // eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- pre-prepared stmt in hot loop
+        const existing = getHash.get(filePath) as { content_hash: string; last_indexed: string } | undefined;
+
+        // mtime gate: skip hash computation if file hasn't been modified since last index
+        if (existing) {
+          const fileMtime = fs.statSync(filePath).mtimeMs;
+          const indexedAt = new Date(existing.last_indexed).getTime();
+          if (fileMtime <= indexedAt) {
+            const ftsExists = checkFts.get(filePath) || checkFtsSessions.get(filePath);
+            if (ftsExists) {
+              skipped++;
+              continue;
+            }
+          }
+        }
+
         const content = fs.readFileSync(filePath, 'utf8').replace(/\r\n/g, '\n');
         const hash = sha256(content);
 
-        // eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- pre-prepared stmt in hot loop
-        const existing = getHash.get(filePath) as { content_hash: string } | undefined;
         if (existing && existing.content_hash === hash) {
           // Verify FTS5 entry exists — file_hashes and mindlore_fts can get out of sync
           const ftsExists = checkFts.get(filePath) || checkFtsSessions.get(filePath);
