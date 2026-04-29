@@ -4,182 +4,23 @@
 /**
  * mindlore-search — UserPromptSubmit hook
  *
- * Extracts keywords from user prompt, searches FTS5 with per-keyword scoring,
- * injects top results with description + headings (matching old knowledge system quality).
+ * Thin wrapper over search-engine.ts pipeline.
+ * Extracts keywords from user prompt, delegates search to modular engine,
+ * injects top results with description + headings.
  */
 
 const fs = require('fs');
 const path = require('path');
-const { getAllDbs, openDatabase, extractHeadings, readHookStdin, extractKeywords, sanitizeKeyword, readConfig, loadSqliteVecCjs, hasVecTableCjs, hookLog, incrementRecallCount, getDaemonPortFile, withTelemetry, fixVersionTokens, withTimeoutDb } = require('./lib/mindlore-common.cjs');
-
-const { execFileSync } = require('child_process');
+const { getAllDbs, openDatabase, extractHeadings, readHookStdin, readConfig, hookLog, incrementRecallCount, withTelemetry } = require('./lib/mindlore-common.cjs');
 
 const MAX_RESULTS = 3;
 const MIN_QUERY_WORDS = 3;
 
-// Try to load hybrid search module (built TS)
-let hybridSearchMod;
+let searchEngineMod;
 try {
-  hybridSearchMod = require('../dist/scripts/lib/hybrid-search.js');
+  searchEngineMod = require('../dist/scripts/lib/search-engine.js');
 } catch (_err) {
-  // hybrid-search not built yet — pure FTS5 mode
-}
-
-// v0.5.5: Request embedding from daemon via execFileSync bridge
-function requestEmbeddingSync(query) {
-  try {
-    const portFile = getDaemonPortFile();
-    if (!fs.existsSync(portFile)) return null;
-    const clientScript = path.join(__dirname, '..', 'scripts', 'lib', 'daemon-client.js');
-    if (!fs.existsSync(clientScript)) return null;
-    const result = execFileSync(process.execPath, [clientScript, portFile, query, '300'], {
-      timeout: 500, encoding: 'utf8', stdio: ['pipe', 'pipe', 'pipe'], windowsHide: true,
-    });
-    const parsed = JSON.parse(result.trim());
-    return parsed.type === 'embedding' ? parsed.embedding : null;
-  } catch {
-    return null;
-  }
-}
-
-/**
- * Search a single DB and return scored results with their baseDir.
- */
-function searchDb(dbPath, keywords) {
-  const baseDir = path.dirname(dbPath);
-  const db = openDatabase(dbPath, { readonly: true });
-  if (!db) return [];
-  const results = [];
-
-  // v0.5.0: Try hybrid search with synonym expansion (no embedding — hooks are sync)
-  if (!hybridSearchMod) {
-    hookLog('search', 'info', 'No hybridSearchMod — FTS5-only mode');
-  }
-  if (hybridSearchMod && loadSqliteVecCjs(db) && hasVecTableCjs(db)) {
-    try {
-      const config = readConfig(baseDir);
-      const synonyms = (config && config.synonyms) ? config.synonyms : {};
-
-      // Expand keywords with synonyms
-      const expandedTerms = keywords.slice();
-      for (const kw of keywords) {
-        const lower = kw.toLowerCase();
-        if (synonyms[lower]) {
-          expandedTerms.push(...synonyms[lower]);
-        }
-      }
-
-      // v0.5.5: Try to get queryEmbedding from daemon
-      let queryEmbedding = null;
-      try {
-        queryEmbedding = requestEmbeddingSync(expandedTerms.join(' '));
-        if (!queryEmbedding) {
-          hookLog('search', 'info', 'Daemon not available — FTS5-only hybrid mode');
-        }
-      } catch {
-        hookLog('search', 'info', 'Daemon connection failed — FTS5-only hybrid mode');
-      }
-
-      const fusedResults = hybridSearchMod.hybridSearch(db, expandedTerms.join(' '), {
-        maxResults: MAX_RESULTS,
-        project: path.basename(process.cwd()),
-        queryEmbedding,
-      });
-
-      if (fusedResults.length > 0) {
-        for (const r of fusedResults) {
-          const filePath = r.path || '';
-          let headings = [];
-          if (filePath) {
-            try {
-              const content = fs.readFileSync(filePath, 'utf8');
-              headings = extractHeadings(content, 3);
-            } catch (_err) { /* file may have been deleted */ }
-          }
-          results.push({
-            path: filePath,
-            slug: r.slug,
-            description: r.description || '',
-            category: r.category || '',
-            title: r.title || '',
-            tags: r.tags || '',
-            headings,
-            hits: 1,
-            rank: r.score,
-            baseDir,
-          });
-        }
-        db.close();
-        return results;
-      }
-    } catch (hybridErr) {
-      hookLog('search', 'warn', `Hybrid search fallback to FTS5: ${hybridErr?.message || hybridErr}`);
-    }
-  }
-
-  // FTS5-only fallback: OR-joined single query (replaces O(docs×keywords) nested loop)
-  try {
-    const sanitized = keywords.map(sanitizeKeyword).filter(Boolean);
-    if (sanitized.length === 0) { db.close(); return results; }
-
-    const ftsQuery = fixVersionTokens(sanitized.join(' OR '));
-    const project = path.basename(process.cwd());
-
-    // v0.6.1: Project-scoped search with global fallback
-    let rows = withTimeoutDb(db,
-      `SELECT path, slug, description, category, title, tags, rank
-       FROM mindlore_fts WHERE project = ? AND mindlore_fts MATCH ? ORDER BY rank LIMIT ?`,
-      [project, ftsQuery, MAX_RESULTS * 2]);
-
-    if (rows.length === 0) {
-      rows = withTimeoutDb(db,
-        `SELECT path, slug, description, category, title, tags, rank
-         FROM mindlore_fts WHERE mindlore_fts MATCH ? ORDER BY rank LIMIT ?`,
-        [ftsQuery, MAX_RESULTS * 2]);
-    }
-
-    for (const r of rows) {
-      results.push({
-        path: r.path || '',
-        slug: r.slug,
-        description: r.description || '',
-        category: r.category || '',
-        title: r.title || '',
-        tags: r.tags || '',
-        headings: [],  // populated later in main() after slicing
-        hits: sanitized.length,
-        rank: r.rank,
-        baseDir,
-      });
-    }
-  } catch (_err) {
-    // FTS5 query error — silently skip
-  } finally {
-    db.close();
-  }
-
-  return results;
-}
-
-/**
- * Search episodes via FTS5 mirror (type = 'episode').
- * Reuses an already-open DB handle — no extra sqlite3_open.
- */
-function searchEpisodesFts(db, keywords) {
-  try {
-    const ftsQuery = keywords.map(sanitizeKeyword).filter(Boolean).join(' OR ');
-    const rows = withTimeoutDb(db,
-      "SELECT title, category, slug, tags FROM mindlore_fts WHERE type = 'episode' AND mindlore_fts MATCH ? LIMIT 2",
-      [ftsQuery]);
-
-    return rows.map(r => {
-      const tags = r.tags || '';
-      const kind = tags.split(',')[0]?.trim() || 'episode';
-      return `[episode] ${kind}: ${r.title || r.slug}`;
-    });
-  } catch (_err) {
-    return [];
-  }
+  // search-engine not built yet
 }
 
 function main() {
@@ -189,21 +30,40 @@ function main() {
   const dbPaths = getAllDbs();
   if (dbPaths.length === 0) return;
 
-  const keywords = extractKeywords(userMessage);
-  if (keywords.length < MIN_QUERY_WORDS) return;
-
-  const allScores = [];
-  for (const dbPath of dbPaths) {
-    allScores.push(...searchDb(dbPath, keywords));
+  if (!searchEngineMod) {
+    hookLog('search', 'warn', 'search-engine module not available — skipping');
+    return;
   }
 
-  // Sort: most keyword hits first, then best rank
-  allScores.sort((a, b) => b.hits - a.hits || a.rank - b.rank);
+  const project = path.basename(process.cwd());
+  const config = readConfig(path.dirname(dbPaths[0]));
+  const synonyms = (config && config.synonyms) ? config.synonyms : {};
 
-  // Deduplicate by full path (project version wins — appears first in sort)
+  const allResults = [];
+  for (const dbPath of dbPaths) {
+    const db = openDatabase(dbPath, { readonly: true });
+    if (!db) continue;
+    try {
+      const results = searchEngineMod.search(db, userMessage, {
+        project,
+        maxResults: MAX_RESULTS,
+        synonyms,
+      });
+      const baseDir = path.dirname(dbPath);
+      for (const r of results) {
+        allResults.push({ ...r, baseDir });
+      }
+    } catch (err) {
+      hookLog('search', 'warn', `Search error: ${err?.message || err}`);
+    } finally {
+      db.close();
+    }
+  }
+
+  // Deduplicate by full path
   const seen = new Set();
   const unique = [];
-  for (const r of allScores) {
+  for (const r of allResults) {
     const normalized = path.resolve(r.path);
     if (!seen.has(normalized)) {
       seen.add(normalized);
@@ -211,9 +71,12 @@ function main() {
     }
   }
 
+  // Sort by score descending, take top N
+  unique.sort((a, b) => b.score - a.score);
   const relevant = unique.slice(0, MAX_RESULTS);
   if (relevant.length === 0) return;
 
+  // Recall count update
   try {
     const db = openDatabase(dbPaths[0]);
     if (db) {
@@ -223,33 +86,27 @@ function main() {
       txn();
       db.close();
     }
-  } catch (_e) { /* graceful — never block search output */ }
-
-  // Populate headings only for final results (avoid reading extra files)
-  for (const r of relevant) {
-    if (r.path && r.headings.length === 0 && fs.existsSync(r.path)) {
-      try {
-        const content = fs.readFileSync(r.path, 'utf8');
-        r.headings = extractHeadings(content, 3);
-      } catch (_err) { /* skip */ }
-    }
-  }
+  } catch (_e) { /* graceful */ }
 
   // Token budget from config
-  const config = readConfig(path.dirname(dbPaths[0]));
   const budget = (config && config.tokenBudget) || {};
-  // Defaults match DEFAULT_TOKEN_BUDGET in scripts/lib/constants.ts
-  const perResultChars = ((budget.perResult || 500) * 4); // ~4 chars/token
+  const perResultChars = ((budget.perResult || 500) * 4);
   const totalChars = ((budget.searchResults || 1500) * 4);
 
-  // Build rich inject output
+  // Build output
   const output = [];
   let totalUsed = 0;
   for (const r of relevant) {
     if (totalUsed >= totalChars) break;
     const relativePath = path.relative(r.baseDir, r.path).replace(/\\/g, '/');
 
-    const headings = r.headings || [];
+    let headings = [];
+    if (r.path && fs.existsSync(r.path)) {
+      try {
+        const content = fs.readFileSync(r.path, 'utf8');
+        headings = extractHeadings(content, 3);
+      } catch (_err) { /* skip */ }
+    }
 
     const category = r.category || path.dirname(relativePath).split('/')[0];
     const title = r.title || r.slug || path.basename(r.path, '.md');
@@ -263,32 +120,15 @@ function main() {
     output.push(truncated);
   }
 
-  // v0.4.0: Search episode mirrors in FTS5 (reuses searchDb's DB path, no extra open)
-  if (relevant.length < MAX_RESULTS) {
-    for (const dbPath of dbPaths) {
-      try {
-        const db = openDatabase(dbPath, { readonly: true });
-        if (!db) continue;
-        const episodeResults = searchEpisodesFts(db, keywords);
-        db.close();
-        if (episodeResults.length > 0) {
-          output.push(`[Mindlore Episodes]\n${episodeResults.join('\n')}`);
-          break;
-        }
-      } catch (_err) { /* skip */ }
-    }
-  }
-
   if (output.length > 0) {
     let outputStr = output.join('\n\n') + '\n';
 
-    const OFFLOAD_THRESHOLD = 10240; // 10KB
+    const OFFLOAD_THRESHOLD = 10240;
     if (outputStr.length > OFFLOAD_THRESHOLD) {
       const baseDir = path.dirname(dbPaths[0]);
       const tmpDir = path.join(baseDir, 'tmp');
       fs.mkdirSync(tmpDir, { recursive: true });
 
-      // Cleanup stale tmp files before writing new one (>1h old, keep max 20)
       try {
         const oneHourAgo = Date.now() - 3600000;
         const files = fs.readdirSync(tmpDir)

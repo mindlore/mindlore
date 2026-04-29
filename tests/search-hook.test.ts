@@ -223,12 +223,12 @@ describe('Search Hook — Synonym Loader Verification', () => {
     expect(loadSynonyms(null as unknown as Record<string, unknown>)).toEqual({});
   });
 
-  test('search hook contains inline synonym expansion logic', () => {
+  test('search hook delegates to search-engine module', () => {
     const hookSource = fs.readFileSync(
       path.join(__dirname, '..', 'hooks', 'mindlore-search.cjs'), 'utf8'
     );
+    expect(hookSource).toContain('search-engine.js');
+    expect(hookSource).toContain('searchEngineMod.search');
     expect(hookSource).toContain('config.synonyms');
-    expect(hookSource).toContain('synonyms[lower]');
-    expect(hookSource).toContain('expandedTerms.push');
   });
 });
