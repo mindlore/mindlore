@@ -10,7 +10,7 @@
 
 const fs = require('fs');
 const path = require('path');
-const { getAllDbs, openDatabase, extractHeadings, readHookStdin, extractKeywords, sanitizeKeyword, readConfig, loadSqliteVecCjs, hasVecTableCjs, hookLog, incrementRecallCount, getDaemonPortFile, withTelemetry, fixVersionTokens } = require('./lib/mindlore-common.cjs');
+const { getAllDbs, openDatabase, extractHeadings, readHookStdin, extractKeywords, sanitizeKeyword, readConfig, loadSqliteVecCjs, hasVecTableCjs, hookLog, incrementRecallCount, getDaemonPortFile, withTelemetry, fixVersionTokens, withTimeoutDb } = require('./lib/mindlore-common.cjs');
 
 const { execFileSync } = require('child_process');
 
@@ -126,16 +126,16 @@ function searchDb(dbPath, keywords) {
     const project = path.basename(process.cwd());
 
     // v0.6.1: Project-scoped search with global fallback
-    let rows = db.prepare(
+    let rows = withTimeoutDb(db,
       `SELECT path, slug, description, category, title, tags, rank
-       FROM mindlore_fts WHERE project = ? AND mindlore_fts MATCH ? ORDER BY rank LIMIT ?`
-    ).all(project, ftsQuery, MAX_RESULTS * 2);
+       FROM mindlore_fts WHERE project = ? AND mindlore_fts MATCH ? ORDER BY rank LIMIT ?`,
+      [project, ftsQuery, MAX_RESULTS * 2]);
 
     if (rows.length === 0) {
-      rows = db.prepare(
+      rows = withTimeoutDb(db,
         `SELECT path, slug, description, category, title, tags, rank
-         FROM mindlore_fts WHERE mindlore_fts MATCH ? ORDER BY rank LIMIT ?`
-      ).all(ftsQuery, MAX_RESULTS * 2);
+         FROM mindlore_fts WHERE mindlore_fts MATCH ? ORDER BY rank LIMIT ?`,
+        [ftsQuery, MAX_RESULTS * 2]);
     }
 
     for (const r of rows) {
@@ -168,9 +168,9 @@ function searchDb(dbPath, keywords) {
 function searchEpisodesFts(db, keywords) {
   try {
     const ftsQuery = keywords.map(sanitizeKeyword).filter(Boolean).join(' OR ');
-    const rows = db.prepare(
-      "SELECT title, category, slug, tags FROM mindlore_fts WHERE type = 'episode' AND mindlore_fts MATCH ? LIMIT 2"
-    ).all(ftsQuery);
+    const rows = withTimeoutDb(db,
+      "SELECT title, category, slug, tags FROM mindlore_fts WHERE type = 'episode' AND mindlore_fts MATCH ? LIMIT 2",
+      [ftsQuery]);
 
     return rows.map(r => {
       const tags = r.tags || '';
