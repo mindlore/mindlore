@@ -10,7 +10,7 @@
 
 const fs = require('fs');
 const path = require('path');
-const { findMindloreDir, readConfig, openDatabase, hasEpisodesTable, querySupersededChains, formatSupersededChains, hookLog, getProjectName, parseFrontmatter, withTelemetry, withTimeoutDb } = require('./lib/mindlore-common.cjs');
+const { findMindloreDir, readConfig, openDatabase, hasEpisodesTable, querySupersededChains, formatSupersededChains, hookLog, getProjectName, parseFrontmatter, withTelemetry, withTimeoutDb, listSnapshots } = require('./lib/mindlore-common.cjs');
 
 function isCorruptionError(err) {
   const code = err?.code ?? '';
@@ -108,11 +108,10 @@ function main() {
   const diaryDir = path.join(baseDir, 'diary');
   if (fs.existsSync(diaryDir)) {
     try {
-      const diaryFiles = fs.readdirSync(diaryDir).filter(f => f.startsWith('delta-') && f.endsWith('.md'));
+      const diaryFiles = listSnapshots(diaryDir).filter(f => f.startsWith('delta-'));
 
       if (diaryFiles.length > 0) {
-        const sorted = [...diaryFiles].sort();
-        const latestName = sorted[sorted.length - 1];
+        const latestName = diaryFiles[diaryFiles.length - 1];
         const latestPath = path.join(diaryDir, latestName);
         sourceChars += fs.statSync(latestPath).size;
         const deltaContent = fs.readFileSync(latestPath, 'utf8').trim();

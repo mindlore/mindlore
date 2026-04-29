@@ -11,7 +11,7 @@
 
 const fs = require('fs');
 const path = require('path');
-const { findMindloreDir, openDatabase, hookLog, withTelemetry } = require('./lib/mindlore-common.cjs');
+const { findMindloreDir, openDatabase, hookLog, withTelemetry, listSnapshots } = require('./lib/mindlore-common.cjs');
 
 function main() {
   const baseDir = findMindloreDir();
@@ -126,9 +126,7 @@ function main() {
       fs.writeFileSync(path.join(diaryDir, `compaction-snapshot-${ts}.md`), snapshotContent);
     }
 
-    const snapshots = fs.readdirSync(diaryDir)
-      .filter(f => f.startsWith('compaction-snapshot-'))
-      .sort();
+    const snapshots = listSnapshots(diaryDir).filter(f => f.startsWith('compaction-'));
     while (snapshots.length > 5) {
       const oldest = snapshots.shift();
       if (oldest) fs.unlinkSync(path.join(diaryDir, oldest));

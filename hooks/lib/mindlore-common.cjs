@@ -813,7 +813,22 @@ module.exports = {
   withTimeoutDb,
   // Raw file helpers (v0.6.3)
   getUnpromotedRawFiles,
+  // Snapshot helpers (v0.6.3)
+  listSnapshots,
+  getLatestSnapshot,
 };
+
+function listSnapshots(diaryDir) {
+  if (!fs.existsSync(diaryDir)) return [];
+  return fs.readdirSync(diaryDir)
+    .filter(f => f.startsWith('delta-') || f.startsWith('compaction-'))
+    .sort();
+}
+
+function getLatestSnapshot(diaryDir) {
+  const files = listSnapshots(diaryDir);
+  return files.length > 0 ? files[files.length - 1] : null;
+}
 
 function getUnpromotedRawFiles(baseDir) {
   const rawDir = path.join(baseDir, 'raw');
