@@ -13,6 +13,62 @@ const fs = require('fs');
 const path = require('path');
 const { findMindloreDir, openDatabase, hookLog, withTelemetry, listSnapshots } = require('./lib/mindlore-common.cjs');
 
+function collectRecentEpisodes(baseDir) {
+  try {
+    const dbPath = path.join(baseDir, 'mindlore.db');
+    const db = openDatabase(dbPath, { readonly: true });
+    if (!db) return [];
+    try {
+      const episodes = db.prepare(
+        "SELECT kind, summary FROM episodes WHERE created_at > datetime('now', '-4 hours') ORDER BY created_at DESC LIMIT 20"
+      ).all();
+      if (episodes.length === 0) return [];
+      const grouped = {};
+      for (const ep of episodes) {
+        const kind = ep.kind || 'other';
+        if (!grouped[kind]) grouped[kind] = [];
+        grouped[kind].push(ep.summary);
+      }
+      const lines = ['## Session Episodes'];
+      for (const [kind, items] of Object.entries(grouped)) {
+        lines.push(`### ${kind}`);
+        for (const item of items) lines.push(`- ${item}`);
+      }
+      return lines;
+    } finally {
+      db.close();
+    }
+  } catch (_err) {
+    return [];
+  }
+}
+
+function collectGitDiff() {
+  try {
+    const { execSync } = require('child_process');
+    const diffStat = execSync('git diff --stat HEAD 2>/dev/null || echo ""', {
+      encoding: 'utf8', timeout: 2000, windowsHide: true,
+    }).trim();
+    if (diffStat) return ['## Changed Files (uncommitted)', '```', diffStat, '```'];
+    return [];
+  } catch (_err) {
+    return [];
+  }
+}
+
+function getActivePlan() {
+  try {
+    const plansDir = path.join(process.cwd(), '.claude', 'plans');
+    if (!fs.existsSync(plansDir)) return [];
+    const plans = fs.readdirSync(plansDir).filter(f => f.endsWith('.md'));
+    if (plans.length === 0) return [];
+    const latestPlan = plans.sort().pop();
+    return [`## Active Plan: ${latestPlan}`];
+  } catch (_err) {
+    return [];
+  }
+}
+
 function main() {
   const baseDir = findMindloreDir();
   if (!baseDir) return;
@@ -64,54 +120,9 @@ function main() {
   const diaryDir = path.join(baseDir, 'diary');
   try {
     const sections = [];
-
-    try {
-      const dbPath = path.join(baseDir, 'mindlore.db');
-      const db = openDatabase(dbPath, { readonly: true });
-      if (db) {
-        try {
-          const episodes = db.prepare(
-            "SELECT kind, summary FROM episodes WHERE created_at > datetime('now', '-4 hours') ORDER BY created_at DESC LIMIT 20"
-          ).all();
-          if (episodes.length > 0) {
-            const grouped = {};
-            for (const ep of episodes) {
-              const kind = ep.kind || 'other';
-              if (!grouped[kind]) grouped[kind] = [];
-              grouped[kind].push(ep.summary);
-            }
-            sections.push('## Session Episodes');
-            for (const [kind, items] of Object.entries(grouped)) {
-              sections.push(`### ${kind}`);
-              for (const item of items) sections.push(`- ${item}`);
-            }
-          }
-        } finally {
-          db.close();
-        }
-      }
-    } catch (_err) { /* graceful skip */ }
-
-    try {
-      const { execSync } = require('child_process');
-      const diffStat = execSync('git diff --stat HEAD 2>/dev/null || echo ""', {
-        encoding: 'utf8', timeout: 2000, windowsHide: true,
-      }).trim();
-      if (diffStat) {
-        sections.push('## Changed Files (uncommitted)', '```', diffStat, '```');
-      }
-    } catch (_err) { /* no git */ }
-
-    try {
-      const plansDir = path.join(process.cwd(), '.claude', 'plans');
-      if (fs.existsSync(plansDir)) {
-        const plans = fs.readdirSync(plansDir).filter(f => f.endsWith('.md'));
-        if (plans.length > 0) {
-          const latestPlan = plans.sort().pop();
-          sections.push(`## Active Plan: ${latestPlan}`);
-        }
-      }
-    } catch (_err) { /* skip */ }
+    sections.push(...collectRecentEpisodes(baseDir));
+    sections.push(...collectGitDiff());
+    sections.push(...getActivePlan());
 
     if (sections.length > 0) {
       const snapshotContent = [
