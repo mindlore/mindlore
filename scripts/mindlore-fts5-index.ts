@@ -19,6 +19,7 @@ import { V053_MIGRATIONS } from './lib/migrations-v053.js';
 import { V061_MIGRATIONS } from './lib/migrations-v061.js';
 import { generateEmbedding, EMBEDDING_MODEL } from './lib/embedding.js';
 import { populateVocabulary } from './lib/fuzzy.js';
+import { chunkMarkdown } from './lib/chunker.js';
 
 const common: {
   sha256: (content: string) => string;
@@ -127,6 +128,16 @@ async function main(): Promise<void> {
   const checkFts = db.prepare('SELECT 1 FROM mindlore_fts WHERE path = ? LIMIT 1');
   const checkFtsSessions = db.prepare('SELECT 1 FROM mindlore_fts_sessions WHERE path = ? LIMIT 1');
 
+  let hasChunksTable = false;
+  try {
+    db.prepare("SELECT 1 FROM chunks LIMIT 0").run();
+    hasChunksTable = true;
+  } catch (_) { /* chunks table not yet created */ }
+  const deleteChunks = hasChunksTable ? db.prepare('DELETE FROM chunks WHERE source_path = ?') : null;
+  const insertChunk = hasChunksTable ? db.prepare(
+    'INSERT OR REPLACE INTO chunks (source_path, chunk_index, heading, breadcrumb, char_count) VALUES (?, ?, ?, ?, ?)'
+  ) : null;
+
   const mdFiles = getAllMdFiles(baseDir);
   let indexed = 0;
   let skipped = 0;
@@ -196,6 +207,14 @@ async function main(): Promise<void> {
         }
 
         try { populateVocabulary(db, body); } catch (_) { /* vocabulary table may not exist in older DBs */ }
+
+        if (deleteChunks && insertChunk) {
+          deleteChunks.run(filePath);
+          const fileChunks = chunkMarkdown(body);
+          for (const chunk of fileChunks) {
+            insertChunk.run(filePath, chunk.index, chunk.heading, chunk.breadcrumb, chunk.charCount);
+          }
+        }
         upsertHash.run(filePath, hash, now, projectName, qualityToImportance(quality));
         indexed++;
 

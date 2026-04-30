@@ -32,4 +32,21 @@ export const V063_MIGRATIONS: Migration[] = [
       db.exec(SQL_VOCABULARY_CREATE);
     },
   },
+  {
+    version: 12,
+    name: 'chunks_table',
+    up: (db: Database) => {
+      db.exec(`
+        CREATE TABLE IF NOT EXISTS chunks (
+          id INTEGER PRIMARY KEY,
+          source_path TEXT NOT NULL,
+          chunk_index INTEGER NOT NULL,
+          heading TEXT,
+          breadcrumb TEXT,
+          char_count INTEGER,
+          UNIQUE(source_path, chunk_index)
+        )
+      `);
+    },
+  },
 ];
