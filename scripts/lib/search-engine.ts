@@ -2,6 +2,7 @@ import type BetterSqlite3 from 'better-sqlite3';
 type Database = BetterSqlite3.Database;
 import { searchPorter, searchTrigram, computeRRF } from './rrf.js';
 import { correctQuery } from './fuzzy.js';
+import { rerankByProximity } from './proximity.js';
 
 export interface SearchOptions {
   project?: string;
@@ -93,14 +94,19 @@ export function search(db: Database, query: string, options: SearchOptions): Sea
 
   fused.sort((a, b) => b.score - a.score);
 
-  return fused.slice(0, maxResults).map(r => ({
-    slug: r.slug,
-    path: r.path,
-    title: r.title ?? '',
-    description: r.description ?? '',
-    category: r.category ?? '',
-    tags: r.tags ?? '',
-    score: r.score,
-    content: r.content,
-  }));
+  const ranked = rerankByProximity(
+    fused.map(r => ({
+      slug: r.slug,
+      path: r.path,
+      title: r.title ?? '',
+      description: r.description ?? '',
+      category: r.category ?? '',
+      tags: r.tags ?? '',
+      score: r.score,
+      content: r.content,
+    })),
+    keywords,
+  );
+
+  return ranked.slice(0, maxResults);
 }
