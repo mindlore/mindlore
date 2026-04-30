@@ -12,6 +12,10 @@ const fs = require('fs');
 const path = require('path');
 const { MINDLORE_DIR, DB_NAME, SKIP_FILES, sha256, openDatabase, parseFrontmatter, extractFtsMetadata, insertFtsRow, readHookStdin, getProjectName, resolveProject, globalDir, hookLog, withTelemetry } = require('./lib/mindlore-common.cjs');
 
+function invalidateSearchCache(db) {
+  try { db.exec('DELETE FROM search_cache'); } catch (_) { /* table may not exist */ }
+}
+
 function main() {
   const filePath = readHookStdin(['path', 'file_path']);
   if (!filePath) return;
@@ -55,6 +59,7 @@ function main() {
     try {
       db.prepare('DELETE FROM mindlore_fts WHERE path = ?').run(filePath);
       db.prepare('DELETE FROM file_hashes WHERE path = ?').run(filePath);
+      invalidateSearchCache(db);
     } finally {
       db.close();
     }
@@ -92,6 +97,7 @@ function main() {
       ).run(filePath, hash, new Date().toISOString());
     });
     updateIndex();
+    invalidateSearchCache(db);
   } finally {
     db.close();
   }

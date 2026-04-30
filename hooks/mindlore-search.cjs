@@ -23,6 +23,13 @@ try {
   // search-engine not built yet
 }
 
+let SearchCacheMod;
+try {
+  SearchCacheMod = require('../dist/scripts/lib/search-cache.js');
+} catch (_err) {
+  // search-cache not built yet
+}
+
 function main() {
   const userMessage = readHookStdin(['prompt', 'content', 'message', 'query']);
   if (!userMessage || userMessage.length < MIN_QUERY_WORDS) return;
@@ -39,16 +46,49 @@ function main() {
   const config = readConfig(path.dirname(dbPaths[0]));
   const synonyms = (config && config.synonyms) ? config.synonyms : {};
 
+  // Read session_id from stdin for throttling
+  let sessionId;
+  try {
+    const stdinData = JSON.parse(process.env.CLAUDE_HOOK_STDIN || '{}');
+    sessionId = stdinData.session_id || 'unknown';
+  } catch (_) {
+    sessionId = 'unknown';
+  }
+
   const allResults = [];
   for (const dbPath of dbPaths) {
-    const db = openDatabase(dbPath, { readonly: true });
+    const db = openDatabase(dbPath);
     if (!db) continue;
     try {
+      // Cache + throttle
+      let cache;
+      let effectiveMax = MAX_RESULTS;
+      if (SearchCacheMod) {
+        cache = new SearchCacheMod.SearchCache(db, { ttlMs: 300000 });
+        const callCount = cache.incrementCallCount(sessionId);
+        effectiveMax = cache.getMaxResults(callCount);
+        if (effectiveMax === 0) {
+          hookLog('search', 'info', `Throttled (call #${callCount})`);
+          db.close();
+          continue;
+        }
+        const cached = cache.get(userMessage);
+        if (cached) {
+          const baseDir = path.dirname(dbPath);
+          for (const r of cached) allResults.push({ ...r, baseDir });
+          db.close();
+          continue;
+        }
+      }
+
       const results = searchEngineMod.search(db, userMessage, {
         project,
-        maxResults: MAX_RESULTS,
+        maxResults: effectiveMax,
         synonyms,
       });
+
+      if (cache) cache.set(userMessage, results);
+
       const baseDir = path.dirname(dbPath);
       for (const r of results) {
         allResults.push({ ...r, baseDir });
