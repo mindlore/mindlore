@@ -58,9 +58,10 @@ export function correctQuery(db: Database, keywords: string[]): string[] | null 
   let corrected = false;
   const result: string[] = keywords.map(kw => {
     const closest = findClosestWords(kw, vocab, 1);
-    if (closest.length > 0 && closest[0] !== kw) {
+    const match = closest[0];
+    if (match !== undefined && match !== kw) {
       corrected = true;
-      return closest[0] as string;
+      return match;
     }
     return kw;
   });

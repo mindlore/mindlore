@@ -195,7 +195,7 @@ async function main(): Promise<void> {
           insertFtsRow(db, { path: filePath, slug, description, type, category, title, content: body, tags, quality, dateCaptured, project: resolvedProject });
         }
 
-        populateVocabulary(db, body);
+        try { populateVocabulary(db, body); } catch (_) { /* vocabulary table may not exist in older DBs */ }
         upsertHash.run(filePath, hash, now, projectName, qualityToImportance(quality));
         indexed++;
 
