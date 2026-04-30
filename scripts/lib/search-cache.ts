@@ -41,6 +41,7 @@ export class SearchCache {
       'SELECT results_json FROM search_cache WHERE query_hash = ? AND expires_at > ?'
     ).get(h, new Date().toISOString()) as { results_json: string } | undefined;
     if (!row) return null;
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- JSON stored by set()
     return JSON.parse(row.results_json) as SearchResult[];
   }
 

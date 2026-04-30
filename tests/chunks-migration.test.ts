@@ -21,6 +21,7 @@ describe('chunks table migration', () => {
   });
 
   test('chunks table exists after migration', () => {
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- test assertion
     const row = db.prepare("SELECT name FROM sqlite_master WHERE type='table' AND name='chunks'").get() as { name: string } | undefined;
     expect(row).toBeDefined();
     expect(row!.name).toBe('chunks');
@@ -33,6 +34,7 @@ describe('chunks table migration', () => {
     insertChunk.run('/test.md', 0, '# Title', '# Title', 100);
     insertChunk.run('/test.md', 1, '## Section', '# Title > ## Section', 200);
 
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- test assertion
     const rows = db.prepare('SELECT * FROM chunks WHERE source_path = ? ORDER BY chunk_index').all('/test.md') as Array<{
       source_path: string; chunk_index: number; heading: string; breadcrumb: string; char_count: number;
     }>;
@@ -52,6 +54,7 @@ describe('chunks table migration', () => {
       insertChunk.run('/doc.md', c.index, c.heading, c.breadcrumb, c.charCount);
     }
 
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- test assertion
     const count = (db.prepare('SELECT COUNT(*) as c FROM chunks').get() as { c: number }).c;
     expect(count).toBe(chunks.length);
   });

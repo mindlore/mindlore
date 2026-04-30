@@ -50,6 +50,7 @@ describe('TTL Cache', () => {
     const start = Date.now();
     while (Date.now() - start < 5) { /* busy wait */ }
     cache.cleanup();
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- test assertion
     const count = (db.prepare('SELECT COUNT(*) as c FROM search_cache').get() as { c: number }).c;
     expect(count).toBe(0);
   });
