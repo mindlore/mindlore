@@ -3,6 +3,7 @@ type Database = BetterSqlite3.Database;
 import { searchPorter, searchTrigram, computeRRF } from './rrf.js';
 import { correctQuery } from './fuzzy.js';
 import { rerankByProximity } from './proximity.js';
+import { extractSnippet } from './snippet.js';
 
 export interface SearchOptions {
   project?: string;
@@ -108,5 +109,8 @@ export function search(db: Database, query: string, options: SearchOptions): Sea
     keywords,
   );
 
-  return ranked.slice(0, maxResults);
+  return ranked.slice(0, maxResults).map(r => ({
+    ...r,
+    snippet: r.content ? extractSnippet(r.content, keywords) : undefined,
+  }));
 }
