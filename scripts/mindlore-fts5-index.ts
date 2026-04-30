@@ -18,6 +18,7 @@ import { V052_MIGRATIONS } from './lib/migrations-v052.js';
 import { V053_MIGRATIONS } from './lib/migrations-v053.js';
 import { V061_MIGRATIONS } from './lib/migrations-v061.js';
 import { generateEmbedding, EMBEDDING_MODEL } from './lib/embedding.js';
+import { populateVocabulary } from './lib/fuzzy.js';
 
 const common: {
   sha256: (content: string) => string;
@@ -194,6 +195,7 @@ async function main(): Promise<void> {
           insertFtsRow(db, { path: filePath, slug, description, type, category, title, content: body, tags, quality, dateCaptured, project: resolvedProject });
         }
 
+        populateVocabulary(db, body);
         upsertHash.run(filePath, hash, now, projectName, qualityToImportance(quality));
         indexed++;
 

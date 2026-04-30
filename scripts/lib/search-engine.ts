@@ -1,6 +1,7 @@
 import type BetterSqlite3 from 'better-sqlite3';
 type Database = BetterSqlite3.Database;
 import { searchPorter, searchTrigram, computeRRF } from './rrf.js';
+import { correctQuery } from './fuzzy.js';
 
 export interface SearchOptions {
   project?: string;
@@ -74,7 +75,17 @@ export function search(db: Database, query: string, options: SearchOptions): Sea
   const porterResults = searchPorter(db, queryStr, limit, options.project);
   const trigramResults = searchTrigram(db, queryStr, limit, options.project);
 
-  const fused = computeRRF(porterResults, trigramResults, { dedupByPath: true });
+  let fused = computeRRF(porterResults, trigramResults, { dedupByPath: true });
+
+  if (fused.length === 0) {
+    const corrected = correctQuery(db, keywords);
+    if (corrected) {
+      const correctedStr = corrected.join(' ');
+      const retryPorter = searchPorter(db, correctedStr, limit, options.project);
+      const retryTrigram = searchTrigram(db, correctedStr, limit, options.project);
+      fused = computeRRF(retryPorter, retryTrigram, { dedupByPath: true });
+    }
+  }
 
   for (const r of fused) {
     r.score *= CATEGORY_WEIGHTS[r.category ?? ''] ?? 1.0;
