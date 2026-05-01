@@ -10,6 +10,7 @@ export interface SearchCacheOptions {
 export class SearchCache {
   private db: Database;
   private ttlMs: number;
+  private statsReady = false;
 
   constructor(db: Database, options: SearchCacheOptions = {}) {
     this.db = db;
@@ -21,6 +22,7 @@ export class SearchCache {
   }
 
   private ensureStatsTable(): void {
+    if (this.statsReady) return;
     this.db.exec(`
       CREATE TABLE IF NOT EXISTS search_cache_stats (
         id INTEGER PRIMARY KEY CHECK (id = 1),
@@ -29,6 +31,7 @@ export class SearchCache {
       )
     `);
     this.db.prepare('INSERT OR IGNORE INTO search_cache_stats (id, hits, misses) VALUES (1, 0, 0)').run();
+    this.statsReady = true;
   }
 
   getStats(): { hits: number; misses: number; hitRate: number } {
