@@ -13,6 +13,8 @@ export class SearchCache {
   private statsReady = false;
   private stmtHit: BetterSqlite3.Statement | null = null;
   private stmtMiss: BetterSqlite3.Statement | null = null;
+  private lastCleanup = 0;
+  private readonly cleanupIntervalMs = 60000;
 
   constructor(db: Database, options: SearchCacheOptions = {}) {
     this.db = db;
@@ -84,6 +86,9 @@ export class SearchCache {
   }
 
   cleanup(): void {
+    const now = Date.now();
+    if (now - this.lastCleanup < this.cleanupIntervalMs) return;
+    this.lastCleanup = now;
     this.db.prepare('DELETE FROM search_cache WHERE expires_at < ?').run(new Date().toISOString());
   }
 
