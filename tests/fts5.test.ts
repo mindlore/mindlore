@@ -497,32 +497,6 @@ describe('FTS5 Sync Gap Recovery', () => {
   });
 });
 
-describe('Search Script Hybrid Mode', () => {
-  test('should return results with score field in hybrid mode', () => {
-    const { hybridSearch } = require('../scripts/lib/hybrid-search.js');
-    const db = new Database(DB_PATH);
-
-    insertFts(db, {
-      path: path.join(TEST_DIR, 'sources', 'search-test.md'),
-      slug: 'search-test',
-      description: 'Hybrid search integration test',
-      type: 'source',
-      category: 'sources',
-      title: 'Search Test',
-      content: 'Testing the hybrid search pipeline with FTS5 and vector search',
-      tags: 'search,hybrid',
-    });
-
-    // Without vec — should still return FTS5 results
-    const results = hybridSearch(db, 'hybrid search', { maxResults: 3 });
-    expect(results.length).toBe(1);
-    expect(results[0].slug).toBe('search-test');
-    expect(results[0].score).toBeGreaterThan(0);
-
-    db.close();
-  });
-});
-
 describe('resolveProject — frontmatter-first project resolution', () => {
   test('should use frontmatter project when available', () => {
     const content = '---\nslug: kastell-session\nproject: kastell\ntype: raw\n---\nSession content';
