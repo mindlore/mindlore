@@ -12,7 +12,7 @@ describe('fetch-raw script', () => {
   it('fetches a URL and saves to output dir', () => {
     const result = execSync(
       `node dist/scripts/fetch-raw.js https://raw.githubusercontent.com/anthropics/claude-code/main/README.md --out-dir "${tmpDir}"`,
-      { encoding: 'utf8', timeout: 30000 }
+      { encoding: 'utf8', timeout: 30000, env: { ...process.env, MINDLORE_HOME: tmpDir } }
     );
     const parsed = JSON.parse(result.trim());
     expect(parsed.saved).toBeTruthy();
@@ -23,7 +23,7 @@ describe('fetch-raw script', () => {
   it('outputs valid JSON with saved path and char count (or cache hit)', () => {
     const result = execSync(
       `node dist/scripts/fetch-raw.js https://raw.githubusercontent.com/anthropics/claude-code/main/README.md --out-dir "${tmpDir}"`,
-      { encoding: 'utf8', timeout: 30000 }
+      { encoding: 'utf8', timeout: 30000, env: { ...process.env, MINDLORE_HOME: tmpDir } }
     );
     const parsed = JSON.parse(result.trim());
     const filePath = parsed.saved ?? parsed.file;
@@ -39,7 +39,7 @@ describe('fetch-raw script', () => {
   it('generates frontmatter with slug and date', () => {
     const result = execSync(
       `node dist/scripts/fetch-raw.js https://raw.githubusercontent.com/anthropics/claude-code/main/README.md --out-dir "${tmpDir}"`,
-      { encoding: 'utf8', timeout: 30000 }
+      { encoding: 'utf8', timeout: 30000, env: { ...process.env, MINDLORE_HOME: tmpDir } }
     );
     const parsed = JSON.parse(result.trim());
     const filePath = parsed.saved ?? parsed.file;
@@ -54,7 +54,7 @@ describe('fetch-raw script', () => {
     expect(() => {
       execSync(
         `node dist/scripts/fetch-raw.js --out-dir "${tmpDir}"`,
-        { encoding: 'utf8', timeout: 5000 }
+        { encoding: 'utf8', timeout: 5000, env: { ...process.env, MINDLORE_HOME: tmpDir } }
       );
     }).toThrow();
   });
