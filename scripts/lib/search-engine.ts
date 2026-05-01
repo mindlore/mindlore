@@ -4,7 +4,7 @@ import { searchPorter, searchTrigram, computeRRF } from './rrf.js';
 import { correctQuery } from './fuzzy.js';
 import { rerankByProximity } from './proximity.js';
 import { extractSnippet } from './snippet.js';
-import { fixVersionTokens } from './constants.js';
+import { fixVersionTokens, STOP_WORDS, STOP_WORDS_MIN_LENGTH } from './constants.js';
 
 export interface SearchOptions {
   project?: string;
@@ -24,24 +24,11 @@ export interface SearchResult {
   content?: string;
 }
 
-const STOP_WORDS = new Set([
-  'the', 'a', 'an', 'is', 'are', 'was', 'were', 'be', 'been', 'being',
-  'have', 'has', 'had', 'do', 'does', 'did', 'will', 'would', 'could',
-  'should', 'may', 'might', 'can', 'shall', 'must', 'need', 'not',
-  'and', 'or', 'but', 'if', 'then', 'else', 'when', 'where', 'how',
-  'what', 'which', 'who', 'whom', 'this', 'that', 'these', 'those',
-  'i', 'me', 'my', 'we', 'our', 'you', 'your', 'he', 'she', 'it',
-  'they', 'them', 'their', 'its', 'of', 'in', 'to', 'for', 'with',
-  'on', 'at', 'by', 'from', 'as', 'into', 'about', 'between',
-  'ne', 'bir', 'bu', 'da', 'de', 'mi', 'mu', 'mı',
-  'var', 'yok', 'ile', 'için', 'gibi', 'daha', 'çok', 'en',
-]);
-
 export function extractKeywords(text: string): string[] {
   return text
     .replace(/[^\w\sçğıöşüÇĞİÖŞÜ-]/g, ' ')
     .split(/\s+/)
-    .filter(w => w.length >= 2 && !STOP_WORDS.has(w.toLowerCase()))
+    .filter(w => w.length >= STOP_WORDS_MIN_LENGTH && !STOP_WORDS.has(w.toLowerCase()))
     .map(w => w.toLowerCase());
 }
 
