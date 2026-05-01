@@ -24,12 +24,13 @@ export interface SearchResult {
   content?: string;
 }
 
-export function extractKeywords(text: string): string[] {
-  return text
+export function extractKeywords(text: string, maxKeywords?: number): string[] {
+  const keywords = text
     .replace(TURKISH_WORD_RE, ' ')
     .split(/\s+/)
     .filter(w => w.length >= STOP_WORDS_MIN_LENGTH && !STOP_WORDS.has(w.toLowerCase()))
     .map(w => w.toLowerCase());
+  return maxKeywords ? keywords.slice(0, maxKeywords) : keywords;
 }
 
 function expandWithSynonyms(keywords: string[], synonyms?: Record<string, string[]>): string[] {
