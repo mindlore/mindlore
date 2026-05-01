@@ -5,6 +5,40 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.6.3] - 2026-05-01
+
+### Added
+- Search engine pipeline with RRF (Reciprocal Rank Fusion) — porter + trigram dual FTS5 tables
+- Heading-based chunker with oversized handling + breadcrumb context
+- Chunk-aware FTS5 indexing + `chunks` table migration
+- Vocabulary table + fuzzy correction with Levenshtein distance
+- Proximity reranking for multi-term queries
+- Smart snippet extraction around query terms
+- Intent-driven category boost (query intent → category weight)
+- TTL cache + progressive throttling for search results
+- FTS5 segment optimize after full re-index
+- Mtime gate for atomic re-index (skip unchanged files)
+- Slug collision guard + ETag cache for fetch-raw
+- Integration tests for search pipeline + decision keywords export
+
+### Fixed
+- Simplify review — 11 fixes (2 critical bugs, 4 hot-path perf, 5 code quality)
+- Vocabulary table guard in fts5-index
+- Lint errors across migration tests, daemon integration, CLI
+
+### Changed
+- Search hook + CLI converted to thin wrappers over search-engine module
+- Deprecated `hybrid-search.ts`, replaced by `search-engine.ts` + `rrf.ts`
+- DRY refactors: corruption recovery, snapshot readdir, unpromoted raw check, pre-compact helpers → common
+- Eliminated double diary scan in session-focus
+- Merged 3 episode queries into 1 in session-payload
+- Removed dead `lastHash` cache from session-payload
+- Extracted `mergeDefaults` utility for init config merge
+- Wired `withTimeoutDb` in search hook
+- Moved raw accumulation check to worker
+- 92 suites, 654 tests (up from 81 suites, 585 tests in v0.6.2)
+- Benchmark: P95 search latency 265ms (target <300ms)
+
 ## [0.6.2] - 2026-04-28
 
 ### Added
