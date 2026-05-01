@@ -11,12 +11,13 @@ export function levenshtein(a: string, b: string): number {
   for (let i = 1; i <= m; i++) {
     curr[0] = i;
     for (let j = 1; j <= n; j++) {
-      curr[j] = a[i - 1] === b[j - 1]
-        ? prev[j - 1]!
-        : 1 + Math.min(prev[j]!, curr[j - 1]!, prev[j - 1]!);
+      // eslint-disable-next-line @typescript-eslint/no-non-null-assertion -- Int32Array indices within loop bounds [0..n]
+      curr[j] = a[i - 1] === b[j - 1] ? prev[j - 1]! : 1 + Math.min(prev[j]!, curr[j - 1]!, prev[j - 1]!);
     }
+    // eslint-disable-next-line @typescript-eslint/no-non-null-assertion -- Int32Array index j within [0..n]
     for (let j = 0; j <= n; j++) prev[j] = curr[j]!;
   }
+  // eslint-disable-next-line @typescript-eslint/no-non-null-assertion -- Int32Array index n is always within bounds
   return prev[n]!;
 }
 
