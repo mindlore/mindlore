@@ -26,7 +26,7 @@ export function validatePath(targetPath: string, allowedBase: string): void {
 export function validateUrl(url: string): void {
   let hostname: string;
   try {
-    hostname = new URL(url).hostname;
+    hostname = new URL(url).hostname.replace(/^\[|]$/g, '');
   } catch {
     throw new Error(`Invalid URL: ${url}`);
   }

@@ -52,6 +52,27 @@ describe('validateUrl', () => {
     expect(() => validateUrl('http://0.0.0.0/')).toThrow(/private/i);
   });
 
+  it('rejects 172.16-31.x range', () => {
+    expect(() => validateUrl('http://172.16.0.1/')).toThrow(/private/i);
+    expect(() => validateUrl('http://172.31.255.255/')).toThrow(/private/i);
+  });
+
+  it('rejects fc00: IPv6', () => {
+    expect(() => validateUrl('http://[fc00::1]/')).toThrow(/private/i);
+  });
+
+  it('rejects fe80: link-local IPv6', () => {
+    expect(() => validateUrl('http://[fe80::1]/')).toThrow(/private/i);
+  });
+
+  it('rejects ::1 loopback IPv6', () => {
+    expect(() => validateUrl('http://[::1]/')).toThrow(/private/i);
+  });
+
+  it('rejects localhost hostname', () => {
+    expect(() => validateUrl('http://localhost/admin')).toThrow(/private/i);
+  });
+
   it('accepts github.com', () => {
     expect(() => validateUrl('https://github.com/user/repo')).not.toThrow();
   });
