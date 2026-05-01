@@ -63,6 +63,45 @@ describe('TTL Cache', () => {
   });
 });
 
+describe('SearchCache hit rate', () => {
+  let db: Database.Database;
+  let tmpDir: string;
+
+  beforeEach(() => {
+    tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'mindlore-stats-'));
+    db = new Database(path.join(tmpDir, 'test.db'));
+    db.pragma('journal_mode = WAL');
+    setupCacheTables(db);
+  });
+
+  afterEach(() => {
+    db.close();
+    fs.rmSync(tmpDir, { recursive: true, force: true });
+  });
+
+  it('tracks hits and misses', () => {
+    const cache = new SearchCache(db, { ttlMs: 300000 });
+    const mockResults: SearchResult[] = [{ slug: 'test', path: '/test', title: 'Test', description: '', category: 'sources', tags: '', score: 1.0 }];
+
+    cache.get('miss-query'); // miss
+    cache.set('hit-query', mockResults);
+    cache.get('hit-query'); // hit
+    cache.get('another-miss'); // miss
+
+    const stats = cache.getStats();
+    expect(stats.hits).toBe(1);
+    expect(stats.misses).toBe(2);
+    expect(stats.hitRate).toBeCloseTo(1/3);
+  });
+
+  it('resets stats', () => {
+    const cache = new SearchCache(db, { ttlMs: 300000 });
+    cache.get('miss');
+    cache.resetStats();
+    expect(cache.getStats()).toEqual({ hits: 0, misses: 0, hitRate: 0 });
+  });
+});
+
 describe('Progressive Throttling', () => {
   let db: Database.Database;
   let tmpDir: string;
