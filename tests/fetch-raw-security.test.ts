@@ -46,6 +46,21 @@ describe('fetch-raw SSRF protection (SEC-10)', () => {
   });
 });
 
+describe('vault path traversal (SEC-3)', () => {
+  it('rejects vault path outside home directory', () => {
+    const { validatePath } = require('../scripts/lib/input-validation.js');
+    const homeDir = require('os').homedir();
+    expect(() => validatePath('/etc/evil', homeDir)).toThrow(/must be under/);
+  });
+
+  it('accepts vault path under home directory', () => {
+    const { validatePath } = require('../scripts/lib/input-validation.js');
+    const homeDir = require('os').homedir();
+    const p = require('path');
+    expect(() => validatePath(p.join(homeDir, 'Documents', 'Obsidian Vault'), homeDir)).not.toThrow();
+  });
+});
+
 describe('YAML frontmatter escaping (SEC-7)', () => {
   it('escapes newlines in title', () => {
     const result = escapeYamlValue('Title\ninjected: true');

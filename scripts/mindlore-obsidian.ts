@@ -10,9 +10,11 @@
  */
 
 import fs from 'fs';
+import os from 'os';
 import path from 'path';
 import { GLOBAL_MINDLORE_DIR, log } from './lib/constants.js';
 import { readJsonFile } from './lib/safe-parse.js';
+import { validatePath } from './lib/input-validation.js';
 import {
   convertToWikilinks,
   shouldExport,
@@ -76,6 +78,7 @@ function parseArgs(args: string[]): Record<string, string | boolean> {
 }
 
 function obsidianExport(vaultPath: string, force: boolean): void {
+  validatePath(vaultPath, os.homedir());
   if (!fs.existsSync(GLOBAL_MINDLORE_DIR)) {
     console.error('  ~/.mindlore/ not found. Run: npx mindlore init');
     process.exit(1);
@@ -121,6 +124,7 @@ function obsidianExport(vaultPath: string, force: boolean): void {
 }
 
 function obsidianImport(vaultPath: string, folder?: string): void {
+  validatePath(vaultPath, os.homedir());
   if (!fs.existsSync(GLOBAL_MINDLORE_DIR)) {
     console.error('  ~/.mindlore/ not found. Run: npx mindlore init');
     process.exit(1);
