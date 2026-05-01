@@ -94,8 +94,8 @@ export function search(db: Database, query: string, options: SearchOptions): Sea
 
   function fusedSearch(q: string): ReturnType<typeof computeRRF> {
     return computeRRF(
-      searchPorter(db, q, limit, options.project),
-      searchTrigram(db, q, limit, options.project),
+      searchPorter(db, { query: q, limit, project: options.project }),
+      searchTrigram(db, { query: q, limit, project: options.project }),
       { dedupByPath: true },
     );
   }

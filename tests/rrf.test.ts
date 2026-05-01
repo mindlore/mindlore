@@ -84,7 +84,7 @@ describe('searchPorter + searchTrigram', () => {
       content: 'TypeScript provides hooks for React applications.',
       tags: 'typescript,react',
     });
-    const results = searchPorter(db, 'TypeScript hooks', 5);
+    const results = searchPorter(db, { query: 'TypeScript hooks', limit: 5 });
     expect(results.length).toBeGreaterThan(0);
     expect(results[0]!.rank).toBe(1);
     expect(results[0]!.score).toBe(0);
@@ -104,7 +104,7 @@ describe('searchPorter + searchTrigram', () => {
       content: 'TypeScript provides hooks for React applications.',
       tags: 'typescript,react',
     });
-    const results = searchTrigram(db, 'TypeScript', 5);
+    const results = searchTrigram(db, { query: 'TypeScript', limit: 5 });
     expect(results.length).toBeGreaterThan(0);
     cleanup(dir, db);
   });
@@ -112,7 +112,7 @@ describe('searchPorter + searchTrigram', () => {
   test('searchPorter returns empty for no match', () => {
     const dir = makeTmpDir();
     const db = createTestDbWithMigrations(path.join(dir, 'mindlore.db'));
-    const results = searchPorter(db, 'nonexistentxyz', 5);
+    const results = searchPorter(db, { query: 'nonexistentxyz', limit: 5 });
     expect(results).toEqual([]);
     cleanup(dir, db);
   });
@@ -123,7 +123,7 @@ describe('searchTrigram error handling', () => {
     const dir = makeTmpDir();
     const db = new Database(path.join(dir, 'mindlore.db'));
     const warnSpy = jest.spyOn(console, 'warn').mockImplementation(() => {});
-    const results = searchTrigram(db, 'anything', 5);
+    const results = searchTrigram(db, { query: 'anything', limit: 5 });
     expect(results).toEqual([]);
     expect(warnSpy).not.toHaveBeenCalled();
     warnSpy.mockRestore();
@@ -136,7 +136,7 @@ describe('searchTrigram error handling', () => {
     db.exec('CREATE VIRTUAL TABLE mindlore_fts_trigram USING fts5(content)');
     const warnSpy = jest.spyOn(console, 'warn').mockImplementation(() => {});
     // Query with a column that doesn't exist triggers a real error
-    const results = searchTrigram(db, 'test', 5);
+    const results = searchTrigram(db, { query: 'test', limit: 5 });
     // No crash — returns []
     expect(results).toEqual([]);
     warnSpy.mockRestore();
