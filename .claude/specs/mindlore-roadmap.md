@@ -897,35 +897,44 @@ FTS5 arama motorunu context-mode seviyesine çıkarma. Tüm maddeler arama kalit
 
 ---
 
-## v0.6.4 — Search Cleanup + Code Quality
+## v0.6.4 — Search Cleanup + Code Quality ✅ DONE (branch: feature/v0.6.4-search-cleanup)
 
-v0.6.3 simplify review'dan ertelenen bulgular. Davranış değişikliği riski taşıyanlar Tier 1'de.
+v0.6.3 simplify review'dan ertelenen bulgular. 11/12 task tamamlandı, 12 commit. Build ✅, 92 suite / 663 test ✅, Lint 0 error ✅.
 
 ### Tier 1 — Doğrula ve Düzelt (potansiyel bug)
 
-| # | Başlık | Kaynak | Efor |
-|---|--------|--------|------|
-| C1 | STOP_WORDS divergence doğrula — `search-engine.ts` (min 2, TR) vs `mindlore-common.cjs` (min 3, farklı liste). Aynı prompt'ta farklı keyword üretiyorsa unify et | Quality #4, Reuse #5 | Küçük |
-| C2 | `hybrid-search.ts` tamamen kaldır — deprecated ama hala dosyada, farklı `CATEGORY_WEIGHTS` değerleri scoring drift riski | Reuse #1/#2/#3 | Küçük |
-| C3 | `searchTrigram` silent catch → log warning ekle — schema-missing ve gerçek bug aynı boş sonucu veriyor | Quality #12 | Küçük |
+| # | Başlık | Durum |
+|---|--------|-------|
+| B0 | FTS5 hyphen crash fix — `sanitizeFtsQuery`'de `-` sanitize | ✅ |
+| C1 | STOP_WORDS unify — `constants.ts` tek kaynak, min length 2 | ✅ |
+| C2 | `hybrid-search.ts` kaldır | → v0.6.5 (5 test dosyasında 17 aktif import — scope genişletmesi gerekli) |
+| C3 | `searchTrigram` silent catch → log warning | ✅ |
 
 ### Tier 2 — Code Quality (davranış değişikliği yok)
 
-| # | Başlık | Kaynak | Efor |
-|---|--------|--------|------|
-| C4 | `WORD_BOUNDARY_RE` shared constant — `search-engine.ts:41` ve `fuzzy.ts:46` aynı Turkish regex | Quality #3 | Küçük |
-| C5 | Intent config consolidation — `Record<Intent, { keywords, boosts }>` tek obje, 3 ayrı constant yerine | Quality #9 | Küçük |
-| C6 | `searchPorter`/`searchTrigram` options object — 4 positional param → `{ query, limit, project? }` | Quality #10 | Küçük |
-| C7 | `SearchCache` SRP — Cache ve Throttle ayrı sınıflara böl | Quality #7 | Orta |
-| C8 | Category type union — `type Category = 'sources' \| 'analyses' \| ...` compile-time typo guard | Quality #8 | Küçük |
-| C9 | 21 lint warning (hepsi `no-non-null-assertion`) — fix veya eslint rule'u kabul et | Lint | Küçük |
+| # | Başlık | Durum |
+|---|--------|-------|
+| C4 | `TURKISH_WORD_RE` shared constant | ✅ |
+| C5 | Intent config consolidation — `INTENT_CONFIG` tek obje | ✅ |
+| C6 | `searchPorter`/`searchTrigram` options object | ✅ |
+| C7 | `SearchCache` SRP — Cache ve Throttle ayrı sınıflar | ✅ |
+| C8 | Category type union — compile-time typo guard | ✅ |
+| C9 | 21 lint warning fix (no-non-null-assertion) | ✅ |
 
 ### Tier 3 — Gözden Geçir ve Karar Ver
 
+| # | Başlık | Durum |
+|---|--------|-------|
+| C10 | Cache hit rate telemetry — DB-persisted hit/miss counters | ✅ |
+| C11 | RRF spread benchmark — N=100: 0.049ms/op, negligible | ✅ (no optimization needed) |
+
+---
+
+## v0.6.5 — Dead Code Cleanup + Test Refactor
+
 | # | Başlık | Kaynak | Efor |
 |---|--------|--------|------|
-| C10 | Prompt-level cache hit rate ölçümü — TTL cache gerçekten işe yarıyor mu, yoksa sadece throttle mı değerli? | Efficiency #8 | Küçük |
-| C11 | RRF pipeline object spread maliyeti — profiling ile doğrula, sadece kanıtlanırsa optimize et | Efficiency #6 | Küçük |
+| C2 | `hybrid-search.ts` kaldır + 5 test dosyasını refactor — `tests/hybrid-search.test.ts`, `tests/search-cli-hybrid.test.ts`, `tests/index-cli-embed.test.ts` sil, `tests/search-hook.test.ts` ve `tests/fts5.test.ts` güncelle | v0.6.4'ten ertelendi | Orta |
 
 ---
 
