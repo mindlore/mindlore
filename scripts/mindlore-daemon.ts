@@ -8,9 +8,8 @@ import { createDaemonServer } from './lib/daemon.js';
 const command = process.argv[2] ?? 'status';
 
 function isDaemonRunning(): { running: boolean; pid?: number } {
-  if (!fs.existsSync(DAEMON_PID_FILE)) return { running: false };
-  const pid = parseInt(fs.readFileSync(DAEMON_PID_FILE, 'utf8').trim());
   try {
+    const pid = parseInt(fs.readFileSync(DAEMON_PID_FILE, 'utf8').trim());
     process.kill(pid, 0);
     return { running: true, pid };
   } catch {
