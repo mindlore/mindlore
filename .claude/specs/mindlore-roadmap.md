@@ -930,7 +930,37 @@ v0.6.3 simplify review'dan ertelenen bulgular. 11/12 task tamamlandı, 12 commit
 
 ---
 
-## v0.6.5 — Dead Code Cleanup + Test Refactor
+## v0.6.5 — Security Hardening + Dead Code Cleanup
+
+### Security Fixes (opencode k2.6 audit — 2026-05-01)
+
+**Kaynak:** `~/Desktop/mindlore-security-check-scan-results.md` + `~/Desktop/mindlore-security-supply-chain-audit.md`
+
+| # | Başlık | Severity | Dosya | Efor |
+|---|--------|----------|-------|------|
+| SEC-1 | `fetchGitHubReadme` shell command injection — `execSync` string interpolation → `execFileSync` array args | CRITICAL | `scripts/fetch-raw.ts:57` | Küçük |
+| SEC-2 | `--out-dir` path traversal — `resolvedOutDir.startsWith(allowedBase)` guard ekle | HIGH | `scripts/fetch-raw.ts:202` | Küçük |
+| SEC-3 | `--vault` path traversal — vault path'i home directory altında doğrula | HIGH | `scripts/mindlore-obsidian.ts:63` | Küçük |
+| SEC-4 | File permissions — `mkdirSync` → `mode: 0o700`, `writeFileSync` → `mode: 0o600` (sensitive dosyalar) | HIGH | 50+ dosya | Orta |
+| SEC-5 | `privacy-filter.ts` eksik redaction pattern'leri — JWT, api_key, auth_token, refresh_token, certificate | HIGH | `scripts/lib/privacy-filter.ts` | Küçük |
+| SEC-6 | `execSync` → `execFileSync` dönüşümü (shell bypass) — init.ts, pre-compact.cjs, session-end.cjs | MEDIUM | 3 dosya | Küçük |
+| SEC-7 | YAML frontmatter escaping — `\n`, `\r`, `:`, `#` karakterleri escape edilmiyor | MEDIUM | `scripts/fetch-raw.ts:175` | Küçük |
+| SEC-8 | Daemon TCP `maxConnections: 10` (timeout eklemeye gerek yok — v0.7'de deprecated) | MEDIUM | `scripts/lib/daemon.ts:72` | Küçük |
+| SEC-9 | TOCTOU fix — `isDaemonRunning` tek try-catch pattern'e çevir | MEDIUM | `scripts/mindlore-daemon.ts:10` | Küçük |
+| SEC-10 | URL fetch SSRF — private IP range validation (127.x, 10.x, 192.168.x, 169.254.x) | MEDIUM | `scripts/fetch-raw.ts` | Küçük |
+
+| SEC-11 | `scripts/lib/input-validation.ts` modülü — `validatePath(path, allowedBase)`, `sanitizeForShell(arg)`, `validateUrl(url, blockPrivateIPs)`. SEC-1/2/3/6/10 ortak pattern'i. v0.7 MCP tool handler'ları reuse edecek | v0.7 altyapı | Küçük |
+| SEC-12 | `_rotateFile` log rotation race condition — file lock veya atomic rename pattern | MEDIUM | `hooks/lib/mindlore-common.cjs` | Küçük |
+| SEC-13 | `baseDir` resolution — `mindlore-index.cjs`'de yanlış baseDir tespiti | MEDIUM | `hooks/mindlore-index.cjs` | Küçük |
+| DX-1 | Delta injection truncation — 10+ commit olduğunda son 5 + "...ve N daha" formatı. Session-focus hook'unda tek if bloğu | v0.7 #17 terse mode ön çalışması | Küçük |
+| DX-2 | Outdated deps güncelleme — zod 4.3.6→4.4.1, @typescript-eslint/* 8.59.0→8.59.1. `npm update` | Security audit INFO | Trivial |
+
+**Kabul edilen riskler (fix yok):**
+- `better-sqlite3` / `sqlite-vec` supply chain — yapısal, alternatif yok
+- `Math.random()` test'lerde — güvenlik bağlamı yok
+- HuggingFace model hash — v0.7 embedding aktifleştiğinde ele alınacak (SEC-DEP-003)
+
+### Dead Code Cleanup + Test Refactor
 
 | # | Başlık | Kaynak | Efor |
 |---|--------|--------|------|
@@ -939,6 +969,17 @@ v0.6.3 simplify review'dan ertelenen bulgular. 11/12 task tamamlandı, 12 commit
 | S2 | `cleanup()` her cache miss'te çalışıyor — throttle ekle (1-in-N veya time-based) | v0.6.4 simplify | Küçük |
 | S3 | `extractKeywords` iki yerde farklı davranış (search-engine.ts: no cap, mindlore-common.cjs: maxKeywords=8) — belgeleme veya unify | v0.6.4 simplify | Küçük |
 | S4 | STOP_WORDS fallback path test — `dist/` yokken `mindlore-common.cjs` degraded modda çalışıyor, bu path'in testi yok | v0.6.4 advisor | Küçük |
+
+---
+
+## v0.6.6 — Code Quality Followup
+
+v0.6.5 simplify'dan ertelenen bulgular.
+
+| # | Başlık | Kaynak | Efor |
+|---|--------|--------|------|
+| Q1 | `mode: 0o600` / `mode: 0o700` magic numbers → `FILE_MODE` / `DIR_MODE` sabitleri çıkar (`constants.ts` + `mindlore-common.cjs`). 13+ call site tekrar ediyor | v0.6.5 simplify S2 | Orta |
+| Q2 | `similarity.ts` ve `skill-memory.ts` inline `MINDLORE_HOME` resolution → `GLOBAL_MINDLORE_DIR` sabiti kullan (fetch-raw.ts düzeltildi, bu 2 dosya branch scope dışı kaldı) | v0.6.5 simplify S1 kısmi | Küçük |
 
 ---
 
