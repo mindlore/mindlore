@@ -12,7 +12,7 @@
 const fs = require('fs');
 const path = require('path');
 const os = require('os');
-const { execSync, execFileSync, spawn } = require('child_process');
+const { execFileSync, spawn } = require('child_process');
 const { findMindloreDir, globalDir, getProjectName, openDatabase, ensureEpisodesTable, hasEpisodesTable, insertBareEpisode, insertFtsRow, hookLog, SHARED_EXPORT_DIRS, resolveWin32Bin, withTelemetry, getUnpromotedRawFiles } = require('./lib/mindlore-common.cjs');
 
 const EXPORT_DIRS = SHARED_EXPORT_DIRS;
@@ -117,7 +117,7 @@ function formatDate(date) {
 function getRecentGitInfo() {
   try {
     // --name-only includes file names after each commit entry
-    const raw = execSync('git log --oneline -5 --name-only', {
+    const raw = execFileSync('git', ['log', '--oneline', '-5', '--name-only'], {
       encoding: 'utf8',
       timeout: 5000,
       stdio: ['pipe', 'pipe', 'pipe'],
@@ -500,16 +500,16 @@ function syncGlobalRepo() {
   const execOpts = (timeout) => ({ cwd: gDir, encoding: 'utf8', timeout, stdio: 'pipe', windowsHide: true });
 
   // Check for changes
-  const status = execSync(`"${git}" status --porcelain`, execOpts(5000)).trim();
+  const status = execFileSync(git, ['status', '--porcelain'], execOpts(5000)).trim();
   if (!status) return; // nothing to commit
 
-  execSync(`"${git}" add *.md mindlore.db diary/ sources/ domains/ analyses/ decisions/ raw/ connections/ insights/ learnings/`, execOpts(10000));
+  execFileSync(git, ['add', '*.md', 'mindlore.db', 'diary/', 'sources/', 'domains/', 'analyses/', 'decisions/', 'raw/', 'connections/', 'insights/', 'learnings/'], execOpts(10000));
   const now = new Date().toISOString().slice(0, 19);
-  execSync(`"${git}" commit -m "mindlore auto-sync ${now}"`, execOpts(15000));
+  execFileSync(git, ['commit', '-m', `mindlore auto-sync ${now}`], execOpts(15000));
 
   // Push — graceful fail if no remote or offline
   try {
-    execSync(`"${git}" push`, execOpts(30000));
+    execFileSync(git, ['push'], execOpts(30000));
   } catch (_pushErr) {
     hookLog('session-end', 'warn', 'git push failed (offline?): ' + (_pushErr?.message ?? '').slice(0, 100));
   }

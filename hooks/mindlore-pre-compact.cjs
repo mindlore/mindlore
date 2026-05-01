@@ -45,10 +45,11 @@ function collectRecentEpisodes(baseDir) {
 
 function collectGitDiff() {
   try {
-    const { execSync } = require('child_process');
-    const diffStat = execSync('git diff --stat HEAD 2>/dev/null || echo ""', {
-      encoding: 'utf8', timeout: 2000, windowsHide: true,
-    }).trim();
+    const { execFileSync } = require('child_process');
+    let diffStat = '';
+    try {
+      diffStat = execFileSync('git', ['diff', '--stat', 'HEAD'], { encoding: 'utf8', timeout: 5000, stdio: ['pipe', 'pipe', 'pipe'] }).trim();
+    } catch { diffStat = ''; }
     if (diffStat) return ['## Changed Files (uncommitted)', '```', diffStat, '```'];
     return [];
   } catch (_err) {

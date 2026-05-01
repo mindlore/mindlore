@@ -12,7 +12,7 @@
 
 import fs from 'fs';
 import path from 'path';
-import { execSync } from 'child_process';
+import { execFileSync } from 'child_process';
 import { MINDLORE_DIR, GLOBAL_MINDLORE_DIR, DB_NAME, DIRECTORIES, CONFIG_FILE, DEFAULT_MODELS, homedir, log, resolveHookCommon } from './lib/constants.js';
 import type { Settings } from './lib/constants.js';
 import { dbPragma } from './lib/db-helpers.js';
@@ -372,7 +372,7 @@ function ensureBetterSqlite3(): boolean {
   } catch (_err) {
     try {
       log('Installing better-sqlite3 (native dependency)...');
-      execSync('npm install better-sqlite3 --no-save', {
+      execFileSync('npm', ['install', 'better-sqlite3', '--no-save'], {
         cwd: process.cwd(),
         stdio: 'pipe',
         timeout: 120000,
@@ -562,7 +562,7 @@ function main(): void {
   try {
     const indexScript = path.join(packageRoot, 'dist', 'scripts', 'mindlore-fts5-index.js');
     if (fs.existsSync(indexScript)) {
-      execSync(`node "${indexScript}"`, { cwd: baseDir, stdio: 'pipe', timeout: 30000 });
+      execFileSync('node', [indexScript], { cwd: baseDir, stdio: 'pipe', timeout: 30000 });
       log('Auto-indexed existing files into FTS5');
     }
   } catch (_err) {
@@ -615,7 +615,7 @@ function main(): void {
   const gitDir = path.join(baseDir, '.git');
   if (!fs.existsSync(gitDir)) {
     try {
-      execSync('git init', { cwd: baseDir, stdio: 'pipe', timeout: 10000 });
+      execFileSync('git', ['init'], { cwd: baseDir, stdio: 'pipe', timeout: 10000 });
       log('Initialized git repo in ~/.mindlore/');
     } catch (_err) {
       log('WARNING: Could not init git repo. Install git for auto-sync.');
