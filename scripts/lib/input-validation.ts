@@ -1,17 +1,6 @@
 import path from 'path';
 
-const PRIVATE_IP_RANGES = [
-  /^127\./,
-  /^10\./,
-  /^172\.(1[6-9]|2\d|3[01])\./,
-  /^192\.168\./,
-  /^169\.254\./,
-  /^0\.0\.0\.0/,
-  /^fc00:/i,
-  /^fe80:/i,
-  /^::1$/,
-  /^localhost$/i,
-];
+const PRIVATE_IP_RE = /^(?:127\.|10\.|172\.(?:1[6-9]|2\d|3[01])\.|192\.168\.|169\.254\.|0\.0\.0\.0|fc00:|fe80:|::1$|localhost$)/i;
 
 const SHELL_UNSAFE = /[;|&`$(){}[\]!#~<>\\'"*?\n\r]/;
 
@@ -23,23 +12,22 @@ export function validatePath(targetPath: string, allowedBase: string): void {
   }
 }
 
-export function validateUrl(url: string): void {
+export function validateUrl(urlOrString: string | URL): void {
   let hostname: string;
   try {
-    hostname = new URL(url).hostname.replace(/^\[|]$/g, '');
+    const u = typeof urlOrString === 'string' ? new URL(urlOrString) : urlOrString;
+    hostname = u.hostname.replace(/^\[|]$/g, '');
   } catch {
-    throw new Error(`Invalid URL: ${url}`);
+    throw new Error(`Invalid URL: ${String(urlOrString)}`);
   }
-  for (const range of PRIVATE_IP_RANGES) {
-    if (range.test(hostname)) {
-      throw new Error(`Private/reserved IP range not allowed: ${hostname}`);
-    }
+  if (PRIVATE_IP_RE.test(hostname)) {
+    throw new Error(`Private/reserved IP range not allowed: ${hostname}`);
   }
 }
 
 export function sanitizeForExecFile(value: string): string {
   if (SHELL_UNSAFE.test(value)) {
-    throw new Error(`Invalid characters in argument: ${value}`);
+    throw new Error('Invalid characters in argument');
   }
   return value;
 }

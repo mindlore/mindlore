@@ -3,6 +3,8 @@ import type BetterSqlite3 from 'better-sqlite3';
 type Database = BetterSqlite3.Database;
 import type { SearchResult } from './search-engine.js';
 
+const CLEANUP_INTERVAL_MS = 60_000;
+
 export interface SearchCacheOptions {
   ttlMs?: number;
 }
@@ -14,7 +16,6 @@ export class SearchCache {
   private stmtHit: BetterSqlite3.Statement | null = null;
   private stmtMiss: BetterSqlite3.Statement | null = null;
   private lastCleanup = 0;
-  private readonly cleanupIntervalMs = 60000;
 
   constructor(db: Database, options: SearchCacheOptions = {}) {
     this.db = db;
@@ -87,7 +88,7 @@ export class SearchCache {
 
   cleanup(): void {
     const now = Date.now();
-    if (now - this.lastCleanup < this.cleanupIntervalMs) return;
+    if (now - this.lastCleanup < CLEANUP_INTERVAL_MS) return;
     this.lastCleanup = now;
     this.db.prepare('DELETE FROM search_cache WHERE expires_at < ?').run(new Date().toISOString());
   }

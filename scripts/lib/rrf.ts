@@ -29,6 +29,17 @@ export interface SearchQueryOptions {
   project?: string;
 }
 
+interface FtsSearchParams {
+  table: string;
+  rankExpr: string;
+  orderBy: string;
+  query: string;
+  project?: string;
+  limit: number;
+}
+
+const BM25_RANK_EXPR = 'bm25(mindlore_fts, 1, 1, 1, 5.0, 1, 1) as bm';
+
 export function computeRRF(
   porterResults: RankedResult[],
   trigramResults: RankedResult[],
@@ -63,19 +74,11 @@ export function computeRRF(
   return results;
 }
 
-function _searchFts(
-  db: Database,
-  table: string,
-  rankExpr: string,
-  orderBy: string,
-  query: string,
-  project: string | undefined,
-  limit: number,
-): RankedResult[] {
-  const sql = project
-    ? `SELECT path, slug, description, title, category, tags, content, ${rankExpr} FROM ${table} WHERE ${table} MATCH ? AND project = ? ORDER BY ${orderBy} LIMIT ?`
-    : `SELECT path, slug, description, title, category, tags, content, ${rankExpr} FROM ${table} WHERE ${table} MATCH ? ORDER BY ${orderBy} LIMIT ?`;
-  const params = project ? [query, project, limit] : [query, limit];
+function _searchFts(db: Database, p: FtsSearchParams): RankedResult[] {
+  const sql = p.project
+    ? `SELECT path, slug, description, title, category, tags, content, ${p.rankExpr} FROM ${p.table} WHERE ${p.table} MATCH ? AND project = ? ORDER BY ${p.orderBy} LIMIT ?`
+    : `SELECT path, slug, description, title, category, tags, content, ${p.rankExpr} FROM ${p.table} WHERE ${p.table} MATCH ? ORDER BY ${p.orderBy} LIMIT ?`;
+  const params = p.project ? [p.query, p.project, p.limit] : [p.query, p.limit];
   return dbAll<RankedResult>(db, sql, ...params).map((r, i) => ({ ...r, rank: i + 1, score: 0 }));
 }
 
@@ -85,7 +88,7 @@ export function searchPorter(
 ): RankedResult[] {
   const sanitized = sanitizeFtsQuery(options.query);
   if (!sanitized) return [];
-  return _searchFts(db, 'mindlore_fts', 'bm25(mindlore_fts, 1, 1, 1, 5.0, 1, 1) as bm', 'bm', sanitized, options.project, options.limit);
+  return _searchFts(db, { table: 'mindlore_fts', rankExpr: BM25_RANK_EXPR, orderBy: 'bm', query: sanitized, project: options.project, limit: options.limit });
 }
 
 export function searchTrigram(
@@ -95,7 +98,7 @@ export function searchTrigram(
   const sanitized = sanitizeFtsQuery(options.query);
   if (!sanitized) return [];
   try {
-    return _searchFts(db, 'mindlore_fts_trigram', 'rank', 'rank', sanitized, options.project, options.limit);
+    return _searchFts(db, { table: 'mindlore_fts_trigram', rankExpr: 'rank', orderBy: 'rank', query: sanitized, project: options.project, limit: options.limit });
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err);
     if (!msg.includes('no such table')) {
