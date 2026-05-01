@@ -53,7 +53,7 @@ jobs:
           TAG_NAME: ${{ steps.tag.outputs.name }}
         run: |
           VERSION="${TAG_NAME#v}"
-          if [[ "$VERSION" == 0.* ]]; then
+          if [[ "$VERSION" == *-* ]]; then
             echo "flag=--prerelease" >> "$GITHUB_OUTPUT"
           else
             echo "flag=" >> "$GITHUB_OUTPUT"
