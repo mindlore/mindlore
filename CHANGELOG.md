@@ -5,6 +5,30 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.6.4] - 2026-05-01
+
+### Added
+- Cache hit rate telemetry — DB-persisted hits/misses with `getStats()`/`resetStats()`
+- `Category` type union in constants.ts — compile-time typo guard for category weights
+- `TURKISH_WORD_RE` shared constant — deduplicated regex across search-engine and fuzzy
+- `SearchQueryOptions` interface — options object API for searchPorter/searchTrigram
+- `SearchThrottle` class — extracted from SearchCache for single responsibility
+- RRF micro-benchmark script (`mindlore-rrf-bench.ts`)
+- STOP_WORDS fallback warning when `dist/` not built
+
+### Fixed
+- FTS5 search crash on hyphenated queries — sanitize `-` in `sanitizeFtsQuery`
+- Silent `searchTrigram` catch — now logs warning on unexpected errors, suppresses expected "no such table"
+- 23 lint warnings/errors resolved (no-non-null-assertion + no-unsafe-type-assertion)
+- Cache stats prepare statements cached on instance (simplify review)
+- IntentConfig.boosts typed as `Partial<Record<Category, number>>` (simplify review)
+
+### Changed
+- STOP_WORDS unified — single source in constants.ts, min length 2 (was divergent between search-engine.ts and mindlore-common.cjs)
+- Intent config consolidated — `INTENT_CONFIG` single object replaces 3 separate constants
+- INTENT_KEYS derived from INTENT_CONFIG via Object.keys (DRY)
+- Lazy-init stats table in SearchCache — avoid CREATE TABLE on every get()
+
 ## [0.6.3] - 2026-05-01
 
 ### Added
