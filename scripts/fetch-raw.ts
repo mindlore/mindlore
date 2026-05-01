@@ -3,7 +3,7 @@ import fs from 'fs';
 import path from 'path';
 import crypto from 'crypto';
 import os from 'os';
-import { sanitizeForExecFile, validatePath, validateUrl as validateUrlSsrf } from './lib/input-validation.js';
+import { sanitizeForExecFile, validatePath, validateUrl as validateUrlSsrf, escapeYamlValue } from './lib/input-validation.js';
 
 function validateUrl(raw: string): URL {
   const u = new URL(raw);
@@ -177,7 +177,7 @@ function generateFrontmatter(url: string, slug: string, content: string): string
     '---',
     `slug: ${slug}`,
     'type: raw',
-    `title: "${title.replace(/\\/g, '\\\\').replace(/"/g, '\\"')}"`,
+    `title: ${escapeYamlValue(title)}`,
     `source_url: ${url}`,
     `date_captured: ${now}`,
     'quality: unreviewed',

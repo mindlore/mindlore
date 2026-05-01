@@ -1,4 +1,4 @@
-import { sanitizeForExecFile, validatePath, validateUrl } from '../scripts/lib/input-validation.js';
+import { sanitizeForExecFile, validatePath, validateUrl, escapeYamlValue } from '../scripts/lib/input-validation.js';
 
 describe('fetchGitHubReadme security (SEC-1)', () => {
   it('sanitizeForExecFile rejects shell metacharacters in owner', () => {
@@ -43,5 +43,28 @@ describe('fetch-raw SSRF protection (SEC-10)', () => {
 
   it('accepts public URLs', () => {
     expect(() => validateUrl('https://github.com/user/repo')).not.toThrow();
+  });
+});
+
+describe('YAML frontmatter escaping (SEC-7)', () => {
+  it('escapes newlines in title', () => {
+    const result = escapeYamlValue('Title\ninjected: true');
+    expect(result).not.toContain('\n');
+    expect(result).toContain('\\n');
+  });
+
+  it('escapes carriage returns', () => {
+    const result = escapeYamlValue('Title\rinjected');
+    expect(result).not.toContain('\r');
+  });
+
+  it('handles colons in title', () => {
+    const result = escapeYamlValue('My Project: A Guide');
+    expect(result).toBe('"My Project: A Guide"');
+  });
+
+  it('escapes quotes in title', () => {
+    const result = escapeYamlValue('He said "hello"');
+    expect(result).toContain('\\"');
   });
 });
