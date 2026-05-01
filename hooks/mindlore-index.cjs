@@ -37,8 +37,6 @@ function main() {
 
   const fileName = path.basename(filePath);
 
-  // Find the .mindlore dir from the file path
-  const resolvedFile = path.resolve(filePath);
   const sepDir = path.sep + MINDLORE_DIR;
   const mindloreIdx = resolvedFile.lastIndexOf(sepDir);
   if (mindloreIdx === -1) return;
