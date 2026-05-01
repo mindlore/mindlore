@@ -3,7 +3,7 @@ type Database = BetterSqlite3.Database;
 import { dbAll } from './db-helpers.js';
 
 export function sanitizeFtsQuery(query: string): string {
-  return query.replace(/["*(){}[\]^~:]/g, '').trim();
+  return query.replace(/["*(){}[\]^~:-]/g, ' ').replace(/\s+/g, ' ').trim();
 }
 
 export interface RankedResult {

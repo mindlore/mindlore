@@ -3,7 +3,7 @@ import os from 'os';
 import fs from 'fs';
 import Database from 'better-sqlite3';
 import { createTestDbWithMigrations, insertFts } from './helpers/db.js';
-import { computeRRF, searchPorter, searchTrigram, type RankedResult } from '../scripts/lib/rrf.js';
+import { computeRRF, searchPorter, searchTrigram, sanitizeFtsQuery, type RankedResult } from '../scripts/lib/rrf.js';
 
 function makeTmpDir(): string {
   return fs.mkdtempSync(path.join(os.tmpdir(), 'mindlore-rrf-'));
@@ -13,6 +13,24 @@ function cleanup(dir: string, db?: Database.Database): void {
   try { db?.close(); } catch {}
   fs.rmSync(dir, { recursive: true, force: true });
 }
+
+describe('sanitizeFtsQuery', () => {
+  it('strips hyphens to prevent FTS5 column-prefix parse', () => {
+    expect(sanitizeFtsQuery('project-state-engine')).toBe('project state engine');
+  });
+
+  it('strips all FTS5 operators', () => {
+    expect(sanitizeFtsQuery('"hello" AND world*')).toBe('hello AND world');
+  });
+
+  it('returns empty for operator-only input', () => {
+    expect(sanitizeFtsQuery('---')).toBe('');
+  });
+
+  it('preserves Turkish characters', () => {
+    expect(sanitizeFtsQuery('çalışma-planı')).toBe('çalışma planı');
+  });
+});
 
 describe('computeRRF', () => {
   test('merges porter and trigram results', () => {
