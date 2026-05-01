@@ -224,7 +224,7 @@ export function convertJsonlToMd(jsonlPath: string, projectName: string): Sessio
 
 // ── Session Summary ──────────────────────────────────────────────────
 
-const DECISION_KEYWORDS = [
+export const DECISION_KEYWORDS = [
   'karar:', 'ertele', 'seçtik', 'yapma:',
   'decision:', 'defer', 'chose', 'skip:',
   'blocker:', 'ertelendi',

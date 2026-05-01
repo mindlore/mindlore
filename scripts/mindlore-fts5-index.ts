@@ -18,6 +18,8 @@ import { V052_MIGRATIONS } from './lib/migrations-v052.js';
 import { V053_MIGRATIONS } from './lib/migrations-v053.js';
 import { V061_MIGRATIONS } from './lib/migrations-v061.js';
 import { generateEmbedding, EMBEDDING_MODEL } from './lib/embedding.js';
+import { populateVocabulary } from './lib/fuzzy.js';
+import { chunkMarkdown } from './lib/chunker.js';
 
 const common: {
   sha256: (content: string) => string;
@@ -122,9 +124,19 @@ async function main(): Promise<void> {
     `INSERT INTO mindlore_fts_sessions (path, slug, description, type, category, title, content, tags, quality, date_captured, project)
      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
   );
-  const getHash = db.prepare('SELECT content_hash FROM file_hashes WHERE path = ?');
+  const getHash = db.prepare('SELECT content_hash, last_indexed FROM file_hashes WHERE path = ?');
   const checkFts = db.prepare('SELECT 1 FROM mindlore_fts WHERE path = ? LIMIT 1');
   const checkFtsSessions = db.prepare('SELECT 1 FROM mindlore_fts_sessions WHERE path = ? LIMIT 1');
+
+  let hasChunksTable = false;
+  try {
+    db.prepare("SELECT 1 FROM chunks LIMIT 0").run();
+    hasChunksTable = true;
+  } catch (_) { /* chunks table not yet created */ }
+  const deleteChunks = hasChunksTable ? db.prepare('DELETE FROM chunks WHERE source_path = ?') : null;
+  const insertChunk = hasChunksTable ? db.prepare(
+    'INSERT OR REPLACE INTO chunks (source_path, chunk_index, heading, breadcrumb, char_count) VALUES (?, ?, ?, ?, ?)'
+  ) : null;
 
   const mdFiles = getAllMdFiles(baseDir);
   let indexed = 0;
@@ -144,11 +156,25 @@ async function main(): Promise<void> {
   const transaction = db.transaction(() => {
     for (const filePath of mdFiles) {
       try {
+        // eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- pre-prepared stmt in hot loop
+        const existing = getHash.get(filePath) as { content_hash: string; last_indexed: string } | undefined;
+
+        // mtime gate: skip hash computation if file hasn't been modified since last index
+        if (existing) {
+          const fileMtime = fs.statSync(filePath).mtimeMs;
+          const indexedAt = new Date(existing.last_indexed).getTime();
+          if (fileMtime <= indexedAt) {
+            const ftsExists = checkFts.get(filePath) || checkFtsSessions.get(filePath);
+            if (ftsExists) {
+              skipped++;
+              continue;
+            }
+          }
+        }
+
         const content = fs.readFileSync(filePath, 'utf8').replace(/\r\n/g, '\n');
         const hash = sha256(content);
 
-        // eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- pre-prepared stmt in hot loop
-        const existing = getHash.get(filePath) as { content_hash: string } | undefined;
         if (existing && existing.content_hash === hash) {
           // Verify FTS5 entry exists — file_hashes and mindlore_fts can get out of sync
           const ftsExists = checkFts.get(filePath) || checkFtsSessions.get(filePath);
@@ -180,6 +206,15 @@ async function main(): Promise<void> {
           insertFtsRow(db, { path: filePath, slug, description, type, category, title, content: body, tags, quality, dateCaptured, project: resolvedProject });
         }
 
+        try { populateVocabulary(db, body); } catch (_) { /* vocabulary table may not exist in older DBs */ }
+
+        if (deleteChunks && insertChunk) {
+          deleteChunks.run(filePath);
+          const fileChunks = chunkMarkdown(body);
+          for (const chunk of fileChunks) {
+            insertChunk.run(filePath, chunk.index, chunk.heading, chunk.breadcrumb, chunk.charCount);
+          }
+        }
         upsertHash.run(filePath, hash, now, projectName, qualityToImportance(quality));
         indexed++;
 
@@ -215,6 +250,14 @@ async function main(): Promise<void> {
   });
 
   cleanupTransaction();
+
+  // FTS5 segment optimization after full re-index
+  if (indexed > 0) {
+    db.exec("INSERT INTO mindlore_fts(mindlore_fts) VALUES('optimize')");
+    try {
+      db.exec("INSERT INTO mindlore_fts_trigram(mindlore_fts_trigram) VALUES('optimize')");
+    } catch (_err) { /* trigram table may not exist */ }
+  }
 
   console.log(
     `\n  FTS5 Index: ${indexed} indexed, ${skipped} unchanged, ${removed} removed, ${errors} errors`,

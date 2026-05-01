@@ -61,25 +61,25 @@ npm@0.6.1 yayında. 24 commit, 76 suite, 558 test, 0 lint error. Simplify review
 
 | #31 | Session-Focus Performans | | ✅ | p50=3093ms → hedef <500ms |
 
-**v0.6.1 = 12 madde** (çoğu küçük-orta, net scope)
-**v0.6.2 = 15 madde** (brainstorm gerektiren büyük özellikler + DX + 2 kısmi taşıma + perf + simplify 7 bulgu)
+**v0.6.1 = 12 madde** (çoğu küçük-orta, net scope) ✅ RELEASED (2026-04-27)
+**v0.6.2 = 15 madde** (brainstorm gerektiren büyük özellikler + DX + 2 kısmi taşıma + perf + simplify 7 bulgu) ✅ RELEASED (2026-04-28)
 **v0.6.4 = #13 Non-Blocking Ingest + #18 llms.txt + #15 toplu promote** (inbox pattern, skill bloklama çözümü, toplu LLM processing)
 
 ### v0.6.1 Simplify'dan Ertelenen Bulgular (2026-04-27, v0.6.1'e dahil edildi)
 
 3 paralel review agent (reuse, quality, efficiency) 40 bulgu üretti. 11'i v0.6.1'de fix'lendi, geri kalanı:
 
-| Bulgu | Açıklama | Neden Ertelendi |
-|-------|----------|-----------------|
-| Search hook 3 DB open | Her UserPromptSubmit'te 3 ayrı `openDatabase` çağrısı. Tek handle reuse edilmeli | → v0.6.3 Search Engine Overhaul'da çözülecek — hook zaten baştan yazılacak |
-| sqlite-vec per-event load | `loadSqliteVecCjs(db)` her prompt'ta extension yüklüyor. CC hook'ları ayrı process, module cache geçersiz | Mimari kısıt — MCP Server'a geçişte çözülecek (v0.7) |
-| withTimeoutDb zero callers | Export + test var, production'da kullanılmıyor | v0.6.2'de hook'lara wire edilecek |
-| _writeTelemetry object param | 4 positional param → single object refactor | Minor, kırıcı değişiklik değil |
-| Perf O(H*N) filter | `calculatePercentiles` her hook için full array filter | Trivial dataset, ölçülebilir fark yok |
-| Doctor EXPECTED_HOOKS drift | Hand-maintained array, plugin.json'dan derive edilebilir | Style, runtime risk yok |
-| Session-focus 4-level nesting | DB section try-in-try-in-if-in-try | Büyük refactor, fonksiyon extract gerekli |
-| Init config merge nesting | 4 seviye iç içe if/for | Generic `mergeDefaults` utility gerekli |
-| registerAgents content compare | Her init'te readFileSync ile karşılaştırma | mtime+size guard eklenebilir, init nadir çalışır |
+| Bulgu | Açıklama | Neden Ertelendi | v0.6.3 Scope |
+|-------|----------|-----------------|--------------|
+| Search hook 3 DB open | Her UserPromptSubmit'te 3 ayrı `openDatabase` çağrısı. Tek handle reuse edilmeli | → v0.6.3 Search Engine Overhaul'da çözülecek — hook zaten baştan yazılacak | ✅ S1-S13 rewrite'da otomatik çözülecek |
+| sqlite-vec per-event load | `loadSqliteVecCjs(db)` her prompt'ta extension yüklüyor. CC hook'ları ayrı process, module cache geçersiz | Mimari kısıt — MCP Server'a geçişte çözülecek (v0.7) | → v0.7 (MCP Server) |
+| withTimeoutDb zero callers | Export + test var, production'da kullanılmıyor | v0.6.2'de hook'lara wire edilecek | ✅ → S27 |
+| _writeTelemetry object param | 4 positional param → single object refactor | Minor, kırıcı değişiklik değil | ✅ → S28 |
+| Perf O(H*N) filter | `calculatePercentiles` her hook için full array filter | Trivial dataset, ölçülebilir fark yok | ❌ Atlandı (ölçülebilir fark yok) |
+| Doctor EXPECTED_HOOKS drift | Hand-maintained array, plugin.json'dan derive edilebilir | Style, runtime risk yok | ✅ → S29 |
+| Session-focus 4-level nesting | DB section try-in-try-in-if-in-try | Büyük refactor, fonksiyon extract gerekli | ✅ → S19 (zaten planlanmış) |
+| Init config merge nesting | 4 seviye iç içe if/for | Generic `mergeDefaults` utility gerekli | ✅ → S30 |
+| registerAgents content compare | Her init'te readFileSync ile karşılaştırma | mtime+size guard eklenebilir, init nadir çalışır | ✅ → S31 |
 
 ### 1. Hook Telemetry Genişletme
 v0.6.0'da sadece `.mindlore/telemetry.jsonl` append-only. v0.6.1'de:
@@ -610,36 +610,77 @@ FTS5 arama motorunu context-mode seviyesine çıkarma. Tüm maddeler arama kalit
 - S25: Fetch-raw slug collision guard (aynı slug, farklı URL → false cache hit riski, URL-keyed lookup)
 - S26: Session-focus + session-payload double diary scan eliminasyonu (tek readdirSync, sonucu paylaş)
 
+**v0.6.1 simplify'dan eklenen maddeler (scope kararı: 2026-04-28):**
+- S27: withTimeoutDb wire — export+test var ama production'da kullanılmıyor, hook'lara wire et
+- S28: _writeTelemetry object param — 4 positional param → single object refactor
+- S29: Doctor EXPECTED_HOOKS derive — hand-maintained array → plugin.json'dan oku
+- S30: Init config merge nesting — 4 seviye iç içe if/for → generic `mergeDefaults` utility
+- S31: registerAgents mtime+size guard — her init'te readFileSync yerine mtime+size check
+
+**v0.7'ye taşınanlar:**
+- sqlite-vec per-event load → v0.7 MCP Server'a bırakıldı (mimari kısıt, hook process isolation)
+- Perf O(H*N) filter → v0.7'de MCP Server'a geçişte çözülecek (dataset büyüdüğünde anlamlı olur)
+
+**Zaten planlanmış:**
+- Session-focus 4-level nesting → S19'da (Pre-Compact Nesting Extraction)
+
 ### Release Bölme Tablosu (v0.6.3)
 
-| Madde | Başlık | Efor | Bağımlılık |
-|-------|--------|------|------------|
-| S1 | Title Boost (BM25 weight) | 5 dk | — |
-| S2 | Trigram FTS5 Tablo + RRF Fusion | Orta | S1 |
-| S3 | Vocabulary Tablo + Fuzzy Fallback | Orta | S2 |
-| S4 | Proximity Reranking (minimum-span) | Orta | S2 |
-| S5 | Heading-Based Chunking | Büyük | S2 |
-| S6 | Oversized Chunk Handling | Küçük | S5 |
-| S7 | Heading Breadcrumb Title | Küçük | S5 |
-| S8 | Atomik Source Re-Index | Küçük | — |
-| S9 | FTS5 Segment Optimize | Küçük | — |
-| S10 | Intent-Driven Filtering (>5KB) | Orta | S5 |
-| S11 | Smart Snippet (#20'den taşındı) | Küçük | S2 |
-| S12 | TTL Cache (#21'den taşındı) | Küçük | — |
-| S13 | Progressive Throttling (#22'den taşındı) | Küçük | S12 |
-| S14 | URL Cache ETag/If-Modified-Since | Küçük | — |
-| S15 | Session Summary Integration Test | Küçük | — |
-| S16 | Compaction Test Hook Exercise | Küçük | — |
-| S17 | Session-End Unpromoted DRY | Küçük | — |
-| S18 | Snapshot Readdir Helper | Küçük | — |
-| S19 | Pre-Compact Nesting Extraction | Orta | — |
-| S20 | Corruption Recovery to Common | Küçük | — |
-| S21 | DECISION_KEYWORDS Test Import | Küçük | — |
-| S22 | Dead lastHash Cache Kaldır | Küçük | — |
-| S23 | Session-Payload Query Birleştir | Küçük | — |
-| S24 | Raw Accumulation → Worker | Küçük | — |
-| S25 | Fetch-Raw Slug Collision Guard | Küçük | — |
-| S26 | Session-Focus Double Diary Scan | Küçük | — |
+| Madde | Başlık | Efor | Durum |
+|-------|--------|------|-------|
+| S1 | Title Boost (BM25 weight) | 5 dk | ✅ DONE |
+| S2 | Trigram FTS5 Tablo + RRF Fusion | Orta | ✅ DONE |
+| S3 | Vocabulary Tablo + Fuzzy Fallback | Orta | ✅ DONE |
+| S4 | Proximity Reranking (minimum-span) | Orta | ✅ DONE |
+| S5 | Heading-Based Chunking | Büyük | ✅ DONE |
+| S6 | Oversized Chunk Handling | Küçük | ✅ DONE |
+| S7 | Heading Breadcrumb Title | Küçük | ✅ DONE |
+| S8 | Atomik Source Re-Index | Küçük | ✅ DONE |
+| S9 | FTS5 Segment Optimize | Küçük | ✅ DONE |
+| S10 | Intent-Driven Filtering (>5KB) | Orta | ✅ DONE |
+| S11 | Smart Snippet (#20'den taşındı) | Küçük | ✅ DONE |
+| S12 | TTL Cache (#21'den taşındı) | Küçük | ✅ DONE |
+| S13 | Progressive Throttling (#22'den taşındı) | Küçük | ✅ DONE |
+| S14 | URL Cache ETag/If-Modified-Since | Küçük | ✅ DONE |
+| S15 | Session Summary Integration Test | Küçük | ✅ DONE |
+| S16 | Compaction Test Hook Exercise | Küçük | ✅ DONE |
+| S17 | Session-End Unpromoted DRY | Küçük | ✅ DONE |
+| S18 | Snapshot Readdir Helper | Küçük | ✅ DONE |
+| S19 | Pre-Compact Nesting Extraction | Orta | ✅ DONE |
+| S20 | Corruption Recovery to Common | Küçük | ✅ DONE |
+| S21 | DECISION_KEYWORDS Test Import | Küçük | ✅ DONE |
+| S22 | Dead lastHash Cache Kaldır | Küçük | ✅ DONE |
+| S23 | Session-Payload Query Birleştir | Küçük | ✅ DONE |
+| S24 | Raw Accumulation → Worker | Küçük | ✅ DONE |
+| S25 | Fetch-Raw Slug Collision Guard | Küçük | ✅ DONE |
+| S26 | Session-Focus Double Diary Scan | Küçük | ✅ DONE |
+| S27 | withTimeoutDb Wire | Küçük | ✅ DONE |
+| S28 | _writeTelemetry Object Param | Küçük | ✅ DONE (v0.6.2) |
+| S29 | Doctor EXPECTED_HOOKS Derive | Küçük | ✅ DONE (v0.6.2) |
+| S30 | Init Config Merge Nesting | Küçük | ✅ DONE |
+| S31 | registerAgents mtime Guard | Küçük | ✅ DONE |
+
+### v0.6.3 Simplify Sonuçları (merge öncesi review)
+
+**3 agent paralel review:** Reuse (10 bulgu), Quality (15 bulgu), Efficiency (9 bulgu)
+
+**Uygulanan fix'ler (11 adet):**
+1. `fixVersionTokens` search pipeline'a eklendi — versiyon aramaları düzeltildi
+2. DDL constructor'dan migration v13'e taşındı — her hook çağrısında CREATE TABLE eliminasyonu
+3. `readFileSync` → `r.content` — N disk okuması eliminasyonu (hot path)
+4. Vocabulary cache + length pre-filter — ~%80 candidate rejection
+5. RETURNING ile tek roundtrip — `incrementCallCount` 2→1 query
+6. Recall count loop içine taşındı — gereksiz DB reopen eliminasyonu
+7. `sanitizeFtsQuery` helper — 3x tekrar → tek fonksiyon
+8. RRF loop dedup — 2 identical loop → `for (const list of [...])`
+9. `fusedSearch` helper — search-engine retry bloğu dedup
+10. Chunker dead index assignment temizlendi
+11. Cache cleanup — miss'te expired entry'ler temizleniyor
+
+**Benchmark:** Mean 237ms | P50 234ms | P95 265ms (hedef <300ms — PASS)
+*Not: Hook latency (subprocess startup dahil). Engine-only latency ~30-80ms.*
+
+**v0.6.4'e ertelenen bulgular:** Aşağıdaki bölüme taşındı.
 
 ### S1. Title Boost — BM25 Weight Parametreleri
 - **Problem:** Tüm FTS5 kolonları eşit ağırlıkta. Başlık eşleşmesi body eşleşmesinden ayırt edilemiyor.
@@ -824,11 +865,81 @@ FTS5 arama motorunu context-mode seviyesine çıkarma. Tüm maddeler arama kalit
 - **Bağımlılık:** S12 (TTL Cache)
 - **Efor:** Küçük.
 
+### S27. withTimeoutDb Wire (v0.6.1 simplify'dan)
+- **Problem:** `withTimeoutDb` export + test var ama production hook'larda kullanılmıyor.
+- **Çözüm:** Uzun sürebilecek DB operasyonlarında (search, session-payload) `withTimeoutDb` wrapper'ı ile sarmalama.
+- **Etkilenen:** `hooks/mindlore-search.cjs`, `hooks/mindlore-session-focus.cjs`
+- **Efor:** Küçük.
+
+### S28. _writeTelemetry Object Param (v0.6.1 simplify'dan)
+- **Problem:** `_writeTelemetry(hookName, event, durationMs, extra)` — 4 positional param, sıra karışabilir.
+- **Çözüm:** Single object param: `_writeTelemetry({ hook, event, durationMs, extra })`.
+- **Etkilenen:** `hooks/lib/mindlore-common.cjs` + tüm çağrı noktaları
+- **Efor:** Küçük.
+
+### S29. Doctor EXPECTED_HOOKS Derive (v0.6.1 simplify'dan)
+- **Problem:** `mindlore-doctor.ts`'de EXPECTED_HOOKS array'i elle tutulmuş. Yeni hook ekleyince güncellemeyi unutma riski.
+- **Çözüm:** `plugin.json`'daki hook tanımlarından runtime'da derive et.
+- **Etkilenen:** `scripts/mindlore-doctor.ts`
+- **Efor:** Küçük.
+
+### S30. Init Config Merge Nesting (v0.6.1 simplify'dan)
+- **Problem:** `init.ts`'de config merge 4 seviye iç içe if/for.
+- **Çözüm:** Generic `mergeDefaults(target, source)` utility fonksiyonu — `scripts/lib/` altına.
+- **Etkilenen:** `scripts/init.ts`
+- **Efor:** Küçük.
+
+### S31. registerAgents mtime Guard (v0.6.1 simplify'dan)
+- **Problem:** Her `init` çalışmasında agent dosyalarını readFileSync ile okuyup content compare yapıyor. Init nadir çalışır ama gereksiz IO.
+- **Çözüm:** mtime + size guard — dosya değişmemişse content compare atla.
+- **Etkilenen:** `scripts/init.ts`
+- **Efor:** Küçük.
+
+---
+
+## v0.6.4 — Search Cleanup + Code Quality
+
+v0.6.3 simplify review'dan ertelenen bulgular. Davranış değişikliği riski taşıyanlar Tier 1'de.
+
+### Tier 1 — Doğrula ve Düzelt (potansiyel bug)
+
+| # | Başlık | Kaynak | Efor |
+|---|--------|--------|------|
+| C1 | STOP_WORDS divergence doğrula — `search-engine.ts` (min 2, TR) vs `mindlore-common.cjs` (min 3, farklı liste). Aynı prompt'ta farklı keyword üretiyorsa unify et | Quality #4, Reuse #5 | Küçük |
+| C2 | `hybrid-search.ts` tamamen kaldır — deprecated ama hala dosyada, farklı `CATEGORY_WEIGHTS` değerleri scoring drift riski | Reuse #1/#2/#3 | Küçük |
+| C3 | `searchTrigram` silent catch → log warning ekle — schema-missing ve gerçek bug aynı boş sonucu veriyor | Quality #12 | Küçük |
+
+### Tier 2 — Code Quality (davranış değişikliği yok)
+
+| # | Başlık | Kaynak | Efor |
+|---|--------|--------|------|
+| C4 | `WORD_BOUNDARY_RE` shared constant — `search-engine.ts:41` ve `fuzzy.ts:46` aynı Turkish regex | Quality #3 | Küçük |
+| C5 | Intent config consolidation — `Record<Intent, { keywords, boosts }>` tek obje, 3 ayrı constant yerine | Quality #9 | Küçük |
+| C6 | `searchPorter`/`searchTrigram` options object — 4 positional param → `{ query, limit, project? }` | Quality #10 | Küçük |
+| C7 | `SearchCache` SRP — Cache ve Throttle ayrı sınıflara böl | Quality #7 | Orta |
+| C8 | Category type union — `type Category = 'sources' \| 'analyses' \| ...` compile-time typo guard | Quality #8 | Küçük |
+| C9 | 21 lint warning (hepsi `no-non-null-assertion`) — fix veya eslint rule'u kabul et | Lint | Küçük |
+
+### Tier 3 — Gözden Geçir ve Karar Ver
+
+| # | Başlık | Kaynak | Efor |
+|---|--------|--------|------|
+| C10 | Prompt-level cache hit rate ölçümü — TTL cache gerçekten işe yarıyor mu, yoksa sadece throttle mı değerli? | Efficiency #8 | Küçük |
+| C11 | RRF pipeline object spread maliyeti — profiling ile doğrula, sadece kanıtlanırsa optimize et | Efficiency #6 | Küçük |
+
 ---
 
 ## v0.7 — Capability Expansion
 
 Kapsamı geniş, spec/brainstorm gerektiren özellikler.
+
+**v0.6.3'ten taşınan mimari bulgular (MCP Server geçişinde çözülecek):**
+- sqlite-vec per-event load — `loadSqliteVecCjs(db)` her prompt'ta extension yüklüyor. MCP Server'da tek process = module cache çalışır
+- Perf O(H*N) filter — `calculatePercentiles` her hook için full array filter. MCP Server'da dataset büyüyünce anlamlı olacak
+
+**v0.6.4'ten taşınabilecek (MCP Server'a ertelenecek):**
+- SearchCache SRP (C7) — MCP Server'da Cache ve Throttle zaten ayrı concern olacak
+- Prompt-level cache review (C10) — MCP Server'da persistent process = cache stratejisi değişecek
 
 ### 7. MCP Server — Cross-Host Memory Layer
 - **Ne:** Mindlore'u MCP protocol üzerinden Claude Code + Cursor + Codex + Cline + Windsurf + Claude Desktop'a açmak
@@ -873,6 +984,12 @@ Kapsamı geniş, spec/brainstorm gerektiren özellikler.
 - **Context-Mode notu:** Embedding modeli kullanmıyor — pure FTS5 + BM25 (keyword-based). Semantic search yok.
 - **Gerekli:** Corpus üzerinde A/B test, recall@k ölçümü
 - **Karar:** v0.7'de measurement, v0.8'de implement (eğer kazanç varsa)
+- **Dependency Stratejisi — Lazy Download (Lemma Pattern):**
+  - **Problem:** `@huggingface/transformers` şu an devDependencies'de, 946 MB. v0.7'de embedding aktif olunca dependencies'e taşınırsa her kullanıcı 946 MB indirecek.
+  - **Çözüm:** Model dosyası npm paketine dahil edilmez. `@huggingface/transformers` optionalDependencies'e taşınır. İlk embedding çağrısında model (~134 MB) otomatik indirilir ve `~/.mindlore/models/` altına cache'lenir. Sonraki çağrılar cache'den okur (<100ms).
+  - **Graceful degradation:** HuggingFace kurulu değilse veya model indirilemezse sistem FTS5-only modda çalışır. Semantic search devre dışı kalır, keyword search çalışmaya devam eder.
+  - **Kullanıcı deneyimi:** `npx mindlore` hafif kalır (~16 MB). Embedding isteyen kullanıcı ilk seferde tek seferlik ~134 MB model indirir. İstemeyenler hiç indirmez.
+  - **Referans:** Lemma repo'su aynı pattern'i kullanıyor (opsiyonel bağımlılık, ilk kullanımda lazy download).
 
 ### 10. Plugin Manifest v2
 - **Ne:** Kullanıcıların kendi skill/hook'larını eklemesi için manifest schema

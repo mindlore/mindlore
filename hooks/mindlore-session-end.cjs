@@ -13,7 +13,7 @@ const fs = require('fs');
 const path = require('path');
 const os = require('os');
 const { execSync, execFileSync, spawn } = require('child_process');
-const { findMindloreDir, globalDir, getProjectName, openDatabase, ensureEpisodesTable, hasEpisodesTable, insertBareEpisode, insertFtsRow, hookLog, SHARED_EXPORT_DIRS, resolveWin32Bin, withTelemetry } = require('./lib/mindlore-common.cjs');
+const { findMindloreDir, globalDir, getProjectName, openDatabase, ensureEpisodesTable, hasEpisodesTable, insertBareEpisode, insertFtsRow, hookLog, SHARED_EXPORT_DIRS, resolveWin32Bin, withTelemetry, getUnpromotedRawFiles } = require('./lib/mindlore-common.cjs');
 
 const EXPORT_DIRS = SHARED_EXPORT_DIRS;
 
@@ -81,6 +81,14 @@ if (process.argv.includes('--worker')) {
         hookLog('session-end', 'info', 'embed subprocess spawned, pid=' + embedProc.pid);
       }
     }, 'embed-trigger');
+
+    // Raw accumulation warning (moved from main to worker — off hot path)
+    await safeRunAsync(() => {
+      const unpromoted = getUnpromotedRawFiles(baseDir);
+      if (unpromoted.length >= 5) {
+        hookLog('session-end', 'info', `${unpromoted.length} raw files unpromoted`);
+      }
+    }, 'raw-check');
 
     // Obsidian + git-sync are independent — run in parallel
     await Promise.allSettled([
@@ -220,20 +228,6 @@ function main() {
     const logEntry = `| ${now.toISOString().slice(0, 10)} | session-end | delta-${dateStr}.md |\n`;
     fs.appendFileSync(logPath, logEntry, 'utf8');
   }
-
-  // Raw accumulation warning
-  try {
-    const rawDir = path.join(baseDir, 'raw');
-    const sourcesDir = path.join(baseDir, 'sources');
-    if (fs.existsSync(rawDir) && fs.existsSync(sourcesDir)) {
-      const rawFiles = fs.readdirSync(rawDir).filter(f => f.endsWith('.md'));
-      const sourceFiles = new Set(fs.readdirSync(sourcesDir).filter(f => f.endsWith('.md')));
-      const unpromoted = rawFiles.filter(f => !sourceFiles.has(f)).length;
-      if (unpromoted >= 5) {
-        process.stdout.write(`[Mindlore] ${unpromoted} raw dosya promote bekliyor — \`/mindlore-maintain triage\` ile listele\n`);
-      }
-    }
-  } catch (_err) { /* graceful skip */ }
 
   // Heavy ops: detach into child process so CC can exit immediately.
   // Fixes "Hook cancelled" when CC kills the hook before completion.

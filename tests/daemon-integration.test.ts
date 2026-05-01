@@ -22,19 +22,19 @@ describe('daemon-client.js', () => {
 });
 
 describe('search hook daemon integration', () => {
-  it('should have daemon client connection code', () => {
+  it('should delegate to search-engine module', () => {
     const hookSrc = fs.readFileSync(
       path.join(__dirname, '..', 'hooks', 'mindlore-search.cjs'), 'utf8'
     );
-    expect(hookSrc).toContain('daemon-client');
-    expect(hookSrc).toContain('requestEmbeddingSync');
+    expect(hookSrc).toContain('search-engine.js');
+    expect(hookSrc).toContain('searchEngineMod.search');
   });
 
-  it('should fall back to FTS5 with log on daemon failure', () => {
+  it('should log when search-engine module is unavailable', () => {
     const hookSrc = fs.readFileSync(
       path.join(__dirname, '..', 'hooks', 'mindlore-search.cjs'), 'utf8'
     );
-    expect(hookSrc).toContain('FTS5-only');
     expect(hookSrc).toContain("hookLog('search'");
+    expect(hookSrc).toContain('not available');
   });
 });

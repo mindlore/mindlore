@@ -1,6 +1,6 @@
 /**
  * session-payload — builds 4 structured injection sections for SessionStart.
- * Token budget enforcement + content-hash cache-lock.
+ * Token budget enforcement + content-hash.
  */
 
 import Database from 'better-sqlite3';
@@ -18,10 +18,10 @@ export interface SessionPayload {
   sections: SessionSection[];
   totalTokens: number;
   contentHash: string;
-  skipInjection: boolean;
 }
 
 interface EpisodeRow {
+  kind: string;
   summary: string;
   created_at: string;
 }
@@ -32,13 +32,11 @@ function estimateTokens(text: string): number {
   return Math.ceil(text.length / CHARS_PER_TOKEN);
 }
 
-let lastHash: string | null = null;
-
-export function resetCache(): void {
-  lastHash = null;
-}
-
-function buildSessionSummary(baseDir: string): string {
+function buildSessionSummary(baseDir: string, latestDeltaContent?: string): string {
+  if (latestDeltaContent) {
+    const lines = latestDeltaContent.split('\n').filter(l => l.startsWith('- ') || l.startsWith('# '));
+    return lines.slice(0, 10).join('\n') || 'No previous session data.';
+  }
   const diaryDir = path.join(baseDir, 'diary');
   if (!fs.existsSync(diaryDir)) return 'No previous session data.';
   const deltas = fs.readdirSync(diaryDir).filter(f => f.startsWith('delta-')).sort();
@@ -49,37 +47,31 @@ function buildSessionSummary(baseDir: string): string {
   return lines.slice(0, 10).join('\n');
 }
 
-function buildDecisions(db: Database.Database, project: string): string {
+function buildEpisodeSections(db: Database.Database, project: string): { decisions: string; friction: string; learnings: string } {
   // eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- better-sqlite3 .all() returns unknown[]
-  const decisions = db.prepare(
-    `SELECT summary, created_at FROM episodes
-     WHERE kind = 'decision' AND status = 'active' AND project = ?
-     ORDER BY created_at DESC LIMIT 5`,
+  const rows = db.prepare(
+    `SELECT kind, summary, created_at FROM episodes
+     WHERE status = 'active' AND project = ?
+       AND kind IN ('decision', 'friction', 'learning')
+     ORDER BY kind, created_at DESC`,
   ).all(project) as EpisodeRow[];
-  if (decisions.length === 0) return 'No recent decisions.';
-  return decisions.map(d => `- ${d.summary} (${d.created_at.slice(0, 10)})`).join('\n');
-}
 
-function buildFriction(db: Database.Database, project: string): string {
-  // eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- better-sqlite3 .all() returns unknown[]
-  const frictions = db.prepare(
-    `SELECT summary, created_at FROM episodes
-     WHERE kind = 'friction' AND status = 'active' AND project = ?
-     ORDER BY created_at DESC LIMIT 3`,
-  ).all(project) as EpisodeRow[];
-  if (frictions.length === 0) return 'No active friction points.';
-  return frictions.map(f => `- ${f.summary} (${f.created_at.slice(0, 10)})`).join('\n');
-}
+  const grouped = { decision: [] as EpisodeRow[], friction: [] as EpisodeRow[], learning: [] as EpisodeRow[] };
+  for (const row of rows) {
+    const kind = row.kind;
+    if (kind === 'decision' || kind === 'friction' || kind === 'learning') {
+      grouped[kind].push(row);
+    }
+  }
 
-function buildLearnings(db: Database.Database, project: string): string {
-  // eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- better-sqlite3 .all() returns unknown[]
-  const learnings = db.prepare(
-    `SELECT summary, created_at FROM episodes
-     WHERE kind = 'learning' AND status = 'active' AND project = ?
-     ORDER BY created_at DESC LIMIT 5`,
-  ).all(project) as EpisodeRow[];
-  if (learnings.length === 0) return 'No recent learnings.';
-  return learnings.map(l => `- ${l.summary} (${l.created_at.slice(0, 10)})`).join('\n');
+  const fmt = (items: EpisodeRow[], limit: number) =>
+    items.slice(0, limit).map(r => `- ${r.summary} (${r.created_at.slice(0, 10)})`).join('\n');
+
+  return {
+    decisions: grouped.decision.length > 0 ? fmt(grouped.decision, 5) : 'No recent decisions.',
+    friction: grouped.friction.length > 0 ? fmt(grouped.friction, 3) : 'No active friction points.',
+    learnings: grouped.learning.length > 0 ? fmt(grouped.learning, 5) : 'No recent learnings.',
+  };
 }
 
 export function buildSessionPayload(
@@ -87,20 +79,17 @@ export function buildSessionPayload(
   baseDir: string,
   project: string,
   tokenBudget: number = 2000,
+  latestDeltaContent?: string,
 ): SessionPayload {
   const sections: SessionSection[] = [];
 
-  const summary = buildSessionSummary(baseDir);
+  const summary = buildSessionSummary(baseDir, latestDeltaContent);
   sections.push({ label: 'Session', content: summary, tokens: estimateTokens(summary) });
 
-  const decisions = buildDecisions(db, project);
-  sections.push({ label: 'Decisions', content: decisions, tokens: estimateTokens(decisions) });
-
-  const friction = buildFriction(db, project);
-  sections.push({ label: 'Friction', content: friction, tokens: estimateTokens(friction) });
-
-  const learnings = buildLearnings(db, project);
-  sections.push({ label: 'Learnings', content: learnings, tokens: estimateTokens(learnings) });
+  const episodes = buildEpisodeSections(db, project);
+  sections.push({ label: 'Decisions', content: episodes.decisions, tokens: estimateTokens(episodes.decisions) });
+  sections.push({ label: 'Friction', content: episodes.friction, tokens: estimateTokens(episodes.friction) });
+  sections.push({ label: 'Learnings', content: episodes.learnings, tokens: estimateTokens(episodes.learnings) });
 
   // Session summaries from recent sessions (#9)
   try {
@@ -128,8 +117,6 @@ export function buildSessionPayload(
 
   const allContent = sections.map(s => s.content).join('|');
   const contentHash = crypto.createHash('md5').update(allContent).digest('hex').slice(0, 8);
-  const skipInjection = contentHash === lastHash;
-  lastHash = contentHash;
 
-  return { sections, totalTokens, contentHash, skipInjection };
+  return { sections, totalTokens, contentHash };
 }

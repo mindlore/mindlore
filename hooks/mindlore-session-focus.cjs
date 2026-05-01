@@ -10,38 +10,22 @@
 
 const fs = require('fs');
 const path = require('path');
-const { findMindloreDir, readConfig, openDatabase, hasEpisodesTable, querySupersededChains, formatSupersededChains, hookLog, getProjectName, parseFrontmatter, withTelemetry, withTimeoutDb } = require('./lib/mindlore-common.cjs');
-
-function isCorruptionError(err) {
-  const code = err?.code ?? '';
-  const msg = String(err?.message ?? err);
-  return code === 'SQLITE_CORRUPT' || code === 'SQLITE_NOTADB' || /corrupt|malformed/i.test(msg);
-}
-
-function recoverCorruptDb(db, dbPath, reason) {
-  try { db.close(); } catch { /* already closed */ }
-  const bakPath = dbPath + '.corrupt.bak';
-  try { fs.copyFileSync(dbPath, bakPath); } catch { /* best effort */ }
-  try { fs.unlinkSync(dbPath); } catch { /* best effort */ }
-  hookLog('session-focus', 'warn', reason);
-}
+const { findMindloreDir, readConfig, openDatabase, hasEpisodesTable, querySupersededChains, formatSupersededChains, hookLog, getProjectName, parseFrontmatter, withTelemetry, withTimeoutDb, listSnapshots, isCorruptionError, recoverCorruptDb } = require('./lib/mindlore-common.cjs');
 
 function tryOpenDb(dbPath) {
   return openDatabase(dbPath, { readonly: true });
 }
 
-function loadDbContent(db, baseDir, config, output, timings) {
+function loadDbContent(db, baseDir, config, output, timings, latestDeltaContent) {
   // Session payload: Session summary, Decisions, Friction, Learnings
   const tPayload = Date.now();
   try {
     const { buildSessionPayload } = require('../dist/scripts/lib/session-payload.js');
     const project = path.basename(process.cwd());
     const payloadBudget = config?.tokenBudget?.sessionInject ?? 2000;
-    const payload = buildSessionPayload(db, baseDir, project, payloadBudget);
-    if (!payload.skipInjection) {
-      for (const section of payload.sections) {
-        output.push(`[Mindlore ${section.label}]\n${section.content}`);
-      }
+    const payload = buildSessionPayload(db, baseDir, project, payloadBudget, latestDeltaContent);
+    for (const section of payload.sections) {
+      output.push(`[Mindlore ${section.label}]\n${section.content}`);
     }
   } catch (_payloadErr) {
     // Session payload is optional — don't break session start
@@ -108,16 +92,17 @@ function main() {
   // Inject latest delta + reflect trigger (single readdirSync)
   const tDiary = Date.now();
   const diaryDir = path.join(baseDir, 'diary');
+  let latestDeltaContent = undefined;
   if (fs.existsSync(diaryDir)) {
     try {
-      const diaryFiles = fs.readdirSync(diaryDir).filter(f => f.startsWith('delta-') && f.endsWith('.md'));
+      const diaryFiles = listSnapshots(diaryDir).filter(f => f.startsWith('delta-'));
 
       if (diaryFiles.length > 0) {
-        const sorted = [...diaryFiles].sort();
-        const latestName = sorted[sorted.length - 1];
+        const latestName = diaryFiles[diaryFiles.length - 1];
         const latestPath = path.join(diaryDir, latestName);
         sourceChars += fs.statSync(latestPath).size;
         const deltaContent = fs.readFileSync(latestPath, 'utf8').trim();
+        latestDeltaContent = deltaContent;
         const { meta } = parseFrontmatter(deltaContent);
         const deltaProject = meta.project || null;
         const currentProject = getProjectName();
@@ -163,10 +148,10 @@ function main() {
 
     if (db) {
       try {
-        loadDbContent(db, baseDir, config, output, timings);
+        loadDbContent(db, baseDir, config, output, timings, latestDeltaContent);
       } catch (err) {
         if (isCorruptionError(err)) {
-          recoverCorruptDb(db, dbPath, `Corrupt DB detected during query: ${err?.message ?? err}`);
+          recoverCorruptDb(db, dbPath, 'session-focus');
         }
       } finally {
         try { db.close(); } catch { /* already closed by recovery */ }

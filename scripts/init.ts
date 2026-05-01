@@ -16,9 +16,11 @@ import { execSync } from 'child_process';
 import { MINDLORE_DIR, GLOBAL_MINDLORE_DIR, DB_NAME, DIRECTORIES, CONFIG_FILE, DEFAULT_MODELS, homedir, log, resolveHookCommon } from './lib/constants.js';
 import type { Settings } from './lib/constants.js';
 import { dbPragma } from './lib/db-helpers.js';
+import { mergeDefaults } from './lib/merge-defaults.js';
 import { parseJsonObject, readJsonFile } from './lib/safe-parse.js';
 import { ensureSchemaTable, runMigrations } from './lib/schema-version.js';
 import { V062_MIGRATIONS } from './lib/migrations-v062.js';
+import { V063_MIGRATIONS } from './lib/migrations-v063.js';
 
 // eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- dynamic CJS require, typed by mindlore-common.d.cts
 const { SQL_FTS_CREATE, ensureEpisodesTable: ensureEpisodesTableCjs } = require(resolveHookCommon(__dirname)) as {
@@ -45,32 +47,6 @@ interface PluginManifest {
 }
 
 // ── Helpers ────────────────────────────────────────────────────────────
-
-function mergeDefaults(target: Record<string, unknown>, defaults: Record<string, unknown>): { result: Record<string, unknown>; changed: boolean } {
-  const result = { ...target };
-  let changed = false;
-  for (const [key, defaultValue] of Object.entries(defaults)) {
-    if (!(key in result) || result[key] === undefined || result[key] === null) {
-      result[key] = defaultValue;
-      changed = true;
-    } else if (
-      typeof result[key] === 'object' && result[key] !== null && !Array.isArray(result[key]) &&
-      typeof defaultValue === 'object' && defaultValue !== null && !Array.isArray(defaultValue)
-    ) {
-      /* eslint-disable @typescript-eslint/no-unsafe-type-assertion -- narrowed by typeof+null+array checks above */
-      const nested = mergeDefaults(
-        result[key] as Record<string, unknown>,
-        defaultValue as Record<string, unknown>,
-      );
-      /* eslint-enable @typescript-eslint/no-unsafe-type-assertion */
-      if (nested.changed) {
-        result[key] = nested.result;
-        changed = true;
-      }
-    }
-  }
-  return { result, changed };
-}
 
 function resolvePackageRoot(): string {
   // When compiled to dist/scripts/, go up two levels to reach package root
@@ -204,7 +180,7 @@ function createDatabase(baseDir: string): boolean {
     const dbEp = new DatabaseCtor(dbPath);
     ensureEpisodesTableCjs(dbEp);
     ensureSchemaTable(dbEp);
-    runMigrations(dbEp, V062_MIGRATIONS);
+    runMigrations(dbEp, [...V062_MIGRATIONS, ...V063_MIGRATIONS]);
     dbEp.close();
     return migrated;
   }
@@ -225,9 +201,9 @@ function createDatabase(baseDir: string): boolean {
   // Idempotent: pre-v0.4 installs won't have this table
   ensureEpisodesTableCjs(db);
 
-  // v0.6.2 migrations (raw_metadata + session_summary)
+  // v0.6.2 + v0.6.3 migrations
   ensureSchemaTable(db);
-  runMigrations(db, V062_MIGRATIONS);
+  runMigrations(db, [...V062_MIGRATIONS, ...V063_MIGRATIONS]);
 
   db.close();
   return true;
