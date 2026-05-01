@@ -14,11 +14,14 @@ const PATTERN_PREFIXES: Array<{ prefix: string; pattern: RegExp }> = [
   { prefix: 'pk_live_', pattern: /pk_live_[a-zA-Z0-9]{20,}/g },
   { prefix: 'Bearer', pattern: /Bearer\s+[a-zA-Z0-9\-._~+/]+=*/g },
   { prefix: '-----BEGIN', pattern: /-----BEGIN\s(?:RSA\s|EC\s|DSA\s|OPENSSH\s)?PRIVATE\sKEY-----/g },
+  { prefix: 'Basic', pattern: /Basic\s+[a-zA-Z0-9+\/]{16,}={0,2}/g },
+  { prefix: '-----BEGIN CERTIFICATE', pattern: /-----BEGIN\sCERTIFICATE-----/g },
 ];
 
 const NO_PREFIX_PATTERNS: RegExp[] = [
   /(?:postgres|mysql|mongodb|redis|amqp)(?:\+srv)?:\/\/[^\s"']+/g,
   /(?:PASSWORD|SECRET|TOKEN|API_KEY|PRIVATE_KEY|DATABASE_URL|DB_PASSWORD|AUTH_TOKEN|ACCESS_KEY|SECRET_KEY)=\S+/gi,
+  /(?:api_key|auth_token|access_token|refresh_token|client_secret|private_key|secret_key)\s*[:=]\s*["']?[^\s"',}{]{8,}["']?/gi,
 ];
 
 export const DEFAULT_PATTERNS: RegExp[] = [

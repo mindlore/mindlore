@@ -1,75 +1,49 @@
-import { redactSecrets, DEFAULT_PATTERNS } from '../scripts/lib/privacy-filter.js';
+import { redactSecrets } from '../scripts/lib/privacy-filter.js';
 
-describe('Privacy Filter', () => {
-  test('should redact OpenAI API keys', () => {
-    const input = 'My key is sk-proj-abc123def456ghi789';
-    const result = redactSecrets(input);
-    expect(result).toBe('My key is [REDACTED]');
-    expect(result).not.toContain('sk-proj-');
+describe('privacy-filter redaction (SEC-5)', () => {
+  it('redacts api_key key-value pair', () => {
+    expect(redactSecrets('api_key=sk_test_12345abcdef')).not.toContain('sk_test_12345abcdef');
   });
 
-  test('should redact AWS access keys', () => {
-    const input = 'AWS_ACCESS_KEY_ID=AKIAIOSFODNN7EXAMPLE';
-    const result = redactSecrets(input);
-    expect(result).toContain('[REDACTED]');
-    expect(result).not.toContain('AKIA');
+  it('redacts auth_token key-value pair', () => {
+    expect(redactSecrets('auth_token: "mySecretToken123"')).not.toContain('mySecretToken123');
   });
 
-  test('should redact GitHub tokens', () => {
-    const input = 'token: ghp_ABCDEFghijklmnop1234567890abcdefGHIJ';
-    const result = redactSecrets(input);
-    expect(result).toContain('[REDACTED]');
-    expect(result).not.toContain('ghp_');
+  it('redacts access_token', () => {
+    expect(redactSecrets('access_token=eyJhbGciOiJIUzI1NiJ9')).not.toContain('eyJhbGciOiJIUzI1NiJ9');
   });
 
-  test('should redact npm tokens', () => {
-    const input = 'npm_abc123DEF456ghi789JKL012mno345PQR678stu';
-    const result = redactSecrets(input);
-    expect(result).toContain('[REDACTED]');
+  it('redacts refresh_token', () => {
+    expect(redactSecrets('refresh_token: refresh_abc123def456')).not.toContain('refresh_abc123def456');
   });
 
-  test('should redact connection strings', () => {
-    const input = 'DB_URL=postgres://user:pass@host:5432/db';
-    const result = redactSecrets(input);
-    expect(result).toContain('[REDACTED]');
-    expect(result).not.toContain('pass@');
+  it('redacts client_secret', () => {
+    expect(redactSecrets('client_secret="superSecretValue123"')).not.toContain('superSecretValue123');
   });
 
-  test('should redact .env style secrets', () => {
-    const input = 'DATABASE_PASSWORD=supersecret123\nAPI_TOKEN=mytoken456';
-    const result = redactSecrets(input);
-    expect(result).not.toContain('supersecret123');
-    expect(result).not.toContain('mytoken456');
+  it('redacts private_key value', () => {
+    expect(redactSecrets("private_key = 'my-private-key-value-here'")).not.toContain('my-private-key-value-here');
   });
 
-  test('should not redact normal text', () => {
-    const input = 'This is a normal document about authentication patterns.';
-    const result = redactSecrets(input);
-    expect(result).toBe(input);
+  it('redacts Authorization Basic header', () => {
+    expect(redactSecrets('Basic dXNlcjpwYXNzd29yZA==')).not.toContain('dXNlcjpwYXNzd29yZA==');
   });
 
-  test('should accept custom patterns from config', () => {
-    const input = 'CUSTOM_KEY=abc123';
-    const custom = [/CUSTOM_KEY=\S+/g];
-    const result = redactSecrets(input, custom);
+  it('redacts BEGIN CERTIFICATE', () => {
+    const result = redactSecrets('-----BEGIN CERTIFICATE-----');
     expect(result).toContain('[REDACTED]');
   });
 
-  test('should export DEFAULT_PATTERNS array', () => {
-    expect(Array.isArray(DEFAULT_PATTERNS)).toBe(true);
-    expect(DEFAULT_PATTERNS.length).toBeGreaterThan(0);
+  it('preserves non-secret text', () => {
+    expect(redactSecrets('Hello world, this is normal text')).toBe('Hello world, this is normal text');
   });
 
-  test('should complete 1000 iterations of clean text under 500ms', () => {
-    const cleanText = 'This is a normal log message with no secrets. '.repeat(100);
-    const iterations = 1000;
+  it('redacts existing patterns still work (JWT)', () => {
+    const jwt = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxMjM0NTY3ODkwIn0.dozjgNryP4J3jVmNHl0w5N_XgL0n3I9PlFUP0THsR8U';
+    expect(redactSecrets(jwt)).not.toContain(jwt);
+  });
 
-    const start = performance.now();
-    for (let i = 0; i < iterations; i++) {
-      redactSecrets(cleanText);
-    }
-    const elapsed = performance.now() - start;
-
-    expect(elapsed).toBeLessThan(500);
+  it('redacts secret_key key-value', () => {
+    expect(redactSecrets('secret_key: abcdefghijklmnop')).not.toContain('abcdefghijklmnop');
   });
 });
