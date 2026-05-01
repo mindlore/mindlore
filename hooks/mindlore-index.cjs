@@ -38,8 +38,11 @@ function main() {
   const fileName = path.basename(filePath);
 
   // Find the .mindlore dir from the file path
-  const mindloreIdx = filePath.indexOf(MINDLORE_DIR);
-  const baseDir = filePath.slice(0, mindloreIdx + MINDLORE_DIR.length);
+  const resolvedFile = path.resolve(filePath);
+  const sepDir = path.sep + MINDLORE_DIR;
+  const mindloreIdx = resolvedFile.lastIndexOf(sepDir);
+  if (mindloreIdx === -1) return;
+  const baseDir = resolvedFile.slice(0, mindloreIdx + sepDir.length);
   const dbPath = path.join(baseDir, DB_NAME);
 
   if (!fs.existsSync(dbPath)) return;
