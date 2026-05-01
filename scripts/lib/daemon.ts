@@ -70,6 +70,8 @@ export function createDaemonServer(options: DaemonOptions): DaemonServer {
 
       return new Promise((resolve) => {
         server = net.createServer((conn) => {
+          conn.setTimeout(5000);
+          conn.on('timeout', () => conn.destroy());
           let buffer = '';
           const MAX_BUFFER = 1024 * 1024;
           conn.on('data', async (data) => {
@@ -99,6 +101,7 @@ export function createDaemonServer(options: DaemonOptions): DaemonServer {
           });
         });
 
+        server.maxConnections = 10;
         server.listen(0, DAEMON_HOST, () => {
           const addr = server?.address();
           if (addr && typeof addr === 'object') {
