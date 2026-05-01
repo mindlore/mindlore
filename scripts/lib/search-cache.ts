@@ -50,6 +50,15 @@ export class SearchCache {
     this.db.prepare('DELETE FROM search_cache WHERE expires_at < ?').run(new Date().toISOString());
   }
 
+}
+
+export class SearchThrottle {
+  private db: Database;
+
+  constructor(db: Database) {
+    this.db = db;
+  }
+
   incrementCallCount(sessionId: string): number {
     const now = new Date().toISOString();
     // eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- better-sqlite3 .get() returns unknown

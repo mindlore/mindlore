@@ -2,7 +2,7 @@ import fs from 'fs';
 import os from 'os';
 import path from 'path';
 import Database from 'better-sqlite3';
-import { SearchCache } from '../scripts/lib/search-cache.js';
+import { SearchCache, SearchThrottle } from '../scripts/lib/search-cache.js';
 import { SQL_SEARCH_CACHE_CREATE, SQL_SEARCH_THROTTLE_CREATE } from '../scripts/lib/migrations-v063.js';
 import type { SearchResult } from '../scripts/lib/search-engine.js';
 
@@ -80,26 +80,26 @@ describe('Progressive Throttling', () => {
   });
 
   test('returns 3 results for calls 1-10', () => {
-    const cache = new SearchCache(db, { ttlMs: 5000 });
-    expect(cache.getMaxResults(1)).toBe(3);
-    expect(cache.getMaxResults(10)).toBe(3);
+    const throttle = new SearchThrottle(db);
+    expect(throttle.getMaxResults(1)).toBe(3);
+    expect(throttle.getMaxResults(10)).toBe(3);
   });
 
   test('returns 1 result for calls 11-20', () => {
-    const cache = new SearchCache(db, { ttlMs: 5000 });
-    expect(cache.getMaxResults(11)).toBe(1);
-    expect(cache.getMaxResults(20)).toBe(1);
+    const throttle = new SearchThrottle(db);
+    expect(throttle.getMaxResults(11)).toBe(1);
+    expect(throttle.getMaxResults(20)).toBe(1);
   });
 
   test('returns 0 for calls 21+', () => {
-    const cache = new SearchCache(db, { ttlMs: 5000 });
-    expect(cache.getMaxResults(21)).toBe(0);
+    const throttle = new SearchThrottle(db);
+    expect(throttle.getMaxResults(21)).toBe(0);
   });
 
   test('incrementCallCount tracks per session', () => {
-    const cache = new SearchCache(db, { ttlMs: 5000 });
-    expect(cache.incrementCallCount('sess-1')).toBe(1);
-    expect(cache.incrementCallCount('sess-1')).toBe(2);
-    expect(cache.incrementCallCount('sess-2')).toBe(1);
+    const throttle = new SearchThrottle(db);
+    expect(throttle.incrementCallCount('sess-1')).toBe(1);
+    expect(throttle.incrementCallCount('sess-1')).toBe(2);
+    expect(throttle.incrementCallCount('sess-2')).toBe(1);
   });
 });
