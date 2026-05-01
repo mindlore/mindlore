@@ -36,6 +36,9 @@ export const SCHEMA_VERSION = 1;
 export const EMBEDDING_MODEL_NAME = 'Xenova/multilingual-e5-small';
 export const EMBEDDING_DIM_CONST = 384;
 
+export const CATEGORIES = ['sources', 'analyses', 'domains', 'episodes', 'decisions', 'raw', 'sessions', 'cc_memory', 'cc-session', 'cc-subagent', 'diary', 'insights', 'connections', 'learnings', 'memory'] as const;
+export type Category = typeof CATEGORIES[number];
+
 export const SESSION_CATEGORIES = ['cc-subagent', 'cc-session'] as const;
 export type SessionCategory = typeof SESSION_CATEGORIES[number];
 

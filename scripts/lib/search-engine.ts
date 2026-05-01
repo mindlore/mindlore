@@ -4,7 +4,7 @@ import { searchPorter, searchTrigram, computeRRF } from './rrf.js';
 import { correctQuery } from './fuzzy.js';
 import { rerankByProximity } from './proximity.js';
 import { extractSnippet } from './snippet.js';
-import { fixVersionTokens, STOP_WORDS, STOP_WORDS_MIN_LENGTH, TURKISH_WORD_RE } from './constants.js';
+import { fixVersionTokens, STOP_WORDS, STOP_WORDS_MIN_LENGTH, TURKISH_WORD_RE, Category } from './constants.js';
 
 export interface SearchOptions {
   project?: string;
@@ -42,7 +42,7 @@ function expandWithSynonyms(keywords: string[], synonyms?: Record<string, string
   return expanded;
 }
 
-const CATEGORY_WEIGHTS: Record<string, number> = {
+const CATEGORY_WEIGHTS: Partial<Record<Category, number>> = {
   sources: 1.2,
   analyses: 1.15,
   domains: 1.1,
@@ -113,7 +113,7 @@ export function search(db: Database, query: string, options: SearchOptions): Sea
   const intentBoosts = INTENT_CONFIG[intent].boosts;
 
   for (const r of fused) {
-    r.score *= CATEGORY_WEIGHTS[r.category ?? ''] ?? 1.0;
+    r.score *= CATEGORY_WEIGHTS[r.category as Category] ?? 1.0;
     r.score *= intentBoosts[r.category ?? ''] ?? 1.0;
   }
 
