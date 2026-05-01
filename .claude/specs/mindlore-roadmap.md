@@ -935,6 +935,9 @@ v0.6.3 simplify review'dan ertelenen bulgular. 11/12 task tamamlandı, 12 commit
 | # | Başlık | Kaynak | Efor |
 |---|--------|--------|------|
 | C2 | `hybrid-search.ts` kaldır + 5 test dosyasını refactor — `tests/hybrid-search.test.ts`, `tests/search-cli-hybrid.test.ts`, `tests/index-cli-embed.test.ts` sil, `tests/search-hook.test.ts` ve `tests/fts5.test.ts` güncelle | v0.6.4'ten ertelendi | Orta |
+| S1 | `searchPorter`/`searchTrigram` copy-paste — 4 duplicated SQL string → shared `_searchFts` helper | v0.6.4 simplify | Küçük |
+| S2 | `cleanup()` her cache miss'te çalışıyor — throttle ekle (1-in-N veya time-based) | v0.6.4 simplify | Küçük |
+| S3 | `extractKeywords` iki yerde farklı davranış (search-engine.ts: no cap, mindlore-common.cjs: maxKeywords=8) — belgeleme veya unify | v0.6.4 simplify | Küçük |
 
 ---
 
