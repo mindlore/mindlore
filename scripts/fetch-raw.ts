@@ -1,8 +1,9 @@
-import { execSync, execFileSync } from 'child_process';
+import { execFileSync } from 'child_process';
 import fs from 'fs';
 import path from 'path';
 import crypto from 'crypto';
 import os from 'os';
+import { sanitizeForExecFile } from './lib/input-validation.js';
 
 function validateUrl(raw: string): URL {
   const u = new URL(raw);
@@ -54,8 +55,11 @@ function fetchGitHubReadme(url: string): string | null {
   if (!match) return null;
   const [, owner, repo] = match;
   try {
-    const result = execSync(
-      `gh api repos/${owner}/${repo}/readme --jq .content`,
+    const safeOwner = sanitizeForExecFile(owner!);
+    const safeRepo = sanitizeForExecFile(repo!);
+    const result = execFileSync(
+      'gh',
+      ['api', `repos/${safeOwner}/${safeRepo}/readme`, '--jq', '.content'],
       { encoding: 'utf8', timeout: 15000, stdio: ['pipe', 'pipe', 'pipe'] }
     );
     return Buffer.from(result.trim(), 'base64').toString('utf8');
