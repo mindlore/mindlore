@@ -63,17 +63,29 @@ export function computeRRF(
   return results;
 }
 
+function _searchFts(
+  db: Database,
+  table: string,
+  rankExpr: string,
+  orderBy: string,
+  query: string,
+  project: string | undefined,
+  limit: number,
+): RankedResult[] {
+  const sql = project
+    ? `SELECT path, slug, description, title, category, tags, content, ${rankExpr} FROM ${table} WHERE ${table} MATCH ? AND project = ? ORDER BY ${orderBy} LIMIT ?`
+    : `SELECT path, slug, description, title, category, tags, content, ${rankExpr} FROM ${table} WHERE ${table} MATCH ? ORDER BY ${orderBy} LIMIT ?`;
+  const params = project ? [query, project, limit] : [query, limit];
+  return dbAll<RankedResult>(db, sql, ...params).map((r, i) => ({ ...r, rank: i + 1, score: 0 }));
+}
+
 export function searchPorter(
   db: Database,
   options: SearchQueryOptions,
 ): RankedResult[] {
   const sanitized = sanitizeFtsQuery(options.query);
   if (!sanitized) return [];
-  const sql = options.project
-    ? 'SELECT path, slug, description, title, category, tags, content, bm25(mindlore_fts, 1, 1, 1, 5.0, 1, 1) as bm FROM mindlore_fts WHERE mindlore_fts MATCH ? AND project = ? ORDER BY bm LIMIT ?'
-    : 'SELECT path, slug, description, title, category, tags, content, bm25(mindlore_fts, 1, 1, 1, 5.0, 1, 1) as bm FROM mindlore_fts WHERE mindlore_fts MATCH ? ORDER BY bm LIMIT ?';
-  const params = options.project ? [sanitized, options.project, options.limit] : [sanitized, options.limit];
-  return dbAll<RankedResult & { bm: number }>(db, sql, ...params).map((r, i) => ({ ...r, rank: i + 1, score: 0 }));
+  return _searchFts(db, 'mindlore_fts', 'bm25(mindlore_fts, 1, 1, 1, 5.0, 1, 1) as bm', 'bm', sanitized, options.project, options.limit);
 }
 
 export function searchTrigram(
@@ -83,11 +95,7 @@ export function searchTrigram(
   const sanitized = sanitizeFtsQuery(options.query);
   if (!sanitized) return [];
   try {
-    const sql = options.project
-      ? 'SELECT path, slug, description, title, category, tags, content, rank FROM mindlore_fts_trigram WHERE mindlore_fts_trigram MATCH ? AND project = ? ORDER BY rank LIMIT ?'
-      : 'SELECT path, slug, description, title, category, tags, content, rank FROM mindlore_fts_trigram WHERE mindlore_fts_trigram MATCH ? ORDER BY rank LIMIT ?';
-    const params = options.project ? [sanitized, options.project, options.limit] : [sanitized, options.limit];
-    return dbAll<RankedResult>(db, sql, ...params).map((r, i) => ({ ...r, rank: i + 1, score: 0 }));
+    return _searchFts(db, 'mindlore_fts_trigram', 'rank', 'rank', sanitized, options.project, options.limit);
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err);
     if (!msg.includes('no such table')) {
