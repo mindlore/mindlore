@@ -3,13 +3,14 @@ import fs from 'fs';
 import path from 'path';
 import crypto from 'crypto';
 import os from 'os';
-import { sanitizeForExecFile } from './lib/input-validation.js';
+import { sanitizeForExecFile, validatePath, validateUrl as validateUrlSsrf } from './lib/input-validation.js';
 
 function validateUrl(raw: string): URL {
   const u = new URL(raw);
   if (!['http:', 'https:'].includes(u.protocol)) {
     throw new Error(`Unsupported protocol: ${u.protocol}`);
   }
+  validateUrlSsrf(u.href);
   return u;
 }
 
@@ -203,10 +204,12 @@ function main(): void {
   const skipIndices = new Set<number>();
   if (outDirFlag >= 0) { skipIndices.add(outDirFlag); skipIndices.add(outDirFlag + 1); }
   const url = args.find((a, i) => !a.startsWith('--') && !skipIndices.has(i));
+  const mindloreHome = process.env.MINDLORE_HOME ?? path.join(os.homedir(), '.mindlore');
   const outDir: string = (outDirFlag >= 0 && args[outDirFlag + 1])
     // eslint-disable-next-line @typescript-eslint/no-non-null-assertion -- guarded by args[outDirFlag + 1] truthiness check above
     ? args[outDirFlag + 1]!
-    : path.join(process.env.MINDLORE_HOME ?? path.join(os.homedir(), '.mindlore'), 'raw');
+    : path.join(mindloreHome, 'raw');
+  validatePath(outDir, mindloreHome);
 
   if (!url) {
     console.error('Usage: node fetch-raw.js <URL> [--out-dir <path>] [--force]');
