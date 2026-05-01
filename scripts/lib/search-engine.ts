@@ -57,7 +57,7 @@ type Intent = 'debug' | 'research' | 'implementation';
 
 interface IntentConfig {
   keywords: string[];
-  boosts: Record<string, number>;
+  boosts: Partial<Record<Category, number>>;
 }
 
 const INTENT_CONFIG: Record<Intent, IntentConfig> = {
@@ -118,7 +118,8 @@ export function search(db: Database, query: string, options: SearchOptions): Sea
   for (const r of fused) {
     // eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- DB category value matches Category union
     r.score *= CATEGORY_WEIGHTS[r.category as Category] ?? 1.0;
-    r.score *= intentBoosts[r.category ?? ''] ?? 1.0;
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- DB category value matches Category union
+    r.score *= intentBoosts[r.category as Category] ?? 1.0;
   }
 
   fused.sort((a, b) => b.score - a.score);

@@ -11,6 +11,8 @@ export class SearchCache {
   private db: Database;
   private ttlMs: number;
   private statsReady = false;
+  private stmtHit: BetterSqlite3.Statement | null = null;
+  private stmtMiss: BetterSqlite3.Statement | null = null;
 
   constructor(db: Database, options: SearchCacheOptions = {}) {
     this.db = db;
@@ -31,6 +33,8 @@ export class SearchCache {
       )
     `);
     this.db.prepare('INSERT OR IGNORE INTO search_cache_stats (id, hits, misses) VALUES (1, 0, 0)').run();
+    this.stmtHit = this.db.prepare('UPDATE search_cache_stats SET hits = hits + 1 WHERE id = 1');
+    this.stmtMiss = this.db.prepare('UPDATE search_cache_stats SET misses = misses + 1 WHERE id = 1');
     this.statsReady = true;
   }
 
@@ -55,12 +59,14 @@ export class SearchCache {
     ).get(h, new Date().toISOString()) as { results_json: string } | undefined;
     if (!row) {
       this.ensureStatsTable();
-      this.db.prepare('UPDATE search_cache_stats SET misses = misses + 1 WHERE id = 1').run();
+      // eslint-disable-next-line @typescript-eslint/no-non-null-assertion -- ensureStatsTable sets stmtMiss
+      this.stmtMiss!.run();
       this.cleanup();
       return null;
     }
     this.ensureStatsTable();
-    this.db.prepare('UPDATE search_cache_stats SET hits = hits + 1 WHERE id = 1').run();
+    // eslint-disable-next-line @typescript-eslint/no-non-null-assertion -- ensureStatsTable sets stmtHit
+    this.stmtHit!.run();
     // eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- JSON stored by set()
     return JSON.parse(row.results_json) as SearchResult[];
   }

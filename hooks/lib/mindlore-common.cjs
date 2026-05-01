@@ -586,6 +586,10 @@ const SHARED_STOP_WORDS = (() => {
   }
 })();
 
+if (!SHARED_STOP_WORDS) {
+  hookLog('common', 'warn', 'STOP_WORDS fallback active — run npm run build');
+}
+
 const STOP_WORDS = SHARED_STOP_WORDS?.STOP_WORDS ?? new Set(['the', 'a', 'an', 'is', 'are', 'and', 'or', 'but', 'in', 'on', 'at', 'to', 'for', 'of', 'with', 'bir', 'bu', 'de', 'da', 've']);
 const STOP_WORDS_MIN_LENGTH = SHARED_STOP_WORDS?.MIN_LENGTH ?? 2;
 
