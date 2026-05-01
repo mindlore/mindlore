@@ -75,10 +75,12 @@ const INTENT_CONFIG: Record<Intent, IntentConfig> = {
   },
 };
 
+const INTENT_KEYS: Intent[] = ['debug', 'research', 'implementation'];
+
 function detectIntent(query: string): Intent {
   const lower = query.toLowerCase();
-  for (const [intent, config] of Object.entries(INTENT_CONFIG)) {
-    if (config.keywords.some(k => lower.includes(k))) return intent as Intent;
+  for (const intent of INTENT_KEYS) {
+    if (INTENT_CONFIG[intent].keywords.some(k => lower.includes(k))) return intent;
   }
   return 'implementation';
 }
@@ -113,6 +115,7 @@ export function search(db: Database, query: string, options: SearchOptions): Sea
   const intentBoosts = INTENT_CONFIG[intent].boosts;
 
   for (const r of fused) {
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- DB category value matches Category union
     r.score *= CATEGORY_WEIGHTS[r.category as Category] ?? 1.0;
     r.score *= intentBoosts[r.category ?? ''] ?? 1.0;
   }
