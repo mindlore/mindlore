@@ -93,6 +93,14 @@ function main() {
       for (const r of results) {
         allResults.push({ ...r, baseDir });
       }
+
+      // Recall count inside loop — avoid reopening DB
+      try {
+        const txn = db.transaction(() => {
+          for (const r of results) incrementRecallCount(db, r.path);
+        });
+        txn();
+      } catch (_e) { /* graceful */ }
     } catch (err) {
       hookLog('search', 'warn', `Search error: ${err?.message || err}`);
     } finally {
@@ -116,18 +124,6 @@ function main() {
   const relevant = unique.slice(0, MAX_RESULTS);
   if (relevant.length === 0) return;
 
-  // Recall count update
-  try {
-    const db = openDatabase(dbPaths[0]);
-    if (db) {
-      const txn = db.transaction(() => {
-        for (const r of relevant) incrementRecallCount(db, r.path);
-      });
-      txn();
-      db.close();
-    }
-  } catch (_e) { /* graceful */ }
-
   // Token budget from config
   const budget = (config && config.tokenBudget) || {};
   const perResultChars = ((budget.perResult || 500) * 4);
@@ -141,10 +137,10 @@ function main() {
     const relativePath = path.relative(r.baseDir, r.path).replace(/\\/g, '/');
 
     let headings = [];
-    if (r.path && fs.existsSync(r.path)) {
+    const contentStr = r.content || '';
+    if (contentStr) {
       try {
-        const content = fs.readFileSync(r.path, 'utf8');
-        headings = extractHeadings(content, 3);
+        headings = extractHeadings(contentStr, 3);
       } catch (_err) { /* skip */ }
     }
 

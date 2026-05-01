@@ -24,7 +24,7 @@ export function chunkMarkdown(markdown: string, options: ChunkerOptions = {}): C
     if (content.length === 0) return;
     const breadcrumb = headingStack.length > 0 ? headingStack.join(' > ') : '';
     const chunk: Chunk = {
-      index: chunks.length,
+      index: 0,
       heading: currentHeading,
       breadcrumb,
       content,
@@ -81,7 +81,7 @@ function splitOversized(chunk: Chunk, maxChars: number): Chunk[] {
   for (const line of lines) {
     if (bufLen + line.length > maxChars && buffer.length > 0) {
       result.push({
-        index: chunk.index + result.length,
+        index: 0,
         heading: result.length === 0 ? chunk.heading : null,
         breadcrumb: chunk.breadcrumb,
         content: buffer.join('\n'),
@@ -96,7 +96,7 @@ function splitOversized(chunk: Chunk, maxChars: number): Chunk[] {
 
   if (buffer.length > 0) {
     result.push({
-      index: chunk.index + result.length,
+      index: 0,
       heading: result.length === 0 ? chunk.heading : null,
       breadcrumb: chunk.breadcrumb,
       content: buffer.join('\n'),

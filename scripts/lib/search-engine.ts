@@ -4,6 +4,7 @@ import { searchPorter, searchTrigram, computeRRF } from './rrf.js';
 import { correctQuery } from './fuzzy.js';
 import { rerankByProximity } from './proximity.js';
 import { extractSnippet } from './snippet.js';
+import { fixVersionTokens } from './constants.js';
 
 export interface SearchOptions {
   project?: string;
@@ -89,21 +90,23 @@ export function search(db: Database, query: string, options: SearchOptions): Sea
   if (keywords.length === 0) return [];
 
   const expanded = expandWithSynonyms(keywords, options.synonyms);
-  const queryStr = expanded.join(' ');
+  const queryStr = fixVersionTokens(expanded.join(' '));
   const limit = 20;
 
-  const porterResults = searchPorter(db, queryStr, limit, options.project);
-  const trigramResults = searchTrigram(db, queryStr, limit, options.project);
+  function fusedSearch(q: string): ReturnType<typeof computeRRF> {
+    return computeRRF(
+      searchPorter(db, q, limit, options.project),
+      searchTrigram(db, q, limit, options.project),
+      { dedupByPath: true },
+    );
+  }
 
-  let fused = computeRRF(porterResults, trigramResults, { dedupByPath: true });
+  let fused = fusedSearch(queryStr);
 
   if (fused.length === 0) {
     const corrected = correctQuery(db, keywords);
     if (corrected) {
-      const correctedStr = corrected.join(' ');
-      const retryPorter = searchPorter(db, correctedStr, limit, options.project);
-      const retryTrigram = searchTrigram(db, correctedStr, limit, options.project);
-      fused = computeRRF(retryPorter, retryTrigram, { dedupByPath: true });
+      fused = fusedSearch(fixVersionTokens(corrected.join(' ')));
     }
   }
 

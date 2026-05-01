@@ -14,20 +14,6 @@ export class SearchCache {
   constructor(db: Database, options: SearchCacheOptions = {}) {
     this.db = db;
     this.ttlMs = options.ttlMs ?? 300000;
-    this.db.exec(`
-      CREATE TABLE IF NOT EXISTS search_cache (
-        query_hash TEXT PRIMARY KEY,
-        results_json TEXT NOT NULL,
-        expires_at TEXT NOT NULL
-      )
-    `);
-    this.db.exec(`
-      CREATE TABLE IF NOT EXISTS search_throttle (
-        session_id TEXT PRIMARY KEY,
-        call_count INTEGER NOT NULL DEFAULT 0,
-        last_call TEXT NOT NULL
-      )
-    `);
   }
 
   private hash(query: string): string {
@@ -40,7 +26,10 @@ export class SearchCache {
     const row = this.db.prepare(
       'SELECT results_json FROM search_cache WHERE query_hash = ? AND expires_at > ?'
     ).get(h, new Date().toISOString()) as { results_json: string } | undefined;
-    if (!row) return null;
+    if (!row) {
+      this.cleanup();
+      return null;
+    }
     // eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- JSON stored by set()
     return JSON.parse(row.results_json) as SearchResult[];
   }
@@ -63,13 +52,13 @@ export class SearchCache {
 
   incrementCallCount(sessionId: string): number {
     const now = new Date().toISOString();
-    this.db.prepare(`
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- better-sqlite3 .get() returns unknown
+    const row = this.db.prepare(`
       INSERT INTO search_throttle (session_id, call_count, last_call)
       VALUES (?, 1, ?)
       ON CONFLICT(session_id) DO UPDATE SET call_count = call_count + 1, last_call = ?
-    `).run(sessionId, now, now);
-    // eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- better-sqlite3 .get() returns unknown
-    const row = this.db.prepare('SELECT call_count FROM search_throttle WHERE session_id = ?').get(sessionId) as { call_count: number } | undefined;
+      RETURNING call_count
+    `).get(sessionId, now, now) as { call_count: number } | undefined;
     return row?.call_count ?? 1;
   }
 

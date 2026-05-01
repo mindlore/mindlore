@@ -3,7 +3,13 @@ import os from 'os';
 import path from 'path';
 import Database from 'better-sqlite3';
 import { SearchCache } from '../scripts/lib/search-cache.js';
+import { SQL_SEARCH_CACHE_CREATE, SQL_SEARCH_THROTTLE_CREATE } from '../scripts/lib/migrations-v063.js';
 import type { SearchResult } from '../scripts/lib/search-engine.js';
+
+function setupCacheTables(db: Database.Database): void {
+  db.exec(SQL_SEARCH_CACHE_CREATE);
+  db.exec(SQL_SEARCH_THROTTLE_CREATE);
+}
 
 describe('TTL Cache', () => {
   let db: Database.Database;
@@ -13,6 +19,7 @@ describe('TTL Cache', () => {
     tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'mindlore-cache-'));
     db = new Database(path.join(tmpDir, 'test.db'));
     db.pragma('journal_mode = WAL');
+    setupCacheTables(db);
   });
 
   afterEach(() => {
@@ -64,6 +71,7 @@ describe('Progressive Throttling', () => {
     tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'mindlore-throttle-'));
     db = new Database(path.join(tmpDir, 'test.db'));
     db.pragma('journal_mode = WAL');
+    setupCacheTables(db);
   });
 
   afterEach(() => {

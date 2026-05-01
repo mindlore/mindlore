@@ -626,39 +626,61 @@ FTS5 arama motorunu context-mode seviyesine çıkarma. Tüm maddeler arama kalit
 
 ### Release Bölme Tablosu (v0.6.3)
 
-| Madde | Başlık | Efor | Bağımlılık |
-|-------|--------|------|------------|
-| S1 | Title Boost (BM25 weight) | 5 dk | — |
-| S2 | Trigram FTS5 Tablo + RRF Fusion | Orta | S1 |
-| S3 | Vocabulary Tablo + Fuzzy Fallback | Orta | S2 |
-| S4 | Proximity Reranking (minimum-span) | Orta | S2 |
-| S5 | Heading-Based Chunking | Büyük | S2 |
-| S6 | Oversized Chunk Handling | Küçük | S5 |
-| S7 | Heading Breadcrumb Title | Küçük | S5 |
-| S8 | Atomik Source Re-Index | Küçük | — |
-| S9 | FTS5 Segment Optimize | Küçük | — |
-| S10 | Intent-Driven Filtering (>5KB) | Orta | S5 |
-| S11 | Smart Snippet (#20'den taşındı) | Küçük | S2 |
-| S12 | TTL Cache (#21'den taşındı) | Küçük | — |
-| S13 | Progressive Throttling (#22'den taşındı) | Küçük | S12 |
-| S14 | URL Cache ETag/If-Modified-Since | Küçük | — |
-| S15 | Session Summary Integration Test | Küçük | — |
-| S16 | Compaction Test Hook Exercise | Küçük | — |
-| S17 | Session-End Unpromoted DRY | Küçük | — |
-| S18 | Snapshot Readdir Helper | Küçük | — |
-| S19 | Pre-Compact Nesting Extraction | Orta | — |
-| S20 | Corruption Recovery to Common | Küçük | — |
-| S21 | DECISION_KEYWORDS Test Import | Küçük | — |
-| S22 | Dead lastHash Cache Kaldır | Küçük | — |
-| S23 | Session-Payload Query Birleştir | Küçük | — |
-| S24 | Raw Accumulation → Worker | Küçük | — |
-| S25 | Fetch-Raw Slug Collision Guard | Küçük | — |
-| S26 | Session-Focus Double Diary Scan | Küçük | — |
-| S27 | withTimeoutDb Wire | Küçük | — |
+| Madde | Başlık | Efor | Durum |
+|-------|--------|------|-------|
+| S1 | Title Boost (BM25 weight) | 5 dk | ✅ DONE |
+| S2 | Trigram FTS5 Tablo + RRF Fusion | Orta | ✅ DONE |
+| S3 | Vocabulary Tablo + Fuzzy Fallback | Orta | ✅ DONE |
+| S4 | Proximity Reranking (minimum-span) | Orta | ✅ DONE |
+| S5 | Heading-Based Chunking | Büyük | ✅ DONE |
+| S6 | Oversized Chunk Handling | Küçük | ✅ DONE |
+| S7 | Heading Breadcrumb Title | Küçük | ✅ DONE |
+| S8 | Atomik Source Re-Index | Küçük | ✅ DONE |
+| S9 | FTS5 Segment Optimize | Küçük | ✅ DONE |
+| S10 | Intent-Driven Filtering (>5KB) | Orta | ✅ DONE |
+| S11 | Smart Snippet (#20'den taşındı) | Küçük | ✅ DONE |
+| S12 | TTL Cache (#21'den taşındı) | Küçük | ✅ DONE |
+| S13 | Progressive Throttling (#22'den taşındı) | Küçük | ✅ DONE |
+| S14 | URL Cache ETag/If-Modified-Since | Küçük | ✅ DONE |
+| S15 | Session Summary Integration Test | Küçük | ✅ DONE |
+| S16 | Compaction Test Hook Exercise | Küçük | ✅ DONE |
+| S17 | Session-End Unpromoted DRY | Küçük | ✅ DONE |
+| S18 | Snapshot Readdir Helper | Küçük | ✅ DONE |
+| S19 | Pre-Compact Nesting Extraction | Orta | ✅ DONE |
+| S20 | Corruption Recovery to Common | Küçük | ✅ DONE |
+| S21 | DECISION_KEYWORDS Test Import | Küçük | ✅ DONE |
+| S22 | Dead lastHash Cache Kaldır | Küçük | ✅ DONE |
+| S23 | Session-Payload Query Birleştir | Küçük | ✅ DONE |
+| S24 | Raw Accumulation → Worker | Küçük | ✅ DONE |
+| S25 | Fetch-Raw Slug Collision Guard | Küçük | ✅ DONE |
+| S26 | Session-Focus Double Diary Scan | Küçük | ✅ DONE |
+| S27 | withTimeoutDb Wire | Küçük | ✅ DONE |
 | S28 | _writeTelemetry Object Param | Küçük | ✅ DONE (v0.6.2) |
 | S29 | Doctor EXPECTED_HOOKS Derive | Küçük | ✅ DONE (v0.6.2) |
-| S30 | Init Config Merge Nesting | Küçük | — |
-| S31 | registerAgents mtime Guard | Küçük | — |
+| S30 | Init Config Merge Nesting | Küçük | ✅ DONE |
+| S31 | registerAgents mtime Guard | Küçük | ✅ DONE |
+
+### v0.6.3 Simplify Sonuçları (merge öncesi review)
+
+**3 agent paralel review:** Reuse (10 bulgu), Quality (15 bulgu), Efficiency (9 bulgu)
+
+**Uygulanan fix'ler (11 adet):**
+1. `fixVersionTokens` search pipeline'a eklendi — versiyon aramaları düzeltildi
+2. DDL constructor'dan migration v13'e taşındı — her hook çağrısında CREATE TABLE eliminasyonu
+3. `readFileSync` → `r.content` — N disk okuması eliminasyonu (hot path)
+4. Vocabulary cache + length pre-filter — ~%80 candidate rejection
+5. RETURNING ile tek roundtrip — `incrementCallCount` 2→1 query
+6. Recall count loop içine taşındı — gereksiz DB reopen eliminasyonu
+7. `sanitizeFtsQuery` helper — 3x tekrar → tek fonksiyon
+8. RRF loop dedup — 2 identical loop → `for (const list of [...])`
+9. `fusedSearch` helper — search-engine retry bloğu dedup
+10. Chunker dead index assignment temizlendi
+11. Cache cleanup — miss'te expired entry'ler temizleniyor
+
+**Benchmark:** Mean 237ms | P50 234ms | P95 265ms (hedef <300ms — PASS)
+*Not: Hook latency (subprocess startup dahil). Engine-only latency ~30-80ms.*
+
+**v0.6.4'e ertelenen bulgular:** Aşağıdaki bölüme taşındı.
 
 ### S1. Title Boost — BM25 Weight Parametreleri
 - **Problem:** Tüm FTS5 kolonları eşit ağırlıkta. Başlık eşleşmesi body eşleşmesinden ayırt edilemiyor.
@@ -875,13 +897,49 @@ FTS5 arama motorunu context-mode seviyesine çıkarma. Tüm maddeler arama kalit
 
 ---
 
+## v0.6.4 — Search Cleanup + Code Quality
+
+v0.6.3 simplify review'dan ertelenen bulgular. Davranış değişikliği riski taşıyanlar Tier 1'de.
+
+### Tier 1 — Doğrula ve Düzelt (potansiyel bug)
+
+| # | Başlık | Kaynak | Efor |
+|---|--------|--------|------|
+| C1 | STOP_WORDS divergence doğrula — `search-engine.ts` (min 2, TR) vs `mindlore-common.cjs` (min 3, farklı liste). Aynı prompt'ta farklı keyword üretiyorsa unify et | Quality #4, Reuse #5 | Küçük |
+| C2 | `hybrid-search.ts` tamamen kaldır — deprecated ama hala dosyada, farklı `CATEGORY_WEIGHTS` değerleri scoring drift riski | Reuse #1/#2/#3 | Küçük |
+| C3 | `searchTrigram` silent catch → log warning ekle — schema-missing ve gerçek bug aynı boş sonucu veriyor | Quality #12 | Küçük |
+
+### Tier 2 — Code Quality (davranış değişikliği yok)
+
+| # | Başlık | Kaynak | Efor |
+|---|--------|--------|------|
+| C4 | `WORD_BOUNDARY_RE` shared constant — `search-engine.ts:41` ve `fuzzy.ts:46` aynı Turkish regex | Quality #3 | Küçük |
+| C5 | Intent config consolidation — `Record<Intent, { keywords, boosts }>` tek obje, 3 ayrı constant yerine | Quality #9 | Küçük |
+| C6 | `searchPorter`/`searchTrigram` options object — 4 positional param → `{ query, limit, project? }` | Quality #10 | Küçük |
+| C7 | `SearchCache` SRP — Cache ve Throttle ayrı sınıflara böl | Quality #7 | Orta |
+| C8 | Category type union — `type Category = 'sources' \| 'analyses' \| ...` compile-time typo guard | Quality #8 | Küçük |
+| C9 | 21 lint warning (hepsi `no-non-null-assertion`) — fix veya eslint rule'u kabul et | Lint | Küçük |
+
+### Tier 3 — Gözden Geçir ve Karar Ver
+
+| # | Başlık | Kaynak | Efor |
+|---|--------|--------|------|
+| C10 | Prompt-level cache hit rate ölçümü — TTL cache gerçekten işe yarıyor mu, yoksa sadece throttle mı değerli? | Efficiency #8 | Küçük |
+| C11 | RRF pipeline object spread maliyeti — profiling ile doğrula, sadece kanıtlanırsa optimize et | Efficiency #6 | Küçük |
+
+---
+
 ## v0.7 — Capability Expansion
 
 Kapsamı geniş, spec/brainstorm gerektiren özellikler.
 
-**v0.6.3'ten taşınan simplify bulguları (MCP Server geçişinde çözülecek):**
+**v0.6.3'ten taşınan mimari bulgular (MCP Server geçişinde çözülecek):**
 - sqlite-vec per-event load — `loadSqliteVecCjs(db)` her prompt'ta extension yüklüyor. MCP Server'da tek process = module cache çalışır
 - Perf O(H*N) filter — `calculatePercentiles` her hook için full array filter. MCP Server'da dataset büyüyünce anlamlı olacak
+
+**v0.6.4'ten taşınabilecek (MCP Server'a ertelenecek):**
+- SearchCache SRP (C7) — MCP Server'da Cache ve Throttle zaten ayrı concern olacak
+- Prompt-level cache review (C10) — MCP Server'da persistent process = cache stratejisi değişecek
 
 ### 7. MCP Server — Cross-Host Memory Layer
 - **Ne:** Mindlore'u MCP protocol üzerinden Claude Code + Cursor + Codex + Cline + Windsurf + Claude Desktop'a açmak

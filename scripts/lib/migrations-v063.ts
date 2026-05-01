@@ -8,6 +8,12 @@ export const SQL_FTS_TRIGRAM_CREATE =
 export const SQL_VOCABULARY_CREATE =
   "CREATE TABLE IF NOT EXISTS vocabulary (word TEXT PRIMARY KEY) WITHOUT ROWID";
 
+export const SQL_SEARCH_CACHE_CREATE =
+  "CREATE TABLE IF NOT EXISTS search_cache (query_hash TEXT PRIMARY KEY, results_json TEXT NOT NULL, expires_at TEXT NOT NULL)";
+
+export const SQL_SEARCH_THROTTLE_CREATE =
+  "CREATE TABLE IF NOT EXISTS search_throttle (session_id TEXT PRIMARY KEY, call_count INTEGER NOT NULL DEFAULT 0, last_call TEXT NOT NULL)";
+
 export const V063_MIGRATIONS: Migration[] = [
   {
     version: 10,
@@ -47,6 +53,14 @@ export const V063_MIGRATIONS: Migration[] = [
           UNIQUE(source_path, chunk_index)
         )
       `);
+    },
+  },
+  {
+    version: 13,
+    name: 'search_cache_tables',
+    up: (db: Database) => {
+      db.exec(SQL_SEARCH_CACHE_CREATE);
+      db.exec(SQL_SEARCH_THROTTLE_CREATE);
     },
   },
 ];

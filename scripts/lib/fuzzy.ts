@@ -27,9 +27,11 @@ function maxDistance(wordLen: number): number {
 
 export function findClosestWords(word: string, vocabulary: string[], limit = 3): string[] {
   const maxDist = maxDistance(word.length);
+  const lower = word.toLowerCase();
   const candidates: Array<{ word: string; dist: number }> = [];
   for (const v of vocabulary) {
-    const dist = levenshtein(word.toLowerCase(), v.toLowerCase());
+    if (Math.abs(v.length - lower.length) > maxDist) continue;
+    const dist = levenshtein(lower, v.toLowerCase());
     if (dist > 0 && dist <= maxDist) {
       candidates.push({ word: v, dist });
     }
@@ -37,8 +39,18 @@ export function findClosestWords(word: string, vocabulary: string[], limit = 3):
   return candidates.sort((a, b) => a.dist - b.dist).slice(0, limit).map(c => c.word);
 }
 
+let vocabCache: { dbName: string; words: string[] } | null = null;
+
 export function loadVocabulary(db: Database): string[] {
-  return dbAll<{ word: string }>(db, 'SELECT word FROM vocabulary').map(r => r.word);
+  const dbName = db.name;
+  if (vocabCache && vocabCache.dbName === dbName) return vocabCache.words;
+  const words = dbAll<{ word: string }>(db, 'SELECT word FROM vocabulary').map(r => r.word);
+  vocabCache = { dbName, words };
+  return words;
+}
+
+export function invalidateVocabCache(): void {
+  vocabCache = null;
 }
 
 export function populateVocabulary(db: Database, content: string): void {

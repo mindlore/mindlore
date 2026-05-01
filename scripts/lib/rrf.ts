@@ -2,6 +2,10 @@ import type BetterSqlite3 from 'better-sqlite3';
 type Database = BetterSqlite3.Database;
 import { dbAll } from './db-helpers.js';
 
+export function sanitizeFtsQuery(query: string): string {
+  return query.replace(/["*(){}[\]^~:]/g, '').trim();
+}
+
 export interface RankedResult {
   slug: string;
   rank: number;
@@ -27,23 +31,15 @@ export function computeRRF(
   const k = options.k ?? 60;
   const scores = new Map<string, RankedResult>();
 
-  for (const r of porterResults) {
-    const existing = scores.get(r.slug);
-    const rrfScore = 1 / (k + r.rank);
-    if (existing) {
-      existing.score += rrfScore;
-    } else {
-      scores.set(r.slug, { ...r, score: rrfScore });
-    }
-  }
-
-  for (const r of trigramResults) {
-    const existing = scores.get(r.slug);
-    const rrfScore = 1 / (k + r.rank);
-    if (existing) {
-      existing.score += rrfScore;
-    } else {
-      scores.set(r.slug, { ...r, score: rrfScore });
+  for (const list of [porterResults, trigramResults]) {
+    for (const r of list) {
+      const existing = scores.get(r.slug);
+      const rrfScore = 1 / (k + r.rank);
+      if (existing) {
+        existing.score += rrfScore;
+      } else {
+        scores.set(r.slug, { ...r, score: rrfScore });
+      }
     }
   }
 
@@ -67,7 +63,7 @@ export function searchPorter(
   limit: number,
   project?: string,
 ): RankedResult[] {
-  const sanitized = query.replace(/["*(){}[\]^~:]/g, '').trim();
+  const sanitized = sanitizeFtsQuery(query);
   if (!sanitized) return [];
   const sql = project
     ? 'SELECT path, slug, description, title, category, tags, content, bm25(mindlore_fts, 1, 1, 1, 5.0, 1, 1) as bm FROM mindlore_fts WHERE mindlore_fts MATCH ? AND project = ? ORDER BY bm LIMIT ?'
@@ -82,7 +78,7 @@ export function searchTrigram(
   limit: number,
   project?: string,
 ): RankedResult[] {
-  const sanitized = query.replace(/["*(){}[\]^~:]/g, '').trim();
+  const sanitized = sanitizeFtsQuery(query);
   if (!sanitized) return [];
   try {
     const sql = project
