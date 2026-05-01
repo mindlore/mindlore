@@ -75,7 +75,8 @@ const INTENT_CONFIG: Record<Intent, IntentConfig> = {
   },
 };
 
-const INTENT_KEYS: Intent[] = ['debug', 'research', 'implementation'];
+// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- Object.keys cast triggers lint; keep in sync with INTENT_CONFIG
+const INTENT_KEYS = Object.keys(INTENT_CONFIG) as Intent[];
 
 function detectIntent(query: string): Intent {
   const lower = query.toLowerCase();
