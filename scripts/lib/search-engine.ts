@@ -55,21 +55,33 @@ const CATEGORY_WEIGHTS: Record<string, number> = {
 
 type Intent = 'debug' | 'research' | 'implementation';
 
-const DEBUG_KEYWORDS = ['debug', 'fix', 'hata', 'bug', 'error', 'crash', 'fail'];
-const RESEARCH_KEYWORDS = ['araştır', 'bul', 'search', 'nedir', 'nasıl', 'compare'];
+interface IntentConfig {
+  keywords: string[];
+  boosts: Record<string, number>;
+}
+
+const INTENT_CONFIG: Record<Intent, IntentConfig> = {
+  debug: {
+    keywords: ['debug', 'fix', 'hata', 'bug', 'error', 'crash', 'fail'],
+    boosts: { episodes: 1.3, raw: 1.1 },
+  },
+  research: {
+    keywords: ['araştır', 'bul', 'search', 'nedir', 'nasıl', 'compare'],
+    boosts: { sources: 1.3, analyses: 1.2 },
+  },
+  implementation: {
+    keywords: [],
+    boosts: { domains: 1.2, sessions: 1.1 },
+  },
+};
 
 function detectIntent(query: string): Intent {
   const lower = query.toLowerCase();
-  if (DEBUG_KEYWORDS.some(k => lower.includes(k))) return 'debug';
-  if (RESEARCH_KEYWORDS.some(k => lower.includes(k))) return 'research';
+  for (const [intent, config] of Object.entries(INTENT_CONFIG)) {
+    if (config.keywords.some(k => lower.includes(k))) return intent as Intent;
+  }
   return 'implementation';
 }
-
-const INTENT_BOOSTS: Record<Intent, Record<string, number>> = {
-  debug: { episodes: 1.3, raw: 1.1 },
-  research: { sources: 1.3, analyses: 1.2 },
-  implementation: { domains: 1.2, sessions: 1.1 },
-};
 
 export function search(db: Database, query: string, options: SearchOptions): SearchResult[] {
   const maxResults = options.maxResults ?? 3;
@@ -98,7 +110,7 @@ export function search(db: Database, query: string, options: SearchOptions): Sea
   }
 
   const intent = detectIntent(query);
-  const intentBoosts = INTENT_BOOSTS[intent];
+  const intentBoosts = INTENT_CONFIG[intent].boosts;
 
   for (const r of fused) {
     r.score *= CATEGORY_WEIGHTS[r.category ?? ''] ?? 1.0;
