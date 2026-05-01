@@ -12,6 +12,16 @@ const fs = require('fs');
 const path = require('path');
 const { findMindloreDir, readConfig, openDatabase, hasEpisodesTable, querySupersededChains, formatSupersededChains, hookLog, getProjectName, parseFrontmatter, withTelemetry, withTimeoutDb, listSnapshots, isCorruptionError, recoverCorruptDb } = require('./lib/mindlore-common.cjs');
 
+function truncateCommits(content) {
+  const commitMatch = content.match(/(## Commits\n)((?:- [^\n]+\n?)+)/);
+  if (!commitMatch) return content;
+  const lines = commitMatch[2].trim().split('\n');
+  if (lines.length <= 5) return content;
+  const kept = lines.slice(0, 5).join('\n');
+  const truncated = kept + `\n- ...ve ${lines.length - 5} commit daha`;
+  return content.replace(commitMatch[2].trim(), truncated);
+}
+
 function tryOpenDb(dbPath) {
   return openDatabase(dbPath, { readonly: true });
 }
@@ -107,7 +117,7 @@ function main() {
         const deltaProject = meta.project || null;
         const currentProject = getProjectName();
         if (!deltaProject || deltaProject.toLowerCase() === currentProject.toLowerCase()) {
-          output.push(`[Mindlore Delta: ${latestName}]\n${deltaContent}`);
+          output.push(`[Mindlore Delta: ${latestName}]\n${truncateCommits(deltaContent)}`);
         }
       }
 
