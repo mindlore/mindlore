@@ -316,7 +316,7 @@ export function syncSessions(
 
     const hash = sha256(md);
     const destDir = path.join(mindloreDir, 'raw', 'sessions', slug);
-    fs.mkdirSync(destDir, { recursive: true });
+    fs.mkdirSync(destDir, { recursive: true, mode: 0o700 });
     const destPath = path.join(destDir, `${sessionDate}-${shortId}.md`);
 
     // eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- get() returns unknown
@@ -326,7 +326,7 @@ export function syncSessions(
       return;
     }
 
-    fs.writeFileSync(destPath, md, 'utf8');
+    fs.writeFileSync(destPath, md, { encoding: 'utf8', mode: 0o600 });
 
     const category = isSubagent ? CC_SUBAGENT_CATEGORY : CC_SESSION_CATEGORY;
 

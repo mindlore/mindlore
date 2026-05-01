@@ -110,7 +110,7 @@ export function syncToDb(
 
   // Ensure memory dest dir exists
   const memoryDestDir = path.join(mindloreDir, 'memory');
-  fs.mkdirSync(memoryDestDir, { recursive: true });
+  fs.mkdirSync(memoryDestDir, { recursive: true, mode: 0o700 });
 
   const getHash = db.prepare('SELECT content_hash FROM file_hashes WHERE path = ?');
   const upsertHash = db.prepare(UPSERT_HASH_SQL);

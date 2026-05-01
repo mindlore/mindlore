@@ -220,7 +220,7 @@ function main() {
 
   sections.push('');
 
-  fs.writeFileSync(deltaPath, sections.join('\n'), 'utf8');
+  fs.writeFileSync(deltaPath, sections.join('\n'), { encoding: 'utf8', mode: 0o600 });
 
   // Append to log.md
   const logPath = path.join(baseDir, 'log.md');
@@ -235,7 +235,7 @@ function main() {
   try {
     const workerData = JSON.stringify({ baseDir, project, commits, changedFiles, reads });
     const tmpFile = path.join(os.tmpdir(), `mindlore-worker-${Date.now()}.json`);
-    fs.writeFileSync(tmpFile, workerData, 'utf8');
+    fs.writeFileSync(tmpFile, workerData, { encoding: 'utf8', mode: 0o600 });
     // Use system node instead of process.execPath — CC's embedded Node
     // may not work as a standalone binary for detached worker processes.
     // Resolve full path to avoid shell:true deprecation warning on Windows.
@@ -377,7 +377,7 @@ function writeEpisodeFile(baseDir, project, commits, changedFiles, reads) {
     lines.push('');
   }
 
-  fs.writeFileSync(filePath, lines.join('\n'), 'utf8');
+  fs.writeFileSync(filePath, lines.join('\n'), { encoding: 'utf8', mode: 0o600 });
 }
 
 let _obsidianHelpersCache = undefined; // undefined = not yet attempted
@@ -474,7 +474,7 @@ function syncObsidian(baseDir) {
     if (exported > 0) {
       config.obsidian.lastExport = new Date().toISOString();
       config.obsidian.lastExportCount = exported;
-      fs.writeFileSync(configPath, JSON.stringify(config, null, 2), 'utf8');
+      fs.writeFileSync(configPath, JSON.stringify(config, null, 2), { encoding: 'utf8', mode: 0o600 });
     }
   } catch (err) {
     hookLog('session-end', 'error', `obsidian internal: ${err?.message ?? err}`);

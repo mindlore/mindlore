@@ -60,7 +60,7 @@ function resolvePackageRoot(): string {
 
 function ensureDir(dirPath: string): boolean {
   if (!fs.existsSync(dirPath)) {
-    fs.mkdirSync(dirPath, { recursive: true });
+    fs.mkdirSync(dirPath, { recursive: true, mode: 0o700 });
     return true;
   }
   return false;
@@ -402,7 +402,7 @@ function ensureConfig(baseDir: string, packageRoot: string): boolean {
     }
     // Template missing — write hardcoded defaults
     const defaultConfig: MindloreConfig = { version: '0.3.1', models: { ...DEFAULT_MODELS } };
-    fs.writeFileSync(configDest, JSON.stringify(defaultConfig, null, 2) + '\n', 'utf8');
+    fs.writeFileSync(configDest, JSON.stringify(defaultConfig, null, 2) + '\n', { encoding: 'utf8', mode: 0o600 });
     return true;
   }
 
@@ -441,7 +441,7 @@ function ensureConfig(baseDir: string, packageRoot: string): boolean {
   }
 
   if (changed) {
-    fs.writeFileSync(configDest, JSON.stringify(config, null, 2) + '\n', 'utf8');
+    fs.writeFileSync(configDest, JSON.stringify(config, null, 2) + '\n', { encoding: 'utf8', mode: 0o600 });
   }
 
   return changed;
@@ -678,8 +678,8 @@ function main(): void {
       console.error('Auto-backfill failed (non-fatal):', msg);
     }
   }
-  fs.writeFileSync(versionPath, packageJson.version, 'utf8');
-  fs.writeFileSync(pkgVersionPath, packageJson.version, 'utf8');
+  fs.writeFileSync(versionPath, packageJson.version, { encoding: 'utf8', mode: 0o600 });
+  fs.writeFileSync(pkgVersionPath, packageJson.version, { encoding: 'utf8', mode: 0o600 });
   log(`Version: ${packageJson.version}`);
 
   // Step 12: Register agents (v0.6.1)
