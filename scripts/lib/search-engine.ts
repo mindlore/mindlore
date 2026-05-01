@@ -4,7 +4,7 @@ import { searchPorter, searchTrigram, computeRRF } from './rrf.js';
 import { correctQuery } from './fuzzy.js';
 import { rerankByProximity } from './proximity.js';
 import { extractSnippet } from './snippet.js';
-import { fixVersionTokens, STOP_WORDS, STOP_WORDS_MIN_LENGTH } from './constants.js';
+import { fixVersionTokens, STOP_WORDS, STOP_WORDS_MIN_LENGTH, TURKISH_WORD_RE } from './constants.js';
 
 export interface SearchOptions {
   project?: string;
@@ -26,7 +26,7 @@ export interface SearchResult {
 
 export function extractKeywords(text: string): string[] {
   return text
-    .replace(/[^\w\sçğıöşüÇĞİÖŞÜ-]/g, ' ')
+    .replace(TURKISH_WORD_RE, ' ')
     .split(/\s+/)
     .filter(w => w.length >= STOP_WORDS_MIN_LENGTH && !STOP_WORDS.has(w.toLowerCase()))
     .map(w => w.toLowerCase());

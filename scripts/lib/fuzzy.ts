@@ -1,6 +1,7 @@
 import type BetterSqlite3 from 'better-sqlite3';
 type Database = BetterSqlite3.Database;
 import { dbAll } from './db-helpers.js';
+import { TURKISH_WORD_RE } from './constants.js';
 
 export function levenshtein(a: string, b: string): number {
   const m = a.length, n = b.length;
@@ -55,7 +56,7 @@ export function invalidateVocabCache(): void {
 
 export function populateVocabulary(db: Database, content: string): void {
   const words = content
-    .replace(/[^\w\sçğıöşüÇĞİÖŞÜ-]/g, ' ')
+    .replace(TURKISH_WORD_RE, ' ')
     .split(/\s+/)
     .filter(w => w.length >= 3)
     .map(w => w.toLowerCase());

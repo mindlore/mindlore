@@ -44,6 +44,7 @@ export function isSessionCategory(category: string): category is SessionCategory
 }
 
 export const STOP_WORDS_MIN_LENGTH = 2;
+export const TURKISH_WORD_RE = /[^\w\sçğıöşüÇĞİÖŞÜ-]/g;
 
 export const STOP_WORDS = new Set([
   // English
