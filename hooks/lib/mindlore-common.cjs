@@ -656,7 +656,9 @@ function _rotateFile(filePath, maxBytes, keepLines) {
     const stat = fs.statSync(filePath);
     if (stat.size > maxBytes) {
       const lines = fs.readFileSync(filePath, 'utf8').trim().split('\n');
-      fs.writeFileSync(filePath, lines.slice(-keepLines).join('\n') + '\n');
+      const tmpPath = filePath + '.tmp';
+      fs.writeFileSync(tmpPath, lines.slice(-keepLines).join('\n') + '\n');
+      fs.renameSync(tmpPath, filePath);
     }
   } catch { /* file may not exist yet */ }
 }
