@@ -36,12 +36,50 @@ export const SCHEMA_VERSION = 1;
 export const EMBEDDING_MODEL_NAME = 'Xenova/multilingual-e5-small';
 export const EMBEDDING_DIM_CONST = 384;
 
+export const CATEGORIES = ['sources', 'analyses', 'domains', 'episodes', 'decisions', 'raw', 'sessions', 'cc_memory', 'cc-session', 'cc-subagent', 'diary', 'insights', 'connections', 'learnings', 'memory'] as const;
+export type Category = typeof CATEGORIES[number];
+
 export const SESSION_CATEGORIES = ['cc-subagent', 'cc-session'] as const;
 export type SessionCategory = typeof SESSION_CATEGORIES[number];
 
 export function isSessionCategory(category: string): category is SessionCategory {
   return (SESSION_CATEGORIES as readonly string[]).includes(category);
 }
+
+export const STOP_WORDS_MIN_LENGTH = 2;
+export const TURKISH_WORD_RE = /[^\w\sçğıöşüÇĞİÖŞÜ-]/g;
+
+export const STOP_WORDS = new Set([
+  // English
+  'the', 'a', 'an', 'is', 'are', 'was', 'were', 'be', 'been', 'being',
+  'have', 'has', 'had', 'do', 'does', 'did', 'will', 'would', 'could',
+  'should', 'may', 'might', 'can', 'shall', 'to', 'of', 'in', 'for',
+  'on', 'with', 'at', 'by', 'from', 'as', 'into', 'through', 'during',
+  'it', 'its', 'this', 'that', 'these', 'those', 'what', 'which', 'who',
+  'whom', 'how', 'when', 'where', 'why', 'not', 'no', 'nor', 'so',
+  'if', 'or', 'but', 'all', 'each', 'every', 'both', 'few', 'more',
+  'most', 'other', 'some', 'such', 'only', 'own', 'same', 'than',
+  'and', 'about', 'between', 'after', 'before', 'above', 'below',
+  'up', 'down', 'out', 'very', 'just', 'also', 'now', 'then',
+  'here', 'there', 'too', 'yet', 'my', 'your', 'his', 'her', 'our',
+  'their', 'me', 'him', 'us', 'them', 'i', 'you', 'he', 'she', 'we', 'they',
+  // Turkish
+  'bir', 'bu', 'su', 'ne', 'nasıl', 'neden', 'var', 'yok', 'mi', 'mu', 'mı',
+  'ile', 'için', 'de', 'da', 've', 'veya', 'ama', 'ise', 'hem',
+  'bakalım', 'gel', 'git', 'yap', 'et', 'al', 'ver',
+  'evet', 'hayır', 'tamam', 'ok', 'oldu', 'olur', 'dur',
+  'şimdi', 'sonra', 'önce', 'hemen', 'biraz',
+  'lan', 'ya', 'ki', 'abi', 'hadi', 'hey', 'selam',
+  'olarak', 'olan', 'gibi', 'kadar', 'daha', 'çok', 'en',
+  'bunu', 'buna', 'içinde', 'üzerinde', 'arasında',
+  'sonucu', 'tarafından', 'zaten', 'gayet',
+  'acaba', 'nedir', 'midir', 'mudur',
+  // Generic technical
+  'hook', 'file', 'dosya', 'kullan', 'ekle', 'yaz', 'oku', 'çalıştır',
+  'kontrol', 'test', 'check', 'run', 'add', 'update', 'config',
+  'setup', 'install', 'start', 'stop', 'create', 'delete', 'remove', 'set',
+  'get', 'list', 'show', 'view', 'open', 'close', 'save', 'load',
+]);
 
 const VERSION_RE = /v(\d+)\.(\d+)(?:\.(\d+))?/g;
 export function fixVersionTokens(query: string): string {

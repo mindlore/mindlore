@@ -10,6 +10,9 @@ export interface SearchCacheOptions {
 export class SearchCache {
   private db: Database;
   private ttlMs: number;
+  private statsReady = false;
+  private stmtHit: BetterSqlite3.Statement | null = null;
+  private stmtMiss: BetterSqlite3.Statement | null = null;
 
   constructor(db: Database, options: SearchCacheOptions = {}) {
     this.db = db;
@@ -20,6 +23,34 @@ export class SearchCache {
     return crypto.createHash('sha256').update(query).digest('hex').slice(0, 16);
   }
 
+  private ensureStatsTable(): void {
+    if (this.statsReady) return;
+    this.db.exec(`
+      CREATE TABLE IF NOT EXISTS search_cache_stats (
+        id INTEGER PRIMARY KEY CHECK (id = 1),
+        hits INTEGER NOT NULL DEFAULT 0,
+        misses INTEGER NOT NULL DEFAULT 0
+      )
+    `);
+    this.db.prepare('INSERT OR IGNORE INTO search_cache_stats (id, hits, misses) VALUES (1, 0, 0)').run();
+    this.stmtHit = this.db.prepare('UPDATE search_cache_stats SET hits = hits + 1 WHERE id = 1');
+    this.stmtMiss = this.db.prepare('UPDATE search_cache_stats SET misses = misses + 1 WHERE id = 1');
+    this.statsReady = true;
+  }
+
+  getStats(): { hits: number; misses: number; hitRate: number } {
+    this.ensureStatsTable();
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- single-row table
+    const row = this.db.prepare('SELECT hits, misses FROM search_cache_stats WHERE id = 1').get() as { hits: number; misses: number };
+    const total = row.hits + row.misses;
+    return { hits: row.hits, misses: row.misses, hitRate: total > 0 ? row.hits / total : 0 };
+  }
+
+  resetStats(): void {
+    this.ensureStatsTable();
+    this.db.prepare('UPDATE search_cache_stats SET hits = 0, misses = 0 WHERE id = 1').run();
+  }
+
   get(query: string): SearchResult[] | null {
     const h = this.hash(query);
     // eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- better-sqlite3 .get() returns unknown
@@ -27,9 +58,15 @@ export class SearchCache {
       'SELECT results_json FROM search_cache WHERE query_hash = ? AND expires_at > ?'
     ).get(h, new Date().toISOString()) as { results_json: string } | undefined;
     if (!row) {
+      this.ensureStatsTable();
+      // eslint-disable-next-line @typescript-eslint/no-non-null-assertion -- ensureStatsTable sets stmtMiss
+      this.stmtMiss!.run();
       this.cleanup();
       return null;
     }
+    this.ensureStatsTable();
+    // eslint-disable-next-line @typescript-eslint/no-non-null-assertion -- ensureStatsTable sets stmtHit
+    this.stmtHit!.run();
     // eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- JSON stored by set()
     return JSON.parse(row.results_json) as SearchResult[];
   }
@@ -48,6 +85,15 @@ export class SearchCache {
 
   cleanup(): void {
     this.db.prepare('DELETE FROM search_cache WHERE expires_at < ?').run(new Date().toISOString());
+  }
+
+}
+
+export class SearchThrottle {
+  private db: Database;
+
+  constructor(db: Database) {
+    this.db = db;
   }
 
   incrementCallCount(sessionId: string): number {

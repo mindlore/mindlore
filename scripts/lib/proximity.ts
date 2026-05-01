@@ -16,15 +16,21 @@ function findMinSpan(content: string, terms: string[]): number {
 
   let minSpan = Infinity;
 
+  // eslint-disable-next-line @typescript-eslint/no-non-null-assertion -- positions[0] exists: guarded by `positions.some(p => p.length === 0)` check above
   for (let i = 0; i < positions[0]!.length; i++) {
+    // eslint-disable-next-line @typescript-eslint/no-non-null-assertion -- positions[0] exists (see above); i is within bounds of its length
     let maxPos = positions[0]![i]!;
+    // eslint-disable-next-line @typescript-eslint/no-non-null-assertion -- positions[0] exists (see above); i is within bounds of its length
     let minPos = positions[0]![i]!;
 
     for (let t = 1; t < terms.length; t++) {
       let bestDist = Infinity;
       let bestPos = 0;
+      // eslint-disable-next-line @typescript-eslint/no-non-null-assertion -- positions[t] exists: loop t < terms.length, positions has same length as terms
       for (let j = 0; j < positions[t]!.length; j++) {
+        // eslint-disable-next-line @typescript-eslint/no-non-null-assertion -- positions[t][j] within loop bounds; positions[0][i] within loop bounds
         const dist = Math.abs(positions[t]![j]! - positions[0]![i]!);
+        // eslint-disable-next-line @typescript-eslint/no-non-null-assertion -- positions[t][j] within loop bounds
         if (dist < bestDist) { bestDist = dist; bestPos = positions[t]![j]!; }
       }
       if (bestPos > maxPos) maxPos = bestPos;

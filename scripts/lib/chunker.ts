@@ -55,9 +55,12 @@ export function chunkMarkdown(markdown: string, options: ChunkerOptions = {}): C
     if (headingMatch) {
       flush();
       currentHeading = line;
+      // eslint-disable-next-line @typescript-eslint/no-non-null-assertion -- regex match group 1 always present when headingMatch is truthy
       const level = headingMatch[1]!.length;
       while (headingStack.length > 0) {
+        // eslint-disable-next-line @typescript-eslint/no-non-null-assertion -- headingStack.length > 0 guarantees last element exists
         const top = headingStack[headingStack.length - 1]!;
+        // eslint-disable-next-line @typescript-eslint/no-non-null-assertion -- `?? ['']` fallback ensures array[0] is defined
         const topLevel = (top.match(/^#+/) ?? [''])[0]!.length;
         if (topLevel >= level) headingStack.pop();
         else break;

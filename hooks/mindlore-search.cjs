@@ -65,8 +65,9 @@ function main() {
       let effectiveMax = MAX_RESULTS;
       if (SearchCacheMod) {
         cache = new SearchCacheMod.SearchCache(db, { ttlMs: 300000 });
-        const callCount = cache.incrementCallCount(sessionId);
-        effectiveMax = cache.getMaxResults(callCount);
+        const throttle = new SearchCacheMod.SearchThrottle(db);
+        const callCount = throttle.incrementCallCount(sessionId);
+        effectiveMax = throttle.getMaxResults(callCount);
         if (effectiveMax === 0) {
           hookLog('search', 'info', `Throttled (call #${callCount})`);
           db.close();

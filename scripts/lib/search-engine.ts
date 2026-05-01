@@ -4,7 +4,7 @@ import { searchPorter, searchTrigram, computeRRF } from './rrf.js';
 import { correctQuery } from './fuzzy.js';
 import { rerankByProximity } from './proximity.js';
 import { extractSnippet } from './snippet.js';
-import { fixVersionTokens } from './constants.js';
+import { fixVersionTokens, STOP_WORDS, STOP_WORDS_MIN_LENGTH, TURKISH_WORD_RE, Category } from './constants.js';
 
 export interface SearchOptions {
   project?: string;
@@ -24,24 +24,11 @@ export interface SearchResult {
   content?: string;
 }
 
-const STOP_WORDS = new Set([
-  'the', 'a', 'an', 'is', 'are', 'was', 'were', 'be', 'been', 'being',
-  'have', 'has', 'had', 'do', 'does', 'did', 'will', 'would', 'could',
-  'should', 'may', 'might', 'can', 'shall', 'must', 'need', 'not',
-  'and', 'or', 'but', 'if', 'then', 'else', 'when', 'where', 'how',
-  'what', 'which', 'who', 'whom', 'this', 'that', 'these', 'those',
-  'i', 'me', 'my', 'we', 'our', 'you', 'your', 'he', 'she', 'it',
-  'they', 'them', 'their', 'its', 'of', 'in', 'to', 'for', 'with',
-  'on', 'at', 'by', 'from', 'as', 'into', 'about', 'between',
-  'ne', 'bir', 'bu', 'da', 'de', 'mi', 'mu', 'mı',
-  'var', 'yok', 'ile', 'için', 'gibi', 'daha', 'çok', 'en',
-]);
-
 export function extractKeywords(text: string): string[] {
   return text
-    .replace(/[^\w\sçğıöşüÇĞİÖŞÜ-]/g, ' ')
+    .replace(TURKISH_WORD_RE, ' ')
     .split(/\s+/)
-    .filter(w => w.length >= 2 && !STOP_WORDS.has(w.toLowerCase()))
+    .filter(w => w.length >= STOP_WORDS_MIN_LENGTH && !STOP_WORDS.has(w.toLowerCase()))
     .map(w => w.toLowerCase());
 }
 
@@ -55,7 +42,7 @@ function expandWithSynonyms(keywords: string[], synonyms?: Record<string, string
   return expanded;
 }
 
-const CATEGORY_WEIGHTS: Record<string, number> = {
+const CATEGORY_WEIGHTS: Partial<Record<Category, number>> = {
   sources: 1.2,
   analyses: 1.15,
   domains: 1.1,
@@ -68,21 +55,36 @@ const CATEGORY_WEIGHTS: Record<string, number> = {
 
 type Intent = 'debug' | 'research' | 'implementation';
 
-const DEBUG_KEYWORDS = ['debug', 'fix', 'hata', 'bug', 'error', 'crash', 'fail'];
-const RESEARCH_KEYWORDS = ['araştır', 'bul', 'search', 'nedir', 'nasıl', 'compare'];
+interface IntentConfig {
+  keywords: string[];
+  boosts: Partial<Record<Category, number>>;
+}
+
+const INTENT_CONFIG: Record<Intent, IntentConfig> = {
+  debug: {
+    keywords: ['debug', 'fix', 'hata', 'bug', 'error', 'crash', 'fail'],
+    boosts: { episodes: 1.3, raw: 1.1 },
+  },
+  research: {
+    keywords: ['araştır', 'bul', 'search', 'nedir', 'nasıl', 'compare'],
+    boosts: { sources: 1.3, analyses: 1.2 },
+  },
+  implementation: {
+    keywords: [],
+    boosts: { domains: 1.2, sessions: 1.1 },
+  },
+};
+
+// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- Object.keys cast triggers lint; keep in sync with INTENT_CONFIG
+const INTENT_KEYS = Object.keys(INTENT_CONFIG) as Intent[];
 
 function detectIntent(query: string): Intent {
   const lower = query.toLowerCase();
-  if (DEBUG_KEYWORDS.some(k => lower.includes(k))) return 'debug';
-  if (RESEARCH_KEYWORDS.some(k => lower.includes(k))) return 'research';
+  for (const intent of INTENT_KEYS) {
+    if (INTENT_CONFIG[intent].keywords.some(k => lower.includes(k))) return intent;
+  }
   return 'implementation';
 }
-
-const INTENT_BOOSTS: Record<Intent, Record<string, number>> = {
-  debug: { episodes: 1.3, raw: 1.1 },
-  research: { sources: 1.3, analyses: 1.2 },
-  implementation: { domains: 1.2, sessions: 1.1 },
-};
 
 export function search(db: Database, query: string, options: SearchOptions): SearchResult[] {
   const maxResults = options.maxResults ?? 3;
@@ -95,8 +97,8 @@ export function search(db: Database, query: string, options: SearchOptions): Sea
 
   function fusedSearch(q: string): ReturnType<typeof computeRRF> {
     return computeRRF(
-      searchPorter(db, q, limit, options.project),
-      searchTrigram(db, q, limit, options.project),
+      searchPorter(db, { query: q, limit, project: options.project }),
+      searchTrigram(db, { query: q, limit, project: options.project }),
       { dedupByPath: true },
     );
   }
@@ -111,11 +113,13 @@ export function search(db: Database, query: string, options: SearchOptions): Sea
   }
 
   const intent = detectIntent(query);
-  const intentBoosts = INTENT_BOOSTS[intent];
+  const intentBoosts = INTENT_CONFIG[intent].boosts;
 
   for (const r of fused) {
-    r.score *= CATEGORY_WEIGHTS[r.category ?? ''] ?? 1.0;
-    r.score *= intentBoosts[r.category ?? ''] ?? 1.0;
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- DB category value matches Category union
+    r.score *= CATEGORY_WEIGHTS[r.category as Category] ?? 1.0;
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- DB category value matches Category union
+    r.score *= intentBoosts[r.category as Category] ?? 1.0;
   }
 
   fused.sort((a, b) => b.score - a.score);

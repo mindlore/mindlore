@@ -1,6 +1,7 @@
 import type BetterSqlite3 from 'better-sqlite3';
 type Database = BetterSqlite3.Database;
 import { dbAll } from './db-helpers.js';
+import { TURKISH_WORD_RE } from './constants.js';
 
 export function levenshtein(a: string, b: string): number {
   const m = a.length, n = b.length;
@@ -10,12 +11,13 @@ export function levenshtein(a: string, b: string): number {
   for (let i = 1; i <= m; i++) {
     curr[0] = i;
     for (let j = 1; j <= n; j++) {
-      curr[j] = a[i - 1] === b[j - 1]
-        ? prev[j - 1]!
-        : 1 + Math.min(prev[j]!, curr[j - 1]!, prev[j - 1]!);
+      // eslint-disable-next-line @typescript-eslint/no-non-null-assertion -- Int32Array indices within loop bounds [0..n]
+      curr[j] = a[i - 1] === b[j - 1] ? prev[j - 1]! : 1 + Math.min(prev[j]!, curr[j - 1]!, prev[j - 1]!);
     }
+    // eslint-disable-next-line @typescript-eslint/no-non-null-assertion -- Int32Array index j within [0..n]
     for (let j = 0; j <= n; j++) prev[j] = curr[j]!;
   }
+  // eslint-disable-next-line @typescript-eslint/no-non-null-assertion -- Int32Array index n is always within bounds
   return prev[n]!;
 }
 
@@ -55,7 +57,7 @@ export function invalidateVocabCache(): void {
 
 export function populateVocabulary(db: Database, content: string): void {
   const words = content
-    .replace(/[^\w\sçğıöşüÇĞİÖŞÜ-]/g, ' ')
+    .replace(TURKISH_WORD_RE, ' ')
     .split(/\s+/)
     .filter(w => w.length >= 3)
     .map(w => w.toLowerCase());

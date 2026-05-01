@@ -3,7 +3,7 @@ import os from 'os';
 import fs from 'fs';
 import Database from 'better-sqlite3';
 import { createTestDbWithMigrations, insertFts } from './helpers/db.js';
-import { computeRRF, searchPorter, searchTrigram, type RankedResult } from '../scripts/lib/rrf.js';
+import { computeRRF, searchPorter, searchTrigram, sanitizeFtsQuery, type RankedResult } from '../scripts/lib/rrf.js';
 
 function makeTmpDir(): string {
   return fs.mkdtempSync(path.join(os.tmpdir(), 'mindlore-rrf-'));
@@ -13,6 +13,24 @@ function cleanup(dir: string, db?: Database.Database): void {
   try { db?.close(); } catch {}
   fs.rmSync(dir, { recursive: true, force: true });
 }
+
+describe('sanitizeFtsQuery', () => {
+  it('strips hyphens to prevent FTS5 column-prefix parse', () => {
+    expect(sanitizeFtsQuery('project-state-engine')).toBe('project state engine');
+  });
+
+  it('strips all FTS5 operators', () => {
+    expect(sanitizeFtsQuery('"hello" AND world*')).toBe('hello AND world');
+  });
+
+  it('returns empty for operator-only input', () => {
+    expect(sanitizeFtsQuery('---')).toBe('');
+  });
+
+  it('preserves Turkish characters', () => {
+    expect(sanitizeFtsQuery('çalışma-planı')).toBe('çalışma planı');
+  });
+});
 
 describe('computeRRF', () => {
   test('merges porter and trigram results', () => {
@@ -66,7 +84,7 @@ describe('searchPorter + searchTrigram', () => {
       content: 'TypeScript provides hooks for React applications.',
       tags: 'typescript,react',
     });
-    const results = searchPorter(db, 'TypeScript hooks', 5);
+    const results = searchPorter(db, { query: 'TypeScript hooks', limit: 5 });
     expect(results.length).toBeGreaterThan(0);
     expect(results[0]!.rank).toBe(1);
     expect(results[0]!.score).toBe(0);
@@ -86,7 +104,7 @@ describe('searchPorter + searchTrigram', () => {
       content: 'TypeScript provides hooks for React applications.',
       tags: 'typescript,react',
     });
-    const results = searchTrigram(db, 'TypeScript', 5);
+    const results = searchTrigram(db, { query: 'TypeScript', limit: 5 });
     expect(results.length).toBeGreaterThan(0);
     cleanup(dir, db);
   });
@@ -94,8 +112,34 @@ describe('searchPorter + searchTrigram', () => {
   test('searchPorter returns empty for no match', () => {
     const dir = makeTmpDir();
     const db = createTestDbWithMigrations(path.join(dir, 'mindlore.db'));
-    const results = searchPorter(db, 'nonexistentxyz', 5);
+    const results = searchPorter(db, { query: 'nonexistentxyz', limit: 5 });
     expect(results).toEqual([]);
+    cleanup(dir, db);
+  });
+});
+
+describe('searchTrigram error handling', () => {
+  test('no warn on "no such table" error', () => {
+    const dir = makeTmpDir();
+    const db = new Database(path.join(dir, 'mindlore.db'));
+    const warnSpy = jest.spyOn(console, 'warn').mockImplementation(() => {});
+    const results = searchTrigram(db, { query: 'anything', limit: 5 });
+    expect(results).toEqual([]);
+    expect(warnSpy).not.toHaveBeenCalled();
+    warnSpy.mockRestore();
+    cleanup(dir, db);
+  });
+
+  test('warns on unexpected DB error', () => {
+    const dir = makeTmpDir();
+    const db = new Database(path.join(dir, 'mindlore.db'));
+    db.exec('CREATE VIRTUAL TABLE mindlore_fts_trigram USING fts5(content)');
+    const warnSpy = jest.spyOn(console, 'warn').mockImplementation(() => {});
+    // Query with a column that doesn't exist triggers a real error
+    const results = searchTrigram(db, { query: 'test', limit: 5 });
+    // No crash — returns []
+    expect(results).toEqual([]);
+    warnSpy.mockRestore();
     cleanup(dir, db);
   });
 });
