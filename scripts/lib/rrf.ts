@@ -86,7 +86,11 @@ export function searchTrigram(
       : 'SELECT path, slug, description, title, category, tags, content, rank FROM mindlore_fts_trigram WHERE mindlore_fts_trigram MATCH ? ORDER BY rank LIMIT ?';
     const params = project ? [sanitized, project, limit] : [sanitized, limit];
     return dbAll<RankedResult>(db, sql, ...params).map((r, i) => ({ ...r, rank: i + 1, score: 0 }));
-  } catch (_err) {
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
+    if (!msg.includes('no such table')) {
+      console.warn(`searchTrigram: ${msg}`);
+    }
     return [];
   }
 }

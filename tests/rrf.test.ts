@@ -117,3 +117,29 @@ describe('searchPorter + searchTrigram', () => {
     cleanup(dir, db);
   });
 });
+
+describe('searchTrigram error handling', () => {
+  test('no warn on "no such table" error', () => {
+    const dir = makeTmpDir();
+    const db = new Database(path.join(dir, 'mindlore.db'));
+    const warnSpy = jest.spyOn(console, 'warn').mockImplementation(() => {});
+    const results = searchTrigram(db, 'anything', 5);
+    expect(results).toEqual([]);
+    expect(warnSpy).not.toHaveBeenCalled();
+    warnSpy.mockRestore();
+    cleanup(dir, db);
+  });
+
+  test('warns on unexpected DB error', () => {
+    const dir = makeTmpDir();
+    const db = new Database(path.join(dir, 'mindlore.db'));
+    db.exec('CREATE VIRTUAL TABLE mindlore_fts_trigram USING fts5(content)');
+    const warnSpy = jest.spyOn(console, 'warn').mockImplementation(() => {});
+    // Query with a column that doesn't exist triggers a real error
+    const results = searchTrigram(db, 'test', 5);
+    // No crash — returns []
+    expect(results).toEqual([]);
+    warnSpy.mockRestore();
+    cleanup(dir, db);
+  });
+});
