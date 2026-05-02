@@ -186,6 +186,18 @@ function main() {
 
     if (db) {
       try {
+        // Schema version check: warn if DB is behind expected version
+        const tSchema = Date.now();
+        try {
+          const { EXPECTED_SCHEMA_VERSION } = require('../dist/scripts/lib/all-migrations.js');
+          const row = db.prepare('SELECT MAX(version) as v FROM schema_versions').get();
+          const current = row?.v ?? 0;
+          if (current < EXPECTED_SCHEMA_VERSION) {
+            output.push(`[Mindlore: schema güncel değil (v${current} → v${EXPECTED_SCHEMA_VERSION}). \`npx mindlore upgrade\` çalıştır.]`);
+          }
+        } catch (_schemaErr) { /* schema_versions may not exist yet */ }
+        timings.schema_check = Date.now() - tSchema;
+
         loadDbContent(db, baseDir, config, output, timings, latestDeltaContent, sessionId);
       } catch (err) {
         if (isCorruptionError(err)) {

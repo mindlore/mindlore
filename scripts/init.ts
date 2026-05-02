@@ -19,9 +19,7 @@ import { dbPragma } from './lib/db-helpers.js';
 import { mergeDefaults } from './lib/merge-defaults.js';
 import { parseJsonObject, readJsonFile } from './lib/safe-parse.js';
 import { ensureSchemaTable, runMigrations } from './lib/schema-version.js';
-import { V062_MIGRATIONS } from './lib/migrations-v062.js';
-import { V063_MIGRATIONS } from './lib/migrations-v063.js';
-import { V066_MIGRATIONS } from './lib/migrations-v066.js';
+import { INIT_MIGRATIONS } from './lib/all-migrations.js';
 
 // eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- dynamic CJS require, typed by mindlore-common.d.cts
 const { SQL_FTS_CREATE, ensureEpisodesTable: ensureEpisodesTableCjs } = require(resolveHookCommon(__dirname)) as {
@@ -194,7 +192,7 @@ function createDatabase(baseDir: string): boolean {
     const dbEp = new DatabaseCtor(dbPath);
     ensureEpisodesTableCjs(dbEp);
     ensureSchemaTable(dbEp);
-    runMigrations(dbEp, [...V062_MIGRATIONS, ...V063_MIGRATIONS, ...V066_MIGRATIONS]);
+    runMigrations(dbEp, INIT_MIGRATIONS);
     dbEp.close();
     return migrated;
   }
@@ -217,7 +215,7 @@ function createDatabase(baseDir: string): boolean {
 
   // v0.6.2 + v0.6.3 migrations
   ensureSchemaTable(db);
-  runMigrations(db, [...V062_MIGRATIONS, ...V063_MIGRATIONS, ...V066_MIGRATIONS]);
+  runMigrations(db, INIT_MIGRATIONS);
 
   db.close();
   return true;
