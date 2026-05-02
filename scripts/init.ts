@@ -225,10 +225,15 @@ function createDatabase(baseDir: string): boolean {
 
 // ── Step 4: Merge hooks into settings.json ─────────────────────────────
 
+interface HookEntry { hooks?: Array<{ command?: string }>; command?: string }
+
 function countMindloreHooks(allHooks: Record<string, unknown[]>): number {
   let total = 0;
   for (const event of Object.keys(allHooks)) {
-    for (const entry of (allHooks[event] ?? []) as Array<{ hooks?: Array<{ command?: string }>; command?: string }>) {
+    const entries = allHooks[event] ?? [];
+    for (const raw of entries) {
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- runtime shape validated below
+      const entry = raw as HookEntry;
       const hooks = entry.hooks && Array.isArray(entry.hooks) ? entry.hooks : [entry];
       for (const h of hooks) {
         if ((h.command ?? '').includes('mindlore-')) total++;
