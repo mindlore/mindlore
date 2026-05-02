@@ -5,17 +5,10 @@ import path from 'path';
 const common = require('../hooks/lib/mindlore-common.cjs');
 
 describe('SEC-13: baseDir resolution with path.sep guard', () => {
-  const MINDLORE_DIR = common.MINDLORE_DIR; // '.mindlore'
+  const MINDLORE_DIR = common.MINDLORE_DIR;
 
   function extractBaseDir(filePath: string): string | null {
-    const resolved = path.resolve(filePath);
-    const sepDir = path.sep + MINDLORE_DIR;
-    let idx = resolved.lastIndexOf(sepDir + path.sep);
-    if (idx === -1 && resolved.endsWith(sepDir)) {
-      idx = resolved.length - sepDir.length;
-    }
-    if (idx === -1) return null;
-    return resolved.slice(0, idx + sepDir.length);
+    return common.extractMindloreBaseDir(path.resolve(filePath));
   }
 
   it('extracts baseDir from valid .mindlore path', () => {

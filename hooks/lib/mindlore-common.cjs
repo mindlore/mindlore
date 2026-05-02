@@ -44,6 +44,21 @@ function getActiveMindloreDir() {
   return globalDir();
 }
 
+function isInsideMindloreDir(resolvedPath) {
+  return resolvedPath.includes(path.sep + MINDLORE_DIR + path.sep)
+      || resolvedPath.endsWith(path.sep + MINDLORE_DIR);
+}
+
+function extractMindloreBaseDir(resolvedPath) {
+  const sepDir = path.sep + MINDLORE_DIR;
+  let idx = resolvedPath.lastIndexOf(sepDir + path.sep);
+  if (idx === -1 && resolvedPath.endsWith(sepDir)) {
+    idx = resolvedPath.length - sepDir.length;
+  }
+  if (idx === -1) return null;
+  return resolvedPath.slice(0, idx + sepDir.length);
+}
+
 /**
  * Return the single global mindlore DB path.
  * v0.3.3: multi-DB layered search removed — single global DB with project column.
@@ -801,8 +816,9 @@ module.exports = {
   isDaemonRunning,
   getDaemonPortFile,
   getDaemonPidFile,
-  // Rotation (v0.6.5 — SEC-12)
   _rotateFile,
+  isInsideMindloreDir,
+  extractMindloreBaseDir,
   // Telemetry (v0.6.0)
   withTelemetry,
   withTelemetrySync,

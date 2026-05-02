@@ -13,14 +13,14 @@
 
 const fs = require('fs');
 const path = require('path');
-const { MINDLORE_DIR, DB_NAME, sha256, openDatabase, getAllMdFiles, parseFrontmatter, extractFtsMetadata, insertFtsRow, readHookStdin, getActiveMindloreDir, getProjectName, resolveProject, hookLog, withTelemetry, SQL_FTS_SESSIONS_INSERT, isSessionCategory } = require('./lib/mindlore-common.cjs');
+const { DB_NAME, sha256, openDatabase, getAllMdFiles, parseFrontmatter, extractFtsMetadata, insertFtsRow, readHookStdin, getActiveMindloreDir, getProjectName, resolveProject, hookLog, withTelemetry, SQL_FTS_SESSIONS_INSERT, isSessionCategory, isInsideMindloreDir } = require('./lib/mindlore-common.cjs');
 
 function main() {
   const filePath = readHookStdin(['path', 'file_path']);
 
-  // Only trigger on .mindlore/ changes (empty filePath = skip)
-  const resolved = path.resolve(filePath || '');
-  if (!filePath || (!resolved.includes(path.sep + MINDLORE_DIR + path.sep) && !resolved.endsWith(path.sep + MINDLORE_DIR))) return;
+  if (!filePath) return;
+  const resolved = path.resolve(filePath);
+  if (!isInsideMindloreDir(resolved)) return;
 
   // Skip if this is a single .md file change — mindlore-index.cjs handles those.
   // This hook is for bulk changes (git pull, manual batch edits).

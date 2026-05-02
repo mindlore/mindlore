@@ -10,7 +10,7 @@
 
 const fs = require('fs');
 const path = require('path');
-const { MINDLORE_DIR, DB_NAME, SKIP_FILES, sha256, openDatabase, parseFrontmatter, extractFtsMetadata, insertFtsRow, readHookStdin, getProjectName, resolveProject, globalDir, hookLog, withTelemetry } = require('./lib/mindlore-common.cjs');
+const { DB_NAME, SKIP_FILES, sha256, openDatabase, parseFrontmatter, extractFtsMetadata, insertFtsRow, readHookStdin, getProjectName, resolveProject, globalDir, hookLog, withTelemetry, isInsideMindloreDir, extractMindloreBaseDir } = require('./lib/mindlore-common.cjs');
 
 function invalidateSearchCache(db) {
   try { db.exec('DELETE FROM search_cache'); } catch (_) { /* table may not exist */ }
@@ -23,7 +23,7 @@ function main() {
   // Only process .md files inside .mindlore/ (resolved path check prevents traversal)
   if (!filePath.endsWith('.md')) return;
   const resolvedFile = path.resolve(filePath);
-  if (!resolvedFile.includes(path.sep + MINDLORE_DIR + path.sep) && !resolvedFile.endsWith(path.sep + MINDLORE_DIR)) {
+  if (!isInsideMindloreDir(resolvedFile)) {
     // CC memory path (~/.claude/projects/*/memory/*.md) — index to global mindlore DB
     const isCcMemory = resolvedFile.includes(path.sep + '.claude' + path.sep + 'projects' + path.sep)
       && resolvedFile.includes(path.sep + 'memory' + path.sep)
@@ -37,13 +37,8 @@ function main() {
 
   const fileName = path.basename(filePath);
 
-  const sepDir = path.sep + MINDLORE_DIR;
-  let mindloreIdx = resolvedFile.lastIndexOf(sepDir + path.sep);
-  if (mindloreIdx === -1 && resolvedFile.endsWith(sepDir)) {
-    mindloreIdx = resolvedFile.length - sepDir.length;
-  }
-  if (mindloreIdx === -1) return;
-  const baseDir = resolvedFile.slice(0, mindloreIdx + sepDir.length);
+  const baseDir = extractMindloreBaseDir(resolvedFile);
+  if (!baseDir) return;
   const dbPath = path.join(baseDir, DB_NAME);
 
   if (!fs.existsSync(dbPath)) return;
