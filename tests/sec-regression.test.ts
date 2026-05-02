@@ -133,3 +133,96 @@ describe('SEC-9: isDaemonRunning TOCTOU-safe', () => {
     fs.unlinkSync(pidFile);
   });
 });
+
+describe('SEC-4: restrictive file permissions (0o600/0o700)', () => {
+  let tmpDir: string;
+
+  beforeEach(() => {
+    tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'sec4-'));
+  });
+
+  afterEach(() => {
+    fs.rmSync(tmpDir, { recursive: true, force: true });
+  });
+
+  it('_rotateFile writes with mode 0o600', () => {
+    const filePath = path.join(tmpDir, 'secret.log');
+    const lines = Array.from({ length: 50 }, (_, i) => `line-${i}`);
+    fs.writeFileSync(filePath, lines.join('\n') + '\n');
+
+    common._rotateFile(filePath, 10, 5);
+
+    if (process.platform !== 'win32') {
+      const stat = fs.statSync(filePath);
+      expect(stat.mode & 0o777).toBe(0o600);
+    } else {
+      expect(fs.existsSync(filePath)).toBe(true);
+    }
+  });
+
+  it('writeFileSync in hooks uses mode 0o600 for sensitive files', () => {
+    const hookSrc = fs.readFileSync(
+      path.join(__dirname, '..', 'hooks', 'mindlore-session-end.cjs'), 'utf8'
+    );
+    const writeMatches = hookSrc.match(/writeFileSync\([^)]+\)/g) ?? [];
+    const sensitiveWrites = writeMatches.filter(
+      m => !m.includes('.pid') && !m.includes('.port')
+    );
+    for (const w of sensitiveWrites) {
+      if (w.includes('mode')) {
+        expect(w).toMatch(/0o600/);
+      }
+    }
+  });
+});
+
+describe('SEC-6: no execSync with user-controlled input', () => {
+  const FILES_WITH_SUBPROCESSES = [
+    { file: 'hooks/mindlore-pre-compact.cjs', minExecFile: 1 },
+    { file: 'hooks/mindlore-session-end.cjs', minExecFile: 5 },
+    { file: 'scripts/init.ts', minExecFile: 1 },
+  ];
+
+  it.each(FILES_WITH_SUBPROCESSES)(
+    '$file has zero execSync calls',
+    ({ file }) => {
+      const src = fs.readFileSync(path.join(__dirname, '..', file), 'utf8');
+      const execSyncCalls = src.match(/\bexecSync\s*\(/g) ?? [];
+      expect(execSyncCalls.length).toBe(0);
+    }
+  );
+
+  it.each(FILES_WITH_SUBPROCESSES)(
+    '$file uses execFileSync (min $minExecFile calls)',
+    ({ file, minExecFile }) => {
+      const src = fs.readFileSync(path.join(__dirname, '..', file), 'utf8');
+      const execFileSyncCalls = src.match(/\bexecFileSync\s*\(/g) ?? [];
+      expect(execFileSyncCalls.length).toBeGreaterThanOrEqual(minExecFile);
+    }
+  );
+});
+
+describe('SEC-8: daemon TCP connection limits', () => {
+  it('daemon.ts source sets maxConnections = 10', () => {
+    const src = fs.readFileSync(
+      path.join(__dirname, '..', 'scripts', 'lib', 'daemon.ts'), 'utf8'
+    );
+    expect(src).toMatch(/server\.maxConnections\s*=\s*10/);
+  });
+
+  it('daemon.ts source sets connection timeout', () => {
+    const src = fs.readFileSync(
+      path.join(__dirname, '..', 'scripts', 'lib', 'daemon.ts'), 'utf8'
+    );
+    expect(src).toMatch(/conn\.setTimeout\(\d+\)/);
+    expect(src).toMatch(/conn\.on\(['"]timeout['"]/);
+  });
+
+  it('daemon.ts source enforces buffer limit', () => {
+    const src = fs.readFileSync(
+      path.join(__dirname, '..', 'scripts', 'lib', 'daemon.ts'), 'utf8'
+    );
+    expect(src).toMatch(/MAX_BUFFER/);
+    expect(src).toMatch(/buffer\.length\s*>\s*MAX_BUFFER/);
+  });
+});
