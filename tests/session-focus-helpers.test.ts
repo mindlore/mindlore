@@ -62,6 +62,8 @@ describe('getEpisodeStats', () => {
   });
 });
 
+const DAYS_45_MS = 45 * 24 * 60 * 60 * 1000;
+
 describe('checkStaleContent', () => {
   test('returns null when no stale content', () => {
     env.db.prepare(
@@ -71,7 +73,7 @@ describe('checkStaleContent', () => {
   });
 
   test('returns null when stale count is 3 or fewer', () => {
-    const oldDate = new Date(Date.now() - 45 * 24 * 60 * 60 * 1000).toISOString();
+    const oldDate = new Date(Date.now() - DAYS_45_MS).toISOString();
     for (let i = 0; i < 3; i++) {
       env.db.prepare(
         'INSERT INTO file_hashes (path, content_hash, last_indexed) VALUES (?, ?, ?)',
@@ -81,7 +83,7 @@ describe('checkStaleContent', () => {
   });
 
   test('returns warning when more than 3 stale files', () => {
-    const oldDate = new Date(Date.now() - 45 * 24 * 60 * 60 * 1000).toISOString();
+    const oldDate = new Date(Date.now() - DAYS_45_MS).toISOString();
     for (let i = 0; i < 5; i++) {
       env.db.prepare(
         'INSERT INTO file_hashes (path, content_hash, last_indexed) VALUES (?, ?, ?)',
@@ -94,7 +96,7 @@ describe('checkStaleContent', () => {
   });
 
   test('does not count recently indexed files', () => {
-    const oldDate = new Date(Date.now() - 45 * 24 * 60 * 60 * 1000).toISOString();
+    const oldDate = new Date(Date.now() - DAYS_45_MS).toISOString();
     const recentDate = new Date().toISOString();
     for (let i = 0; i < 4; i++) {
       env.db.prepare(
