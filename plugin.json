@@ -52,6 +52,11 @@
       "name": "mindlore-maintain",
       "path": "skills/mindlore-maintain/SKILL.md",
       "description": "KB maintenance — decay/archive stale documents, consolidate 50+ episodes into learnings/insights, detect contradictions. Modes: decay (stale doc archive with git snapshot), consolidate (episode→file promotion), contradictions (wiki-lint + semantic), restore (undo archive). Run without flags for full report."
+    },
+    {
+      "name": "mindlore-stats",
+      "path": "skills/mindlore-stats/SKILL.md",
+      "description": "Show context contribution and cost per session — hook calls, durations, DB stats."
     }
   ],
   "agents": [
