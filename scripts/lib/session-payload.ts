@@ -51,30 +51,36 @@ function buildSessionSummary(baseDir: string, latestDeltaContent?: string): stri
 function buildEpisodeSections(db: Database.Database, project: string, sessionId?: string): { decisions: string; friction: string; learnings: string } {
   const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString();
 
+  // Single query with anti-join to exclude already-injected episodes
+  const query = sessionId
+    ? `SELECT rowid, kind, summary, created_at FROM episodes
+       WHERE status = 'active' AND project = ?
+         AND kind IN ('decision', 'friction', 'learning')
+         AND created_at >= ?
+         AND CAST(rowid AS TEXT) NOT IN (SELECT episode_id FROM episode_inject_log WHERE session_id = ?)
+       ORDER BY kind, created_at DESC`
+    : `SELECT rowid, kind, summary, created_at FROM episodes
+       WHERE status = 'active' AND project = ?
+         AND kind IN ('decision', 'friction', 'learning')
+         AND created_at >= ?
+       ORDER BY kind, created_at DESC`;
+
+  const rawRows = sessionId
+    ? db.prepare(query).all(project, sevenDaysAgo, sessionId)
+    : db.prepare(query).all(project, sevenDaysAgo);
   // eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- better-sqlite3 .all() returns unknown[]
-  let rows = db.prepare(
-    `SELECT rowid, kind, summary, created_at FROM episodes
-     WHERE status = 'active' AND project = ?
-       AND kind IN ('decision', 'friction', 'learning')
-       AND created_at >= ?
-     ORDER BY kind, created_at DESC`,
-  ).all(project, sevenDaysAgo) as EpisodeRow[];
+  const rows = rawRows as EpisodeRow[];
 
-  if (sessionId) {
-    // eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- better-sqlite3 .all() returns unknown[]
-    const injected = db.prepare(
-      `SELECT episode_id FROM episode_inject_log WHERE session_id = ?`,
-    ).all(sessionId) as Array<{ episode_id: string }>;
-    const injectedSet = new Set(injected.map(r => r.episode_id));
-    rows = rows.filter(r => !injectedSet.has(String(r.rowid)));
-
+  if (sessionId && rows.length > 0) {
     const now = new Date().toISOString();
     const insert = db.prepare(
       `INSERT OR IGNORE INTO episode_inject_log (session_id, episode_id, injected_at) VALUES (?, ?, ?)`,
     );
-    for (const row of rows) {
-      insert.run(sessionId, String(row.rowid), now);
-    }
+    db.transaction(() => {
+      for (const row of rows) {
+        insert.run(sessionId, String(row.rowid), now);
+      }
+    })();
   }
 
   const grouped = { decision: [] as EpisodeRow[], friction: [] as EpisodeRow[], learning: [] as EpisodeRow[] };

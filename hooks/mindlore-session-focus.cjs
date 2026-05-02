@@ -12,24 +12,21 @@ const fs = require('fs');
 const path = require('path');
 const { findMindloreDir, readConfig, openDatabase, hasEpisodesTable, querySupersededChains, formatSupersededChains, hookLog, getProjectName, parseFrontmatter, withTelemetry, withTimeoutDb, listSnapshots, isCorruptionError, recoverCorruptDb } = require('./lib/mindlore-common.cjs');
 
+function truncateSection(content, sectionRegex, keepCount, label) {
+  const match = content.match(sectionRegex);
+  if (!match) return content;
+  const lines = match[2].trim().split('\n');
+  if (lines.length <= keepCount) return content;
+  const kept = lines.slice(0, keepCount).join('\n');
+  return content.replace(match[2].trim(), kept + `\n- ...ve ${lines.length - keepCount} ${label} daha`);
+}
+
 function truncateCommits(content) {
-  const commitMatch = content.match(/(## Commits\n)((?:- [^\n]+\n?)+)/);
-  if (!commitMatch) return content;
-  const lines = commitMatch[2].trim().split('\n');
-  if (lines.length <= 5) return content;
-  const kept = lines.slice(0, 5).join('\n');
-  const truncated = kept + `\n- ...ve ${lines.length - 5} commit daha`;
-  return content.replace(commitMatch[2].trim(), truncated);
+  return truncateSection(content, /(## Commits\n)((?:- [^\n]+\n?)+)/, 5, 'commit');
 }
 
 function truncateChangedFiles(content) {
-  const fileMatch = content.match(/(## Changed Files\n)((?:- [^\n]+\n?)+)/);
-  if (!fileMatch) return content;
-  const lines = fileMatch[2].trim().split('\n');
-  if (lines.length <= 10) return content;
-  const kept = lines.slice(0, 10).join('\n');
-  const truncated = kept + `\n- ...ve ${lines.length - 10} dosya daha`;
-  return content.replace(fileMatch[2].trim(), truncated);
+  return truncateSection(content, /(## Changed Files\n)((?:- [^\n]+\n?)+)/, 10, 'dosya');
 }
 
 function tryOpenDb(dbPath) {
