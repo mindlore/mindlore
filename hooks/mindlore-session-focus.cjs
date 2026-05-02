@@ -241,5 +241,5 @@ withTelemetry('mindlore-session-focus', main).catch(err => {
 });
 
 if (typeof module !== 'undefined') {
-  module.exports = { truncateCommits, truncateChangedFiles };
+  module.exports = { truncateCommits, truncateChangedFiles, getEpisodeStats, checkStaleContent };
 }
