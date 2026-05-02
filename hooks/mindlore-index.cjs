@@ -23,7 +23,7 @@ function main() {
   // Only process .md files inside .mindlore/ (resolved path check prevents traversal)
   if (!filePath.endsWith('.md')) return;
   const resolvedFile = path.resolve(filePath);
-  if (!resolvedFile.includes(path.sep + MINDLORE_DIR + path.sep) && !resolvedFile.includes(path.sep + MINDLORE_DIR)) {
+  if (!resolvedFile.includes(path.sep + MINDLORE_DIR + path.sep) && !resolvedFile.endsWith(path.sep + MINDLORE_DIR)) {
     // CC memory path (~/.claude/projects/*/memory/*.md) — index to global mindlore DB
     const isCcMemory = resolvedFile.includes(path.sep + '.claude' + path.sep + 'projects' + path.sep)
       && resolvedFile.includes(path.sep + 'memory' + path.sep)
@@ -38,7 +38,10 @@ function main() {
   const fileName = path.basename(filePath);
 
   const sepDir = path.sep + MINDLORE_DIR;
-  const mindloreIdx = resolvedFile.lastIndexOf(sepDir);
+  let mindloreIdx = resolvedFile.lastIndexOf(sepDir + path.sep);
+  if (mindloreIdx === -1 && resolvedFile.endsWith(sepDir)) {
+    mindloreIdx = resolvedFile.length - sepDir.length;
+  }
   if (mindloreIdx === -1) return;
   const baseDir = resolvedFile.slice(0, mindloreIdx + sepDir.length);
   const dbPath = path.join(baseDir, DB_NAME);

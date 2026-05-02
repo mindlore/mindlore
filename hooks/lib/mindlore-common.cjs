@@ -801,6 +801,8 @@ module.exports = {
   isDaemonRunning,
   getDaemonPortFile,
   getDaemonPidFile,
+  // Rotation (v0.6.5 — SEC-12)
+  _rotateFile,
   // Telemetry (v0.6.0)
   withTelemetry,
   withTelemetrySync,
@@ -853,9 +855,8 @@ function getUnpromotedRawFiles(baseDir) {
 }
 
 function isDaemonRunning(pidFile) {
-  if (!fs.existsSync(pidFile)) return { running: false };
-  const pid = parseInt(fs.readFileSync(pidFile, 'utf8').trim());
   try {
+    const pid = parseInt(fs.readFileSync(pidFile, 'utf8').trim());
     process.kill(pid, 0);
     return { running: true, pid };
   } catch {
