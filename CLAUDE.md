@@ -63,7 +63,7 @@ tests/      # Jest test suites
 | PreToolUse (Agent) | mindlore-model-router | Cost-optimized model routing via markers |
 | PreToolUse (Agent) | mindlore-research-guard | FTS5 check before research — block if recent+high quality exists |
 
-## Skills (v0.5.4 — 10 skills)
+## Skills (v0.6.6 — 11 skills)
 
 | Skill | Purpose |
 |-------|---------|
@@ -77,6 +77,7 @@ tests/      # Jest test suites
 | /mindlore-diary | Session analysis — decisions, discoveries, frictions |
 | /mindlore-reflect | Pattern extraction from episodes, CLAUDE.md update proposals |
 | /mindlore-maintain | KB maintenance — decay/archive, consolidation, contradiction |
+| /mindlore-stats | Context visibility — token usage, hook latency, KB size |
 
 ## Testing
 

@@ -5,6 +5,31 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.6.6] - 2026-05-02
+
+### Added
+- `/mindlore-stats` skill for context visibility (token usage, hook latency, KB size)
+- 5 source-type extraction templates (article, changelog, default, docs, github-repo)
+- Ingest skill reads extraction template for source-type-aware analysis
+- Init copies extraction templates to `.mindlore/`, preserves user customizations
+- Search returns content snippets instead of metadata-only results
+- Episode stale filter (7-day) + inject dedup via `episode_inject_log` table
+- Centralized `ALL_MIGRATIONS` registry (`scripts/lib/all-migrations.ts`)
+
+### Fixed
+- WAL + `busy_timeout` added to upgrade path in init.ts (prevents DB locked errors)
+- Schema version warning on mismatch (expected vs actual)
+- Session payload `sessionId` passthrough for episode dedup
+- Changed files list truncation (>10 → top 10 + count) to reduce context noise
+- Misleading eslint-disable comment in `countMindloreHooks`
+
+### Changed
+- Extracted `countMindloreHooks` from init `mergeHooks` for reuse
+- Extracted `getEpisodeStats` + `checkStaleContent` from session-focus
+- Extracted `truncateSection` helper + anti-join SQL + transaction wrap
+- Deduplicated SQL query + derived `FTS_DB_MIGRATIONS` from `ALL_MIGRATIONS`
+- Removed redundant project computation + WHAT comment
+
 ## [0.6.5] - 2026-05-02
 
 ### Added
