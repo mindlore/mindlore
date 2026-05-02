@@ -594,3 +594,31 @@ describe('version tokenization (v0.6.1)', () => {
     db.close();
   });
 });
+
+describe('Search snippet extraction', () => {
+  test('search results include snippet with matching content', () => {
+    const { search } = require('../dist/scripts/lib/search-engine.js');
+    const Database = require('better-sqlite3');
+    const db = new Database(':memory:');
+    db.exec(`CREATE VIRTUAL TABLE mindlore_fts USING fts5(path, slug, description, type, category, title, content, tags, quality, date_captured, project)`);
+    db.exec(`CREATE VIRTUAL TABLE mindlore_fts_porter USING fts5(path, slug, description, type, category, title, content, tags, quality, date_captured, project, tokenize="porter unicode61")`);
+    db.exec(`CREATE VIRTUAL TABLE mindlore_fts_trigram USING fts5(path, slug, description, type, category, title, content, tags, quality, date_captured, project, tokenize="trigram")`);
+
+    const content = 'This document explains how TypeScript generics work with constraints and inference patterns.';
+    const stmt = db.prepare('INSERT INTO mindlore_fts (path, slug, description, type, category, title, content, tags, quality, date_captured, project) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)');
+    const stmtPorter = db.prepare('INSERT INTO mindlore_fts_porter (path, slug, description, type, category, title, content, tags, quality, date_captured, project) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)');
+    const stmtTrigram = db.prepare('INSERT INTO mindlore_fts_trigram (path, slug, description, type, category, title, content, tags, quality, date_captured, project) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)');
+
+    const args = ['/docs/typescript-generics.md', 'typescript-generics', 'TypeScript generics guide', 'source', 'sources', 'TypeScript Generics', content, 'typescript,generics', 'high', null, null];
+    stmt.run(...args);
+    stmtPorter.run(...args);
+    stmtTrigram.run(...args);
+
+    const results = search(db, 'TypeScript generics constraints', { maxResults: 3 });
+    db.close();
+
+    expect(results.length).toBeGreaterThan(0);
+    expect(results[0]!.snippet).toBeDefined();
+    expect(results[0]!.snippet).toContain('TypeScript');
+  });
+});

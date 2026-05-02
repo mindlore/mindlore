@@ -151,7 +151,8 @@ function main() {
 
     const headingStr = headings.length > 0 ? `\nBasliklar: ${headings.join(', ')}` : '';
     const tagsStr = r.tags ? `\nTags: ${r.tags}` : '';
-    const entry = `[Mindlore: ${category}/${title}] ${description}\nDosya: ${relativePath}${tagsStr}${headingStr}`;
+    const snippetOrDesc = r.snippet || description;
+    const entry = `[Mindlore: ${category}/${title}] ${snippetOrDesc}\nDosya: ${relativePath}${tagsStr}${headingStr}`;
     const truncated = entry.slice(0, perResultChars);
     totalUsed += truncated.length;
     output.push(truncated);
