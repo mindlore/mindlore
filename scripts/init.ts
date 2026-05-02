@@ -190,6 +190,8 @@ function createDatabase(baseDir: string): boolean {
     }
     // Idempotent: ensure episodes table on pre-v0.4 databases
     const dbEp = new DatabaseCtor(dbPath);
+    dbEp.pragma('journal_mode = WAL');
+    dbEp.pragma('busy_timeout = 5000');
     ensureEpisodesTableCjs(dbEp);
     ensureSchemaTable(dbEp);
     runMigrations(dbEp, INIT_MIGRATIONS);
