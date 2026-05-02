@@ -232,7 +232,7 @@ function countMindloreHooks(allHooks: Record<string, unknown[]>): number {
   for (const event of Object.keys(allHooks)) {
     const entries = allHooks[event] ?? [];
     for (const raw of entries) {
-      // eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- runtime shape validated below
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- caller-controlled JSON shape from settings.json
       const entry = raw as HookEntry;
       const hooks = entry.hooks && Array.isArray(entry.hooks) ? entry.hooks : [entry];
       for (const h of hooks) {
