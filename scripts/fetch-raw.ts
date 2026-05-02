@@ -55,10 +55,12 @@ function slugFromUrl(url: string): string {
 function fetchGitHubReadme(url: string): string | null {
   const match = url.match(/^https?:\/\/github\.com\/([^/]+)\/([^/]+)\/?$/);
   if (!match) return null;
-  const [, owner, repo] = match;
+  const owner = match[1];
+  const repo = match[2];
+  if (!owner || !repo) return null;
   try {
-    const safeOwner = sanitizeForExecFile(owner!);
-    const safeRepo = sanitizeForExecFile(repo!);
+    const safeOwner = sanitizeForExecFile(owner);
+    const safeRepo = sanitizeForExecFile(repo);
     const result = execFileSync(
       'gh',
       ['api', `repos/${safeOwner}/${safeRepo}/readme`, '--jq', '.content'],
