@@ -44,21 +44,6 @@ Mindlore uses a single global directory:
 - Files MUST live in the directory matching their `type`
 - The health check script validates this cross-reference
 
-### Session Storage (v0.5.3)
-
-```
-raw/sessions/
-├── kastell/          # Proje bazlı CC session dosyaları
-├── mindlore/
-├── Stok-Takip/
-└── {project-slug}/   # cc-session-sync.ts tarafından yazılır
-```
-
-Session dosyaları `cc-session-sync.ts` tarafından `~/.claude/projects/*/` altından taranır,
-`projectSlug()` ile temiz isme dönüştürülür (ör. `C--Users-Omrfc-Documents-kastell` → `kastell`),
-ve `raw/sessions/{slug}/{date}-{shortId}.md` olarak yazılır.
-Frontmatter: `type: raw, project: {slug}, category: cc-session`
-
 ## 3. Frontmatter
 
 Every `.md` file in `.mindlore/` MUST have YAML frontmatter. Format:
@@ -105,7 +90,7 @@ tags: [tag1, tag2]
 - `raw_slug`: slug of the raw/ file this source was processed from (source→raw traceability)
 - `status`: `stub` | `active` | `archived` (domain maturity indicator)
 
-## 4. Ten Operations
+## 4. Seven Operations
 
 ### 4.1 Ingest (skill: /mindlore-ingest)
 
@@ -116,7 +101,7 @@ Add new knowledge. Flow: capture → raw/ → process → sources/ → update do
 - PDF mode: CC Read tool (max 20 pages/request) → raw/ → summarize → sources/
 - **markitdown is NOT used for PDF** — quality is poor. Use CC Read tool or Marker/Chandra (v0.3+)
 
-### 4.2 Query (skill: /mindlore-query) — IMPLEMENTED (v0.2)
+### 4.2 Query (skill: /mindlore-query, v0.2 — PLANNED, not yet implemented)
 
 Search and retrieve knowledge. Four modes:
 - `search`: FTS5 keyword search, return top 3 matches with snippets
@@ -134,7 +119,7 @@ Run 16-point structural check:
 - Orphan file detection (files not in FTS5)
 - Frontmatter validation (type-directory cross-reference)
 
-### 4.4 Log (skill: /mindlore-log) — IMPLEMENTED (v0.2)
+### 4.4 Log (skill: /mindlore-log, v0.2 — PLANNED, not yet implemented)
 
 Session logging with four modes:
 - `log`: Write session/task record to diary/
@@ -142,44 +127,33 @@ Session logging with four modes:
 - `status`: Recent N sessions summary, trends, open items
 - `save`: Structured delta + log.md append + wiki update
 
-### 4.5 Decide (skill: /mindlore-decide) — IMPLEMENTED (v0.2)
+### 4.5 Decide (skill: /mindlore-decide, v0.2 — PLANNED, not yet implemented)
 
 Record decisions with context, options considered, rationale, and outcome.
 Supports `supersedes` chain for decision evolution.
 
-### 4.6 Evolve (skill: /mindlore-evolve) — IMPLEMENTED (v0.3)
+### 4.6 Evolve (skill: /mindlore-evolve, v0.3 — PLANNED, not yet implemented)
 
 Schema co-evolution. Scan domains + sources, suggest structural updates.
 Run monthly or after major changes.
 
-### 4.7 Explore (skill: /mindlore-explore) — IMPLEMENTED (v0.3)
+### 4.7 Explore (skill: /mindlore-explore, v0.3 — PLANNED, not yet implemented)
 
 Discover unexpected connections between sources. Cross-reference analysis.
-
-### 4.8 Diary (skill: /mindlore-diary) — IMPLEMENTED (v0.5.3)
-
-Session analysis — decisions, discoveries, frictions, learnings.
-
-### 4.9 Reflect (skill: /mindlore-reflect) — IMPLEMENTED (v0.5.3)
-
-Pattern extraction from episodes, CLAUDE.md update proposals.
-
-### 4.10 Maintain (skill: /mindlore-maintain) — IMPLEMENTED (v0.5.3)
-
-Decay/archive, episode consolidation, contradiction detection.
 
 ## 5. Search Behavior
 
 ### FTS5 Search (hooks + scripts)
 
 - Database: `.mindlore/mindlore.db`
-- Table: `mindlore_fts` (columns: path, content)
-- Dedup: `file_hashes` table with SHA256 content-hash
+- Table: `mindlore_fts` — knowledge content (sources, domains, analyses, decisions, diary)
+- Table: `mindlore_fts_sessions` — session content (cc-subagent, cc-session) — v0.6.1
+- Dedup: `file_hashes` table with SHA256 content-hash + `table_target` column (v0.6.1)
 - Tokenizer: `unicode61`
 - Max results: 3 per query (BM25 ranking)
 - Hook injects: file path + first 2 headings
 
-### FTS5 Columns (11-col schema, v0.5.9)
+### FTS5 Columns (11-col schema, v0.3.3)
 
 | Column | Indexed | Source |
 |--------|---------|--------|
@@ -316,75 +290,3 @@ tags: [testing, jest, mock]
 - Stats line: "N source, N analysis, N total"
 - Last 5 added (initially empty)
 - NO full file listing — discovery via FTS5
-
-## 10. Database Tables
-
-### mindlore_fts (FTS5 virtual table)
-
-11 kolon: path (UNINDEXED), slug, description, type (UNINDEXED), category, title, content, tags, quality (UNINDEXED), date_captured (UNINDEXED), project (UNINDEXED)
-
-Tokenizer: `porter unicode61`
-
-### file_hashes
-
-Dedup tablosu — content-hash ile aynı dosyanın tekrar indexlenmesini engeller.
-
-| Kolon | Tip | Açıklama |
-|-------|-----|----------|
-| path | TEXT PK | Dosya tam yolu |
-| content_hash | TEXT | SHA256 hash |
-| last_indexed | TEXT | Son index zamanı |
-| created_at | TEXT | İlk index zamanı |
-| updated_at | TEXT | Son güncelleme zamanı |
-| source_type | TEXT | Kaynak tipi (cc-session, cc-subagent, vb.) |
-| project_scope | TEXT | Proje adı |
-| recall_count | INTEGER | Kaç kez recall edildi |
-| last_recalled_at | TEXT | Son recall zamanı |
-| archived_at | TEXT | Arşivlenme zamanı (null = aktif) |
-| importance | REAL | Kalite→önem dönüşümü (0.0–1.0) |
-
-> v0.6.0: `QUALITY_HEURISTICS` artık `cc-session`/`cc-subagent` source_type'larını tanıyor (önce eksikti).
-
-### episodes
-
-Session ve bilgi olayları — decision, discovery, friction, learning, reflection.
-
-| Kolon | Tip | Açıklama |
-|-------|-----|----------|
-| id | TEXT PK | `ep-{kind}-{timestamp}-{random}` |
-| kind | TEXT | decision, discovery, friction, learning, reflection, correction |
-| scope | TEXT | session, cross-session, global |
-| project | TEXT | Proje adı |
-| summary | TEXT | Tek satır özet |
-| body | TEXT | Detaylı içerik |
-| tags | TEXT | Virgülle ayrılmış etiketler |
-| entities | TEXT | İlgili entity'ler |
-| parent_id | TEXT | Üst episode referansı |
-| status | TEXT | active, archived |
-| supersedes | TEXT | Geçersiz kıldığı episode ID |
-| source | TEXT | Kaynak (session ID, hook adı) |
-| created_at | TEXT | Oluşturulma zamanı |
-| consolidation_status | TEXT | raw, consolidated |
-| consolidated_into | TEXT | Konsolide edildiği episode ID |
-| decay_score | REAL | 0.0–1.0 (1.0 = taze) |
-| last_decay_calc | TEXT | Son decay hesaplama zamanı |
-
-### skill_memory
-
-Skill'lerin kalıcı belleği — fork'lar arası veri paylaşımı.
-
-| Kolon | Tip | Açıklama |
-|-------|-----|----------|
-| key | TEXT PK | Skill + anahtar adı |
-| value | TEXT | JSON veya düz metin |
-| updated_at | TEXT | Son güncelleme |
-
-## 11. Agents
-
-3 agent tanımlı (`agents/` dizini). Model routing `model-router` hook'u tarafından yapılır.
-
-| Agent | Model | Görev |
-|-------|-------|-------|
-| mindlore-assistant | sonnet | Genel KB asistanı — query, ingest yönlendirme |
-| mindlore-researcher | sonnet | Araştırma — web fetch, kaynak analizi |
-| mindlore-librarian | haiku | Organizasyon — tag, kategori, duplicate tespiti |

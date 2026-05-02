@@ -5,6 +5,39 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.6.5] - 2026-05-02
+
+### Added
+- Input-validation module — `sanitizeForExecFile`, `validatePath`, `validateUrl` (SEC-11)
+- SEC regression test suite — 23 tests covering SEC-4/6/8/9/12/13
+- fetch-raw security tests — path traversal + SSRF guard coverage
+- `isInsideMindloreDir` + `extractMindloreBaseDir` shared helpers in mindlore-common
+- IP range tests + IPv6 bracket parsing coverage
+- STOP_WORDS fallback path test coverage
+
+### Fixed
+- **SEC-1**: Command injection — `execSync` → `execFileSync` in fetch-raw
+- **SEC-2**: Path traversal + SSRF guards in fetch-raw
+- **SEC-3**: Vault path traversal — home directory check in obsidian export
+- **SEC-4**: Restrictive file permissions (0o600/0o700) for sensitive data
+- **SEC-5**: Expanded secret redaction patterns in privacy-filter
+- **SEC-6**: `execSync` → `execFileSync` across hooks and scripts (init, pre-compact, session-end)
+- **SEC-7**: YAML frontmatter escaping via `escapeYamlValue`
+- **SEC-8**: Daemon TCP connection limits (maxConnections, timeout, buffer cap)
+- **SEC-9**: TOCTOU race in `isDaemonRunning` — removed existsSync pre-check
+- **SEC-10**: SSRF private IP validation + IPv6 bracket fix
+- **SEC-12**: Atomic write in `_rotateFile` — no leftover .tmp files
+- **SEC-13**: baseDir resolution — `.mindlore-backup` partial match prevention
+- Duplicate `resolvedFile` declaration in index hook
+
+### Changed
+- Shared `_searchFts` helper extracted (DRY)
+- `extractKeywords` accepts `maxKeywords` parameter
+- `cleanup()` throttled to once per 60s
+- Removed hybrid-search dead code (unused since v0.6.3 search engine rewrite)
+- Delta commit list truncated when >5 entries
+- Updated zod and typescript-eslint dependencies
+
 ## [0.6.4] - 2026-05-01
 
 ### Added
