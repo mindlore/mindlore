@@ -21,6 +21,7 @@ import { parseJsonObject, readJsonFile } from './lib/safe-parse.js';
 import { ensureSchemaTable, runMigrations } from './lib/schema-version.js';
 import { V062_MIGRATIONS } from './lib/migrations-v062.js';
 import { V063_MIGRATIONS } from './lib/migrations-v063.js';
+import { V066_MIGRATIONS } from './lib/migrations-v066.js';
 
 // eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- dynamic CJS require, typed by mindlore-common.d.cts
 const { SQL_FTS_CREATE, ensureEpisodesTable: ensureEpisodesTableCjs } = require(resolveHookCommon(__dirname)) as {
@@ -180,7 +181,7 @@ function createDatabase(baseDir: string): boolean {
     const dbEp = new DatabaseCtor(dbPath);
     ensureEpisodesTableCjs(dbEp);
     ensureSchemaTable(dbEp);
-    runMigrations(dbEp, [...V062_MIGRATIONS, ...V063_MIGRATIONS]);
+    runMigrations(dbEp, [...V062_MIGRATIONS, ...V063_MIGRATIONS, ...V066_MIGRATIONS]);
     dbEp.close();
     return migrated;
   }
@@ -203,7 +204,7 @@ function createDatabase(baseDir: string): boolean {
 
   // v0.6.2 + v0.6.3 migrations
   ensureSchemaTable(db);
-  runMigrations(db, [...V062_MIGRATIONS, ...V063_MIGRATIONS]);
+  runMigrations(db, [...V062_MIGRATIONS, ...V063_MIGRATIONS, ...V066_MIGRATIONS]);
 
   db.close();
   return true;

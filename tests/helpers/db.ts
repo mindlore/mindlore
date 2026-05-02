@@ -10,6 +10,7 @@ import { V052_MIGRATIONS } from '../../scripts/lib/migrations-v052.js';
 import { V053_MIGRATIONS } from '../../scripts/lib/migrations-v053.js';
 import { V062_MIGRATIONS } from '../../scripts/lib/migrations-v062.js';
 import { V063_MIGRATIONS } from '../../scripts/lib/migrations-v063.js';
+import { V066_MIGRATIONS } from '../../scripts/lib/migrations-v066.js';
 
 // Hook'lar .cjs kalıyor — SQL constants'ları oradan import ediyoruz
 const { SQL_FTS_CREATE, insertFtsRow, ensureEpisodesTable: ensureEpisodesTableCjs, parseFrontmatter: parseFrontmatterCjs, extractFtsMetadata: extractFtsMetadataCjs, resolveProject: resolveProjectCjs }: {
@@ -51,7 +52,7 @@ export function createTestDbWithMigrations(dbPath: string): Database.Database {
   const db = createTestDb(dbPath);
   ensureEpisodesTableCjs(db);
   ensureSchemaTable(db);
-  runMigrations(db, [...V050_MIGRATIONS, ...V051_MIGRATIONS, ...V052_MIGRATIONS, ...V053_MIGRATIONS, ...V062_MIGRATIONS, ...V063_MIGRATIONS]);
+  runMigrations(db, [...V050_MIGRATIONS, ...V051_MIGRATIONS, ...V052_MIGRATIONS, ...V053_MIGRATIONS, ...V062_MIGRATIONS, ...V063_MIGRATIONS, ...V066_MIGRATIONS]);
   return db;
 }
 
@@ -107,6 +108,13 @@ export function createEpisodesTestEnv(prefix: string): EpisodesTestEnv {
 export function destroyEpisodesTestEnv(env: EpisodesTestEnv): void {
   env.db.close();
   fs.rmSync(env.tmpDir, { recursive: true, force: true });
+}
+
+export function createEpisodesTestEnvWithMigrations(prefix: string): EpisodesTestEnv {
+  const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), `mindlore-${prefix}-`));
+  const dbPath = path.join(tmpDir, 'test.db');
+  const db = createTestDbWithMigrations(dbPath);
+  return { db, tmpDir };
 }
 
 export function createTestDbWithVec(dbPath: string): { db: Database.Database; vecLoaded: boolean } {

@@ -21,6 +21,7 @@ export interface SessionPayload {
 }
 
 interface EpisodeRow {
+  rowid: number;
   kind: string;
   summary: string;
   created_at: string;
@@ -47,14 +48,34 @@ function buildSessionSummary(baseDir: string, latestDeltaContent?: string): stri
   return lines.slice(0, 10).join('\n');
 }
 
-function buildEpisodeSections(db: Database.Database, project: string): { decisions: string; friction: string; learnings: string } {
+function buildEpisodeSections(db: Database.Database, project: string, sessionId?: string): { decisions: string; friction: string; learnings: string } {
+  const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString();
+
   // eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- better-sqlite3 .all() returns unknown[]
-  const rows = db.prepare(
-    `SELECT kind, summary, created_at FROM episodes
+  let rows = db.prepare(
+    `SELECT rowid, kind, summary, created_at FROM episodes
      WHERE status = 'active' AND project = ?
        AND kind IN ('decision', 'friction', 'learning')
+       AND created_at >= ?
      ORDER BY kind, created_at DESC`,
-  ).all(project) as EpisodeRow[];
+  ).all(project, sevenDaysAgo) as EpisodeRow[];
+
+  if (sessionId) {
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- better-sqlite3 .all() returns unknown[]
+    const injected = db.prepare(
+      `SELECT episode_id FROM episode_inject_log WHERE session_id = ?`,
+    ).all(sessionId) as Array<{ episode_id: string }>;
+    const injectedSet = new Set(injected.map(r => r.episode_id));
+    rows = rows.filter(r => !injectedSet.has(String(r.rowid)));
+
+    const now = new Date().toISOString();
+    const insert = db.prepare(
+      `INSERT OR IGNORE INTO episode_inject_log (session_id, episode_id, injected_at) VALUES (?, ?, ?)`,
+    );
+    for (const row of rows) {
+      insert.run(sessionId, String(row.rowid), now);
+    }
+  }
 
   const grouped = { decision: [] as EpisodeRow[], friction: [] as EpisodeRow[], learning: [] as EpisodeRow[] };
   for (const row of rows) {
@@ -80,13 +101,14 @@ export function buildSessionPayload(
   project: string,
   tokenBudget: number = 2000,
   latestDeltaContent?: string,
+  sessionId?: string,
 ): SessionPayload {
   const sections: SessionSection[] = [];
 
   const summary = buildSessionSummary(baseDir, latestDeltaContent);
   sections.push({ label: 'Session', content: summary, tokens: estimateTokens(summary) });
 
-  const episodes = buildEpisodeSections(db, project);
+  const episodes = buildEpisodeSections(db, project, sessionId);
   sections.push({ label: 'Decisions', content: episodes.decisions, tokens: estimateTokens(episodes.decisions) });
   sections.push({ label: 'Friction', content: episodes.friction, tokens: estimateTokens(episodes.friction) });
   sections.push({ label: 'Learnings', content: episodes.learnings, tokens: estimateTokens(episodes.learnings) });

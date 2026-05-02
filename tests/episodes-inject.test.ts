@@ -5,8 +5,9 @@
 
 import path from 'path';
 import Database from 'better-sqlite3';
-import { createEpisodesTestEnv, destroyEpisodesTestEnv } from './helpers/db.js';
+import { createEpisodesTestEnv, createEpisodesTestEnvWithMigrations, destroyEpisodesTestEnv } from './helpers/db.js';
 import type { EpisodesTestEnv } from './helpers/db.js';
+import { buildSessionPayload } from '../scripts/lib/session-payload.js';
 import { getEpisode } from '../scripts/lib/episodes.js';
 
 const {
@@ -167,6 +168,121 @@ describe('session-end bare episode', () => {
     const ep = getEpisode(db, id);
     expect(ep).toBeDefined();
     expect(ep!.body).toContain('15 files read');
+  });
+});
+
+describe('episode stale filter', () => {
+  let migEnv: EpisodesTestEnv;
+
+  beforeEach(() => {
+    migEnv = createEpisodesTestEnvWithMigrations('stale');
+  });
+
+  afterEach(() => {
+    destroyEpisodesTestEnv(migEnv);
+  });
+
+  test('excludes episodes older than 7 days', () => {
+    const oldDate = new Date(Date.now() - 8 * 24 * 60 * 60 * 1000).toISOString();
+    const recentDate = new Date(Date.now() - 1 * 24 * 60 * 60 * 1000).toISOString();
+
+    migEnv.db.prepare(
+      `INSERT INTO episodes (id, kind, scope, project, summary, status, source, created_at)
+       VALUES ('ep-old', 'decision', 'project', 'mindlore', 'Old decision', 'active', 'diary', ?)`,
+    ).run(oldDate);
+    migEnv.db.prepare(
+      `INSERT INTO episodes (id, kind, scope, project, summary, status, source, created_at)
+       VALUES ('ep-new', 'decision', 'project', 'mindlore', 'Recent decision', 'active', 'diary', ?)`,
+    ).run(recentDate);
+
+    const payload = buildSessionPayload(migEnv.db, migEnv.tmpDir, 'mindlore');
+    const decisionsSection = payload.sections.find(s => s.label === 'Decisions');
+    expect(decisionsSection).toBeDefined();
+    expect(decisionsSection!.content).toContain('Recent decision');
+    expect(decisionsSection!.content).not.toContain('Old decision');
+  });
+
+  test('includes episodes within 7 days', () => {
+    const recentDate = new Date(Date.now() - 3 * 24 * 60 * 60 * 1000).toISOString();
+
+    migEnv.db.prepare(
+      `INSERT INTO episodes (id, kind, scope, project, summary, status, source, created_at)
+       VALUES ('ep-r', 'learning', 'project', 'mindlore', 'Recent learning', 'active', 'reflect', ?)`,
+    ).run(recentDate);
+
+    const payload = buildSessionPayload(migEnv.db, migEnv.tmpDir, 'mindlore');
+    const learningsSection = payload.sections.find(s => s.label === 'Learnings');
+    expect(learningsSection).toBeDefined();
+    expect(learningsSection!.content).toContain('Recent learning');
+  });
+});
+
+describe('episode inject dedup', () => {
+  let migEnv: EpisodesTestEnv;
+
+  beforeEach(() => {
+    migEnv = createEpisodesTestEnvWithMigrations('dedup');
+  });
+
+  afterEach(() => {
+    destroyEpisodesTestEnv(migEnv);
+  });
+
+  test('excludes episodes already injected in this session', () => {
+    const recentDate = new Date(Date.now() - 1 * 24 * 60 * 60 * 1000).toISOString();
+
+    migEnv.db.prepare(
+      `INSERT INTO episodes (id, kind, scope, project, summary, status, source, created_at)
+       VALUES ('ep-d1', 'decision', 'project', 'mindlore', 'Already injected decision', 'active', 'diary', ?)`,
+    ).run(recentDate);
+
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- better-sqlite3 .get() returns unknown
+    const rowid = (migEnv.db.prepare(`SELECT rowid FROM episodes WHERE id = 'ep-d1'`).get() as { rowid: number }).rowid;
+
+    migEnv.db.prepare(
+      `INSERT INTO episode_inject_log (session_id, episode_id, injected_at) VALUES (?, ?, ?)`,
+    ).run('session-abc', String(rowid), new Date().toISOString());
+
+    const payload = buildSessionPayload(migEnv.db, migEnv.tmpDir, 'mindlore', 2000, undefined, 'session-abc');
+    const decisionsSection = payload.sections.find(s => s.label === 'Decisions');
+    expect(decisionsSection).toBeDefined();
+    expect(decisionsSection!.content).not.toContain('Already injected decision');
+  });
+
+  test('logs newly injected episodes to episode_inject_log', () => {
+    const recentDate = new Date(Date.now() - 1 * 24 * 60 * 60 * 1000).toISOString();
+
+    migEnv.db.prepare(
+      `INSERT INTO episodes (id, kind, scope, project, summary, status, source, created_at)
+       VALUES ('ep-d2', 'learning', 'project', 'mindlore', 'New learning to log', 'active', 'reflect', ?)`,
+    ).run(recentDate);
+
+    buildSessionPayload(migEnv.db, migEnv.tmpDir, 'mindlore', 2000, undefined, 'session-xyz');
+
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- better-sqlite3 .all() returns unknown[]
+    const logged = migEnv.db.prepare(
+      `SELECT episode_id FROM episode_inject_log WHERE session_id = 'session-xyz'`,
+    ).all() as Array<{ episode_id: string }>;
+
+    expect(logged).toHaveLength(1);
+  });
+
+  test('does not log when sessionId is not provided', () => {
+    const recentDate = new Date(Date.now() - 1 * 24 * 60 * 60 * 1000).toISOString();
+
+    migEnv.db.prepare(
+      `INSERT INTO episodes (id, kind, scope, project, summary, status, source, created_at)
+       VALUES ('ep-d3', 'friction', 'project', 'mindlore', 'Friction point', 'active', 'diary', ?)`,
+    ).run(recentDate);
+
+    buildSessionPayload(migEnv.db, migEnv.tmpDir, 'mindlore');
+
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- better-sqlite3 .all() returns unknown[]
+    const logged = migEnv.db.prepare(
+      `SELECT episode_id FROM episode_inject_log`,
+    ).all() as Array<{ episode_id: string }>;
+
+    expect(logged).toHaveLength(0);
   });
 });
 
