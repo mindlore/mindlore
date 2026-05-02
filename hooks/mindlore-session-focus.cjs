@@ -26,6 +26,35 @@ function tryOpenDb(dbPath) {
   return openDatabase(dbPath, { readonly: true });
 }
 
+function getEpisodeStats(db, config) {
+  const project = path.basename(process.cwd());
+  const chains = querySupersededChains(db, { project, days: 7, limit: 5 });
+  let consolidationMsg = null;
+  try {
+    const rawCount = withTimeoutDb(db,
+      "SELECT COUNT(*) as cnt FROM episodes WHERE consolidation_status = 'raw' OR consolidation_status IS NULL",
+      [], { mode: 'get' });
+    const cnt = rawCount?.cnt ?? 0;
+    const consolThreshold = config?.consolidation?.threshold ?? 50;
+    if (cnt >= consolThreshold) {
+      consolidationMsg = `[Mindlore] ${cnt} raw episode birikti — \`/mindlore-maintain consolidate\` ile birleştirmeyi düşün.`;
+    }
+  } catch (_err) { /* consolidation_status column may not exist yet */ }
+  return { chains, consolidationMsg };
+}
+
+function checkStaleContent(db) {
+  try {
+    const thirtyDaysAgo = new Date(Date.now() - (30 * 24 * 60 * 60 * 1000)).toISOString();
+    const row = withTimeoutDb(db, 'SELECT COUNT(*) as cnt FROM file_hashes WHERE last_indexed < ?', [thirtyDaysAgo], { mode: 'get' });
+    const staleCount = row?.cnt ?? 0;
+    if (staleCount > 3) {
+      return `[Mindlore: ${staleCount} dosya 30+ gundur guncellenmemis — \`/mindlore-evolve\` dusun]`;
+    }
+  } catch (_staleErr) { /* file_hashes may not exist */ }
+  return null;
+}
+
 function loadDbContent(db, baseDir, config, output, timings, latestDeltaContent) {
   // Session payload: Session summary, Decisions, Friction, Learnings
   const tPayload = Date.now();
@@ -42,40 +71,25 @@ function loadDbContent(db, baseDir, config, output, timings, latestDeltaContent)
   }
   timings.db_payload = Date.now() - tPayload;
 
-  // Supersedes chain display
+  // Supersedes chain display + episode consolidation reminder
   const tSuperseded = Date.now();
   if (hasEpisodesTable(db)) {
-    const project = path.basename(process.cwd());
-
-    const chains = querySupersededChains(db, { project, days: 7, limit: 5 });
+    const { chains, consolidationMsg } = getEpisodeStats(db, config);
     if (chains.length > 0) {
       output.push(`[Mindlore Supersedes]\n${formatSupersededChains(chains)}`);
     }
-
-    // Episode consolidation reminder
-    try {
-      const rawCount = withTimeoutDb(db,
-        "SELECT COUNT(*) as cnt FROM episodes WHERE consolidation_status = 'raw' OR consolidation_status IS NULL",
-        [], { mode: 'get' });
-      const cnt = rawCount?.cnt ?? 0;
-      const consolThreshold = config?.consolidation?.threshold ?? 50;
-      if (cnt >= consolThreshold) {
-        output.push(`[Mindlore] ${cnt} raw episode birikti — \`/mindlore-maintain consolidate\` ile birleştirmeyi düşün.`);
-      }
-    } catch (_err) { /* consolidation_status column may not exist yet */ }
+    if (consolidationMsg) {
+      output.push(consolidationMsg);
+    }
   }
   timings.db_episodes = Date.now() - tSuperseded;
 
   // Stale content check
   const tStale = Date.now();
-  try {
-    const thirtyDaysAgo = new Date(Date.now() - (30 * 24 * 60 * 60 * 1000)).toISOString();
-    const row = withTimeoutDb(db, 'SELECT COUNT(*) as cnt FROM file_hashes WHERE last_indexed < ?', [thirtyDaysAgo], { mode: 'get' });
-    const staleCount = row?.cnt ?? 0;
-    if (staleCount > 3) {
-      output.push(`[Mindlore: ${staleCount} dosya 30+ gundur guncellenmemis — \`/mindlore-evolve\` dusun]`);
-    }
-  } catch (_staleErr) { /* file_hashes may not exist */ }
+  const staleMsg = checkStaleContent(db);
+  if (staleMsg) {
+    output.push(staleMsg);
+  }
   timings.db_stale = Date.now() - tStale;
 }
 
