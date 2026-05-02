@@ -19,7 +19,8 @@ function main() {
   const filePath = readHookStdin(['path', 'file_path']);
 
   // Only trigger on .mindlore/ changes (empty filePath = skip)
-  if (!filePath || !filePath.includes(MINDLORE_DIR)) return;
+  const resolved = path.resolve(filePath || '');
+  if (!filePath || (!resolved.includes(path.sep + MINDLORE_DIR + path.sep) && !resolved.endsWith(path.sep + MINDLORE_DIR))) return;
 
   // Skip if this is a single .md file change — mindlore-index.cjs handles those.
   // This hook is for bulk changes (git pull, manual batch edits).
