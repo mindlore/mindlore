@@ -51,22 +51,18 @@ function buildSessionSummary(baseDir: string, latestDeltaContent?: string): stri
 function buildEpisodeSections(db: Database.Database, project: string, sessionId?: string): { decisions: string; friction: string; learnings: string } {
   const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString();
 
-  const query = sessionId
-    ? `SELECT rowid, kind, summary, created_at FROM episodes
-       WHERE status = 'active' AND project = ?
-         AND kind IN ('decision', 'friction', 'learning')
-         AND created_at >= ?
-         AND CAST(rowid AS TEXT) NOT IN (SELECT episode_id FROM episode_inject_log WHERE session_id = ?)
-       ORDER BY kind, created_at DESC`
-    : `SELECT rowid, kind, summary, created_at FROM episodes
-       WHERE status = 'active' AND project = ?
-         AND kind IN ('decision', 'friction', 'learning')
-         AND created_at >= ?
-       ORDER BY kind, created_at DESC`;
+  const dedupClause = sessionId
+    ? 'AND CAST(rowid AS TEXT) NOT IN (SELECT episode_id FROM episode_inject_log WHERE session_id = ?)'
+    : '';
+  const query = `SELECT rowid, kind, summary, created_at FROM episodes
+     WHERE status = 'active' AND project = ?
+       AND kind IN ('decision', 'friction', 'learning')
+       AND created_at >= ?
+       ${dedupClause}
+     ORDER BY kind, created_at DESC`;
 
-  const rawRows = sessionId
-    ? db.prepare(query).all(project, sevenDaysAgo, sessionId)
-    : db.prepare(query).all(project, sevenDaysAgo);
+  const params = sessionId ? [project, sevenDaysAgo, sessionId] : [project, sevenDaysAgo];
+  const rawRows = db.prepare(query).all(...params);
   // eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- better-sqlite3 .all() returns unknown[]
   const rows = rawRows as EpisodeRow[];
 
