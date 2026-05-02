@@ -135,6 +135,17 @@ Required frontmatter fields include `source_type` — auto-detected:
 - `pdf` for PDF Mode
 - `file` for File Mode
 
+### Extraction Template
+
+After detecting `source_type`, check if a matching extraction template exists:
+
+1. Read `~/.mindlore/templates/extraction/{source_type}.md`
+2. If found, follow the "Extraction Instructions" section for source analysis
+3. If not found, Read `~/.mindlore/templates/extraction/default.md` and follow that
+4. User can override with `--type <type>` argument (e.g., `/mindlore-ingest https://example.com --type changelog`)
+
+The template guides WHAT to extract from the source. Apply its instructions when writing the source summary in `sources/{slug}.md`.
+
 ## Quality Assessment
 
 Assign quality automatically during ingest using this heuristic:
