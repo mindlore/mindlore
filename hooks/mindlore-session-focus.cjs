@@ -22,6 +22,16 @@ function truncateCommits(content) {
   return content.replace(commitMatch[2].trim(), truncated);
 }
 
+function truncateChangedFiles(content) {
+  const fileMatch = content.match(/(## Changed Files\n)((?:- [^\n]+\n?)+)/);
+  if (!fileMatch) return content;
+  const lines = fileMatch[2].trim().split('\n');
+  if (lines.length <= 10) return content;
+  const kept = lines.slice(0, 10).join('\n');
+  const truncated = kept + `\n- ...ve ${lines.length - 10} dosya daha`;
+  return content.replace(fileMatch[2].trim(), truncated);
+}
+
 function tryOpenDb(dbPath) {
   return openDatabase(dbPath, { readonly: true });
 }
@@ -131,7 +141,7 @@ function main() {
         const deltaProject = meta.project || null;
         const currentProject = getProjectName();
         if (!deltaProject || deltaProject.toLowerCase() === currentProject.toLowerCase()) {
-          output.push(`[Mindlore Delta: ${latestName}]\n${truncateCommits(deltaContent)}`);
+          output.push(`[Mindlore Delta: ${latestName}]\n${truncateChangedFiles(truncateCommits(deltaContent))}`);
         }
       }
 
@@ -214,3 +224,7 @@ withTelemetry('mindlore-session-focus', main).catch(err => {
   hookLog('mindlore-session-focus', 'error', err?.message ?? String(err));
   process.exit(0);
 });
+
+if (typeof module !== 'undefined') {
+  module.exports = { truncateCommits, truncateChangedFiles };
+}

@@ -392,3 +392,24 @@ describe('enriched multi-session inject', () => {
     expect(formatMultiSessionEpisodes([])).toBe('');
   });
 });
+
+describe('delta truncation', () => {
+  it('should truncate changed files list when > 10', () => {
+    const { truncateChangedFiles } = require('../hooks/mindlore-session-focus.cjs');
+    const files = Array.from({ length: 15 }, (_, i) => `- file${i}.ts`).join('\n');
+    const content = `## Changed Files\n${files}\n\n## Other`;
+    const result = truncateChangedFiles(content);
+    expect(result).toContain('file0.ts');
+    expect(result).toContain('file9.ts');
+    expect(result).not.toContain('file10.ts');
+    expect(result).toContain('...ve 5 dosya daha');
+  });
+
+  it('should not truncate when <= 10 files', () => {
+    const { truncateChangedFiles } = require('../hooks/mindlore-session-focus.cjs');
+    const files = Array.from({ length: 5 }, (_, i) => `- file${i}.ts`).join('\n');
+    const content = `## Changed Files\n${files}`;
+    const result = truncateChangedFiles(content);
+    expect(result).not.toContain('dosya daha');
+  });
+});
