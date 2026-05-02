@@ -65,14 +65,14 @@ function checkStaleContent(db) {
   return null;
 }
 
-function loadDbContent(db, baseDir, config, output, timings, latestDeltaContent) {
+function loadDbContent(db, baseDir, config, output, timings, latestDeltaContent, sessionId) {
   // Session payload: Session summary, Decisions, Friction, Learnings
   const tPayload = Date.now();
   try {
     const { buildSessionPayload } = require('../dist/scripts/lib/session-payload.js');
     const project = path.basename(process.cwd());
     const payloadBudget = config?.tokenBudget?.sessionInject ?? 2000;
-    const payload = buildSessionPayload(db, baseDir, project, payloadBudget, latestDeltaContent);
+    const payload = buildSessionPayload(db, baseDir, project, payloadBudget, latestDeltaContent, sessionId);
     for (const section of payload.sections) {
       output.push(`[Mindlore ${section.label}]\n${section.content}`);
     }
@@ -107,6 +107,13 @@ function main() {
   const t0 = Date.now();
   const baseDir = findMindloreDir();
   if (!baseDir) return; // No .mindlore/ found, silently skip
+
+  // Read session_id from stdin (Claude Code passes { session_id } to SessionStart hooks)
+  let sessionId;
+  try {
+    const stdinData = JSON.parse(fs.readFileSync(0, 'utf8') || '{}');
+    sessionId = stdinData.session_id || undefined;
+  } catch { sessionId = undefined; }
 
   const output = [];
   const config = readConfig(baseDir);
@@ -182,7 +189,7 @@ function main() {
 
     if (db) {
       try {
-        loadDbContent(db, baseDir, config, output, timings, latestDeltaContent);
+        loadDbContent(db, baseDir, config, output, timings, latestDeltaContent, sessionId);
       } catch (err) {
         if (isCorruptionError(err)) {
           recoverCorruptDb(db, dbPath, 'session-focus');
