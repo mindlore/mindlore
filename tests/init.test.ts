@@ -266,6 +266,39 @@ describe('mindlore init', () => {
     expect(updated.version).toBe(pkg.version);
   });
 
+  describe('extraction templates', () => {
+    it('should copy extraction templates to .mindlore/templates/extraction/', () => {
+      execSync(`node "${INIT_SCRIPT}" init`, {
+        cwd: TEST_PROJECT,
+        stdio: 'pipe',
+        env: { ...process.env, HOME: TEST_PROJECT, USERPROFILE: TEST_PROJECT },
+      });
+
+      const extractionDir = path.join(TEST_PROJECT, '.mindlore', 'templates', 'extraction');
+      expect(fs.existsSync(extractionDir)).toBe(true);
+      const files = fs.readdirSync(extractionDir);
+      expect(files).toContain('github-repo.md');
+      expect(files).toContain('article.md');
+      expect(files).toContain('docs.md');
+      expect(files).toContain('changelog.md');
+      expect(files).toContain('default.md');
+    });
+
+    it('should preserve user-customized templates on re-init', () => {
+      const env = { ...process.env, HOME: TEST_PROJECT, USERPROFILE: TEST_PROJECT };
+
+      execSync(`node "${INIT_SCRIPT}" init`, { cwd: TEST_PROJECT, stdio: 'pipe', env });
+
+      const extractionDir = path.join(TEST_PROJECT, '.mindlore', 'templates', 'extraction');
+      fs.writeFileSync(path.join(extractionDir, 'github-repo.md'), 'custom content');
+
+      execSync(`node "${INIT_SCRIPT}" init`, { cwd: TEST_PROJECT, stdio: 'pipe', env });
+
+      const content = fs.readFileSync(path.join(extractionDir, 'github-repo.md'), 'utf8');
+      expect(content).toBe('custom content');
+    });
+  });
+
   test('--global should create ~/.mindlore/ instead of project .mindlore/', () => {
     const globalDir = path.join(TEST_PROJECT, '.mindlore');
     const env = { ...process.env, HOME: TEST_PROJECT, USERPROFILE: TEST_PROJECT };

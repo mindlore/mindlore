@@ -108,6 +108,19 @@ function copyTemplates(baseDir: string, packageRoot: string): number {
     }
   }
 
+  // Copy extraction templates (preserve existing — don't overwrite user customizations)
+  const srcExtractionDir = path.join(packageRoot, 'templates', 'extraction');
+  const destExtractionDir = path.join(baseDir, 'templates', 'extraction');
+  if (fs.existsSync(srcExtractionDir)) {
+    fs.mkdirSync(destExtractionDir, { recursive: true });
+    for (const file of fs.readdirSync(srcExtractionDir)) {
+      const destPath = path.join(destExtractionDir, file);
+      if (!fs.existsSync(destPath)) {
+        fs.copyFileSync(path.join(srcExtractionDir, file), destPath);
+      }
+    }
+  }
+
   return copied;
 }
 
