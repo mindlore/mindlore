@@ -51,7 +51,6 @@ function buildSessionSummary(baseDir: string, latestDeltaContent?: string): stri
 function buildEpisodeSections(db: Database.Database, project: string, sessionId?: string): { decisions: string; friction: string; learnings: string } {
   const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString();
 
-  // Single query with anti-join to exclude already-injected episodes
   const query = sessionId
     ? `SELECT rowid, kind, summary, created_at FROM episodes
        WHERE status = 'active' AND project = ?

@@ -33,8 +33,7 @@ function tryOpenDb(dbPath) {
   return openDatabase(dbPath, { readonly: true });
 }
 
-function getEpisodeStats(db, config) {
-  const project = path.basename(process.cwd());
+function getEpisodeStats(db, config, project) {
   const chains = querySupersededChains(db, { project, days: 7, limit: 5 });
   let consolidationMsg = null;
   try {
@@ -63,11 +62,11 @@ function checkStaleContent(db) {
 }
 
 function loadDbContent(db, baseDir, config, output, timings, latestDeltaContent, sessionId) {
+  const project = path.basename(process.cwd());
   // Session payload: Session summary, Decisions, Friction, Learnings
   const tPayload = Date.now();
   try {
     const { buildSessionPayload } = require('../dist/scripts/lib/session-payload.js');
-    const project = path.basename(process.cwd());
     const payloadBudget = config?.tokenBudget?.sessionInject ?? 2000;
     const payload = buildSessionPayload(db, baseDir, project, payloadBudget, latestDeltaContent, sessionId);
     for (const section of payload.sections) {
@@ -81,7 +80,7 @@ function loadDbContent(db, baseDir, config, output, timings, latestDeltaContent,
   // Supersedes chain display + episode consolidation reminder
   const tSuperseded = Date.now();
   if (hasEpisodesTable(db)) {
-    const { chains, consolidationMsg } = getEpisodeStats(db, config);
+    const { chains, consolidationMsg } = getEpisodeStats(db, config, project);
     if (chains.length > 0) {
       output.push(`[Mindlore Supersedes]\n${formatSupersededChains(chains)}`);
     }
