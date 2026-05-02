@@ -1,10 +1,11 @@
 import fs from 'fs';
+import os from 'os';
 import path from 'path';
 import { execSync } from 'child_process';
 import { getExecStdout } from './helpers/exec.js';
 import { readJsonFile } from '../scripts/lib/safe-parse.js';
 
-const TEST_DIR = path.join(__dirname, '..', '.test-obsidian');
+const TEST_DIR = fs.mkdtempSync(path.join(os.homedir(), '.test-obsidian-'));
 const MINDLORE_DIR = path.join(TEST_DIR, '.mindlore');
 const VAULT_DIR = path.join(TEST_DIR, 'vault');
 const OBSIDIAN_SCRIPT = path.resolve(__dirname, '..', 'dist', 'scripts', 'mindlore-obsidian.js');
