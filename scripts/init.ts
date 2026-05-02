@@ -211,6 +211,19 @@ function createDatabase(baseDir: string): boolean {
 
 // ── Step 4: Merge hooks into settings.json ─────────────────────────────
 
+function countMindloreHooks(allHooks: Record<string, unknown[]>): number {
+  let total = 0;
+  for (const event of Object.keys(allHooks)) {
+    for (const entry of (allHooks[event] ?? []) as Array<{ hooks?: Array<{ command?: string }>; command?: string }>) {
+      const hooks = entry.hooks && Array.isArray(entry.hooks) ? entry.hooks : [entry];
+      for (const h of hooks) {
+        if ((h.command ?? '').includes('mindlore-')) total++;
+      }
+    }
+  }
+  return total;
+}
+
 function mergeHooks(packageRoot: string, existingPlugin?: PluginManifest): { added: number; total: number } | false {
   const settingsPath = path.join(homedir(), '.claude', 'settings.json');
 
@@ -287,16 +300,7 @@ function mergeHooks(packageRoot: string, existingPlugin?: PluginManifest): { add
   }
 
   // Count total mindlore hooks across all events
-  const allHooks = settings.hooks ?? {};
-  let total = 0;
-  for (const event of Object.keys(allHooks)) {
-    for (const entry of allHooks[event] ?? []) {
-      const hooks = entry.hooks && Array.isArray(entry.hooks) ? entry.hooks : [entry];
-      for (const h of hooks) {
-        if ((h.command ?? '').includes('mindlore-')) total++;
-      }
-    }
-  }
+  const total = countMindloreHooks(settings.hooks ?? {});
 
   return { added, total };
 }
