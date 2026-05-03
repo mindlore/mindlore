@@ -8,6 +8,7 @@ import { V050_MIGRATIONS } from '../../scripts/lib/migrations.js';
 import { V051_MIGRATIONS } from '../../scripts/lib/migrations-v051.js';
 import { V052_MIGRATIONS } from '../../scripts/lib/migrations-v052.js';
 import { V053_MIGRATIONS } from '../../scripts/lib/migrations-v053.js';
+import { V061_MIGRATIONS } from '../../scripts/lib/migrations-v061.js';
 import { V062_MIGRATIONS } from '../../scripts/lib/migrations-v062.js';
 import { V063_MIGRATIONS } from '../../scripts/lib/migrations-v063.js';
 import { V066_MIGRATIONS } from '../../scripts/lib/migrations-v066.js';
@@ -50,11 +51,35 @@ export function createTestDb(dbPath: string): Database.Database {
   return db;
 }
 
+const ALL_MIGRATIONS = [
+  ...V050_MIGRATIONS, ...V051_MIGRATIONS, ...V052_MIGRATIONS,
+  ...V053_MIGRATIONS, ...V061_MIGRATIONS, ...V062_MIGRATIONS,
+  ...V063_MIGRATIONS, ...V066_MIGRATIONS, ...V067_MIGRATIONS,
+  ...V068_MIGRATIONS,
+];
+
+export function createTestDbWithFullSchema(dbPath: string): Database.Database {
+  const db = createTestDb(dbPath);
+  ensureEpisodesTableCjs(db);
+  ensureSchemaTable(db);
+  runMigrations(db, ALL_MIGRATIONS);
+  return db;
+}
+
+export function createTestDbAtVersion(dbPath: string, maxVersion: number): Database.Database {
+  const db = createTestDb(dbPath);
+  ensureEpisodesTableCjs(db);
+  ensureSchemaTable(db);
+  const filtered = ALL_MIGRATIONS.filter(m => m.version <= maxVersion);
+  runMigrations(db, filtered);
+  return db;
+}
+
 export function createTestDbWithMigrations(dbPath: string): Database.Database {
   const db = createTestDb(dbPath);
   ensureEpisodesTableCjs(db);
   ensureSchemaTable(db);
-  runMigrations(db, [...V050_MIGRATIONS, ...V051_MIGRATIONS, ...V052_MIGRATIONS, ...V053_MIGRATIONS, ...V062_MIGRATIONS, ...V063_MIGRATIONS, ...V066_MIGRATIONS, ...V067_MIGRATIONS, ...V068_MIGRATIONS]);
+  runMigrations(db, ALL_MIGRATIONS);
   return db;
 }
 
