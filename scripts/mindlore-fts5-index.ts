@@ -4,17 +4,15 @@
  * mindlore-fts5-index — Full re-index of .mindlore/ into FTS5 database.
  *
  * Scans all .md files, computes SHA256 content-hash, skips unchanged files.
- * v0.5.0: --embed flag generates vector embeddings into documents_vec table.
- * Usage: node dist/scripts/mindlore-fts5-index.js [path-to-mindlore-dir] [--embed]
+ * Usage: node dist/scripts/mindlore-fts5-index.js [path-to-mindlore-dir]
  */
 
 import fs from 'fs';
 import path from 'path';
 import { DB_NAME, GLOBAL_MINDLORE_DIR, resolveHookCommon, isSessionCategory } from './lib/constants.js';
-import { dbAll, loadSqliteVec, ensureVecTable } from './lib/db-helpers.js';
+import { dbAll } from './lib/db-helpers.js';
 import { ensureSchemaTable, runMigrations } from './lib/schema-version.js';
 import { FTS_DB_MIGRATIONS } from './lib/all-migrations.js';
-import { generateEmbedding, EMBEDDING_MODEL } from './lib/embedding.js';
 import { populateVocabulary } from './lib/fuzzy.js';
 import { chunkMarkdown } from './lib/chunker.js';
 
@@ -48,13 +46,6 @@ const common: {
 } = require(resolveHookCommon(__dirname));
 const { sha256, getAllMdFiles, openDatabase, parseFrontmatter, extractFtsMetadata, insertFtsRow, resolveProject } = common;
 
-// ── Types ─────────────────────────────────────────────────────────────
-
-interface FileToEmbed {
-  slug: string;
-  text: string;
-}
-
 // ── Helpers ──────────────────────────────────────────────────────────
 
 function qualityToImportance(quality: string | undefined | null): number {
@@ -85,24 +76,9 @@ async function main(): Promise<void> {
     process.exit(1);
   }
 
-  // Load sqlite-vec first (migrations need vec0 module)
-  const vecAvailable = loadSqliteVec(db);
-
-  // Run schema migrations (creates vec table if sqlite-vec is loaded)
+  // Run schema migrations
   ensureSchemaTable(db);
   runMigrations(db, FTS_DB_MIGRATIONS);
-
-  if (vecAvailable) {
-    ensureVecTable(db);
-  }
-
-  const embedFlag = process.argv.includes('--embed');
-  const shouldEmbed = embedFlag && vecAvailable;
-
-  // Bulk-load existing vec slugs to avoid N per-file queries
-  const embeddedSlugs = shouldEmbed
-    ? new Set(dbAll<{ slug: string }>(db, 'SELECT slug FROM documents_vec').map((r) => r.slug))
-    : new Set<string>();
 
   const projectName = path.basename(process.cwd());
   const upsertHash = db.prepare(`
@@ -142,13 +118,6 @@ async function main(): Promise<void> {
 
   const now = new Date().toISOString();
 
-  // Collect files that need embedding (processed after FTS5 transaction)
-  const toEmbed: FileToEmbed[] = [];
-
-  function buildEmbedText(title: string, slug: string, description: string, body: string): string {
-    return `${title || slug}: ${description || ''} ${body.slice(0, 500)}`;
-  }
-
   // Phase 1: FTS5 indexing (synchronous transaction)
   const transaction = db.transaction(() => {
     for (const filePath of mdFiles) {
@@ -177,15 +146,6 @@ async function main(): Promise<void> {
           const ftsExists = checkFts.get(filePath) || checkFtsSessions.get(filePath);
           if (ftsExists) {
             skipped++;
-
-            if (shouldEmbed) {
-              const { meta, body } = parseFrontmatter(content);
-              const { slug, title, description } = extractFtsMetadata(meta, body, filePath, baseDir);
-              if (!embeddedSlugs.has(slug)) {
-                toEmbed.push({ slug, text: buildEmbedText(title, slug, description, body) });
-              }
-            }
-
             continue;
           }
           // FTS5 missing — fall through to re-index
@@ -214,11 +174,6 @@ async function main(): Promise<void> {
         }
         upsertHash.run(filePath, hash, now, projectName, qualityToImportance(quality));
         indexed++;
-
-        // Queue for embedding
-        if (shouldEmbed) {
-          toEmbed.push({ slug, text: buildEmbedText(title, slug, description, body) });
-        }
       } catch (err) {
         const message = err instanceof Error ? err.message : String(err);
         console.error(`  Error indexing ${path.basename(filePath)}: ${message}`);
@@ -259,32 +214,6 @@ async function main(): Promise<void> {
   console.log(
     `\n  FTS5 Index: ${indexed} indexed, ${skipped} unchanged, ${removed} removed, ${errors} errors`,
   );
-
-  // Phase 2: Embedding (async, outside transaction)
-  if (shouldEmbed && toEmbed.length > 0) {
-    let embedded = 0;
-    let embedErrors = 0;
-
-    const upsertVec = db.prepare(`
-      INSERT OR REPLACE INTO documents_vec (embedding, slug, created_at, model_name)
-      VALUES (?, ?, ?, ?)
-    `);
-
-    for (const item of toEmbed) {
-      try {
-        const embedding = await generateEmbedding(item.text);
-        const buf = Buffer.from(new Float32Array(embedding).buffer);
-        upsertVec.run(buf, item.slug, now, EMBEDDING_MODEL);
-        embedded++;
-      } catch (embedErr) {
-        const msg = embedErr instanceof Error ? embedErr.message : String(embedErr);
-        console.error(`  Embed error ${item.slug}: ${msg}`);
-        embedErrors++;
-      }
-    }
-
-    console.log(`  Vec Index: ${embedded} embedded, ${embedErrors} errors`);
-  }
 
   db.close();
   console.log('');
