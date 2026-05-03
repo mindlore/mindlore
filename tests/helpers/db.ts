@@ -118,31 +118,6 @@ export function createEpisodesTestEnvWithMigrations(prefix: string): EpisodesTes
   return { db, tmpDir };
 }
 
-export function createTestDbWithVec(dbPath: string): { db: Database.Database; vecLoaded: boolean } {
-  const db = createTestDb(dbPath);
-  let vecLoaded = false;
-  try {
-    const { loadSqliteVec, ensureVecTable }: {
-      loadSqliteVec: (db: Database.Database) => boolean;
-      ensureVecTable: (db: Database.Database) => boolean;
-    } = require('../../scripts/lib/db-helpers.js');
-    vecLoaded = loadSqliteVec(db);
-    if (vecLoaded) ensureVecTable(db);
-  } catch (_err) {
-    // sqlite-vec not available
-  }
-  return { db, vecLoaded };
-}
-
 export const parseFrontmatter = parseFrontmatterCjs;
 export const extractFtsMetadata = extractFtsMetadataCjs;
 export const resolveProject = resolveProjectCjs;
-
-export function insertVec(db: Database.Database, slug: string, embedding: Float32Array, model: string = 'test-model'): void {
-  db.prepare('INSERT INTO documents_vec (slug, embedding, created_at, model_name) VALUES (?, ?, ?, ?)').run(
-    slug,
-    Buffer.from(embedding.buffer),
-    new Date().toISOString(),
-    model,
-  );
-}
