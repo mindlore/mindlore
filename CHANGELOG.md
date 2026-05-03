@@ -5,6 +5,35 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.6.8] - 2026-05-03
+
+### Added
+- Migration v18: `idx_inject_log_injected_at` index for TTL cleanup performance
+- Migration v19: Drop dead `documents_vec` shadow tables (embedding stack cleanup)
+- `DB_BUSY_TIMEOUT_MS` shared constant in `hooks/lib/constants.cjs` and `scripts/lib/constants.ts`
+- Jest `globalSetup.ts` with `needsBuild()` optimization (skip build if dist/ fresh)
+- `createTestDbWithFullSchema` and `createTestDbAtVersion` test helpers
+- `insertEpisode` and `insertInjectLog` test data helpers
+- Conditional aggregation test for nomination counts
+- Episode kind constant sync test (CJS/TS parity)
+- DB busy_timeout sync test
+- R4 regression test: file I/O outside DB transactions
+
+### Changed
+- Embedding stack fully removed: 4 source files, ~946MB dependency (`@huggingface/transformers`), 5 test files
+- `busy_timeout` reduced from 5000ms to 2000ms (file I/O no longer inside transactions)
+- `pretest` script removed — `globalSetup` is single source of build enforcement
+- Nomination count queries merged into single conditional aggregation
+- Episode kind array shared via `hooks/lib/constants.cjs` (CJS/TS sync guaranteed by test)
+- Test DB setup centralized with full schema and versioned helpers
+- Session-focus hook: removed redundant `statSync` calls
+- Removed dead `loadSqliteVec`/`loadSqliteVecCjs` functions
+- Removed context-mode tool references from `mindlore-query` skill
+
+### Fixed
+- DB lock root cause: file I/O inside transactions caused SQLITE_BUSY — moved outside in 3 hooks
+- Double build eliminated (pretest + globalSetup was running build twice)
+
 ## [0.6.7] - 2026-05-03
 
 ### Added
