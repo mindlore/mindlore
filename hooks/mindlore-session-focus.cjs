@@ -61,7 +61,7 @@ function checkStaleContent(db) {
   return null;
 }
 
-function loadDbContent(db, baseDir, config, output, timings, latestDeltaContent, sessionId) {
+function loadDbContent({ db, baseDir, config, output, timings, latestDeltaContent, sessionId }) {
   const project = path.basename(process.cwd());
   // Session payload: Session summary, Decisions, Friction, Learnings
   const tPayload = Date.now();
@@ -197,7 +197,7 @@ function main() {
         } catch (_schemaErr) { /* schema_versions may not exist yet */ }
         timings.schema_check = Date.now() - tSchema;
 
-        loadDbContent(db, baseDir, config, output, timings, latestDeltaContent, sessionId);
+        loadDbContent({ db, baseDir, config, output, timings, latestDeltaContent, sessionId });
       } catch (err) {
         if (isCorruptionError(err)) {
           recoverCorruptDb(db, dbPath, 'session-focus');
