@@ -835,7 +835,6 @@ module.exports = {
   sanitizeKeyword,
   // Hybrid search helpers (v0.5.0)
   loadSqliteVecCjs,
-  hasVecTableCjs,
   // Hook logging (v0.5.1)
   hookLog,
   getRecentHookErrors,
@@ -846,10 +845,6 @@ module.exports = {
   extractSkeleton,
   // Recall telemetry (v0.5.3)
   incrementRecallCount,
-  // Daemon helpers (v0.5.5)
-  isDaemonRunning,
-  getDaemonPortFile,
-  getDaemonPidFile,
   _rotateFile,
   isInsideMindloreDir,
   extractMindloreBaseDir,
@@ -908,25 +903,6 @@ function getUnpromotedRawFiles(baseDir) {
   return fs.readdirSync(rawDir).filter(f => f.endsWith('.md') && !sourceNames.has(f));
 }
 
-function isDaemonRunning(pidFile) {
-  try {
-    const pid = parseInt(fs.readFileSync(pidFile, 'utf8').trim());
-    process.kill(pid, 0);
-    return { running: true, pid };
-  } catch {
-    try { fs.unlinkSync(pidFile); } catch { /* stale file already gone */ }
-    return { running: false };
-  }
-}
-
-function getDaemonPortFile() {
-  return path.join(globalDir(), 'mindlore-daemon.port');
-}
-
-function getDaemonPidFile() {
-  return path.join(globalDir(), 'mindlore-daemon.pid');
-}
-
 /**
  * Try to load sqlite-vec extension. Returns true if successful.
  * @param {import('better-sqlite3').Database} db
@@ -936,20 +912,6 @@ function loadSqliteVecCjs(db) {
   try {
     const sqliteVec = require('sqlite-vec');
     sqliteVec.load(db);
-    return true;
-  } catch (_err) {
-    return false;
-  }
-}
-
-/**
- * Check if documents_vec table exists.
- * @param {import('better-sqlite3').Database} db
- * @returns {boolean}
- */
-function hasVecTableCjs(db) {
-  try {
-    db.prepare('SELECT slug FROM documents_vec LIMIT 0').run();
     return true;
   } catch (_err) {
     return false;
