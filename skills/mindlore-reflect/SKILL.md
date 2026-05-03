@@ -95,7 +95,17 @@ Onaylamak istediklerini sec, veya 'skip':
    - `claude.md` -> project CLAUDE.md'ye kural ekle
    - `domain:{slug}` -> ilgili domain sayfasina ekle
 
+   Approval SQL:
+   ```sql
+   UPDATE episodes SET status = 'approved', graduated_at = datetime('now') WHERE id = ?
+   ```
+
    User rejects -> `status: staged -> rejected` + rejection reason
+
+   Rejection SQL:
+   ```sql
+   UPDATE episodes SET status = 'rejected', rejected_at = datetime('now'), rejection_reason = ? WHERE id = ?
+   ```
 
 ## On End — Write skill_memory
 

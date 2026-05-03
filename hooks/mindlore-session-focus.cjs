@@ -10,7 +10,7 @@
 
 const fs = require('fs');
 const path = require('path');
-const { findMindloreDir, readConfig, openDatabase, hasEpisodesTable, querySupersededChains, formatSupersededChains, hookLog, getProjectName, parseFrontmatter, withTelemetry, withTimeoutDb, listSnapshots, isCorruptionError, recoverCorruptDb } = require('./lib/mindlore-common.cjs');
+const { findMindloreDir, readConfig, openDatabase, hasEpisodesTable, querySupersededChains, formatSupersededChains, hookLog, getProjectName, parseFrontmatter, withTelemetry, withTimeoutDb, listSnapshots, isCorruptionError, recoverCorruptDb, checkReflectTrigger, getGraduatedLessonCount } = require('./lib/mindlore-common.cjs');
 
 function truncateSection(content, sectionRegex, keepCount, label) {
   const match = content.match(sectionRegex);
@@ -97,6 +97,21 @@ function loadDbContent({ db, baseDir, config, output, timings, latestDeltaConten
     output.push(staleMsg);
   }
   timings.db_stale = Date.now() - tStale;
+
+  // Auto reflect trigger (Q1)
+  try {
+    const reflectThreshold = config?.graduation?.reflectThreshold ?? 5;
+    const reflectMsg = checkReflectTrigger(db, project, reflectThreshold);
+    if (reflectMsg) output.push(reflectMsg);
+  } catch (_reflectErr) { /* graduation not available */ }
+
+  // Graduated lesson count (Q3 — content lives in CLAUDE.md, only show count)
+  try {
+    const gradCount = getGraduatedLessonCount(db, project);
+    if (gradCount > 0) {
+      output.push(`[Mindlore] ${gradCount} graduated lesson aktif (detay: CLAUDE.md veya /mindlore-reflect)`);
+    }
+  } catch (_lessonErr) { /* graduation not available */ }
 }
 
 function main() {

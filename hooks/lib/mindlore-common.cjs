@@ -749,6 +749,30 @@ function withTimeoutDb(db, sql, params = [], { timeoutMs = 3000, mode = 'all' } 
   }
 }
 
+function checkReflectTrigger(db, project, threshold) {
+  if (threshold === undefined) threshold = 5;
+  try {
+    const row = withTimeoutDb(db,
+      "SELECT COUNT(*) as cnt FROM episodes WHERE kind = 'nomination' AND status = 'staged' AND project = ?",
+      [project], { mode: 'get' });
+    const cnt = row?.cnt ?? 0;
+    if (cnt >= threshold) {
+      return `[Mindlore] ${cnt} bekleyen nomination var — \`/mindlore-reflect\` çalıştır`;
+    }
+  } catch (_err) { /* episodes table may not exist */ }
+  return null;
+}
+
+function getGraduatedLessonCount(db, project) {
+  try {
+    const row = withTimeoutDb(db,
+      "SELECT COUNT(*) as cnt FROM episodes WHERE kind = 'nomination' AND status = 'approved' AND graduated_at IS NOT NULL AND project = ?",
+      [project], { mode: 'get' });
+    return row?.cnt ?? 0;
+  } catch (_err) { /* columns may not exist yet */ }
+  return 0;
+}
+
 module.exports = {
   MINDLORE_DIR,
   GLOBAL_MINDLORE_DIR,
@@ -832,6 +856,9 @@ module.exports = {
   // DB corruption recovery (v0.6.3)
   isCorruptionError,
   recoverCorruptDb,
+  // Lesson graduation (v0.6.7)
+  checkReflectTrigger,
+  getGraduatedLessonCount,
 };
 
 function isCorruptionError(err) {
