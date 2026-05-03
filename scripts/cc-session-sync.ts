@@ -306,63 +306,16 @@ export function syncSessions(
   const now = new Date();
   const nowIso = now.toISOString();
 
-  const syncOne = db.transaction((session: SessionFile, slug: string, shortId: string) => {
-    const { md, date: sessionDate, userCount, assistantCount, isSubagent } = convertJsonlToMd(session.jsonlPath, session.projectName);
-
-    if (userCount === 0 && assistantCount === 0) {
-      result.skipped++;
-      return;
-    }
-
-    const hash = sha256(md);
-    const destDir = path.join(mindloreDir, 'raw', 'sessions', slug);
-    fs.mkdirSync(destDir, { recursive: true, mode: 0o700 });
-    const destPath = path.join(destDir, `${sessionDate}-${shortId}.md`);
-
-    // eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- get() returns unknown
-    const existing = getHash.get(destPath) as { content_hash: string; last_indexed: string } | undefined;
-    if (existing && existing.content_hash === hash) {
-      result.skipped++;
-      return;
-    }
-
-    fs.writeFileSync(destPath, md, { encoding: 'utf8', mode: 0o600 });
-
-    const category = isSubagent ? CC_SUBAGENT_CATEGORY : CC_SESSION_CATEGORY;
-
-    deleteFts.run(destPath);
-    insertFtsRow(db, {
-      path: destPath,
-      slug: `session-${sessionDate}-${shortId}`,
-      description: `CC ${isSubagent ? 'subagent' : 'session'} transcript — ${slug} — ${sessionDate}`,
-      type: 'raw',
-      category,
-      title: `${isSubagent ? 'Subagent' : 'Session'} ${sessionDate} — ${slug}`,
-      content: md,
-      tags: `${isSubagent ? 'subagent' : 'session'},${slug},transcript`,
-      dateCaptured: sessionDate,
-      project: slug,
-    });
-
-    upsertHash.run(destPath, hash, nowIso, category);
-
-    // Session summary injection (#9)
-    if (!isSubagent) {
-      try {
-        const sessionSummary = extractSessionSummary(md);
-        if (sessionSummary) {
-          const epSlug = `session-summary-${sessionDate}-${shortId}`;
-          const shortSummary = sessionSummary.slice(0, 300);
-          db.prepare(
-            `INSERT OR REPLACE INTO episodes (id, kind, scope, project, summary, session_summary, created_at)
-             VALUES (?, 'session-summary', 'project', ?, ?, ?, ?)`
-          ).run(epSlug, slug, shortSummary, sessionSummary, nowIso);
-        }
-      } catch { /* session_summary column may not exist */ }
-    }
-
-    result.synced++;
-  });
+  interface SessionOp {
+    destPath: string;
+    hash: string;
+    sessionDate: string;
+    shortId: string;
+    slug: string;
+    md: string;
+    isSubagent: boolean;
+  }
+  const ops: SessionOp[] = [];
 
   for (const session of sessions) {
     const slug = projectSlug(session.projectName);
@@ -391,10 +344,77 @@ export function syncSessions(
         }
       }
 
-      syncOne(session, slug, shortId);
+      const { md, date: sessionDate, userCount, assistantCount, isSubagent } = convertJsonlToMd(session.jsonlPath, session.projectName);
+
+      if (userCount === 0 && assistantCount === 0) {
+        result.skipped++;
+        continue;
+      }
+
+      const hash = sha256(md);
+      const destPath = path.join(destDir, `${sessionDate}-${shortId}.md`);
+
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- get() returns unknown
+      const existing = getHash.get(destPath) as { content_hash: string; last_indexed: string } | undefined;
+      if (existing && existing.content_hash === hash) {
+        result.skipped++;
+        continue;
+      }
+
+      fs.mkdirSync(destDir, { recursive: true, mode: 0o700 });
+      fs.writeFileSync(destPath, md, { encoding: 'utf8', mode: 0o600 });
+
+      ops.push({ destPath, hash, sessionDate, shortId, slug, md, isSubagent });
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);
       result.errors.push(`${shortId}: ${msg}`);
+    }
+  }
+
+  // DB transaction: only DB writes — no file I/O inside to minimize lock hold time (R4 fix)
+  const syncOne = db.transaction((op: SessionOp) => {
+    const category = op.isSubagent ? CC_SUBAGENT_CATEGORY : CC_SESSION_CATEGORY;
+
+    deleteFts.run(op.destPath);
+    insertFtsRow(db, {
+      path: op.destPath,
+      slug: `session-${op.sessionDate}-${op.shortId}`,
+      description: `CC ${op.isSubagent ? 'subagent' : 'session'} transcript — ${op.slug} — ${op.sessionDate}`,
+      type: 'raw',
+      category,
+      title: `${op.isSubagent ? 'Subagent' : 'Session'} ${op.sessionDate} — ${op.slug}`,
+      content: op.md,
+      tags: `${op.isSubagent ? 'subagent' : 'session'},${op.slug},transcript`,
+      dateCaptured: op.sessionDate,
+      project: op.slug,
+    });
+
+    upsertHash.run(op.destPath, op.hash, nowIso, category);
+
+    // Session summary injection (#9)
+    if (!op.isSubagent) {
+      try {
+        const sessionSummary = extractSessionSummary(op.md);
+        if (sessionSummary) {
+          const epSlug = `session-summary-${op.sessionDate}-${op.shortId}`;
+          const shortSummary = sessionSummary.slice(0, 300);
+          db.prepare(
+            `INSERT OR REPLACE INTO episodes (id, kind, scope, project, summary, session_summary, created_at)
+             VALUES (?, 'session-summary', 'project', ?, ?, ?, ?)`
+          ).run(epSlug, op.slug, shortSummary, sessionSummary, nowIso);
+        }
+      } catch { /* session_summary column may not exist */ }
+    }
+
+    result.synced++;
+  });
+
+  for (const op of ops) {
+    try {
+      syncOne(op);
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      result.errors.push(`${op.shortId}: ${msg}`);
     }
   }
 

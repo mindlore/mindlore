@@ -54,25 +54,34 @@ function main() {
 
   try {
     const project = getProjectName();
+
+    // Pre-read all files outside the DB transaction to avoid holding
+    // the write lock during slow file I/O (R4 root cause fix).
+    const changedFiles = [];
+    for (const file of mdFiles) {
+      const content = fs.readFileSync(file, 'utf8').replace(/\r\n/g, '\n');
+      const hash = sha256(content);
+
+      const existing = getHash.get(file);
+      if (existing && existing.content_hash === hash) continue;
+
+      const { meta, body } = parseFrontmatter(content);
+      const { slug, description, type, category, title, tags, quality, dateCaptured, project: ftsProject } = extractFtsMetadata(meta, body, file, baseDir);
+      const resolvedProject = resolveProject(ftsProject, file, project);
+      changedFiles.push({ file, hash, slug, description, type, category, title, tags, quality, dateCaptured, resolvedProject, body });
+    }
+
+    // DB transaction: only DB writes — no file I/O inside to minimize lock hold time
     const transaction = db.transaction(() => {
-      for (const file of mdFiles) {
-        const content = fs.readFileSync(file, 'utf8').replace(/\r\n/g, '\n');
-        const hash = sha256(content);
-
-        const existing = getHash.get(file);
-        if (existing && existing.content_hash === hash) continue;
-
-        const { meta, body } = parseFrontmatter(content);
-        const { slug, description, type, category, title, tags, quality, dateCaptured, project: ftsProject } = extractFtsMetadata(meta, body, file, baseDir);
-        const resolvedProject = resolveProject(ftsProject, file, project);
-        deleteFts.run(file);
-        deleteFtsSessions.run(file);
-        if (isSessionCategory(category)) {
-          insertFtsSessions.run(file, slug, description, type, category, title, body, tags, quality ?? null, dateCaptured ?? null, resolvedProject);
+      for (const item of changedFiles) {
+        deleteFts.run(item.file);
+        deleteFtsSessions.run(item.file);
+        if (isSessionCategory(item.category)) {
+          insertFtsSessions.run(item.file, item.slug, item.description, item.type, item.category, item.title, item.body, item.tags, item.quality ?? null, item.dateCaptured ?? null, item.resolvedProject);
         } else {
-          insertFtsRow(db, { path: file, slug, description, type, category, title, content: body, tags, quality, dateCaptured, project: resolvedProject });
+          insertFtsRow(db, { path: item.file, slug: item.slug, description: item.description, type: item.type, category: item.category, title: item.title, content: item.body, tags: item.tags, quality: item.quality, dateCaptured: item.dateCaptured, project: item.resolvedProject });
         }
-        upsertHash.run(file, hash, now);
+        upsertHash.run(item.file, item.hash, now);
       }
     });
     transaction();

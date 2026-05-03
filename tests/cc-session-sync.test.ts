@@ -362,5 +362,37 @@ describe('cc-session-sync', () => {
       expect(run2.skipped).toBeGreaterThanOrEqual(1);
       expect(run2.synced).toBe(0);
     });
+
+    it('rapid consecutive calls do not cause database lock errors', () => {
+      const claudeDir = path.join(tmpDir, '.claude');
+      createSampleJsonl(claudeDir, 'rapid-1', 'C--rapid');
+
+      const mindloreDir = path.join(tmpDir, '.mindlore');
+      fs.mkdirSync(mindloreDir, { recursive: true });
+      const dbPath = path.join(mindloreDir, 'mindlore.db');
+      const db = createTestDb(dbPath);
+      db.close();
+
+      const jsonlPath = path.join(claudeDir, 'projects', 'C--rapid', 'rapid-1.jsonl');
+      const oldTime = new Date(Date.now() - 20 * 60 * 1000);
+      fs.utimesSync(jsonlPath, oldTime, oldTime);
+
+      const sessions = discoverSessionFiles(claudeDir);
+
+      const run1 = syncSessions(dbPath, sessions, mindloreDir);
+      expect(run1.errors).toEqual([]);
+      expect(run1.synced).toBe(1);
+
+      // Add another session to force a second write transaction
+      createSampleJsonl(claudeDir, 'rapid-2', 'C--rapid');
+      const jsonlPath2 = path.join(claudeDir, 'projects', 'C--rapid', 'rapid-2.jsonl');
+      fs.utimesSync(jsonlPath2, oldTime, oldTime);
+      const sessions2 = discoverSessionFiles(claudeDir);
+
+      const run2 = syncSessions(dbPath, sessions2, mindloreDir);
+      expect(run2.errors).toEqual([]);
+      expect(run2.synced).toBe(1);
+      expect(run2.skipped).toBeGreaterThanOrEqual(1);
+    });
   });
 });
