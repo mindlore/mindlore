@@ -11,6 +11,7 @@ import {
   groupEpisodesByKind,
   markConsolidated,
 } from '../scripts/lib/consolidation.js';
+import type { EpisodeKind } from '../scripts/lib/episodes.js';
 
 let env: EpisodesTestEnv;
 
@@ -31,7 +32,7 @@ afterEach(() => {
 
 function insertEpisode(db: ReturnType<typeof createEpisodesTestEnv>['db'], opts: {
   id: string;
-  kind: string;
+  kind: EpisodeKind;
   summary: string;
   consolidation_status?: string;
   status?: string;
@@ -65,14 +66,14 @@ describe('groupEpisodesByKind', () => {
     insertEpisode(env.db, { id: 'ep-2', kind: 'session', summary: 'Session B' });
     insertEpisode(env.db, { id: 'ep-3', kind: 'decision', summary: 'Decision A' });
     insertEpisode(env.db, { id: 'ep-4', kind: 'session', summary: 'Consolidated', consolidation_status: 'consolidated' });
-    insertEpisode(env.db, { id: 'ep-5', kind: 'insight', summary: 'Inactive', status: 'inactive' });
+    insertEpisode(env.db, { id: 'ep-5', kind: 'learning', summary: 'Inactive', status: 'inactive' });
 
     const groups = groupEpisodesByKind(env.db);
 
     expect(groups.size).toBe(2);
     expect(groups.get('session')).toHaveLength(2);
     expect(groups.get('decision')).toHaveLength(1);
-    expect(groups.has('insight')).toBe(false);
+    expect(groups.has('learning')).toBe(false);
   });
 });
 

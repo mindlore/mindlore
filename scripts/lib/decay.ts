@@ -1,6 +1,7 @@
 import type BetterSqlite3 from 'better-sqlite3';
 import { dbAll } from './db-helpers.js';
 import { DECAY_HALF_LIFE_DAYS, STALE_THRESHOLD } from './constants.js';
+import type { EpisodeKind } from './episodes.js';
 
 const STALE_QUERY_LIMIT = 500;
 
@@ -93,7 +94,7 @@ export function listStaleDocuments(db: Database, threshold?: number, config?: De
 }
 
 export function persistDecayScores(db: Database): number {
-  const episodes = dbAll<{ id: string; created_at: string; kind: string }>(
+  const episodes = dbAll<{ id: string; created_at: string; kind: EpisodeKind }>(
     db,
     "SELECT id, created_at, kind FROM episodes WHERE status = 'active'"
   );

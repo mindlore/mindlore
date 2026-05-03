@@ -9,6 +9,7 @@ const fs = require('fs');
 const path = require('path');
 const crypto = require('crypto');
 const os = require('os');
+const { EPISODE_KINDS, isValidKind } = require('./constants.cjs');
 
 const MINDLORE_DIR = '.mindlore';
 const DB_NAME = 'mindlore.db';
@@ -364,13 +365,8 @@ CREATE TABLE IF NOT EXISTS episodes (
   created_at TEXT NOT NULL
 )`;
 
-/**
- * Valid episode kinds. CO-EVOLUTION: mirrors EPISODE_KINDS in scripts/lib/episodes.ts
- */
 // ~625 tokens context budget for multi-session inject (~4 chars/token)
 const MULTI_SESSION_TOKEN_CAP_CHARS = 2500;
-
-const EPISODE_KINDS_CJS = ['session', 'decision', 'event', 'preference', 'learning', 'friction', 'discovery', 'nomination', 'session-summary'];
 
 /**
  * Valid episode statuses. CO-EVOLUTION: mirrors EPISODE_STATUSES in scripts/lib/episodes.ts
@@ -805,7 +801,9 @@ module.exports = {
   resolveProject,
   DEFAULT_MODELS,
   // Episodes (v0.4.1)
-  EPISODE_KINDS_CJS,
+  EPISODE_KINDS,
+  EPISODE_KINDS_CJS: EPISODE_KINDS,
+  isValidKind,
   EPISODE_STATUSES_CJS,
   SQL_EPISODES_CREATE,
   SQL_EPISODES_INDEXES,

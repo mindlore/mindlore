@@ -1,12 +1,13 @@
 import type BetterSqlite3 from 'better-sqlite3';
 import { dbAll, dbGet } from './db-helpers.js';
 import { CONSOLIDATION_THRESHOLD } from './constants.js';
+import type { EpisodeKind } from './episodes.js';
 
 type Database = BetterSqlite3.Database;
 
 interface RawEpisode {
   id: string;
-  kind: string;
+  kind: EpisodeKind;
   summary: string;
   body: string | null;
   tags: string | null;
@@ -22,7 +23,7 @@ export function needsConsolidation(db: Database, threshold: number = CONSOLIDATI
   return countRawEpisodes(db) >= threshold;
 }
 
-export function groupEpisodesByKind(db: Database): Map<string, RawEpisode[]> {
+export function groupEpisodesByKind(db: Database): Map<EpisodeKind, RawEpisode[]> {
   const rows = dbAll<RawEpisode>(db, `
     SELECT id, kind, summary, body, tags, created_at
     FROM episodes
@@ -30,7 +31,7 @@ export function groupEpisodesByKind(db: Database): Map<string, RawEpisode[]> {
     ORDER BY kind, created_at
   `);
 
-  const groups = new Map<string, RawEpisode[]>();
+  const groups = new Map<EpisodeKind, RawEpisode[]>();
   for (const row of rows) {
     const list = groups.get(row.kind) ?? [];
     list.push(row);
@@ -39,14 +40,14 @@ export function groupEpisodesByKind(db: Database): Map<string, RawEpisode[]> {
   return groups;
 }
 
-const KIND_DIR_MAP: Record<string, string> = {
+const KIND_DIR_MAP: Partial<Record<EpisodeKind, string>> = {
   learning: 'learnings',
   discovery: 'insights',
   friction: 'analyses',
   decision: 'decisions',
 };
 
-export function resolveTargetDir(kind: string): string {
+export function resolveTargetDir(kind: EpisodeKind): string {
   return KIND_DIR_MAP[kind] ?? 'learnings';
 }
 
