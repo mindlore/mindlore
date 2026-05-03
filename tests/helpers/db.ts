@@ -124,28 +124,30 @@ export const extractFtsMetadata = extractFtsMetadataCjs;
 export const resolveProject = resolveProjectCjs;
 
 export interface EpisodeInsert {
+  id?: string;
   kind?: string;
   status?: string;
   project?: string;
-  content?: string;
+  summary?: string;
   graduated_at?: string | null;
   created_at?: string;
 }
 
 export function insertEpisode(db: Database.Database, overrides: EpisodeInsert = {}): number {
   const defaults = {
+    id: crypto.randomUUID(),
     kind: 'nomination',
     status: 'staged',
     project: 'test-project',
-    content: 'Test episode content',
+    summary: 'Test episode content',
     graduated_at: null,
     created_at: new Date().toISOString(),
   };
   const data = { ...defaults, ...overrides };
   const result = db.prepare(
-    `INSERT INTO episodes (kind, status, project, content, graduated_at, created_at)
-     VALUES (?, ?, ?, ?, ?, ?)`
-  ).run(data.kind, data.status, data.project, data.content, data.graduated_at, data.created_at);
+    `INSERT INTO episodes (id, kind, status, project, summary, graduated_at, created_at)
+     VALUES (?, ?, ?, ?, ?, ?, ?)`
+  ).run(data.id, data.kind, data.status, data.project, data.summary, data.graduated_at, data.created_at);
   return Number(result.lastInsertRowid);
 }
 

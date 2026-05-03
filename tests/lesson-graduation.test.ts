@@ -5,9 +5,8 @@ import { V067_MIGRATIONS } from '../scripts/lib/migrations-v067.js';
 import Database from 'better-sqlite3';
 
 // eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- require() returns any, narrowing to known CJS export shape
-const { checkReflectTrigger, getGraduatedLessonCount } = require('../hooks/lib/mindlore-common.cjs') as {
-  checkReflectTrigger: (db: Database.Database, project: string, threshold?: number) => string | null;
-  getGraduatedLessonCount: (db: Database.Database, project: string) => number;
+const { getNominationCounts } = require('../hooks/lib/mindlore-common.cjs') as {
+  getNominationCounts: (db: Database.Database, project: string) => { staged: number; graduated: number };
 };
 
 function setupDb(): EpisodesTestEnv {
@@ -21,15 +20,15 @@ describe('Q1 — auto reflect trigger', () => {
   beforeEach(() => { env = setupDb(); });
   afterEach(() => { destroyEpisodesTestEnv(env); });
 
-  it('returns null when nominations below threshold', () => {
+  it('returns staged count below threshold', () => {
     env.db.prepare(
       "INSERT INTO episodes (id, kind, project, summary, status, created_at) VALUES (?, ?, ?, ?, ?, ?)"
     ).run('n1', 'nomination', 'test', 'test nom', 'staged', new Date().toISOString());
 
-    expect(checkReflectTrigger(env.db, 'test', 5)).toBeNull();
+    expect(getNominationCounts(env.db, 'test').staged).toBe(1);
   });
 
-  it('returns trigger message when nominations reach threshold', () => {
+  it('returns staged count at threshold', () => {
     const now = new Date().toISOString();
     for (let i = 1; i <= 5; i++) {
       env.db.prepare(
@@ -37,9 +36,9 @@ describe('Q1 — auto reflect trigger', () => {
       ).run(`n${i}`, 'nomination', 'test', `nom ${i}`, 'staged', now);
     }
 
-    const msg = checkReflectTrigger(env.db, 'test', 5);
-    expect(msg).toContain('/mindlore-reflect');
-    expect(msg).toContain('5');
+    const counts = getNominationCounts(env.db, 'test');
+    expect(counts.staged).toBe(5);
+    expect(counts.graduated).toBe(0);
   });
 
   it('ignores non-staged nominations', () => {
@@ -50,7 +49,7 @@ describe('Q1 — auto reflect trigger', () => {
       ).run(`n${i}`, 'nomination', 'test', `nom ${i}`, i <= 3 ? 'staged' : 'approved', now);
     }
 
-    expect(checkReflectTrigger(env.db, 'test', 5)).toBeNull();
+    expect(getNominationCounts(env.db, 'test').staged).toBe(3);
   });
 });
 
@@ -93,7 +92,7 @@ describe('Q3 — graduated lesson count', () => {
   afterEach(() => { destroyEpisodesTestEnv(env); });
 
   it('returns 0 when no graduated lessons', () => {
-    expect(getGraduatedLessonCount(env.db, 'test')).toBe(0);
+    expect(getNominationCounts(env.db, 'test').graduated).toBe(0);
   });
 
   it('counts graduated lessons correctly', () => {
@@ -108,7 +107,7 @@ describe('Q3 — graduated lesson count', () => {
       "INSERT INTO episodes (id, kind, project, summary, status, created_at) VALUES (?, ?, ?, ?, ?, ?)"
     ).run('n3', 'nomination', 'test', 'Not graduated', 'staged', now);
 
-    expect(getGraduatedLessonCount(env.db, 'test')).toBe(2);
+    expect(getNominationCounts(env.db, 'test').graduated).toBe(2);
   });
 
   it('ignores rejected nominations', () => {
@@ -120,6 +119,6 @@ describe('Q3 — graduated lesson count', () => {
       "INSERT INTO episodes (id, kind, project, summary, status, rejected_at, rejection_reason, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)"
     ).run('n2', 'nomination', 'test', 'Bad lesson', 'rejected', now, 'Too vague', now);
 
-    expect(getGraduatedLessonCount(env.db, 'test')).toBe(1);
+    expect(getNominationCounts(env.db, 'test').graduated).toBe(1);
   });
 });

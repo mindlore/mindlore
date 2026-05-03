@@ -477,7 +477,7 @@ describe('Q1/Q3 graduation inject', () => {
       env: { ...process.env, MINDLORE_HOME: mindloreDir },
     });
 
-    expect(output).toContain('2 graduated lesson aktif');
+    expect(output).toContain('[Mindlore Graduation] 2 lesson mezun oldu');
   });
 
   test('Q3 — no message when no graduated lessons', () => {
@@ -493,7 +493,7 @@ describe('Q1/Q3 graduation inject', () => {
       env: { ...process.env, MINDLORE_HOME: mindloreDir },
     });
 
-    expect(output).not.toContain('graduated lesson');
+    expect(output).not.toContain('lesson mezun oldu');
   });
 });
 

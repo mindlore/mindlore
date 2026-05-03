@@ -749,18 +749,17 @@ function withTimeoutDb(db, sql, params = [], { timeoutMs = 3000, mode = 'all' } 
   }
 }
 
-function checkReflectTrigger(db, project, threshold) {
-  if (threshold === undefined) threshold = 5;
+function getNominationCounts(db, project) {
   try {
     const row = withTimeoutDb(db,
-      "SELECT COUNT(*) as cnt FROM episodes WHERE kind = 'nomination' AND status = 'staged' AND project = ?",
+      `SELECT
+        SUM(CASE WHEN status='staged' THEN 1 ELSE 0 END) AS staged,
+        SUM(CASE WHEN status='approved' AND graduated_at IS NOT NULL THEN 1 ELSE 0 END) AS graduated
+      FROM episodes
+      WHERE kind='nomination' AND project=?`,
       [project], { mode: 'get' });
-    const cnt = row?.cnt ?? 0;
-    if (cnt >= threshold) {
-      return `[Mindlore] ${cnt} bekleyen nomination var — \`/mindlore-reflect\` çalıştır`;
-    }
-  } catch (_err) { /* episodes table may not exist */ }
-  return null;
+    return { staged: row?.staged ?? 0, graduated: row?.graduated ?? 0 };
+  } catch (_err) { return { staged: 0, graduated: 0 }; }
 }
 
 function cleanupExpiredInjectLog(db, ttlMs) {
@@ -770,16 +769,6 @@ function cleanupExpiredInjectLog(db, ttlMs) {
     const result = db.prepare('DELETE FROM episode_inject_log WHERE injected_at < ?').run(cutoff);
     return result.changes;
   } catch (_err) { /* table may not exist */ }
-  return 0;
-}
-
-function getGraduatedLessonCount(db, project) {
-  try {
-    const row = withTimeoutDb(db,
-      "SELECT COUNT(*) as cnt FROM episodes WHERE kind = 'nomination' AND status = 'approved' AND graduated_at IS NOT NULL AND project = ?",
-      [project], { mode: 'get' });
-    return row?.cnt ?? 0;
-  } catch (_err) { /* columns may not exist yet */ }
   return 0;
 }
 
@@ -862,8 +851,7 @@ module.exports = {
   isCorruptionError,
   recoverCorruptDb,
   // Lesson graduation (v0.6.7)
-  checkReflectTrigger,
-  getGraduatedLessonCount,
+  getNominationCounts,
   cleanupExpiredInjectLog,
 };
 
