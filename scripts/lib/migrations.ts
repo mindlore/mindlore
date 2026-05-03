@@ -1,5 +1,4 @@
 import type { Migration } from './schema-version.js';
-import { EMBEDDING_DIM_CONST, VEC_TABLE_NAME } from './constants.js';
 import type BetterSqlite3 from 'better-sqlite3';
 type Database = BetterSqlite3.Database;
 
@@ -8,20 +7,6 @@ export const V050_MIGRATIONS: Migration[] = [
     version: 1,
     name: 'add_vec_table_and_timestamps',
     up: (db: Database) => {
-      // 1. Create vec table (requires sqlite-vec loaded — skip gracefully if not)
-      try {
-        db.exec(`
-          CREATE VIRTUAL TABLE IF NOT EXISTS ${VEC_TABLE_NAME} USING vec0(
-            embedding float[${EMBEDDING_DIM_CONST}],
-            slug text,
-            +created_at text,
-            +model_name text
-          )
-        `);
-      } catch (_err) {
-        // sqlite-vec not loaded — vec table will be created when extension is available
-      }
-
       // 2. Add timestamp columns to file_hashes
       // (FTS5 virtual tables can't be altered — timestamps go in file_hashes)
       // eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- pragma returns array of objects
