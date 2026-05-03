@@ -10,7 +10,7 @@
 
 const fs = require('fs');
 const path = require('path');
-const { findMindloreDir, readConfig, openDatabase, hasEpisodesTable, querySupersededChains, formatSupersededChains, hookLog, getProjectName, parseFrontmatter, withTelemetry, withTimeoutDb, listSnapshots, isCorruptionError, recoverCorruptDb } = require('./lib/mindlore-common.cjs');
+const { findMindloreDir, readConfig, openDatabase, hasEpisodesTable, querySupersededChains, formatSupersededChains, hookLog, getProjectName, parseFrontmatter, withTelemetry, withTimeoutDb, listSnapshots, isCorruptionError, recoverCorruptDb, checkReflectTrigger, getGraduatedLessonCount } = require('./lib/mindlore-common.cjs');
 
 function truncateSection(content, sectionRegex, keepCount, label) {
   const match = content.match(sectionRegex);
@@ -61,14 +61,14 @@ function checkStaleContent(db) {
   return null;
 }
 
-function loadDbContent(db, baseDir, config, output, timings, latestDeltaContent, sessionId) {
+function loadDbContent({ db, baseDir, config, output, timings, latestDeltaContent, sessionId }) {
   const project = path.basename(process.cwd());
   // Session payload: Session summary, Decisions, Friction, Learnings
   const tPayload = Date.now();
   try {
     const { buildSessionPayload } = require('../dist/scripts/lib/session-payload.js');
     const payloadBudget = config?.tokenBudget?.sessionInject ?? 2000;
-    const payload = buildSessionPayload(db, baseDir, project, payloadBudget, latestDeltaContent, sessionId);
+    const payload = buildSessionPayload({ db, baseDir, project, tokenBudget: payloadBudget, latestDeltaContent, sessionId });
     for (const section of payload.sections) {
       output.push(`[Mindlore ${section.label}]\n${section.content}`);
     }
@@ -97,6 +97,20 @@ function loadDbContent(db, baseDir, config, output, timings, latestDeltaContent,
     output.push(staleMsg);
   }
   timings.db_stale = Date.now() - tStale;
+
+  // Auto reflect trigger (Q1)
+  try {
+    const reflectMsg = checkReflectTrigger(db, project, config?.graduation?.reflectThreshold);
+    if (reflectMsg) output.push(reflectMsg);
+  } catch (_reflectErr) { /* graduation not available */ }
+
+  // Graduated lesson count (Q3 — content lives in CLAUDE.md, only show count)
+  try {
+    const gradCount = getGraduatedLessonCount(db, project);
+    if (gradCount > 0) {
+      output.push(`[Mindlore] ${gradCount} graduated lesson aktif (detay: CLAUDE.md veya /mindlore-reflect)`);
+    }
+  } catch (_lessonErr) { /* graduation not available */ }
 }
 
 function main() {
@@ -197,7 +211,7 @@ function main() {
         } catch (_schemaErr) { /* schema_versions may not exist yet */ }
         timings.schema_check = Date.now() - tSchema;
 
-        loadDbContent(db, baseDir, config, output, timings, latestDeltaContent, sessionId);
+        loadDbContent({ db, baseDir, config, output, timings, latestDeltaContent, sessionId });
       } catch (err) {
         if (isCorruptionError(err)) {
           recoverCorruptDb(db, dbPath, 'session-focus');

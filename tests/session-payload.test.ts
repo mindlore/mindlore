@@ -59,7 +59,7 @@ describe('buildSessionPayload', () => {
     insertEpisode('friction', 'CI pipeline is slow');
     insertEpisode('learning', 'Always build before test');
 
-    const payload = buildSessionPayload(db, baseDir, PROJECT);
+    const payload = buildSessionPayload({ db, baseDir, project: PROJECT });
 
     expect(payload.sections).toHaveLength(4);
     expect(payload.sections[0]!.label).toBe('Session');
@@ -76,7 +76,7 @@ describe('buildSessionPayload', () => {
     insertEpisode('friction', 'Short friction');
     insertEpisode('learning', 'Short learning');
 
-    const payload = buildSessionPayload(db, baseDir, PROJECT, 20);
+    const payload = buildSessionPayload({ db, baseDir, project: PROJECT, tokenBudget: 20 });
 
     expect(payload.sections.length).toBeLessThan(4);
     expect(payload.sections[0]!.label).toBe('Session');
@@ -89,18 +89,18 @@ describe('buildSessionPayload', () => {
     insertEpisode('friction', 'Fric');
     insertEpisode('learning', 'Learn');
 
-    const full = buildSessionPayload(db, baseDir, PROJECT, 99999);
+    const full = buildSessionPayload({ db, baseDir, project: PROJECT, tokenBudget: 99999 });
     const sessionTokens = full.sections[0]!.tokens;
     const decisionTokens = full.sections[1]!.tokens;
 
     const budgetFor2 = sessionTokens + decisionTokens + 1;
-    const trimmed = buildSessionPayload(db, baseDir, PROJECT, budgetFor2);
+    const trimmed = buildSessionPayload({ db, baseDir, project: PROJECT, tokenBudget: budgetFor2 });
 
     expect(trimmed.sections.map(s => s.label)).toEqual(['Session', 'Decisions']);
   });
 
   test('handles empty DB gracefully', () => {
-    const payload = buildSessionPayload(db, baseDir, PROJECT);
+    const payload = buildSessionPayload({ db, baseDir, project: PROJECT });
 
     expect(payload.sections).toHaveLength(4);
     expect(payload.sections[0]!.content).toContain('No previous session data');
@@ -112,7 +112,7 @@ describe('buildSessionPayload', () => {
   test('handles missing diary directory', () => {
     insertEpisode('decision', 'A decision');
 
-    const payload = buildSessionPayload(db, baseDir, PROJECT);
+    const payload = buildSessionPayload({ db, baseDir, project: PROJECT });
 
     expect(payload.sections[0]!.label).toBe('Session');
     expect(payload.sections[0]!.content).toContain('No previous session data');
@@ -123,7 +123,7 @@ describe('buildSessionPayload', () => {
     const text = 'abcd'; // 4 chars = 1 token
     writeDelta('delta-2026-04-19.md', `# H\n- ${text}`);
 
-    const payload = buildSessionPayload(db, baseDir, PROJECT);
+    const payload = buildSessionPayload({ db, baseDir, project: PROJECT });
 
     for (const section of payload.sections) {
       const expectedTokens = Math.ceil(section.content.length / 4);
@@ -137,7 +137,7 @@ describe('buildSessionPayload', () => {
     writeDelta('delta-2026-04-18.md', '# Old\n- Old stuff');
     writeDelta('delta-2026-04-19.md', '# Latest\n- Latest stuff');
 
-    const payload = buildSessionPayload(db, baseDir, PROJECT);
+    const payload = buildSessionPayload({ db, baseDir, project: PROJECT });
 
     expect(payload.sections[0]!.content).toContain('Latest stuff');
     expect(payload.sections[0]!.content).not.toContain('Old stuff');
@@ -147,7 +147,7 @@ describe('buildSessionPayload', () => {
     insertEpisode('decision', 'My project decision', { project: PROJECT });
     insertEpisode('decision', 'Other project decision', { project: 'other-project' });
 
-    const payload = buildSessionPayload(db, baseDir, PROJECT);
+    const payload = buildSessionPayload({ db, baseDir, project: PROJECT });
 
     expect(payload.sections[1]!.content).toContain('My project decision');
     expect(payload.sections[1]!.content).not.toContain('Other project decision');
@@ -159,7 +159,7 @@ describe('buildSessionPayload', () => {
     insertEpisode('friction', 'Fric');
     insertEpisode('learning', 'Learn');
 
-    const payload = buildSessionPayload(db, baseDir, PROJECT, 1);
+    const payload = buildSessionPayload({ db, baseDir, project: PROJECT, tokenBudget: 1 });
 
     expect(payload.sections).toHaveLength(1);
     expect(payload.sections[0]!.label).toBe('Session');

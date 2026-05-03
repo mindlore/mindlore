@@ -749,6 +749,40 @@ function withTimeoutDb(db, sql, params = [], { timeoutMs = 3000, mode = 'all' } 
   }
 }
 
+function checkReflectTrigger(db, project, threshold) {
+  if (threshold === undefined) threshold = 5;
+  try {
+    const row = withTimeoutDb(db,
+      "SELECT COUNT(*) as cnt FROM episodes WHERE kind = 'nomination' AND status = 'staged' AND project = ?",
+      [project], { mode: 'get' });
+    const cnt = row?.cnt ?? 0;
+    if (cnt >= threshold) {
+      return `[Mindlore] ${cnt} bekleyen nomination var — \`/mindlore-reflect\` çalıştır`;
+    }
+  } catch (_err) { /* episodes table may not exist */ }
+  return null;
+}
+
+function cleanupExpiredInjectLog(db, ttlMs) {
+  if (ttlMs === undefined) ttlMs = 30 * 24 * 60 * 60 * 1000;
+  try {
+    const cutoff = new Date(Date.now() - ttlMs).toISOString();
+    const result = db.prepare('DELETE FROM episode_inject_log WHERE injected_at < ?').run(cutoff);
+    return result.changes;
+  } catch (_err) { /* table may not exist */ }
+  return 0;
+}
+
+function getGraduatedLessonCount(db, project) {
+  try {
+    const row = withTimeoutDb(db,
+      "SELECT COUNT(*) as cnt FROM episodes WHERE kind = 'nomination' AND status = 'approved' AND graduated_at IS NOT NULL AND project = ?",
+      [project], { mode: 'get' });
+    return row?.cnt ?? 0;
+  } catch (_err) { /* columns may not exist yet */ }
+  return 0;
+}
+
 module.exports = {
   MINDLORE_DIR,
   GLOBAL_MINDLORE_DIR,
@@ -832,6 +866,10 @@ module.exports = {
   // DB corruption recovery (v0.6.3)
   isCorruptionError,
   recoverCorruptDb,
+  // Lesson graduation (v0.6.7)
+  checkReflectTrigger,
+  getGraduatedLessonCount,
+  cleanupExpiredInjectLog,
 };
 
 function isCorruptionError(err) {

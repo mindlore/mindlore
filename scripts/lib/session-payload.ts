@@ -52,7 +52,7 @@ function buildEpisodeSections(db: Database.Database, project: string, sessionId?
   const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString();
 
   const dedupClause = sessionId
-    ? 'AND CAST(rowid AS TEXT) NOT IN (SELECT episode_id FROM episode_inject_log WHERE session_id = ?)'
+    ? 'AND rowid NOT IN (SELECT episode_id FROM episode_inject_log WHERE session_id = ?)'
     : '';
   const query = `SELECT rowid, kind, summary, created_at FROM episodes
      WHERE status = 'active' AND project = ?
@@ -73,7 +73,7 @@ function buildEpisodeSections(db: Database.Database, project: string, sessionId?
     );
     db.transaction(() => {
       for (const row of rows) {
-        insert.run(sessionId, String(row.rowid), now);
+        insert.run(sessionId, row.rowid, now);
       }
     })();
   }
@@ -96,14 +96,17 @@ function buildEpisodeSections(db: Database.Database, project: string, sessionId?
   };
 }
 
-export function buildSessionPayload(
-  db: Database.Database,
-  baseDir: string,
-  project: string,
-  tokenBudget: number = 2000,
-  latestDeltaContent?: string,
-  sessionId?: string,
-): SessionPayload {
+export interface BuildSessionPayloadOptions {
+  db: Database.Database;
+  baseDir: string;
+  project: string;
+  tokenBudget?: number;
+  latestDeltaContent?: string;
+  sessionId?: string;
+}
+
+export function buildSessionPayload(opts: BuildSessionPayloadOptions): SessionPayload {
+  const { db, baseDir, project, tokenBudget = 2000, latestDeltaContent, sessionId } = opts;
   const sections: SessionSection[] = [];
 
   const summary = buildSessionSummary(baseDir, latestDeltaContent);

@@ -133,7 +133,7 @@ describe('session summary → DB → payload integration', () => {
        VALUES ('session-summary', 'project', 'test-proj', ?, ?, 'active', datetime('now'))`,
     ).run(summary, summary);
 
-    const payload = buildSessionPayload(env.db, env.tmpDir, 'test-proj', 5000);
+    const payload = buildSessionPayload({ db: env.db, baseDir: env.tmpDir, project: 'test-proj', tokenBudget: 5000 });
     const pastSessions = payload.sections.find(s => s.label === 'Past Sessions');
     expect(pastSessions).toBeDefined();
     expect(pastSessions!.content).toContain('v0.6.3 search engine');

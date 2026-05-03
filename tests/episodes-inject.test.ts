@@ -195,7 +195,7 @@ describe('episode stale filter', () => {
        VALUES ('ep-new', 'decision', 'project', 'mindlore', 'Recent decision', 'active', 'diary', ?)`,
     ).run(recentDate);
 
-    const payload = buildSessionPayload(migEnv.db, migEnv.tmpDir, 'mindlore');
+    const payload = buildSessionPayload({ db: migEnv.db, baseDir: migEnv.tmpDir, project: 'mindlore' });
     const decisionsSection = payload.sections.find(s => s.label === 'Decisions');
     expect(decisionsSection).toBeDefined();
     expect(decisionsSection!.content).toContain('Recent decision');
@@ -210,7 +210,7 @@ describe('episode stale filter', () => {
        VALUES ('ep-r', 'learning', 'project', 'mindlore', 'Recent learning', 'active', 'reflect', ?)`,
     ).run(recentDate);
 
-    const payload = buildSessionPayload(migEnv.db, migEnv.tmpDir, 'mindlore');
+    const payload = buildSessionPayload({ db: migEnv.db, baseDir: migEnv.tmpDir, project: 'mindlore' });
     const learningsSection = payload.sections.find(s => s.label === 'Learnings');
     expect(learningsSection).toBeDefined();
     expect(learningsSection!.content).toContain('Recent learning');
@@ -243,7 +243,7 @@ describe('episode inject dedup', () => {
       `INSERT INTO episode_inject_log (session_id, episode_id, injected_at) VALUES (?, ?, ?)`,
     ).run('session-abc', String(rowid), new Date().toISOString());
 
-    const payload = buildSessionPayload(migEnv.db, migEnv.tmpDir, 'mindlore', 2000, undefined, 'session-abc');
+    const payload = buildSessionPayload({ db: migEnv.db, baseDir: migEnv.tmpDir, project: 'mindlore', tokenBudget: 2000, sessionId: 'session-abc' });
     const decisionsSection = payload.sections.find(s => s.label === 'Decisions');
     expect(decisionsSection).toBeDefined();
     expect(decisionsSection!.content).not.toContain('Already injected decision');
@@ -257,7 +257,7 @@ describe('episode inject dedup', () => {
        VALUES ('ep-d2', 'learning', 'project', 'mindlore', 'New learning to log', 'active', 'reflect', ?)`,
     ).run(recentDate);
 
-    buildSessionPayload(migEnv.db, migEnv.tmpDir, 'mindlore', 2000, undefined, 'session-xyz');
+    buildSessionPayload({ db: migEnv.db, baseDir: migEnv.tmpDir, project: 'mindlore', tokenBudget: 2000, sessionId: 'session-xyz' });
 
     // eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- better-sqlite3 .all() returns unknown[]
     const logged = migEnv.db.prepare(
@@ -275,7 +275,7 @@ describe('episode inject dedup', () => {
        VALUES ('ep-d3', 'friction', 'project', 'mindlore', 'Friction point', 'active', 'diary', ?)`,
     ).run(recentDate);
 
-    buildSessionPayload(migEnv.db, migEnv.tmpDir, 'mindlore');
+    buildSessionPayload({ db: migEnv.db, baseDir: migEnv.tmpDir, project: 'mindlore' });
 
     // eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- better-sqlite3 .all() returns unknown[]
     const logged = migEnv.db.prepare(
