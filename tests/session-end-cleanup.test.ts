@@ -52,6 +52,7 @@ describe('session-end R4 — TTL cleanup integration', () => {
     const deleted = cleanupExpiredInjectLog(db);
 
     expect(deleted).toBe(2);
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- better-sqlite3 .get() returns unknown
     const remaining = db.prepare('SELECT COUNT(*) as cnt FROM episode_inject_log').get() as { cnt: number };
     expect(remaining.cnt).toBe(1);
   });
@@ -64,6 +65,7 @@ describe('session-end R4 — TTL cleanup integration', () => {
     const deleted = cleanupExpiredInjectLog(db);
 
     expect(deleted).toBe(0);
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- better-sqlite3 .get() returns unknown
     const remaining = db.prepare('SELECT COUNT(*) as cnt FROM episode_inject_log').get() as { cnt: number };
     expect(remaining.cnt).toBe(2);
   });

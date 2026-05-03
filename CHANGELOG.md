@@ -5,6 +5,28 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.6.7] - 2026-05-03
+
+### Added
+- Lesson graduation pipeline: auto reflect trigger (Q1), graduation writes (Q2), graduated lesson count inject (Q3)
+- Episode inject log TTL cleanup at session end (R4) — deletes entries older than 30 days
+- Migration v15: `graduated_at`, `rejected_at`, `rejection_reason` columns on episodes table
+- Migration v16: `episode_inject_log.episode_id` TEXT → INTEGER fix with data conversion
+- Migration v17: TTL cleanup function (`cleanupExpiredInjectLog`)
+- Integration tests for Q1/Q3 hook inject and R4 session-end cleanup
+- Migration test suite for v0.6.7 (v15-v17 schema changes)
+- Roadmap spec file (`docs/superpowers/specs/mindlore-roadmap.md`)
+
+### Changed
+- `loadDbContent` refactored from 7 positional params → options object
+- `buildSessionPayload` refactored from 6 params → options bag
+- `cleanupExpiredInjectLog` moved to `hooks/lib/mindlore-common.cjs` (shared between migration and session-end hook)
+- Session-focus test cleanup: async retry → `fs.rmSync({ maxRetries })`, typed return
+
+### Fixed
+- Removed `CAST(rowid AS TEXT)` — `episode_inject_log.episode_id` is now INTEGER natively
+- Added `V067_MIGRATIONS` to test helper for correct schema version expectations
+
 ## [0.6.6] - 2026-05-02
 
 ### Added
