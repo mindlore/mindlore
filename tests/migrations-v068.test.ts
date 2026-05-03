@@ -1,3 +1,5 @@
+/* eslint-disable @typescript-eslint/no-unsafe-type-assertion */
+
 import Database from 'better-sqlite3';
 import path from 'path';
 import os from 'os';
@@ -23,7 +25,7 @@ describe('V068 Migrations', () => {
     runMigrations(db, V068_MIGRATIONS);
     const indexes = db.prepare(
       "SELECT name FROM sqlite_master WHERE type='index' AND tbl_name='episode_inject_log'"
-    ).all() as { name: string }[];
+    ).all() as Array<{ name: string }>;
     expect(indexes.some(i => i.name === 'idx_inject_log_injected_at')).toBe(true);
   });
 
