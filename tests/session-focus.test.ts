@@ -31,15 +31,8 @@ beforeEach(() => {
   fs.mkdirSync(TEST_DIR, { recursive: true });
 });
 
-afterEach(async () => {
-  for (let attempt = 0; attempt < 3; attempt++) {
-    try {
-      fs.rmSync(TEST_DIR, { recursive: true, force: true });
-      return;
-    } catch {
-      await new Promise(r => setTimeout(r, 200));
-    }
-  }
+afterEach(() => {
+  fs.rmSync(TEST_DIR, { recursive: true, force: true, maxRetries: 3, retryDelay: 100 });
 });
 
 afterAll(() => {
@@ -394,8 +387,7 @@ describe('enriched multi-session inject', () => {
 });
 
 describe('Q1/Q3 graduation inject', () => {
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- dynamic require in test
-  function createDbWithSchema(mindloreDir: string): any {
+  function createDbWithSchema(mindloreDir: string): import('better-sqlite3').Database {
     const Database = require('better-sqlite3');
     const { ensureSchemaTable, runMigrations } = require('../dist/scripts/lib/schema-version.js');
     const { V050_MIGRATIONS } = require('../dist/scripts/lib/migrations.js');

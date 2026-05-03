@@ -985,6 +985,9 @@ npm@0.6.5 yayında. 34 commit, 92 suite, 705 test, 0 lint error.
 | R2 | Episode kind enum/const — stringly-typed kind values ('nomination','decision',...) → shared constant | v0.6.7 simplify | Düşük |
 | R3 | episode_inject_log.injected_at index — TTL DELETE full scan düzeltmesi | v0.6.7 simplify | Düşük |
 | R4 | DB Lock Root Cause Investigation — hangi hook/process uzun write lock tutuyor, busy_timeout workaround değil çözüm | v0.6.7 runtime test | Orta |
+| R5 | Test DB Setup Centralization — 3 dosyada (session-end-cleanup, session-focus, migrations-v067) aynı manual DB setup + version-skip hack tekrarı → `tests/helpers/db.ts`'e `createTestDbWithFullSchema()` helper | v0.6.7 simplify | Düşük |
+| R6 | Source vs Dist Test Import Tutarsızlığı — execSync integration testleri dist/ kullanır (bilinçli: CJS hook uyumluluğu), diğerleri source. CI'da build-before-test zorunluluğu belgelenmeli | v0.6.7 simplify | Düşük |
+| R7 | Test Data Helper'ları — `insertEpisode(db, overrides)` + `insertInjectLog(db, ...)` helper'ları, SQL tekrarını azaltır (lesson-graduation 9+ INSERT) | v0.6.7 simplify | Düşük |
 
 ---
 
