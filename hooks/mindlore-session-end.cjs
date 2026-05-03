@@ -323,6 +323,12 @@ function writeBareEpisode(baseDir, project, commits, changedFiles, reads) {
     });
     writeBoth();
 
+    // TTL cleanup for episode_inject_log (R4)
+    try {
+      const { cleanupExpiredInjectLog } = require('../dist/scripts/lib/migrations-v067.js');
+      cleanupExpiredInjectLog(db);
+    } catch (_err) { /* cleanup is optional */ }
+
     db.close();
   } catch (err) {
     hookLog('session-end', 'error', `episode write failed: ${err?.message ?? err}`);
