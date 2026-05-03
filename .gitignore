@@ -13,7 +13,6 @@ Thumbs.db
 .test-mindlore-*
 .mindlore.bak/
 docs/
-!docs/superpowers/
 plans/
 security-audit-report.md
 SPEC-*.md
