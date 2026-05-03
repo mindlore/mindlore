@@ -393,6 +393,118 @@ describe('enriched multi-session inject', () => {
   });
 });
 
+describe('Q1/Q3 graduation inject', () => {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- dynamic require in test
+  function createDbWithSchema(mindloreDir: string): any {
+    const Database = require('better-sqlite3');
+    const { ensureSchemaTable, runMigrations } = require('../dist/scripts/lib/schema-version.js');
+    const { V050_MIGRATIONS } = require('../dist/scripts/lib/migrations.js');
+    const { V051_MIGRATIONS } = require('../dist/scripts/lib/migrations-v051.js');
+    const { V052_MIGRATIONS } = require('../dist/scripts/lib/migrations-v052.js');
+    const { V053_MIGRATIONS } = require('../dist/scripts/lib/migrations-v053.js');
+    const { V066_MIGRATIONS } = require('../dist/scripts/lib/migrations-v066.js');
+    const { V067_MIGRATIONS } = require('../dist/scripts/lib/migrations-v067.js');
+    const { ensureEpisodesTable } = require('../hooks/lib/mindlore-common.cjs');
+    const dbPath = path.join(mindloreDir, 'mindlore.db');
+    const db = new Database(dbPath);
+    db.exec('CREATE TABLE IF NOT EXISTS file_hashes (path TEXT PRIMARY KEY, hash TEXT, last_indexed TEXT)');
+    db.exec('CREATE VIRTUAL TABLE IF NOT EXISTS mindlore_fts USING fts5(title, body, tags)');
+    db.exec('CREATE VIRTUAL TABLE IF NOT EXISTS mindlore_fts_sessions USING fts5(title, body)');
+    ensureEpisodesTable(db);
+    ensureSchemaTable(db);
+    runMigrations(db, [...V050_MIGRATIONS, ...V051_MIGRATIONS, ...V052_MIGRATIONS, ...V053_MIGRATIONS]);
+    for (let v = 9; v <= 13; v++) {
+      db.prepare('INSERT OR IGNORE INTO schema_versions (version, name, applied_at) VALUES (?,?,?)').run(v, 'skip', new Date().toISOString());
+    }
+    runMigrations(db, [...V066_MIGRATIONS, ...V067_MIGRATIONS]);
+    return db;
+  }
+
+  test('Q1 — injects reflect trigger when 5+ staged nominations exist', () => {
+    const mindloreDir = createMindloreDir();
+    const db = createDbWithSchema(mindloreDir);
+    const project = path.basename(TEST_DIR);
+    for (let i = 0; i < 6; i++) {
+      db.prepare("INSERT INTO episodes (kind, scope, project, summary, status, created_at) VALUES (?, ?, ?, ?, ?, ?)").run(
+        'nomination', 'global', project, `nom-${i}`, 'staged', new Date().toISOString()
+      );
+    }
+    db.close();
+
+    const output = execSync(`node "${HOOK_PATH}"`, {
+      cwd: TEST_DIR,
+      encoding: 'utf8',
+      timeout: 10000,
+      input: JSON.stringify({ session_id: 'test-q1' }),
+      env: { ...process.env, MINDLORE_HOME: mindloreDir },
+    });
+
+    expect(output).toContain('6 bekleyen nomination');
+    expect(output).toContain('/mindlore-reflect');
+  });
+
+  test('Q1 — no trigger when below threshold', () => {
+    const mindloreDir = createMindloreDir();
+    const db = createDbWithSchema(mindloreDir);
+    const project = path.basename(TEST_DIR);
+    for (let i = 0; i < 3; i++) {
+      db.prepare("INSERT INTO episodes (kind, scope, project, summary, status, created_at) VALUES (?, ?, ?, ?, ?, ?)").run(
+        'nomination', 'global', project, `nom-${i}`, 'staged', new Date().toISOString()
+      );
+    }
+    db.close();
+
+    const output = execSync(`node "${HOOK_PATH}"`, {
+      cwd: TEST_DIR,
+      encoding: 'utf8',
+      timeout: 10000,
+      input: JSON.stringify({ session_id: 'test-q1-below' }),
+      env: { ...process.env, MINDLORE_HOME: mindloreDir },
+    });
+
+    expect(output).not.toContain('bekleyen nomination');
+  });
+
+  test('Q3 — injects graduated lesson count when > 0', () => {
+    const mindloreDir = createMindloreDir();
+    const db = createDbWithSchema(mindloreDir);
+    const project = path.basename(TEST_DIR);
+    db.prepare("INSERT INTO episodes (kind, scope, project, summary, status, graduated_at, created_at) VALUES (?, ?, ?, ?, ?, ?, ?)").run(
+      'nomination', 'global', project, 'grad-1', 'approved', new Date().toISOString(), new Date().toISOString()
+    );
+    db.prepare("INSERT INTO episodes (kind, scope, project, summary, status, graduated_at, created_at) VALUES (?, ?, ?, ?, ?, ?, ?)").run(
+      'nomination', 'global', project, 'grad-2', 'approved', new Date().toISOString(), new Date().toISOString()
+    );
+    db.close();
+
+    const output = execSync(`node "${HOOK_PATH}"`, {
+      cwd: TEST_DIR,
+      encoding: 'utf8',
+      timeout: 10000,
+      input: JSON.stringify({ session_id: 'test-q3' }),
+      env: { ...process.env, MINDLORE_HOME: mindloreDir },
+    });
+
+    expect(output).toContain('2 graduated lesson aktif');
+  });
+
+  test('Q3 — no message when no graduated lessons', () => {
+    const mindloreDir = createMindloreDir();
+    const db = createDbWithSchema(mindloreDir);
+    db.close();
+
+    const output = execSync(`node "${HOOK_PATH}"`, {
+      cwd: TEST_DIR,
+      encoding: 'utf8',
+      timeout: 10000,
+      input: JSON.stringify({ session_id: 'test-q3-zero' }),
+      env: { ...process.env, MINDLORE_HOME: mindloreDir },
+    });
+
+    expect(output).not.toContain('graduated lesson');
+  });
+});
+
 describe('delta truncation', () => {
   it('should truncate changed files list when > 10', () => {
     const { truncateChangedFiles } = require('../hooks/mindlore-session-focus.cjs');
