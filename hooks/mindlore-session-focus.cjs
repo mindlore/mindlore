@@ -68,7 +68,7 @@ function loadDbContent({ db, baseDir, config, output, timings, latestDeltaConten
   try {
     const { buildSessionPayload } = require('../dist/scripts/lib/session-payload.js');
     const payloadBudget = config?.tokenBudget?.sessionInject ?? 2000;
-    const payload = buildSessionPayload(db, baseDir, project, payloadBudget, latestDeltaContent, sessionId);
+    const payload = buildSessionPayload({ db, baseDir, project, tokenBudget: payloadBudget, latestDeltaContent, sessionId });
     for (const section of payload.sections) {
       output.push(`[Mindlore ${section.label}]\n${section.content}`);
     }

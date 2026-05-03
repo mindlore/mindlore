@@ -96,14 +96,17 @@ function buildEpisodeSections(db: Database.Database, project: string, sessionId?
   };
 }
 
-export function buildSessionPayload(
-  db: Database.Database,
-  baseDir: string,
-  project: string,
-  tokenBudget: number = 2000,
-  latestDeltaContent?: string,
-  sessionId?: string,
-): SessionPayload {
+export interface BuildSessionPayloadOptions {
+  db: Database.Database;
+  baseDir: string;
+  project: string;
+  tokenBudget?: number;
+  latestDeltaContent?: string;
+  sessionId?: string;
+}
+
+export function buildSessionPayload(opts: BuildSessionPayloadOptions): SessionPayload {
+  const { db, baseDir, project, tokenBudget = 2000, latestDeltaContent, sessionId } = opts;
   const sections: SessionSection[] = [];
 
   const summary = buildSessionSummary(baseDir, latestDeltaContent);
