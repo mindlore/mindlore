@@ -1,6 +1,6 @@
 {
   "name": "mindlore",
-  "version": "0.6.6",
+  "version": "0.6.7",
   "description": "AI-native knowledge system for Claude Code",
   "type": "commonjs",
   "bin": {
