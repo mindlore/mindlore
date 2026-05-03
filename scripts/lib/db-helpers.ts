@@ -94,7 +94,7 @@ export function openDatabaseTs(
     const db = new Database_ctor(dbPath, { readonly });
     if (!readonly) {
       db.pragma('journal_mode = WAL');
-      db.pragma('busy_timeout = 5000');
+      db.pragma('busy_timeout = 2000');
     }
     return db;
   } catch {

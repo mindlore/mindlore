@@ -175,7 +175,7 @@ describe('openDatabaseTs', () => {
     const walMode = db.pragma('journal_mode', { simple: true });
     expect(walMode).toBe('wal');
     const timeout = db.pragma('busy_timeout', { simple: true });
-    expect(timeout).toBe(5000);
+    expect(timeout).toBe(2000);
     db.close();
   });
 
@@ -195,7 +195,7 @@ describe('openDatabase CJS', () => {
     const walMode = db.pragma('journal_mode', { simple: true });
     expect(walMode).toBe('wal');
     const timeout = db.pragma('busy_timeout', { simple: true });
-    expect(timeout).toBe(5000);
+    expect(timeout).toBe(2000);
     db.close();
   });
 });

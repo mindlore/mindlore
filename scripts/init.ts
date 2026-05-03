@@ -191,7 +191,7 @@ function createDatabase(baseDir: string): boolean {
     // Idempotent: ensure episodes table on pre-v0.4 databases
     const dbEp = new DatabaseCtor(dbPath);
     dbEp.pragma('journal_mode = WAL');
-    dbEp.pragma('busy_timeout = 5000');
+    dbEp.pragma('busy_timeout = 2000');
     ensureEpisodesTableCjs(dbEp);
     ensureSchemaTable(dbEp);
     runMigrations(dbEp, INIT_MIGRATIONS);
@@ -691,7 +691,7 @@ function main(): void {
         const DatabaseBackfill: typeof import('better-sqlite3') = require('better-sqlite3');
         const db = new DatabaseBackfill(dbPath);
         db.pragma('journal_mode = WAL');
-        db.pragma('busy_timeout = 5000');
+        db.pragma('busy_timeout = 2000');
         const result = runBackfill(db, baseDir);
         log(`Backfill: ${result.createdAtFixed} timestamps, ${result.importanceMapped} importance, ${result.projectScopeSet} scope`);
         db.close();

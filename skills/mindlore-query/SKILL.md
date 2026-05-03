@@ -59,7 +59,7 @@ Compounding query pipeline — knowledge grows with each answer.
 **Flow:**
 1. Parse user question
 2. FTS5 search → find relevant files (sources + domains + analyses + insights — previous answers INCLUDED)
-3. Read top 3-5 relevant files using ctx_execute_file if context-mode available, else Read
+3. Read top 3-5 relevant files
 4. Synthesize answer from found knowledge
 5. Cite sources: `[kaynak: sources/x.md]` format
 6. Ask user: "Bu cevabı kaydetmemi ister misin?"
@@ -146,6 +146,6 @@ SSH hardening, firewall rules, audit checks. 5 sources, 2 analyses linked.
 - search and brief are read-only — no writes
 - ask writes only with user approval
 - stats is read-only
-- Token strategy: prefer ctx_execute_file (if context-mode installed), fallback to Read
+- Token strategy: Read relevant files directly
 - Tags filter: `--tags security` works in search and ask modes
 - Max results: search=5, ask=3-5 (for synthesis), brief=1

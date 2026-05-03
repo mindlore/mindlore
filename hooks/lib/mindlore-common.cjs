@@ -246,7 +246,7 @@ function openDatabase(dbPath, opts) {
     const db = new Database(dbPath, { readonly });
     if (!readonly) {
       db.pragma('journal_mode = WAL');
-      db.pragma('busy_timeout = 5000');
+      db.pragma('busy_timeout = 2000');
     }
     return db;
   } catch (_err) {
