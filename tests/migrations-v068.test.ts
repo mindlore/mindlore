@@ -33,4 +33,28 @@ describe('V068 Migrations', () => {
     runMigrations(db, V068_MIGRATIONS);
     expect(() => runMigrations(db, V068_MIGRATIONS)).not.toThrow();
   });
+
+  test('v19: drops all documents_vec shadow tables', () => {
+    // Reset schema version to before v19 so migration actually runs
+    db.exec("DELETE FROM schema_versions WHERE version >= 19");
+    const vecTables = [
+      'documents_vec_info', 'documents_vec_chunks',
+      'documents_vec_rowids', 'documents_vec_vector_chunks00',
+      'documents_vec_metadatachunks00', 'documents_vec_metadatatext00',
+      'documents_vec_auxiliary',
+    ];
+    for (const table of vecTables) {
+      db.exec(`CREATE TABLE IF NOT EXISTS "${table}" (id INTEGER PRIMARY KEY)`);
+    }
+    runMigrations(db, V068_MIGRATIONS);
+    const remaining = db.prepare(
+      "SELECT name FROM sqlite_master WHERE type='table' AND name LIKE 'documents_vec%'"
+    ).all() as Array<{ name: string }>;
+    expect(remaining).toHaveLength(0);
+  });
+
+  test('v19: is idempotent (no tables to drop)', () => {
+    runMigrations(db, V068_MIGRATIONS);
+    expect(() => runMigrations(db, V068_MIGRATIONS)).not.toThrow();
+  });
 });
