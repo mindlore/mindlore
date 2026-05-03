@@ -212,17 +212,6 @@ class HealthChecker {
       return { ok: true, detail: `${result.cnt} indexed, ${hashResult.cnt} hashes, 11-col schema` };
     }));
 
-    this.check('documents_vec table', () => this.withCheckedDb((db) => {
-      try {
-        const sqliteVec: { load: (db: unknown) => void } = require('sqlite-vec');
-        sqliteVec.load(db);
-        const result = dbGet<{ cnt: number }>(db, 'SELECT count(*) as cnt FROM documents_vec') ?? { cnt: 0 };
-        return { ok: true, detail: `${result.cnt} vectors indexed` };
-      } catch (_err) {
-        return { warn: true, detail: 'sqlite-vec not available or vec table not created (run: npm run index -- --embed)' };
-      }
-    }));
-
     this.check('schema version', () => this.withCheckedDb((db) => {
       try {
         const { getSchemaVersion } = require('./lib/schema-version.js');

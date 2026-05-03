@@ -9,6 +9,7 @@ const fs = require('fs');
 const path = require('path');
 const crypto = require('crypto');
 const os = require('os');
+const { EPISODE_KINDS, isValidKind, DB_BUSY_TIMEOUT_MS } = require('./constants.cjs');
 
 const MINDLORE_DIR = '.mindlore';
 const DB_NAME = 'mindlore.db';
@@ -245,7 +246,7 @@ function openDatabase(dbPath, opts) {
     const db = new Database(dbPath, { readonly });
     if (!readonly) {
       db.pragma('journal_mode = WAL');
-      db.pragma('busy_timeout = 5000');
+      db.pragma(`busy_timeout = ${DB_BUSY_TIMEOUT_MS}`);
     }
     return db;
   } catch (_err) {
@@ -364,13 +365,8 @@ CREATE TABLE IF NOT EXISTS episodes (
   created_at TEXT NOT NULL
 )`;
 
-/**
- * Valid episode kinds. CO-EVOLUTION: mirrors EPISODE_KINDS in scripts/lib/episodes.ts
- */
 // ~625 tokens context budget for multi-session inject (~4 chars/token)
 const MULTI_SESSION_TOKEN_CAP_CHARS = 2500;
-
-const EPISODE_KINDS_CJS = ['session', 'decision', 'event', 'preference', 'learning', 'friction', 'discovery', 'nomination', 'session-summary'];
 
 /**
  * Valid episode statuses. CO-EVOLUTION: mirrors EPISODE_STATUSES in scripts/lib/episodes.ts
@@ -733,7 +729,7 @@ function withTelemetrySync(hookName, fn) {
   return result;
 }
 
-function withTimeoutDb(db, sql, params = [], { timeoutMs = 3000, mode = 'all' } = {}) {
+function withTimeoutDb(db, sql, params = [], { timeoutMs = DB_BUSY_TIMEOUT_MS, mode = 'all' } = {}) {
   if (!db) return mode === 'get' ? undefined : [];
   try {
     db.pragma(`busy_timeout = ${timeoutMs}`);
@@ -749,18 +745,17 @@ function withTimeoutDb(db, sql, params = [], { timeoutMs = 3000, mode = 'all' } 
   }
 }
 
-function checkReflectTrigger(db, project, threshold) {
-  if (threshold === undefined) threshold = 5;
+function getNominationCounts(db, project) {
   try {
     const row = withTimeoutDb(db,
-      "SELECT COUNT(*) as cnt FROM episodes WHERE kind = 'nomination' AND status = 'staged' AND project = ?",
+      `SELECT
+        SUM(CASE WHEN status='staged' THEN 1 ELSE 0 END) AS staged,
+        SUM(CASE WHEN status='approved' AND graduated_at IS NOT NULL THEN 1 ELSE 0 END) AS graduated
+      FROM episodes
+      WHERE kind='nomination' AND project=?`,
       [project], { mode: 'get' });
-    const cnt = row?.cnt ?? 0;
-    if (cnt >= threshold) {
-      return `[Mindlore] ${cnt} bekleyen nomination var — \`/mindlore-reflect\` çalıştır`;
-    }
-  } catch (_err) { /* episodes table may not exist */ }
-  return null;
+    return { staged: row?.staged ?? 0, graduated: row?.graduated ?? 0 };
+  } catch (_err) { return { staged: 0, graduated: 0 }; }
 }
 
 function cleanupExpiredInjectLog(db, ttlMs) {
@@ -770,16 +765,6 @@ function cleanupExpiredInjectLog(db, ttlMs) {
     const result = db.prepare('DELETE FROM episode_inject_log WHERE injected_at < ?').run(cutoff);
     return result.changes;
   } catch (_err) { /* table may not exist */ }
-  return 0;
-}
-
-function getGraduatedLessonCount(db, project) {
-  try {
-    const row = withTimeoutDb(db,
-      "SELECT COUNT(*) as cnt FROM episodes WHERE kind = 'nomination' AND status = 'approved' AND graduated_at IS NOT NULL AND project = ?",
-      [project], { mode: 'get' });
-    return row?.cnt ?? 0;
-  } catch (_err) { /* columns may not exist yet */ }
   return 0;
 }
 
@@ -816,7 +801,9 @@ module.exports = {
   resolveProject,
   DEFAULT_MODELS,
   // Episodes (v0.4.1)
-  EPISODE_KINDS_CJS,
+  EPISODE_KINDS,
+  EPISODE_KINDS_CJS: EPISODE_KINDS,
+  isValidKind,
   EPISODE_STATUSES_CJS,
   SQL_EPISODES_CREATE,
   SQL_EPISODES_INDEXES,
@@ -833,9 +820,6 @@ module.exports = {
   STOP_WORDS,
   extractKeywords,
   sanitizeKeyword,
-  // Hybrid search helpers (v0.5.0)
-  loadSqliteVecCjs,
-  hasVecTableCjs,
   // Hook logging (v0.5.1)
   hookLog,
   getRecentHookErrors,
@@ -846,10 +830,6 @@ module.exports = {
   extractSkeleton,
   // Recall telemetry (v0.5.3)
   incrementRecallCount,
-  // Daemon helpers (v0.5.5)
-  isDaemonRunning,
-  getDaemonPortFile,
-  getDaemonPidFile,
   _rotateFile,
   isInsideMindloreDir,
   extractMindloreBaseDir,
@@ -867,8 +847,7 @@ module.exports = {
   isCorruptionError,
   recoverCorruptDb,
   // Lesson graduation (v0.6.7)
-  checkReflectTrigger,
-  getGraduatedLessonCount,
+  getNominationCounts,
   cleanupExpiredInjectLog,
 };
 
@@ -908,53 +887,6 @@ function getUnpromotedRawFiles(baseDir) {
   return fs.readdirSync(rawDir).filter(f => f.endsWith('.md') && !sourceNames.has(f));
 }
 
-function isDaemonRunning(pidFile) {
-  try {
-    const pid = parseInt(fs.readFileSync(pidFile, 'utf8').trim());
-    process.kill(pid, 0);
-    return { running: true, pid };
-  } catch {
-    try { fs.unlinkSync(pidFile); } catch { /* stale file already gone */ }
-    return { running: false };
-  }
-}
-
-function getDaemonPortFile() {
-  return path.join(globalDir(), 'mindlore-daemon.port');
-}
-
-function getDaemonPidFile() {
-  return path.join(globalDir(), 'mindlore-daemon.pid');
-}
-
-/**
- * Try to load sqlite-vec extension. Returns true if successful.
- * @param {import('better-sqlite3').Database} db
- * @returns {boolean}
- */
-function loadSqliteVecCjs(db) {
-  try {
-    const sqliteVec = require('sqlite-vec');
-    sqliteVec.load(db);
-    return true;
-  } catch (_err) {
-    return false;
-  }
-}
-
-/**
- * Check if documents_vec table exists.
- * @param {import('better-sqlite3').Database} db
- * @returns {boolean}
- */
-function hasVecTableCjs(db) {
-  try {
-    db.prepare('SELECT slug FROM documents_vec LIMIT 0').run();
-    return true;
-  } catch (_err) {
-    return false;
-  }
-}
 
 /**
  * Increment recall_count and update last_recalled_at for a file in file_hashes.

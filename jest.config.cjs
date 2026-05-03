@@ -1,4 +1,5 @@
 module.exports = {
+  globalSetup: './tests/globalSetup.ts',
   testEnvironment: 'node',
   testMatch: ['**/tests/**/*.test.ts'],
   testPathIgnorePatterns: ['/node_modules/', '/dist/'],

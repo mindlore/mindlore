@@ -8,10 +8,12 @@ import { V050_MIGRATIONS } from '../../scripts/lib/migrations.js';
 import { V051_MIGRATIONS } from '../../scripts/lib/migrations-v051.js';
 import { V052_MIGRATIONS } from '../../scripts/lib/migrations-v052.js';
 import { V053_MIGRATIONS } from '../../scripts/lib/migrations-v053.js';
+import { V061_MIGRATIONS } from '../../scripts/lib/migrations-v061.js';
 import { V062_MIGRATIONS } from '../../scripts/lib/migrations-v062.js';
 import { V063_MIGRATIONS } from '../../scripts/lib/migrations-v063.js';
 import { V066_MIGRATIONS } from '../../scripts/lib/migrations-v066.js';
 import { V067_MIGRATIONS } from '../../scripts/lib/migrations-v067.js';
+import { V068_MIGRATIONS } from '../../scripts/lib/migrations-v068.js';
 
 // Hook'lar .cjs kalıyor — SQL constants'ları oradan import ediyoruz
 const { SQL_FTS_CREATE, insertFtsRow, ensureEpisodesTable: ensureEpisodesTableCjs, parseFrontmatter: parseFrontmatterCjs, extractFtsMetadata: extractFtsMetadataCjs, resolveProject: resolveProjectCjs }: {
@@ -49,11 +51,35 @@ export function createTestDb(dbPath: string): Database.Database {
   return db;
 }
 
+const ALL_MIGRATIONS = [
+  ...V050_MIGRATIONS, ...V051_MIGRATIONS, ...V052_MIGRATIONS,
+  ...V053_MIGRATIONS, ...V061_MIGRATIONS, ...V062_MIGRATIONS,
+  ...V063_MIGRATIONS, ...V066_MIGRATIONS, ...V067_MIGRATIONS,
+  ...V068_MIGRATIONS,
+];
+
+export function createTestDbWithFullSchema(dbPath: string): Database.Database {
+  const db = createTestDb(dbPath);
+  ensureEpisodesTableCjs(db);
+  ensureSchemaTable(db);
+  runMigrations(db, ALL_MIGRATIONS);
+  return db;
+}
+
+export function createTestDbAtVersion(dbPath: string, maxVersion: number): Database.Database {
+  const db = createTestDb(dbPath);
+  ensureEpisodesTableCjs(db);
+  ensureSchemaTable(db);
+  const filtered = ALL_MIGRATIONS.filter(m => m.version <= maxVersion);
+  runMigrations(db, filtered);
+  return db;
+}
+
 export function createTestDbWithMigrations(dbPath: string): Database.Database {
   const db = createTestDb(dbPath);
   ensureEpisodesTableCjs(db);
   ensureSchemaTable(db);
-  runMigrations(db, [...V050_MIGRATIONS, ...V051_MIGRATIONS, ...V052_MIGRATIONS, ...V053_MIGRATIONS, ...V062_MIGRATIONS, ...V063_MIGRATIONS, ...V066_MIGRATIONS, ...V067_MIGRATIONS]);
+  runMigrations(db, ALL_MIGRATIONS);
   return db;
 }
 
@@ -118,31 +144,41 @@ export function createEpisodesTestEnvWithMigrations(prefix: string): EpisodesTes
   return { db, tmpDir };
 }
 
-export function createTestDbWithVec(dbPath: string): { db: Database.Database; vecLoaded: boolean } {
-  const db = createTestDb(dbPath);
-  let vecLoaded = false;
-  try {
-    const { loadSqliteVec, ensureVecTable }: {
-      loadSqliteVec: (db: Database.Database) => boolean;
-      ensureVecTable: (db: Database.Database) => boolean;
-    } = require('../../scripts/lib/db-helpers.js');
-    vecLoaded = loadSqliteVec(db);
-    if (vecLoaded) ensureVecTable(db);
-  } catch (_err) {
-    // sqlite-vec not available
-  }
-  return { db, vecLoaded };
-}
-
 export const parseFrontmatter = parseFrontmatterCjs;
 export const extractFtsMetadata = extractFtsMetadataCjs;
 export const resolveProject = resolveProjectCjs;
 
-export function insertVec(db: Database.Database, slug: string, embedding: Float32Array, model: string = 'test-model'): void {
-  db.prepare('INSERT INTO documents_vec (slug, embedding, created_at, model_name) VALUES (?, ?, ?, ?)').run(
-    slug,
-    Buffer.from(embedding.buffer),
-    new Date().toISOString(),
-    model,
-  );
+export interface EpisodeInsert {
+  id?: string;
+  kind?: string;
+  status?: string;
+  project?: string;
+  summary?: string;
+  graduated_at?: string | null;
+  created_at?: string;
+}
+
+export function insertEpisode(db: Database.Database, overrides: EpisodeInsert = {}): number {
+  const defaults = {
+    id: crypto.randomUUID(),
+    kind: 'nomination',
+    status: 'staged',
+    project: 'test-project',
+    summary: 'Test episode content',
+    graduated_at: null,
+    created_at: new Date().toISOString(),
+  };
+  const data = { ...defaults, ...overrides };
+  const result = db.prepare(
+    `INSERT INTO episodes (id, kind, status, project, summary, graduated_at, created_at)
+     VALUES (?, ?, ?, ?, ?, ?, ?)`
+  ).run(data.id, data.kind, data.status, data.project, data.summary, data.graduated_at, data.created_at);
+  return Number(result.lastInsertRowid);
+}
+
+export function insertInjectLog(db: Database.Database, sessionId: string, episodeId: number, injectedAt?: string): void {
+  const ts = injectedAt ?? new Date().toISOString();
+  db.prepare(
+    'INSERT OR IGNORE INTO episode_inject_log (session_id, episode_id, injected_at) VALUES (?, ?, ?)'
+  ).run(sessionId, episodeId, ts);
 }

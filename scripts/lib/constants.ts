@@ -22,6 +22,8 @@ export const DIRECTORIES = [
 
 export const SKIP_FILES = new Set(['INDEX.md', 'SCHEMA.md', 'log.md']);
 
+export const DB_BUSY_TIMEOUT_MS = 2000;
+
 export const CONFIG_FILE = 'config.json';
 
 export const DEFAULT_MODELS: Record<string, string> = {
@@ -31,10 +33,7 @@ export const DEFAULT_MODELS: Record<string, string> = {
   default: 'haiku',
 } as const;
 
-export const VEC_TABLE_NAME = 'documents_vec';
 export const SCHEMA_VERSION = 1;
-export const EMBEDDING_MODEL_NAME = 'Xenova/multilingual-e5-small';
-export const EMBEDDING_DIM_CONST = 384;
 
 export const CATEGORIES = ['sources', 'analyses', 'domains', 'episodes', 'decisions', 'raw', 'sessions', 'cc_memory', 'cc-session', 'cc-subagent', 'diary', 'insights', 'connections', 'learnings', 'memory'] as const;
 export type Category = typeof CATEGORIES[number];
@@ -251,11 +250,7 @@ export const DEFAULT_TOKEN_BUDGET = {
   perResult: 500,
 } as const;
 
-// v0.5.5: Embedding daemon — TCP localhost, port written to file
-export const DAEMON_HOST = '127.0.0.1';
-export const DAEMON_PORT_FILE = path.join(GLOBAL_MINDLORE_DIR, 'mindlore-daemon.port');
-export const DAEMON_PID_FILE = path.join(GLOBAL_MINDLORE_DIR, 'mindlore-daemon.pid');
-export const DAEMON_TIMEOUT_MS = 300;
+
 
 export const DECAY_HALF_LIFE_DAYS = 30;
 export const STALE_THRESHOLD = 0.3;

@@ -86,47 +86,6 @@ describe('SEC-12: _rotateFile atomic write', () => {
   });
 });
 
-describe('SEC-9: isDaemonRunning TOCTOU-safe', () => {
-  let tmpDir: string;
-
-  beforeEach(() => {
-    tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'sec9-'));
-  });
-
-  afterEach(() => {
-    fs.rmSync(tmpDir, { recursive: true, force: true });
-  });
-
-  it('returns running:false when PID file does not exist', () => {
-    const pidFile = path.join(tmpDir, 'nonexistent.pid');
-    const result = common.isDaemonRunning(pidFile);
-    expect(result).toEqual({ running: false });
-  });
-
-  it('returns running:false for corrupt/NaN PID content', () => {
-    const pidFile = path.join(tmpDir, 'bad.pid');
-    fs.writeFileSync(pidFile, 'not-a-number\n');
-    const result = common.isDaemonRunning(pidFile);
-    expect(result.running).toBe(false);
-  });
-
-  it('returns running:false for stale PID and cleans up file', () => {
-    const pidFile = path.join(tmpDir, 'stale.pid');
-    fs.writeFileSync(pidFile, '999999999\n');
-    const result = common.isDaemonRunning(pidFile);
-    expect(result.running).toBe(false);
-    expect(fs.existsSync(pidFile)).toBe(false);
-  });
-
-  it('returns running:true for live PID (current process)', () => {
-    const pidFile = path.join(tmpDir, 'live.pid');
-    fs.writeFileSync(pidFile, `${process.pid}\n`);
-    const result = common.isDaemonRunning(pidFile);
-    expect(result).toEqual({ running: true, pid: process.pid });
-    fs.unlinkSync(pidFile);
-  });
-});
-
 describe('SEC-4: restrictive file permissions (0o600/0o700)', () => {
   let tmpDir: string;
 
@@ -195,27 +154,4 @@ describe('SEC-6: no execSync with user-controlled input', () => {
   );
 });
 
-describe('SEC-8: daemon TCP connection limits', () => {
-  it('daemon.ts source sets maxConnections = 10', () => {
-    const src = fs.readFileSync(
-      path.join(__dirname, '..', 'scripts', 'lib', 'daemon.ts'), 'utf8'
-    );
-    expect(src).toMatch(/server\.maxConnections\s*=\s*10/);
-  });
 
-  it('daemon.ts source sets connection timeout', () => {
-    const src = fs.readFileSync(
-      path.join(__dirname, '..', 'scripts', 'lib', 'daemon.ts'), 'utf8'
-    );
-    expect(src).toMatch(/conn\.setTimeout\(\d+\)/);
-    expect(src).toMatch(/conn\.on\(['"]timeout['"]/);
-  });
-
-  it('daemon.ts source enforces buffer limit', () => {
-    const src = fs.readFileSync(
-      path.join(__dirname, '..', 'scripts', 'lib', 'daemon.ts'), 'utf8'
-    );
-    expect(src).toMatch(/MAX_BUFFER/);
-    expect(src).toMatch(/buffer\.length\s*>\s*MAX_BUFFER/);
-  });
-});

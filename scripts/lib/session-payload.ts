@@ -7,6 +7,7 @@ import Database from 'better-sqlite3';
 import fs from 'fs';
 import path from 'path';
 import crypto from 'crypto';
+import type { EpisodeKind } from './episodes.js';
 
 export interface SessionSection {
   label: string;
@@ -22,7 +23,7 @@ export interface SessionPayload {
 
 interface EpisodeRow {
   rowid: number;
-  kind: string;
+  kind: EpisodeKind;
   summary: string;
   created_at: string;
 }

@@ -118,57 +118,74 @@ export function syncToDb(
 
   const now = new Date().toISOString();
 
-  const transaction = db.transaction(() => {
-    for (const srcPath of files) {
-      try {
-        // Extract project name from grandparent dir of memory/
-        // Structure: .../projects/{projectName}/memory/{file}.md
-        const projectName = safePrefix(
-          path.basename(path.dirname(path.dirname(srcPath))),
-        );
-        const destFileName = `${projectName}_${path.basename(srcPath)}`;
-        const destPath = path.join(memoryDestDir, destFileName);
+  // Pre-process all files outside the DB transaction to avoid holding
+  // the write lock during slow file I/O (R4 root cause fix).
+  interface SyncOp {
+    srcPath: string;
+    destPath: string;
+    hash: string;
+    ftsFields: ReturnType<typeof extractFtsMetadata>;
+    body: string;
+    projectName: string;
+  }
+  const ops: SyncOp[] = [];
 
-        const content = fs.readFileSync(srcPath, 'utf8').replace(/\r\n/g, '\n');
-        const hash = sha256(content);
+  for (const srcPath of files) {
+    try {
+      // Extract project name from grandparent dir of memory/
+      // Structure: .../projects/{projectName}/memory/{file}.md
+      const projectName = safePrefix(
+        path.basename(path.dirname(path.dirname(srcPath))),
+      );
+      const destFileName = `${projectName}_${path.basename(srcPath)}`;
+      const destPath = path.join(memoryDestDir, destFileName);
 
-        // Idempotency check: use dest path as the canonical key
-        // eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- get() returns unknown
-        const existing = getHash.get(destPath) as { content_hash: string } | undefined;
-        if (existing && existing.content_hash === hash) {
-          result.skipped++;
-          continue;
-        }
+      const content = fs.readFileSync(srcPath, 'utf8').replace(/\r\n/g, '\n');
+      const hash = sha256(content);
 
-        const { meta, body } = parseFrontmatter(content);
-        const ftsFields = extractFtsMetadata(meta, body, destPath, mindloreDir);
-
-        // Override category — extractFtsMetadata would return 'memory', we need 'cc-memory'
-        deleteFts.run(destPath);
-        insertFtsRow(db, {
-          path: destPath,
-          slug: ftsFields.slug,
-          description: ftsFields.description,
-          type: ftsFields.type,
-          category: CC_MEMORY_CATEGORY,
-          title: ftsFields.title,
-          content: body,
-          tags: ftsFields.tags,
-          quality: ftsFields.quality,
-          dateCaptured: ftsFields.dateCaptured,
-          project: projectName,
-        });
-
-        // Copy file before DB write — if copy fails, DB stays clean
-        fs.copyFileSync(srcPath, destPath);
-
-        upsertHash.run(destPath, hash, now, CC_MEMORY_CATEGORY);
-
-        result.synced++;
-      } catch (err) {
-        const msg = err instanceof Error ? err.message : String(err);
-        result.errors.push(`${path.basename(srcPath)}: ${msg}`);
+      // Idempotency check: use dest path as the canonical key
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- get() returns unknown
+      const existing = getHash.get(destPath) as { content_hash: string } | undefined;
+      if (existing && existing.content_hash === hash) {
+        result.skipped++;
+        continue;
       }
+
+      const { meta, body } = parseFrontmatter(content);
+      const ftsFields = extractFtsMetadata(meta, body, destPath, mindloreDir);
+
+      // Copy file before DB write — if copy fails, DB stays clean
+      fs.copyFileSync(srcPath, destPath);
+
+      ops.push({ srcPath, destPath, hash, ftsFields, body, projectName });
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      result.errors.push(`${path.basename(srcPath)}: ${msg}`);
+    }
+  }
+
+  // DB transaction: only DB writes — no file I/O inside to minimize lock hold time
+  const transaction = db.transaction(() => {
+    for (const op of ops) {
+      // Override category — extractFtsMetadata would return 'memory', we need 'cc-memory'
+      deleteFts.run(op.destPath);
+      insertFtsRow(db, {
+        path: op.destPath,
+        slug: op.ftsFields.slug,
+        description: op.ftsFields.description,
+        type: op.ftsFields.type,
+        category: CC_MEMORY_CATEGORY,
+        title: op.ftsFields.title,
+        content: op.body,
+        tags: op.ftsFields.tags,
+        quality: op.ftsFields.quality,
+        dateCaptured: op.ftsFields.dateCaptured,
+        project: op.projectName,
+      });
+
+      upsertHash.run(op.destPath, op.hash, now, CC_MEMORY_CATEGORY);
+
+      result.synced++;
     }
   });
 

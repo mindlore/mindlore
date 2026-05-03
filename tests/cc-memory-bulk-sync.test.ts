@@ -130,4 +130,34 @@ describe('syncToDb', () => {
       `${PROJECT_NAME}_note-b.md`,
     ]);
   });
+
+  test('rapid consecutive calls do not cause database lock errors', () => {
+    const files = discoverCcMemoryFiles(CLAUDE_DIR);
+
+    const first = syncToDb(DB_PATH, files, MINDLORE_DIR);
+    expect(first.errors).toEqual([]);
+    expect(first.synced).toBe(2);
+
+    // Add a new file to force a second write transaction
+    fs.writeFileSync(path.join(MEMORY_DIR, 'note-c.md'), FILE_A_CONTENT.replace('Note A', 'Note C').replace('note-a', 'note-c'));
+    const files2 = discoverCcMemoryFiles(CLAUDE_DIR);
+    const second = syncToDb(DB_PATH, files2, MINDLORE_DIR);
+    expect(second.errors).toEqual([]);
+    expect(second.synced).toBe(1);
+    expect(second.skipped).toBe(2);
+  });
+
+  test('handles many files without lock errors', () => {
+    // Regression test for R4: file I/O inside DB transaction caused SQLITE_BUSY
+    for (let i = 0; i < 20; i++) {
+      fs.writeFileSync(
+        path.join(MEMORY_DIR, `bulk-${i}.md`),
+        FILE_A_CONTENT.replace('Note A', `Note ${i}`).replace('note-a', `bulk-${i}`),
+      );
+    }
+    const files = discoverCcMemoryFiles(CLAUDE_DIR);
+    const result = syncToDb(DB_PATH, files, MINDLORE_DIR);
+    expect(result.errors).toEqual([]);
+    expect(result.synced).toBe(22); // 20 new + 2 original
+  });
 });

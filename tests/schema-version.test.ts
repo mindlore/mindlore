@@ -80,22 +80,20 @@ describe('Schema Version', () => {
 });
 
 describe('v0.5.0 Migrations', () => {
-  test('should create documents_vec table via migration', () => {
+  test('should not create documents_vec table via migration', () => {
     const { ensureSchemaTable, runMigrations, getSchemaVersion } = require('../scripts/lib/schema-version.js');
     const { V050_MIGRATIONS } = require('../scripts/lib/migrations.js');
-    const { loadSqliteVec } = require('../scripts/lib/db-helpers.js');
     const db = new Database(DB_PATH);
 
-    loadSqliteVec(db);
     ensureSchemaTable(db);
     runMigrations(db, V050_MIGRATIONS);
 
     expect(getSchemaVersion(db)).toBe(1);
 
-    // Verify vec table exists
+    // Verify vec table does not exist
     // eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- test: better-sqlite3 .get() returns unknown
     const row = db.prepare("SELECT name FROM sqlite_master WHERE type='table' AND name='documents_vec'").get() as { name: string } | undefined;
-    expect(row?.name).toBe('documents_vec');
+    expect(row).toBeUndefined();
 
     db.close();
   });
@@ -103,10 +101,8 @@ describe('v0.5.0 Migrations', () => {
   test('should add created_at and updated_at to FTS metadata tracking', () => {
     const { ensureSchemaTable, runMigrations } = require('../scripts/lib/schema-version.js');
     const { V050_MIGRATIONS } = require('../scripts/lib/migrations.js');
-    const { loadSqliteVec } = require('../scripts/lib/db-helpers.js');
     const db = new Database(DB_PATH);
 
-    loadSqliteVec(db);
     ensureSchemaTable(db);
     runMigrations(db, V050_MIGRATIONS);
 
