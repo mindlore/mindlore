@@ -100,8 +100,7 @@ function loadDbContent({ db, baseDir, config, output, timings, latestDeltaConten
 
   // Auto reflect trigger (Q1)
   try {
-    const reflectThreshold = config?.graduation?.reflectThreshold ?? 5;
-    const reflectMsg = checkReflectTrigger(db, project, reflectThreshold);
+    const reflectMsg = checkReflectTrigger(db, project, config?.graduation?.reflectThreshold);
     if (reflectMsg) output.push(reflectMsg);
   } catch (_reflectErr) { /* graduation not available */ }
 

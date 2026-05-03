@@ -763,6 +763,16 @@ function checkReflectTrigger(db, project, threshold) {
   return null;
 }
 
+function cleanupExpiredInjectLog(db, ttlMs) {
+  if (ttlMs === undefined) ttlMs = 30 * 24 * 60 * 60 * 1000;
+  try {
+    const cutoff = new Date(Date.now() - ttlMs).toISOString();
+    const result = db.prepare('DELETE FROM episode_inject_log WHERE injected_at < ?').run(cutoff);
+    return result.changes;
+  } catch (_err) { /* table may not exist */ }
+  return 0;
+}
+
 function getGraduatedLessonCount(db, project) {
   try {
     const row = withTimeoutDb(db,
@@ -859,6 +869,7 @@ module.exports = {
   // Lesson graduation (v0.6.7)
   checkReflectTrigger,
   getGraduatedLessonCount,
+  cleanupExpiredInjectLog,
 };
 
 function isCorruptionError(err) {
