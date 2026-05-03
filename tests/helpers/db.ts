@@ -122,3 +122,36 @@ export function createEpisodesTestEnvWithMigrations(prefix: string): EpisodesTes
 export const parseFrontmatter = parseFrontmatterCjs;
 export const extractFtsMetadata = extractFtsMetadataCjs;
 export const resolveProject = resolveProjectCjs;
+
+export interface EpisodeInsert {
+  kind?: string;
+  status?: string;
+  project?: string;
+  content?: string;
+  graduated_at?: string | null;
+  created_at?: string;
+}
+
+export function insertEpisode(db: Database.Database, overrides: EpisodeInsert = {}): number {
+  const defaults = {
+    kind: 'nomination',
+    status: 'staged',
+    project: 'test-project',
+    content: 'Test episode content',
+    graduated_at: null,
+    created_at: new Date().toISOString(),
+  };
+  const data = { ...defaults, ...overrides };
+  const result = db.prepare(
+    `INSERT INTO episodes (kind, status, project, content, graduated_at, created_at)
+     VALUES (?, ?, ?, ?, ?, ?)`
+  ).run(data.kind, data.status, data.project, data.content, data.graduated_at, data.created_at);
+  return Number(result.lastInsertRowid);
+}
+
+export function insertInjectLog(db: Database.Database, sessionId: string, episodeId: number, injectedAt?: string): void {
+  const ts = injectedAt ?? new Date().toISOString();
+  db.prepare(
+    'INSERT OR IGNORE INTO episode_inject_log (session_id, episode_id, injected_at) VALUES (?, ?, ?)'
+  ).run(sessionId, episodeId, ts);
+}
