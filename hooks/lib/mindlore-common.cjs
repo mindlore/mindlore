@@ -9,7 +9,7 @@ const fs = require('fs');
 const path = require('path');
 const crypto = require('crypto');
 const os = require('os');
-const { EPISODE_KINDS, isValidKind } = require('./constants.cjs');
+const { EPISODE_KINDS, isValidKind, DB_BUSY_TIMEOUT_MS } = require('./constants.cjs');
 
 const MINDLORE_DIR = '.mindlore';
 const DB_NAME = 'mindlore.db';
@@ -246,7 +246,7 @@ function openDatabase(dbPath, opts) {
     const db = new Database(dbPath, { readonly });
     if (!readonly) {
       db.pragma('journal_mode = WAL');
-      db.pragma('busy_timeout = 2000');
+      db.pragma(`busy_timeout = ${DB_BUSY_TIMEOUT_MS}`);
     }
     return db;
   } catch (_err) {
@@ -729,7 +729,7 @@ function withTelemetrySync(hookName, fn) {
   return result;
 }
 
-function withTimeoutDb(db, sql, params = [], { timeoutMs = 3000, mode = 'all' } = {}) {
+function withTimeoutDb(db, sql, params = [], { timeoutMs = DB_BUSY_TIMEOUT_MS, mode = 'all' } = {}) {
   if (!db) return mode === 'get' ? undefined : [];
   try {
     db.pragma(`busy_timeout = ${timeoutMs}`);
@@ -820,8 +820,6 @@ module.exports = {
   STOP_WORDS,
   extractKeywords,
   sanitizeKeyword,
-  // Hybrid search helpers (v0.5.0)
-  loadSqliteVecCjs,
   // Hook logging (v0.5.1)
   hookLog,
   getRecentHookErrors,
@@ -889,20 +887,6 @@ function getUnpromotedRawFiles(baseDir) {
   return fs.readdirSync(rawDir).filter(f => f.endsWith('.md') && !sourceNames.has(f));
 }
 
-/**
- * Try to load sqlite-vec extension. Returns true if successful.
- * @param {import('better-sqlite3').Database} db
- * @returns {boolean}
- */
-function loadSqliteVecCjs(db) {
-  try {
-    const sqliteVec = require('sqlite-vec');
-    sqliteVec.load(db);
-    return true;
-  } catch (_err) {
-    return false;
-  }
-}
 
 /**
  * Increment recall_count and update last_recalled_at for a file in file_hashes.

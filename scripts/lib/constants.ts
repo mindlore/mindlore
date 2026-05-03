@@ -22,6 +22,8 @@ export const DIRECTORIES = [
 
 export const SKIP_FILES = new Set(['INDEX.md', 'SCHEMA.md', 'log.md']);
 
+export const DB_BUSY_TIMEOUT_MS = 2000;
+
 export const CONFIG_FILE = 'config.json';
 
 export const DEFAULT_MODELS: Record<string, string> = {

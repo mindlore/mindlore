@@ -10,4 +10,6 @@ function isValidKind(kind) {
   return typeof kind === 'string' && EPISODE_KINDS.includes(kind);
 }
 
-module.exports = { EPISODE_KINDS, isValidKind };
+const DB_BUSY_TIMEOUT_MS = 2000;
+
+module.exports = { EPISODE_KINDS, isValidKind, DB_BUSY_TIMEOUT_MS };

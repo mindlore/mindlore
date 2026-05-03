@@ -13,7 +13,7 @@
 import fs from 'fs';
 import path from 'path';
 import { execFileSync } from 'child_process';
-import { MINDLORE_DIR, GLOBAL_MINDLORE_DIR, DB_NAME, DIRECTORIES, CONFIG_FILE, DEFAULT_MODELS, homedir, log, resolveHookCommon } from './lib/constants.js';
+import { MINDLORE_DIR, GLOBAL_MINDLORE_DIR, DB_NAME, DIRECTORIES, CONFIG_FILE, DEFAULT_MODELS, DB_BUSY_TIMEOUT_MS, homedir, log, resolveHookCommon } from './lib/constants.js';
 import type { Settings } from './lib/constants.js';
 import { dbPragma } from './lib/db-helpers.js';
 import { mergeDefaults } from './lib/merge-defaults.js';
@@ -191,7 +191,7 @@ function createDatabase(baseDir: string): boolean {
     // Idempotent: ensure episodes table on pre-v0.4 databases
     const dbEp = new DatabaseCtor(dbPath);
     dbEp.pragma('journal_mode = WAL');
-    dbEp.pragma('busy_timeout = 2000');
+    dbEp.pragma(`busy_timeout = ${DB_BUSY_TIMEOUT_MS}`);
     ensureEpisodesTableCjs(dbEp);
     ensureSchemaTable(dbEp);
     runMigrations(dbEp, INIT_MIGRATIONS);
@@ -691,7 +691,7 @@ function main(): void {
         const DatabaseBackfill: typeof import('better-sqlite3') = require('better-sqlite3');
         const db = new DatabaseBackfill(dbPath);
         db.pragma('journal_mode = WAL');
-        db.pragma('busy_timeout = 2000');
+        db.pragma(`busy_timeout = ${DB_BUSY_TIMEOUT_MS}`);
         const result = runBackfill(db, baseDir);
         log(`Backfill: ${result.createdAtFixed} timestamps, ${result.importanceMapped} importance, ${result.projectScopeSet} scope`);
         db.close();

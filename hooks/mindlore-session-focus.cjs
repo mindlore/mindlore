@@ -131,8 +131,8 @@ function main() {
   const tIndex = Date.now();
   const indexPath = path.join(baseDir, 'INDEX.md');
   if (fs.existsSync(indexPath)) {
-    sourceChars += fs.statSync(indexPath).size;
     const content = fs.readFileSync(indexPath, 'utf8').trim();
+    sourceChars += content.length;
     output.push(`[Mindlore INDEX]\n${content}`);
   }
   timings.index_read = Date.now() - tIndex;
@@ -148,8 +148,8 @@ function main() {
       if (diaryFiles.length > 0) {
         const latestName = diaryFiles[diaryFiles.length - 1];
         const latestPath = path.join(diaryDir, latestName);
-        sourceChars += fs.statSync(latestPath).size;
         const deltaContent = fs.readFileSync(latestPath, 'utf8').trim();
+        sourceChars += deltaContent.length;
         latestDeltaContent = deltaContent;
         const { meta } = parseFrontmatter(deltaContent);
         const deltaProject = meta.project || null;

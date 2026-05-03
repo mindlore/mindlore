@@ -3,6 +3,7 @@ import Database from 'better-sqlite3';
 import fs from 'fs';
 import { createTestDb, insertFts, setupTestDir, teardownTestDir, sha256, parseFrontmatter, extractFtsMetadata, resolveProject } from './helpers/db.js';
 import { dbAll, dbGet } from '../scripts/lib/db-helpers.js';
+import { DB_BUSY_TIMEOUT_MS } from '../scripts/lib/constants.js';
 
 interface TimestampRow {
   created_at: string | null;
@@ -175,7 +176,7 @@ describe('openDatabaseTs', () => {
     const walMode = db.pragma('journal_mode', { simple: true });
     expect(walMode).toBe('wal');
     const timeout = db.pragma('busy_timeout', { simple: true });
-    expect(timeout).toBe(2000);
+    expect(timeout).toBe(DB_BUSY_TIMEOUT_MS);
     db.close();
   });
 
@@ -195,7 +196,7 @@ describe('openDatabase CJS', () => {
     const walMode = db.pragma('journal_mode', { simple: true });
     expect(walMode).toBe('wal');
     const timeout = db.pragma('busy_timeout', { simple: true });
-    expect(timeout).toBe(2000);
+    expect(timeout).toBe(DB_BUSY_TIMEOUT_MS);
     db.close();
   });
 });

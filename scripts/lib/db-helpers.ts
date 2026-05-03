@@ -8,6 +8,7 @@ type Database = BetterSqlite3.Database;
 
 import Database_ctor from 'better-sqlite3';
 import fs from 'fs';
+import { DB_BUSY_TIMEOUT_MS } from './constants.js';
 
 /**
  * Typed wrapper for Statement.get().
@@ -49,19 +50,6 @@ export function dbPragma<T>(db: Database, pragma: string): T[] {
   return result as T[];
 }
 
-/**
- * Load sqlite-vec extension into the database.
- * Returns true if loaded, false if sqlite-vec is not available.
- */
-export function loadSqliteVec(db: Database): boolean {
-  try {
-    const sqliteVec: { load: (db: unknown) => void } = require('sqlite-vec');
-    sqliteVec.load(db);
-    return true;
-  } catch (_err) {
-    return false;
-  }
-}
 
 /**
  * Open a readonly DB, run fn, close DB. Returns undefined on error.
@@ -94,7 +82,7 @@ export function openDatabaseTs(
     const db = new Database_ctor(dbPath, { readonly });
     if (!readonly) {
       db.pragma('journal_mode = WAL');
-      db.pragma('busy_timeout = 2000');
+      db.pragma(`busy_timeout = ${DB_BUSY_TIMEOUT_MS}`);
     }
     return db;
   } catch {
