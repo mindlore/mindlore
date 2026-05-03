@@ -8,7 +8,6 @@ type Database = BetterSqlite3.Database;
 
 import Database_ctor from 'better-sqlite3';
 import fs from 'fs';
-import { VEC_TABLE_NAME, EMBEDDING_DIM_CONST } from './constants.js';
 
 /**
  * Typed wrapper for Statement.get().
@@ -58,39 +57,6 @@ export function loadSqliteVec(db: Database): boolean {
   try {
     const sqliteVec: { load: (db: unknown) => void } = require('sqlite-vec');
     sqliteVec.load(db);
-    return true;
-  } catch (_err) {
-    return false;
-  }
-}
-
-/**
- * Create documents_vec virtual table if it doesn't exist.
- * Requires sqlite-vec to be loaded first.
- * Silently does nothing if vec0 is not available.
- */
-export function ensureVecTable(db: Database): boolean {
-  try {
-    db.exec(`
-      CREATE VIRTUAL TABLE IF NOT EXISTS ${VEC_TABLE_NAME} USING vec0(
-        embedding float[${EMBEDDING_DIM_CONST}],
-        slug text,
-        +created_at text,
-        +model_name text
-      )
-    `);
-    return true;
-  } catch (_err) {
-    return false;
-  }
-}
-
-/**
- * Check if documents_vec table exists and is functional.
- */
-export function hasVecTable(db: Database): boolean {
-  try {
-    db.prepare(`SELECT slug FROM ${VEC_TABLE_NAME} LIMIT 0`).run();
     return true;
   } catch (_err) {
     return false;
