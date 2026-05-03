@@ -1,0 +1,644 @@
+diff --git a/hooks/mindlore-search.cjs b/hooks/mindlore-search.cjs
+index 168092c..0f8e5a3 100644
+--- a/hooks/mindlore-search.cjs
++++ b/hooks/mindlore-search.cjs
+@@ -151,7 +151,8 @@ function main() {
+ 
+     const headingStr = headings.length > 0 ? `\nBasliklar: ${headings.join(', ')}` : '';
+     const tagsStr = r.tags ? `\nTags: ${r.tags}` : '';
+-    const entry = `[Mindlore: ${category}/${title}] ${description}\nDosya: ${relativePath}${tagsStr}${headingStr}`;
++    const snippetOrDesc = r.snippet || description;
++    const entry = `[Mindlore: ${category}/${title}] ${snippetOrDesc}\nDosya: ${relativePath}${tagsStr}${headingStr}`;
+     const truncated = entry.slice(0, perResultChars);
+     totalUsed += truncated.length;
+     output.push(truncated);
+diff --git a/hooks/mindlore-session-focus.cjs b/hooks/mindlore-session-focus.cjs
+index 149edb7..eefe567 100644
+--- a/hooks/mindlore-session-focus.cjs
++++ b/hooks/mindlore-session-focus.cjs
+@@ -22,18 +22,57 @@ function truncateCommits(content) {
+   return content.replace(commitMatch[2].trim(), truncated);
+ }
+ 
++function truncateChangedFiles(content) {
++  const fileMatch = content.match(/(## Changed Files\n)((?:- [^\n]+\n?)+)/);
++  if (!fileMatch) return content;
++  const lines = fileMatch[2].trim().split('\n');
++  if (lines.length <= 10) return content;
++  const kept = lines.slice(0, 10).join('\n');
++  const truncated = kept + `\n- ...ve ${lines.length - 10} dosya daha`;
++  return content.replace(fileMatch[2].trim(), truncated);
++}
++
+ function tryOpenDb(dbPath) {
+   return openDatabase(dbPath, { readonly: true });
+ }
+ 
+-function loadDbContent(db, baseDir, config, output, timings, latestDeltaContent) {
++function getEpisodeStats(db, config) {
++  const project = path.basename(process.cwd());
++  const chains = querySupersededChains(db, { project, days: 7, limit: 5 });
++  let consolidationMsg = null;
++  try {
++    const rawCount = withTimeoutDb(db,
++      "SELECT COUNT(*) as cnt FROM episodes WHERE consolidation_status = 'raw' OR consolidation_status IS NULL",
++      [], { mode: 'get' });
++    const cnt = rawCount?.cnt ?? 0;
++    const consolThreshold = config?.consolidation?.threshold ?? 50;
++    if (cnt >= consolThreshold) {
++      consolidationMsg = `[Mindlore] ${cnt} raw episode birikti — \`/mindlore-maintain consolidate\` ile birleştirmeyi düşün.`;
++    }
++  } catch (_err) { /* consolidation_status column may not exist yet */ }
++  return { chains, consolidationMsg };
++}
++
++function checkStaleContent(db) {
++  try {
++    const thirtyDaysAgo = new Date(Date.now() - (30 * 24 * 60 * 60 * 1000)).toISOString();
++    const row = withTimeoutDb(db, 'SELECT COUNT(*) as cnt FROM file_hashes WHERE last_indexed < ?', [thirtyDaysAgo], { mode: 'get' });
++    const staleCount = row?.cnt ?? 0;
++    if (staleCount > 3) {
++      return `[Mindlore: ${staleCount} dosya 30+ gundur guncellenmemis — \`/mindlore-evolve\` dusun]`;
++    }
++  } catch (_staleErr) { /* file_hashes may not exist */ }
++  return null;
++}
++
++function loadDbContent(db, baseDir, config, output, timings, latestDeltaContent, sessionId) {
+   // Session payload: Session summary, Decisions, Friction, Learnings
+   const tPayload = Date.now();
+   try {
+     const { buildSessionPayload } = require('../dist/scripts/lib/session-payload.js');
+     const project = path.basename(process.cwd());
+     const payloadBudget = config?.tokenBudget?.sessionInject ?? 2000;
+-    const payload = buildSessionPayload(db, baseDir, project, payloadBudget, latestDeltaContent);
++    const payload = buildSessionPayload(db, baseDir, project, payloadBudget, latestDeltaContent, sessionId);
+     for (const section of payload.sections) {
+       output.push(`[Mindlore ${section.label}]\n${section.content}`);
+     }
+@@ -42,40 +81,25 @@ function loadDbContent(db, baseDir, config, output, timings, latestDeltaContent)
+   }
+   timings.db_payload = Date.now() - tPayload;
+ 
+-  // Supersedes chain display
++  // Supersedes chain display + episode consolidation reminder
+   const tSuperseded = Date.now();
+   if (hasEpisodesTable(db)) {
+-    const project = path.basename(process.cwd());
+-
+-    const chains = querySupersededChains(db, { project, days: 7, limit: 5 });
++    const { chains, consolidationMsg } = getEpisodeStats(db, config);
+     if (chains.length > 0) {
+       output.push(`[Mindlore Supersedes]\n${formatSupersededChains(chains)}`);
+     }
+-
+-    // Episode consolidation reminder
+-    try {
+-      const rawCount = withTimeoutDb(db,
+-        "SELECT COUNT(*) as cnt FROM episodes WHERE consolidation_status = 'raw' OR consolidation_status IS NULL",
+-        [], { mode: 'get' });
+-      const cnt = rawCount?.cnt ?? 0;
+-      const consolThreshold = config?.consolidation?.threshold ?? 50;
+-      if (cnt >= consolThreshold) {
+-        output.push(`[Mindlore] ${cnt} raw episode birikti — \`/mindlore-maintain consolidate\` ile birleştirmeyi düşün.`);
+-      }
+-    } catch (_err) { /* consolidation_status column may not exist yet */ }
++    if (consolidationMsg) {
++      output.push(consolidationMsg);
++    }
+   }
+   timings.db_episodes = Date.now() - tSuperseded;
+ 
+   // Stale content check
+   const tStale = Date.now();
+-  try {
+-    const thirtyDaysAgo = new Date(Date.now() - (30 * 24 * 60 * 60 * 1000)).toISOString();
+-    const row = withTimeoutDb(db, 'SELECT COUNT(*) as cnt FROM file_hashes WHERE last_indexed < ?', [thirtyDaysAgo], { mode: 'get' });
+-    const staleCount = row?.cnt ?? 0;
+-    if (staleCount > 3) {
+-      output.push(`[Mindlore: ${staleCount} dosya 30+ gundur guncellenmemis — \`/mindlore-evolve\` dusun]`);
+-    }
+-  } catch (_staleErr) { /* file_hashes may not exist */ }
++  const staleMsg = checkStaleContent(db);
++  if (staleMsg) {
++    output.push(staleMsg);
++  }
+   timings.db_stale = Date.now() - tStale;
+ }
+ 
+@@ -84,6 +108,13 @@ function main() {
+   const baseDir = findMindloreDir();
+   if (!baseDir) return; // No .mindlore/ found, silently skip
+ 
++  // Read session_id from stdin (Claude Code passes { session_id } to SessionStart hooks)
++  let sessionId;
++  try {
++    const stdinData = JSON.parse(fs.readFileSync(0, 'utf8') || '{}');
++    sessionId = stdinData.session_id || undefined;
++  } catch { sessionId = undefined; }
++
+   const output = [];
+   const config = readConfig(baseDir);
+   const timings = {};
+@@ -117,7 +148,7 @@ function main() {
+         const deltaProject = meta.project || null;
+         const currentProject = getProjectName();
+         if (!deltaProject || deltaProject.toLowerCase() === currentProject.toLowerCase()) {
+-          output.push(`[Mindlore Delta: ${latestName}]\n${truncateCommits(deltaContent)}`);
++          output.push(`[Mindlore Delta: ${latestName}]\n${truncateChangedFiles(truncateCommits(deltaContent))}`);
+         }
+       }
+ 
+@@ -158,7 +189,7 @@ function main() {
+ 
+     if (db) {
+       try {
+-        loadDbContent(db, baseDir, config, output, timings, latestDeltaContent);
++        loadDbContent(db, baseDir, config, output, timings, latestDeltaContent, sessionId);
+       } catch (err) {
+         if (isCorruptionError(err)) {
+           recoverCorruptDb(db, dbPath, 'session-focus');
+@@ -200,3 +231,7 @@ withTelemetry('mindlore-session-focus', main).catch(err => {
+   hookLog('mindlore-session-focus', 'error', err?.message ?? String(err));
+   process.exit(0);
+ });
++
++if (typeof module !== 'undefined') {
++  module.exports = { truncateCommits, truncateChangedFiles };
++}
+diff --git a/scripts/init.ts b/scripts/init.ts
+index f4c2b96..841f6c2 100644
+--- a/scripts/init.ts
++++ b/scripts/init.ts
+@@ -21,6 +21,7 @@ import { parseJsonObject, readJsonFile } from './lib/safe-parse.js';
+ import { ensureSchemaTable, runMigrations } from './lib/schema-version.js';
+ import { V062_MIGRATIONS } from './lib/migrations-v062.js';
+ import { V063_MIGRATIONS } from './lib/migrations-v063.js';
++import { V066_MIGRATIONS } from './lib/migrations-v066.js';
+ 
+ // eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- dynamic CJS require, typed by mindlore-common.d.cts
+ const { SQL_FTS_CREATE, ensureEpisodesTable: ensureEpisodesTableCjs } = require(resolveHookCommon(__dirname)) as {
+@@ -107,6 +108,19 @@ function copyTemplates(baseDir: string, packageRoot: string): number {
+     }
+   }
+ 
++  // Copy extraction templates (preserve existing — don't overwrite user customizations)
++  const srcExtractionDir = path.join(packageRoot, 'templates', 'extraction');
++  const destExtractionDir = path.join(baseDir, 'templates', 'extraction');
++  if (fs.existsSync(srcExtractionDir)) {
++    fs.mkdirSync(destExtractionDir, { recursive: true });
++    for (const file of fs.readdirSync(srcExtractionDir)) {
++      const destPath = path.join(destExtractionDir, file);
++      if (!fs.existsSync(destPath)) {
++        fs.copyFileSync(path.join(srcExtractionDir, file), destPath);
++      }
++    }
++  }
++
+   return copied;
+ }
+ 
+@@ -180,7 +194,7 @@ function createDatabase(baseDir: string): boolean {
+     const dbEp = new DatabaseCtor(dbPath);
+     ensureEpisodesTableCjs(dbEp);
+     ensureSchemaTable(dbEp);
+-    runMigrations(dbEp, [...V062_MIGRATIONS, ...V063_MIGRATIONS]);
++    runMigrations(dbEp, [...V062_MIGRATIONS, ...V063_MIGRATIONS, ...V066_MIGRATIONS]);
+     dbEp.close();
+     return migrated;
+   }
+@@ -203,7 +217,7 @@ function createDatabase(baseDir: string): boolean {
+ 
+   // v0.6.2 + v0.6.3 migrations
+   ensureSchemaTable(db);
+-  runMigrations(db, [...V062_MIGRATIONS, ...V063_MIGRATIONS]);
++  runMigrations(db, [...V062_MIGRATIONS, ...V063_MIGRATIONS, ...V066_MIGRATIONS]);
+ 
+   db.close();
+   return true;
+@@ -211,6 +225,24 @@ function createDatabase(baseDir: string): boolean {
+ 
+ // ── Step 4: Merge hooks into settings.json ─────────────────────────────
+ 
++interface HookEntry { hooks?: Array<{ command?: string }>; command?: string }
++
++function countMindloreHooks(allHooks: Record<string, unknown[]>): number {
++  let total = 0;
++  for (const event of Object.keys(allHooks)) {
++    const entries = allHooks[event] ?? [];
++    for (const raw of entries) {
++      // eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- runtime shape validated below
++      const entry = raw as HookEntry;
++      const hooks = entry.hooks && Array.isArray(entry.hooks) ? entry.hooks : [entry];
++      for (const h of hooks) {
++        if ((h.command ?? '').includes('mindlore-')) total++;
++      }
++    }
++  }
++  return total;
++}
++
+ function mergeHooks(packageRoot: string, existingPlugin?: PluginManifest): { added: number; total: number } | false {
+   const settingsPath = path.join(homedir(), '.claude', 'settings.json');
+ 
+@@ -287,16 +319,7 @@ function mergeHooks(packageRoot: string, existingPlugin?: PluginManifest): { add
+   }
+ 
+   // Count total mindlore hooks across all events
+-  const allHooks = settings.hooks ?? {};
+-  let total = 0;
+-  for (const event of Object.keys(allHooks)) {
+-    for (const entry of allHooks[event] ?? []) {
+-      const hooks = entry.hooks && Array.isArray(entry.hooks) ? entry.hooks : [entry];
+-      for (const h of hooks) {
+-        if ((h.command ?? '').includes('mindlore-')) total++;
+-      }
+-    }
+-  }
++  const total = countMindloreHooks(settings.hooks ?? {});
+ 
+   return { added, total };
+ }
+diff --git a/scripts/lib/migrations-v066.ts b/scripts/lib/migrations-v066.ts
+new file mode 100644
+index 0000000..33afe4d
+--- /dev/null
++++ b/scripts/lib/migrations-v066.ts
+@@ -0,0 +1,16 @@
++import type { Migration } from './schema-version.js';
++import type BetterSqlite3 from 'better-sqlite3';
++type Database = BetterSqlite3.Database;
++
++export const SQL_EPISODE_INJECT_LOG_CREATE =
++  "CREATE TABLE IF NOT EXISTS episode_inject_log (session_id TEXT NOT NULL, episode_id TEXT NOT NULL, injected_at TEXT NOT NULL, PRIMARY KEY (session_id, episode_id))";
++
++export const V066_MIGRATIONS: Migration[] = [
++  {
++    version: 14,
++    name: 'episode_inject_log',
++    up: (db: Database) => {
++      db.exec(SQL_EPISODE_INJECT_LOG_CREATE);
++    },
++  },
++];
+diff --git a/scripts/lib/session-payload.ts b/scripts/lib/session-payload.ts
+index 3b51c2d..8dc1c8f 100644
+--- a/scripts/lib/session-payload.ts
++++ b/scripts/lib/session-payload.ts
+@@ -21,6 +21,7 @@ export interface SessionPayload {
+ }
+ 
+ interface EpisodeRow {
++  rowid: number;
+   kind: string;
+   summary: string;
+   created_at: string;
+@@ -47,14 +48,34 @@ function buildSessionSummary(baseDir: string, latestDeltaContent?: string): stri
+   return lines.slice(0, 10).join('\n');
+ }
+ 
+-function buildEpisodeSections(db: Database.Database, project: string): { decisions: string; friction: string; learnings: string } {
++function buildEpisodeSections(db: Database.Database, project: string, sessionId?: string): { decisions: string; friction: string; learnings: string } {
++  const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString();
++
+   // eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- better-sqlite3 .all() returns unknown[]
+-  const rows = db.prepare(
+-    `SELECT kind, summary, created_at FROM episodes
++  let rows = db.prepare(
++    `SELECT rowid, kind, summary, created_at FROM episodes
+      WHERE status = 'active' AND project = ?
+        AND kind IN ('decision', 'friction', 'learning')
++       AND created_at >= ?
+      ORDER BY kind, created_at DESC`,
+-  ).all(project) as EpisodeRow[];
++  ).all(project, sevenDaysAgo) as EpisodeRow[];
++
++  if (sessionId) {
++    // eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- better-sqlite3 .all() returns unknown[]
++    const injected = db.prepare(
++      `SELECT episode_id FROM episode_inject_log WHERE session_id = ?`,
++    ).all(sessionId) as Array<{ episode_id: string }>;
++    const injectedSet = new Set(injected.map(r => r.episode_id));
++    rows = rows.filter(r => !injectedSet.has(String(r.rowid)));
++
++    const now = new Date().toISOString();
++    const insert = db.prepare(
++      `INSERT OR IGNORE INTO episode_inject_log (session_id, episode_id, injected_at) VALUES (?, ?, ?)`,
++    );
++    for (const row of rows) {
++      insert.run(sessionId, String(row.rowid), now);
++    }
++  }
+ 
+   const grouped = { decision: [] as EpisodeRow[], friction: [] as EpisodeRow[], learning: [] as EpisodeRow[] };
+   for (const row of rows) {
+@@ -80,13 +101,14 @@ export function buildSessionPayload(
+   project: string,
+   tokenBudget: number = 2000,
+   latestDeltaContent?: string,
++  sessionId?: string,
+ ): SessionPayload {
+   const sections: SessionSection[] = [];
+ 
+   const summary = buildSessionSummary(baseDir, latestDeltaContent);
+   sections.push({ label: 'Session', content: summary, tokens: estimateTokens(summary) });
+ 
+-  const episodes = buildEpisodeSections(db, project);
++  const episodes = buildEpisodeSections(db, project, sessionId);
+   sections.push({ label: 'Decisions', content: episodes.decisions, tokens: estimateTokens(episodes.decisions) });
+   sections.push({ label: 'Friction', content: episodes.friction, tokens: estimateTokens(episodes.friction) });
+   sections.push({ label: 'Learnings', content: episodes.learnings, tokens: estimateTokens(episodes.learnings) });
+diff --git a/tests/episodes-inject.test.ts b/tests/episodes-inject.test.ts
+index fe86d96..3bdd815 100644
+--- a/tests/episodes-inject.test.ts
++++ b/tests/episodes-inject.test.ts
+@@ -5,8 +5,9 @@
+ 
+ import path from 'path';
+ import Database from 'better-sqlite3';
+-import { createEpisodesTestEnv, destroyEpisodesTestEnv } from './helpers/db.js';
++import { createEpisodesTestEnv, createEpisodesTestEnvWithMigrations, destroyEpisodesTestEnv } from './helpers/db.js';
+ import type { EpisodesTestEnv } from './helpers/db.js';
++import { buildSessionPayload } from '../scripts/lib/session-payload.js';
+ import { getEpisode } from '../scripts/lib/episodes.js';
+ 
+ const {
+@@ -170,6 +171,121 @@ describe('session-end bare episode', () => {
+   });
+ });
+ 
++describe('episode stale filter', () => {
++  let migEnv: EpisodesTestEnv;
++
++  beforeEach(() => {
++    migEnv = createEpisodesTestEnvWithMigrations('stale');
++  });
++
++  afterEach(() => {
++    destroyEpisodesTestEnv(migEnv);
++  });
++
++  test('excludes episodes older than 7 days', () => {
++    const oldDate = new Date(Date.now() - 8 * 24 * 60 * 60 * 1000).toISOString();
++    const recentDate = new Date(Date.now() - 1 * 24 * 60 * 60 * 1000).toISOString();
++
++    migEnv.db.prepare(
++      `INSERT INTO episodes (id, kind, scope, project, summary, status, source, created_at)
++       VALUES ('ep-old', 'decision', 'project', 'mindlore', 'Old decision', 'active', 'diary', ?)`,
++    ).run(oldDate);
++    migEnv.db.prepare(
++      `INSERT INTO episodes (id, kind, scope, project, summary, status, source, created_at)
++       VALUES ('ep-new', 'decision', 'project', 'mindlore', 'Recent decision', 'active', 'diary', ?)`,
++    ).run(recentDate);
++
++    const payload = buildSessionPayload(migEnv.db, migEnv.tmpDir, 'mindlore');
++    const decisionsSection = payload.sections.find(s => s.label === 'Decisions');
++    expect(decisionsSection).toBeDefined();
++    expect(decisionsSection!.content).toContain('Recent decision');
++    expect(decisionsSection!.content).not.toContain('Old decision');
++  });
++
++  test('includes episodes within 7 days', () => {
++    const recentDate = new Date(Date.now() - 3 * 24 * 60 * 60 * 1000).toISOString();
++
++    migEnv.db.prepare(
++      `INSERT INTO episodes (id, kind, scope, project, summary, status, source, created_at)
++       VALUES ('ep-r', 'learning', 'project', 'mindlore', 'Recent learning', 'active', 'reflect', ?)`,
++    ).run(recentDate);
++
++    const payload = buildSessionPayload(migEnv.db, migEnv.tmpDir, 'mindlore');
++    const learningsSection = payload.sections.find(s => s.label === 'Learnings');
++    expect(learningsSection).toBeDefined();
++    expect(learningsSection!.content).toContain('Recent learning');
++  });
++});
++
++describe('episode inject dedup', () => {
++  let migEnv: EpisodesTestEnv;
++
++  beforeEach(() => {
++    migEnv = createEpisodesTestEnvWithMigrations('dedup');
++  });
++
++  afterEach(() => {
++    destroyEpisodesTestEnv(migEnv);
++  });
++
++  test('excludes episodes already injected in this session', () => {
++    const recentDate = new Date(Date.now() - 1 * 24 * 60 * 60 * 1000).toISOString();
++
++    migEnv.db.prepare(
++      `INSERT INTO episodes (id, kind, scope, project, summary, status, source, created_at)
++       VALUES ('ep-d1', 'decision', 'project', 'mindlore', 'Already injected decision', 'active', 'diary', ?)`,
++    ).run(recentDate);
++
++    // eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- better-sqlite3 .get() returns unknown
++    const rowid = (migEnv.db.prepare(`SELECT rowid FROM episodes WHERE id = 'ep-d1'`).get() as { rowid: number }).rowid;
++
++    migEnv.db.prepare(
++      `INSERT INTO episode_inject_log (session_id, episode_id, injected_at) VALUES (?, ?, ?)`,
++    ).run('session-abc', String(rowid), new Date().toISOString());
++
++    const payload = buildSessionPayload(migEnv.db, migEnv.tmpDir, 'mindlore', 2000, undefined, 'session-abc');
++    const decisionsSection = payload.sections.find(s => s.label === 'Decisions');
++    expect(decisionsSection).toBeDefined();
++    expect(decisionsSection!.content).not.toContain('Already injected decision');
++  });
++
++  test('logs newly injected episodes to episode_inject_log', () => {
++    const recentDate = new Date(Date.now() - 1 * 24 * 60 * 60 * 1000).toISOString();
++
++    migEnv.db.prepare(
++      `INSERT INTO episodes (id, kind, scope, project, summary, status, source, created_at)
++       VALUES ('ep-d2', 'learning', 'project', 'mindlore', 'New learning to log', 'active', 'reflect', ?)`,
++    ).run(recentDate);
++
++    buildSessionPayload(migEnv.db, migEnv.tmpDir, 'mindlore', 2000, undefined, 'session-xyz');
++
++    // eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- better-sqlite3 .all() returns unknown[]
++    const logged = migEnv.db.prepare(
++      `SELECT episode_id FROM episode_inject_log WHERE session_id = 'session-xyz'`,
++    ).all() as Array<{ episode_id: string }>;
++
++    expect(logged).toHaveLength(1);
++  });
++
++  test('does not log when sessionId is not provided', () => {
++    const recentDate = new Date(Date.now() - 1 * 24 * 60 * 60 * 1000).toISOString();
++
++    migEnv.db.prepare(
++      `INSERT INTO episodes (id, kind, scope, project, summary, status, source, created_at)
++       VALUES ('ep-d3', 'friction', 'project', 'mindlore', 'Friction point', 'active', 'diary', ?)`,
++    ).run(recentDate);
++
++    buildSessionPayload(migEnv.db, migEnv.tmpDir, 'mindlore');
++
++    // eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- better-sqlite3 .all() returns unknown[]
++    const logged = migEnv.db.prepare(
++      `SELECT episode_id FROM episode_inject_log`,
++    ).all() as Array<{ episode_id: string }>;
++
++    expect(logged).toHaveLength(0);
++  });
++});
++
+ describe('episodes table migration', () => {
+   test('ensureEpisodesTable on fresh DB creates table', () => {
+     const freshPath = path.join(env.tmpDir, 'fresh.db');
+diff --git a/tests/fts5.test.ts b/tests/fts5.test.ts
+index 6b51b44..794e385 100644
+--- a/tests/fts5.test.ts
++++ b/tests/fts5.test.ts
+@@ -594,3 +594,31 @@ describe('version tokenization (v0.6.1)', () => {
+     db.close();
+   });
+ });
++
++describe('Search snippet extraction', () => {
++  test('search results include snippet with matching content', () => {
++    const { search } = require('../dist/scripts/lib/search-engine.js');
++    const Database = require('better-sqlite3');
++    const db = new Database(':memory:');
++    db.exec(`CREATE VIRTUAL TABLE mindlore_fts USING fts5(path, slug, description, type, category, title, content, tags, quality, date_captured, project)`);
++    db.exec(`CREATE VIRTUAL TABLE mindlore_fts_porter USING fts5(path, slug, description, type, category, title, content, tags, quality, date_captured, project, tokenize="porter unicode61")`);
++    db.exec(`CREATE VIRTUAL TABLE mindlore_fts_trigram USING fts5(path, slug, description, type, category, title, content, tags, quality, date_captured, project, tokenize="trigram")`);
++
++    const content = 'This document explains how TypeScript generics work with constraints and inference patterns.';
++    const stmt = db.prepare('INSERT INTO mindlore_fts (path, slug, description, type, category, title, content, tags, quality, date_captured, project) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)');
++    const stmtPorter = db.prepare('INSERT INTO mindlore_fts_porter (path, slug, description, type, category, title, content, tags, quality, date_captured, project) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)');
++    const stmtTrigram = db.prepare('INSERT INTO mindlore_fts_trigram (path, slug, description, type, category, title, content, tags, quality, date_captured, project) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)');
++
++    const args = ['/docs/typescript-generics.md', 'typescript-generics', 'TypeScript generics guide', 'source', 'sources', 'TypeScript Generics', content, 'typescript,generics', 'high', null, null];
++    stmt.run(...args);
++    stmtPorter.run(...args);
++    stmtTrigram.run(...args);
++
++    const results = search(db, 'TypeScript generics constraints', { maxResults: 3 });
++    db.close();
++
++    expect(results.length).toBeGreaterThan(0);
++    expect(results[0]!.snippet).toBeDefined();
++    expect(results[0]!.snippet).toContain('TypeScript');
++  });
++});
+diff --git a/tests/helpers/db.ts b/tests/helpers/db.ts
+index 02b752b..c55112c 100644
+--- a/tests/helpers/db.ts
++++ b/tests/helpers/db.ts
+@@ -10,6 +10,7 @@ import { V052_MIGRATIONS } from '../../scripts/lib/migrations-v052.js';
+ import { V053_MIGRATIONS } from '../../scripts/lib/migrations-v053.js';
+ import { V062_MIGRATIONS } from '../../scripts/lib/migrations-v062.js';
+ import { V063_MIGRATIONS } from '../../scripts/lib/migrations-v063.js';
++import { V066_MIGRATIONS } from '../../scripts/lib/migrations-v066.js';
+ 
+ // Hook'lar .cjs kalıyor — SQL constants'ları oradan import ediyoruz
+ const { SQL_FTS_CREATE, insertFtsRow, ensureEpisodesTable: ensureEpisodesTableCjs, parseFrontmatter: parseFrontmatterCjs, extractFtsMetadata: extractFtsMetadataCjs, resolveProject: resolveProjectCjs }: {
+@@ -51,7 +52,7 @@ export function createTestDbWithMigrations(dbPath: string): Database.Database {
+   const db = createTestDb(dbPath);
+   ensureEpisodesTableCjs(db);
+   ensureSchemaTable(db);
+-  runMigrations(db, [...V050_MIGRATIONS, ...V051_MIGRATIONS, ...V052_MIGRATIONS, ...V053_MIGRATIONS, ...V062_MIGRATIONS, ...V063_MIGRATIONS]);
++  runMigrations(db, [...V050_MIGRATIONS, ...V051_MIGRATIONS, ...V052_MIGRATIONS, ...V053_MIGRATIONS, ...V062_MIGRATIONS, ...V063_MIGRATIONS, ...V066_MIGRATIONS]);
+   return db;
+ }
+ 
+@@ -109,6 +110,13 @@ export function destroyEpisodesTestEnv(env: EpisodesTestEnv): void {
+   fs.rmSync(env.tmpDir, { recursive: true, force: true });
+ }
+ 
++export function createEpisodesTestEnvWithMigrations(prefix: string): EpisodesTestEnv {
++  const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), `mindlore-${prefix}-`));
++  const dbPath = path.join(tmpDir, 'test.db');
++  const db = createTestDbWithMigrations(dbPath);
++  return { db, tmpDir };
++}
++
+ export function createTestDbWithVec(dbPath: string): { db: Database.Database; vecLoaded: boolean } {
+   const db = createTestDb(dbPath);
+   let vecLoaded = false;
+diff --git a/tests/init.test.ts b/tests/init.test.ts
+index 953c477..baa8a33 100644
+--- a/tests/init.test.ts
++++ b/tests/init.test.ts
+@@ -266,6 +266,39 @@ describe('mindlore init', () => {
+     expect(updated.version).toBe(pkg.version);
+   });
+ 
++  describe('extraction templates', () => {
++    it('should copy extraction templates to .mindlore/templates/extraction/', () => {
++      execSync(`node "${INIT_SCRIPT}" init`, {
++        cwd: TEST_PROJECT,
++        stdio: 'pipe',
++        env: { ...process.env, HOME: TEST_PROJECT, USERPROFILE: TEST_PROJECT },
++      });
++
++      const extractionDir = path.join(TEST_PROJECT, '.mindlore', 'templates', 'extraction');
++      expect(fs.existsSync(extractionDir)).toBe(true);
++      const files = fs.readdirSync(extractionDir);
++      expect(files).toContain('github-repo.md');
++      expect(files).toContain('article.md');
++      expect(files).toContain('docs.md');
++      expect(files).toContain('changelog.md');
++      expect(files).toContain('default.md');
++    });
++
++    it('should preserve user-customized templates on re-init', () => {
++      const env = { ...process.env, HOME: TEST_PROJECT, USERPROFILE: TEST_PROJECT };
++
++      execSync(`node "${INIT_SCRIPT}" init`, { cwd: TEST_PROJECT, stdio: 'pipe', env });
++
++      const extractionDir = path.join(TEST_PROJECT, '.mindlore', 'templates', 'extraction');
++      fs.writeFileSync(path.join(extractionDir, 'github-repo.md'), 'custom content');
++
++      execSync(`node "${INIT_SCRIPT}" init`, { cwd: TEST_PROJECT, stdio: 'pipe', env });
++
++      const content = fs.readFileSync(path.join(extractionDir, 'github-repo.md'), 'utf8');
++      expect(content).toBe('custom content');
++    });
++  });
++
+   test('--global should create ~/.mindlore/ instead of project .mindlore/', () => {
+     const globalDir = path.join(TEST_PROJECT, '.mindlore');
+     const env = { ...process.env, HOME: TEST_PROJECT, USERPROFILE: TEST_PROJECT };
+diff --git a/tests/migrations-v063.test.ts b/tests/migrations-v063.test.ts
+index 0dc1d03..5849e75 100644
+--- a/tests/migrations-v063.test.ts
++++ b/tests/migrations-v063.test.ts
+@@ -72,7 +72,7 @@ describe('v0.6.3 migrations', () => {
+     const dir = makeTmpDir();
+     const db = createTestDbWithMigrations(path.join(dir, 'mindlore.db'));
+     const row = db.prepare('SELECT MAX(version) as v FROM schema_versions').get() as { v: number };
+-    expect(row.v).toBe(13);
++    expect(row.v).toBe(14);
+     cleanup(dir, db);
+   });
+ 
+diff --git a/tests/session-focus.test.ts b/tests/session-focus.test.ts
+index 4f3a2d8..4d324af 100644
+--- a/tests/session-focus.test.ts
++++ b/tests/session-focus.test.ts
+@@ -392,3 +392,24 @@ describe('enriched multi-session inject', () => {
+     expect(formatMultiSessionEpisodes([])).toBe('');
+   });
+ });
++
++describe('delta truncation', () => {
++  it('should truncate changed files list when > 10', () => {
++    const { truncateChangedFiles } = require('../hooks/mindlore-session-focus.cjs');
++    const files = Array.from({ length: 15 }, (_, i) => `- file${i}.ts`).join('\n');
++    const content = `## Changed Files\n${files}\n\n## Other`;
++    const result = truncateChangedFiles(content);
++    expect(result).toContain('file0.ts');
++    expect(result).toContain('file9.ts');
++    expect(result).not.toContain('file10.ts');
++    expect(result).toContain('...ve 5 dosya daha');
++  });
++
++  it('should not truncate when <= 10 files', () => {
++    const { truncateChangedFiles } = require('../hooks/mindlore-session-focus.cjs');
++    const files = Array.from({ length: 5 }, (_, i) => `- file${i}.ts`).join('\n');
++    const content = `## Changed Files\n${files}`;
++    const result = truncateChangedFiles(content);
++    expect(result).not.toContain('dosya daha');
++  });
++});
