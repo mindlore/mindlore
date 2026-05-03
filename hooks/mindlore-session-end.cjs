@@ -65,23 +65,6 @@ if (process.argv.includes('--worker')) {
     await safeRunAsync(() => runSyncScript('cc-memory-bulk-sync.js', ['--auto'], 10000, 'CC memory sync'), 'cc-memory-sync');
     await safeRunAsync(() => runSyncScript('cc-session-sync.js', [], 30000, 'CC session sync'), 'cc-session-sync');
 
-    // Embed trigger — detached, fire-and-forget
-    await safeRunAsync(async () => {
-      const indexScript = path.join(__dirname, '..', 'dist', 'scripts', 'mindlore-fts5-index.js');
-      if (fs.existsSync(indexScript)) {
-        const nodeExe = resolveWin32Bin('node') || process.execPath;
-        const { spawn: spawnChild } = require('child_process');
-        const embedProc = spawnChild(nodeExe, [indexScript, '--embed'], {
-          detached: true,
-          stdio: 'ignore',
-          windowsHide: true,
-          env: { ...process.env, MINDLORE_HOME: baseDir },
-        });
-        embedProc.unref();
-        hookLog('session-end', 'info', 'embed subprocess spawned, pid=' + embedProc.pid);
-      }
-    }, 'embed-trigger');
-
     // Raw accumulation warning (moved from main to worker — off hot path)
     await safeRunAsync(() => {
       const unpromoted = getUnpromotedRawFiles(baseDir);
