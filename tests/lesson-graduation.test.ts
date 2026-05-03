@@ -4,6 +4,7 @@ import { runMigrations } from '../scripts/lib/schema-version.js';
 import { V067_MIGRATIONS } from '../scripts/lib/migrations-v067.js';
 import Database from 'better-sqlite3';
 
+// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- require() returns any, narrowing to known CJS export shape
 const { checkReflectTrigger, getGraduatedLessonCount } = require('../hooks/lib/mindlore-common.cjs') as {
   checkReflectTrigger: (db: Database.Database, project: string, threshold?: number) => string | null;
   getGraduatedLessonCount: (db: Database.Database, project: string) => number;
@@ -65,6 +66,7 @@ describe('Q2 — graduation tracking', () => {
     ).run('n1', 'nomination', 'test', 'test nom', 'staged', now);
 
     env.db.prepare("UPDATE episodes SET status = 'approved', graduated_at = ? WHERE id = 'n1'").run(now);
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- better-sqlite3 .get() returns unknown
     const row = env.db.prepare("SELECT status, graduated_at FROM episodes WHERE id = 'n1'").get() as { status: string; graduated_at: string };
     expect(row.status).toBe('approved');
     expect(row.graduated_at).toBe(now);
@@ -77,6 +79,7 @@ describe('Q2 — graduation tracking', () => {
     ).run('n1', 'nomination', 'test', 'test nom', 'staged', now);
 
     env.db.prepare("UPDATE episodes SET status = 'rejected', rejected_at = ?, rejection_reason = ? WHERE id = 'n1'").run(now, 'Too vague');
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- better-sqlite3 .get() returns unknown
     const row = env.db.prepare("SELECT status, rejected_at, rejection_reason FROM episodes WHERE id = 'n1'").get() as { status: string; rejected_at: string; rejection_reason: string };
     expect(row.status).toBe('rejected');
     expect(row.rejected_at).toBe(now);
