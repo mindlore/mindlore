@@ -10,6 +10,7 @@ const path = require('path');
 const crypto = require('crypto');
 const os = require('os');
 const { EPISODE_KINDS, isValidKind, DB_BUSY_TIMEOUT_MS } = require('./constants.cjs');
+const { safeMkdir, safeWriteFile } = require('../../dist/scripts/lib/secure-io.js');
 
 const MINDLORE_DIR = '.mindlore';
 const DB_NAME = 'mindlore.db';
@@ -668,7 +669,7 @@ function _rotateFile(filePath, maxBytes, keepLines) {
     if (stat.size > maxBytes) {
       const lines = fs.readFileSync(filePath, 'utf8').trim().split('\n');
       const tmpPath = filePath + '.tmp';
-      fs.writeFileSync(tmpPath, lines.slice(-keepLines).join('\n') + '\n', { mode: 0o600 });
+      safeWriteFile(tmpPath, lines.slice(-keepLines).join('\n') + '\n');
       fs.renameSync(tmpPath, filePath);
     }
   } catch { /* file may not exist yet */ }
@@ -679,7 +680,7 @@ let _telDirEnsured = false;
 function _writeTelemetry({ hookName, duration_ms, ok, extra }) {
   try {
     if (!_telDirEnsured) {
-      fs.mkdirSync(GLOBAL_MINDLORE_DIR, { recursive: true, mode: 0o700 });
+      safeMkdir(GLOBAL_MINDLORE_DIR);
       _telDirEnsured = true;
     }
     const telPath = path.join(GLOBAL_MINDLORE_DIR, 'telemetry.jsonl');

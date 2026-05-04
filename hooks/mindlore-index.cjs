@@ -10,6 +10,7 @@
 
 const fs = require('fs');
 const path = require('path');
+const { safeMkdir, safeWriteFile } = require('../dist/scripts/lib/secure-io.js');
 const { DB_NAME, SKIP_FILES, sha256, openDatabase, parseFrontmatter, extractFtsMetadata, insertFtsRow, readHookStdin, getProjectName, resolveProject, globalDir, hookLog, withTelemetry, isInsideMindloreDir, extractMindloreBaseDir } = require('./lib/mindlore-common.cjs');
 
 function invalidateSearchCache(db) {
@@ -164,9 +165,9 @@ function indexCcMemory(filePath) {
 
     // Copy to ~/.mindlore/memory/{project}/ for git-sync + obsidian
     const memoryDir = path.join(globalBase, 'memory', projectScope || '_global');
-    fs.mkdirSync(memoryDir, { recursive: true, mode: 0o700 });
+    safeMkdir(memoryDir);
     const destPath = path.join(memoryDir, path.basename(filePath));
-    fs.writeFileSync(destPath, cleaned, { encoding: 'utf8', mode: 0o600 });
+    safeWriteFile(destPath, cleaned);
   } finally {
     db.close();
   }
