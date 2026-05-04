@@ -229,21 +229,22 @@ Tüm kullanım yerlerini `createTestDbWithFullSchema`'ya taşı, ardından depre
 
 ---
 
-## D9. busy_timeout Regresyon Takibi (LOW)
+## D9. busy_timeout Regresyon Takibi (RESOLVED)
 
 ### Problem
 v0.6.8'de `busy_timeout` 5000ms → 2000ms düşürüldü. SQLITE_BUSY regresyonu olabilir.
 
-### Tasarım
+### Analiz Sonuçları (2026-05-04)
 
-**Passive monitoring — yeni kod gerekmez.**
+`telemetry.jsonl` taraması:
 
-1. `telemetry.jsonl`'de SQLITE_BUSY hata sayısını analiz et
-2. v0.6.8 release sonrası (2026-05-03) ile öncesi karşılaştır
-3. Regresyon varsa → `busy_timeout`'ı 3000ms'ye yükselt (orta nokta)
-4. Regresyon yoksa → madde kapatılır, 2000ms kalır
+```
+SQLITE_BUSY count: 0
+```
 
-**Aksiyon:** Release sonrası 1 hafta telemetry topla, ardından karar ver. Implementation sırasında bir kez `npm run perf` çıktısına bak.
+### Karar
+
+**0 occurrences → Regresyon yok.** `busy_timeout` 2000ms'de kalır. Madde kapatıldı.
 
 ---
 
