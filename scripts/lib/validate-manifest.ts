@@ -55,9 +55,15 @@ export function validateManifest(manifest: Record<string, unknown>): ManifestVal
       errors.push('skills must be an array');
     } else {
       for (let i = 0; i < manifest.skills.length; i++) {
-        const s = manifest.skills[i] as Record<string, unknown>;
-        if (!s.name || typeof s.name !== 'string') errors.push(`skills[${i}]: name is required`);
-        if (!s.path || typeof s.path !== 'string') errors.push(`skills[${i}]: path is required`);
+        const s = manifest.skills[i];
+        if (!s || typeof s !== 'object' || Array.isArray(s)) {
+          errors.push(`skills[${i}]: must be an object`);
+          continue;
+        }
+        const name = 'name' in s ? s.name : undefined;
+        const path = 'path' in s ? s.path : undefined;
+        if (!name || typeof name !== 'string') errors.push(`skills[${i}]: name is required`);
+        if (!path || typeof path !== 'string') errors.push(`skills[${i}]: path is required`);
       }
     }
   }
@@ -68,11 +74,17 @@ export function validateManifest(manifest: Record<string, unknown>): ManifestVal
       errors.push('hooks must be an array');
     } else {
       for (let i = 0; i < manifest.hooks.length; i++) {
-        const h = manifest.hooks[i] as Record<string, unknown>;
-        if (!h.event || typeof h.event !== 'string') errors.push(`hooks[${i}]: event is required`);
-        if (!h.script || typeof h.script !== 'string') errors.push(`hooks[${i}]: script is required`);
-        if (h.event && typeof h.event === 'string' && !KNOWN_EVENTS.includes(h.event)) {
-          warnings.push(`hooks[${i}]: unknown event "${h.event}"`);
+        const h = manifest.hooks[i];
+        if (!h || typeof h !== 'object' || Array.isArray(h)) {
+          errors.push(`hooks[${i}]: must be an object`);
+          continue;
+        }
+        const event = 'event' in h ? h.event : undefined;
+        const script = 'script' in h ? h.script : undefined;
+        if (!event || typeof event !== 'string') errors.push(`hooks[${i}]: event is required`);
+        if (!script || typeof script !== 'string') errors.push(`hooks[${i}]: script is required`);
+        if (event && typeof event === 'string' && !KNOWN_EVENTS.includes(event)) {
+          warnings.push(`hooks[${i}]: unknown event "${event}"`);
         }
       }
     }

@@ -51,7 +51,7 @@ Plugin Manifest v2 ile dağıtım kanalını güçlendirme + v0.6.8 simplify'dan
 
 ---
 
-## Q2. Stabilizasyon
+## Q2. Stabilizasyon (RESOLVED)
 
 v0.7 MCP Server ön koşullarının taranması ve eksiklerin tamamlanması.
 
@@ -62,7 +62,18 @@ v0.7 MCP Server ön koşullarının taranması ve eksiklerin tamamlanması.
 3. `npm run health` çıktısında warning/error kalmadığından emin ol
 4. Mevcut hook'ların telemetry coverage'ı tam mı doğrula
 
-**Not:** Bu madde implementation sırasında netleşecek — keşif bazlı. Bulunan sorunlar bu spec'e eklenir veya v0.7'ye ertelenir.
+### Stabilizasyon Sonuçları (2026-05-04)
+
+| Kontrol | Durum | Not |
+|---------|-------|-----|
+| FTS5 search decision/episode/learning | PASS | Her kategori 3+ sonuç döndürüyor |
+| npm run build | PASS | Clean |
+| npm run test (99 suite, 755 test) | PASS | Tüm suite'ler geçiyor |
+| npm run lint | PASS | Clean |
+| npm run validate-manifest | PASS | Manifest v2 valid |
+| npm run health | 23/26 | Orphan files (17) ve frontmanter eksiklikleri mevcut KB verisinden kaynaklanıyor — yeni kod değil |
+| busy_timeout telemetry | PASS | 0 SQLITE_BUSY |
+| Search hook profiling | PASS | p95=57ms < 500ms threshold |
 
 ---
 

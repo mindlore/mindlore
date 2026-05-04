@@ -19,8 +19,18 @@ describe('Skill script path resolution', () => {
         `node "${healthScript}" "${path.join(os.homedir(), '.mindlore')}"`,
         { cwd: tmpDir, encoding: 'utf8', timeout: 15000 }
       );
-    } catch (err) {
-      result = (err as { stdout?: string; stderr?: string }).stdout || (err as { stdout?: string; stderr?: string }).stderr || '';
+    } catch (err: unknown) {
+      if (err && typeof err === 'object') {
+        // eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion
+        const obj = err as Record<string, unknown>;
+        const stdout = obj.stdout;
+        const stderr = obj.stderr;
+        if (typeof stdout === 'string') result = stdout;
+        else if (typeof stderr === 'string') result = stderr;
+        else result = '';
+      } else {
+        result = '';
+      }
     }
     expect(result).not.toContain('Cannot find module');
   });
