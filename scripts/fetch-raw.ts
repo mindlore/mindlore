@@ -5,6 +5,7 @@ import crypto from 'crypto';
 import os from 'os';
 import { sanitizeForExecFile, validatePath, validateUrl as validateUrlSsrf, escapeYamlValue } from './lib/input-validation.js';
 import { GLOBAL_MINDLORE_DIR } from './lib/constants.js';
+import { safeMkdir, safeWriteFile, safeWriteJson } from './lib/secure-io.js';
 
 function validateUrl(raw: string): URL {
   const u = new URL(raw);
@@ -92,8 +93,8 @@ function loadCachedHeaders(outDir: string, slug: string): CachedHeaders {
 }
 
 function saveCachedHeaders(outDir: string, slug: string, headers: CachedHeaders): void {
-  fs.mkdirSync(outDir, { recursive: true, mode: 0o700 });
-  fs.writeFileSync(path.join(outDir, `.${slug}.meta.json`), JSON.stringify(headers), { mode: 0o600 });
+  safeMkdir(outDir);
+  safeWriteJson(path.join(outDir, `.${slug}.meta.json`), headers);
 }
 
 function parseResponseHeaders(headerFile: string): CachedHeaders {
@@ -286,10 +287,10 @@ function main(): void {
     }
   }
 
-  fs.mkdirSync(outDir, { recursive: true, mode: 0o700 });
+  safeMkdir(outDir);
   const fileName = `${new Date().toISOString().split('T')[0]}-${slug}.md`;
   const filePath = path.join(outDir, fileName);
-  fs.writeFileSync(filePath, fullContent, { encoding: 'utf8', mode: 0o600 });
+  safeWriteFile(filePath, fullContent);
 
   const result: FetchResult = { saved: filePath, chars: content.length, method };
   console.log(JSON.stringify(result));

@@ -22,6 +22,7 @@ import {
 } from './lib/constants.js';
 import { redactSecrets } from './lib/privacy-filter.js';
 import { CommonModuleBase, UPSERT_HASH_SQL, getArg } from './lib/sync-helpers.js';
+import { safeMkdir, safeWriteFile } from './lib/secure-io.js';
 
 export interface SessionSyncResult {
   synced: number;
@@ -361,8 +362,8 @@ export function syncSessions(
         continue;
       }
 
-      fs.mkdirSync(destDir, { recursive: true, mode: 0o700 });
-      fs.writeFileSync(destPath, md, { encoding: 'utf8', mode: 0o600 });
+      safeMkdir(destDir);
+      safeWriteFile(destPath, md);
 
       ops.push({ destPath, hash, sessionDate, shortId, slug, md, isSubagent });
     } catch (err) {

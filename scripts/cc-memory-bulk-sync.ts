@@ -19,6 +19,7 @@ import {
   resolveHookCommon,
 } from './lib/constants.js';
 import { CommonModuleWithFrontmatter, UPSERT_HASH_SQL, getArg } from './lib/sync-helpers.js';
+import { safeMkdir } from './lib/secure-io.js';
 
 export interface SyncResult {
   synced: number;
@@ -110,7 +111,7 @@ export function syncToDb(
 
   // Ensure memory dest dir exists
   const memoryDestDir = path.join(mindloreDir, 'memory');
-  fs.mkdirSync(memoryDestDir, { recursive: true, mode: 0o700 });
+  safeMkdir(memoryDestDir);
 
   const getHash = db.prepare('SELECT content_hash FROM file_hashes WHERE path = ?');
   const upsertHash = db.prepare(UPSERT_HASH_SQL);

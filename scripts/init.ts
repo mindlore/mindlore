@@ -20,6 +20,7 @@ import { mergeDefaults } from './lib/merge-defaults.js';
 import { parseJsonObject, readJsonFile } from './lib/safe-parse.js';
 import { ensureSchemaTable, runMigrations } from './lib/schema-version.js';
 import { INIT_MIGRATIONS } from './lib/all-migrations.js';
+import { safeMkdir, safeWriteFile, safeWriteJson } from './lib/secure-io.js';
 
 // eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- dynamic CJS require, typed by mindlore-common.d.cts
 const { SQL_FTS_CREATE, ensureEpisodesTable: ensureEpisodesTableCjs } = require(resolveHookCommon(__dirname)) as {
@@ -59,7 +60,7 @@ function resolvePackageRoot(): string {
 
 function ensureDir(dirPath: string): boolean {
   if (!fs.existsSync(dirPath)) {
-    fs.mkdirSync(dirPath, { recursive: true, mode: 0o700 });
+    safeMkdir(dirPath);
     return true;
   }
   return false;
@@ -425,7 +426,7 @@ function ensureConfig(baseDir: string, packageRoot: string): boolean {
     }
     // Template missing — write hardcoded defaults
     const defaultConfig: MindloreConfig = { version: '0.3.1', models: { ...DEFAULT_MODELS } };
-    fs.writeFileSync(configDest, JSON.stringify(defaultConfig, null, 2) + '\n', { encoding: 'utf8', mode: 0o600 });
+    safeWriteJson(configDest, defaultConfig);
     return true;
   }
 
@@ -464,7 +465,7 @@ function ensureConfig(baseDir: string, packageRoot: string): boolean {
   }
 
   if (changed) {
-    fs.writeFileSync(configDest, JSON.stringify(config, null, 2) + '\n', { encoding: 'utf8', mode: 0o600 });
+    safeWriteJson(configDest, config);
   }
 
   return changed;
@@ -701,8 +702,8 @@ function main(): void {
       console.error('Auto-backfill failed (non-fatal):', msg);
     }
   }
-  fs.writeFileSync(versionPath, packageJson.version, { encoding: 'utf8', mode: 0o600 });
-  fs.writeFileSync(pkgVersionPath, packageJson.version, { encoding: 'utf8', mode: 0o600 });
+  safeWriteFile(versionPath, packageJson.version);
+  safeWriteFile(pkgVersionPath, packageJson.version);
   log(`Version: ${packageJson.version}`);
 
   // Step 12: Register agents (v0.6.1)
