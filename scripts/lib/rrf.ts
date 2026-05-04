@@ -1,6 +1,7 @@
 import type BetterSqlite3 from 'better-sqlite3';
 type Database = BetterSqlite3.Database;
 import { dbAll } from './db-helpers.js';
+import { errMsg } from './err-msg.js';
 
 export function sanitizeFtsQuery(query: string): string {
   return query.replace(/["*(){}[\]^~:-]/g, ' ').replace(/\s+/g, ' ').trim();
@@ -100,7 +101,7 @@ export function searchTrigram(
   try {
     return _searchFts(db, { table: 'mindlore_fts_trigram', rankExpr: 'rank', orderBy: 'rank', query: sanitized, project: options.project, limit: options.limit });
   } catch (err) {
-    const msg = err instanceof Error ? err.message : String(err);
+    const msg = errMsg(err);
     if (!msg.includes('no such table')) {
       console.warn(`searchTrigram: ${msg}`);
     }

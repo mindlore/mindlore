@@ -21,6 +21,7 @@ import { parseJsonObject, readJsonFile } from './lib/safe-parse.js';
 import { ensureSchemaTable, runMigrations } from './lib/schema-version.js';
 import { INIT_MIGRATIONS } from './lib/all-migrations.js';
 import { safeMkdir, safeWriteFile, safeWriteJson } from './lib/secure-io.js';
+import { errMsg } from './lib/err-msg.js';
 
 // eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- dynamic CJS require, typed by mindlore-common.d.cts
 const { SQL_FTS_CREATE, ensureEpisodesTable: ensureEpisodesTableCjs } = require(resolveHookCommon(__dirname)) as {
@@ -698,7 +699,7 @@ function main(): void {
         db.close();
       }
     } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : String(err);
+      const msg = errMsg(err);
       console.error('Auto-backfill failed (non-fatal):', msg);
     }
   }

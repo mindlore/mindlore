@@ -15,6 +15,7 @@ import { ensureSchemaTable, runMigrations } from './lib/schema-version.js';
 import { FTS_DB_MIGRATIONS } from './lib/all-migrations.js';
 import { populateVocabulary } from './lib/fuzzy.js';
 import { chunkMarkdown } from './lib/chunker.js';
+import { errMsg } from './lib/err-msg.js';
 
 const common: {
   sha256: (content: string) => string;
@@ -175,8 +176,7 @@ async function main(): Promise<void> {
         upsertHash.run(filePath, hash, now, projectName, qualityToImportance(quality));
         indexed++;
       } catch (err) {
-        const message = err instanceof Error ? err.message : String(err);
-        console.error(`  Error indexing ${path.basename(filePath)}: ${message}`);
+        console.error(`  Error indexing ${path.basename(filePath)}: ${errMsg(err)}`);
         errors++;
       }
     }

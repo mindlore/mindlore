@@ -14,6 +14,7 @@ import { DIRECTORIES, TYPE_TO_DIR, DB_NAME, GLOBAL_MINDLORE_DIR, resolveHookComm
 import { dbGet, dbAll, withReadonlyDb } from './lib/db-helpers.js';
 import { detectContradictions } from './lib/contradiction.js';
 import { listUnpromoted } from './lib/triage.js';
+import { errMsg } from './lib/err-msg.js';
 import type BetterSqlite3 from 'better-sqlite3';
 
 type Database = BetterSqlite3.Database;
@@ -145,8 +146,7 @@ class HealthChecker {
       }
     } catch (err) {
       this.failed++;
-      const message = err instanceof Error ? err.message : String(err);
-      this.results.push({ name, status: 'FAIL', detail: message });
+      this.results.push({ name, status: 'FAIL', detail: errMsg(err) });
     }
   }
 

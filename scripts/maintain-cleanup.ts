@@ -3,6 +3,7 @@
 import fs from 'fs';
 import path from 'path';
 import { GLOBAL_MINDLORE_DIR, DB_NAME, resolveHookCommon } from './lib/constants.js';
+import { errMsg } from './lib/err-msg.js';
 
 // eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- dynamic CJS require, typed by mindlore-common.d.cts
 const common = require(resolveHookCommon(__dirname)) as {
@@ -53,7 +54,7 @@ export async function runCleanup(opts: CleanupOptions = {}): Promise<CleanupRepo
       }
       report.backfilled.push(file);
     } catch (err) {
-      report.errors.push(`backfill error ${file}: ${err instanceof Error ? err.message : String(err)}`);
+      report.errors.push(`backfill error ${file}: ${errMsg(err)}`);
     }
   }
 
@@ -80,7 +81,7 @@ export async function runCleanup(opts: CleanupOptions = {}): Promise<CleanupRepo
       db.close();
     }
   } catch (err) {
-    const msg = err instanceof Error ? err.message : String(err);
+    const msg = errMsg(err);
     if (!/SQLITE_CANTOPEN|no such file/.test(msg)) {
       report.errors.push(`fts5 gap check error: ${msg}`);
     }

@@ -1,6 +1,7 @@
 import fs from 'fs';
 import path from 'path';
 import { validateManifest } from './lib/validate-manifest.js';
+import { errMsg } from './lib/err-msg.js';
 
 const manifestPath = path.resolve(__dirname, '..', '..', 'plugin.json');
 
@@ -13,8 +14,7 @@ try {
   }
   manifest = { ...parsed };
 } catch (err) {
-  const msg = err instanceof Error ? err.message : String(err);
-  console.error(`Failed to read/parse plugin.json: ${msg}`);
+  console.error(`Failed to read/parse plugin.json: ${errMsg(err)}`);
   process.exit(1);
 }
 
