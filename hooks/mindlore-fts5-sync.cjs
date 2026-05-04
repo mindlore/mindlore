@@ -38,7 +38,11 @@ function main() {
   const mdFiles = getAllMdFiles(baseDir);
 
 
-  const getHash = db.prepare('SELECT content_hash FROM file_hashes WHERE path = ?');
+  const allHashes = new Map();
+  for (const row of db.prepare('SELECT path, content_hash FROM file_hashes').all()) {
+    allHashes.set(row.path, row.content_hash);
+  }
+
   const deleteFts = db.prepare('DELETE FROM mindlore_fts WHERE path = ?');
   const deleteFtsSessions = db.prepare('DELETE FROM mindlore_fts_sessions WHERE path = ?');
   const insertFtsSessions = db.prepare(SQL_FTS_SESSIONS_INSERT);
@@ -62,8 +66,8 @@ function main() {
       const content = fs.readFileSync(file, 'utf8').replace(/\r\n/g, '\n');
       const hash = sha256(content);
 
-      const existing = getHash.get(file);
-      if (existing && existing.content_hash === hash) continue;
+      const existingHash = allHashes.get(file);
+      if (existingHash === hash) continue;
 
       const { meta, body } = parseFrontmatter(content);
       const { slug, description, type, category, title, tags, quality, dateCaptured, project: ftsProject } = extractFtsMetadata(meta, body, file, baseDir);
