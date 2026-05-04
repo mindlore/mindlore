@@ -2,7 +2,7 @@ import path from 'path';
 import os from 'os';
 import fs from 'fs';
 import Database from 'better-sqlite3';
-import { createTestDbWithMigrations, insertFts } from './helpers/db.js';
+import { createTestDbWithFullSchema, insertFts } from './helpers/db.js';
 import { computeRRF, searchPorter, searchTrigram, sanitizeFtsQuery, type RankedResult } from '../scripts/lib/rrf.js';
 
 function makeTmpDir(): string {
@@ -73,7 +73,7 @@ describe('computeRRF', () => {
 describe('searchPorter + searchTrigram', () => {
   test('searchPorter returns ranked results from FTS5', () => {
     const dir = makeTmpDir();
-    const db = createTestDbWithMigrations(path.join(dir, 'mindlore.db'));
+    const db = createTestDbWithFullSchema(path.join(dir, 'mindlore.db'));
     insertFts(db, {
       path: '/sources/ts.md',
       slug: 'typescript-guide',
@@ -93,7 +93,7 @@ describe('searchPorter + searchTrigram', () => {
 
   test('searchTrigram returns results from trigram table', () => {
     const dir = makeTmpDir();
-    const db = createTestDbWithMigrations(path.join(dir, 'mindlore.db'));
+    const db = createTestDbWithFullSchema(path.join(dir, 'mindlore.db'));
     insertFts(db, {
       path: '/sources/ts.md',
       slug: 'typescript-guide',
@@ -111,7 +111,7 @@ describe('searchPorter + searchTrigram', () => {
 
   test('searchPorter returns empty for no match', () => {
     const dir = makeTmpDir();
-    const db = createTestDbWithMigrations(path.join(dir, 'mindlore.db'));
+    const db = createTestDbWithFullSchema(path.join(dir, 'mindlore.db'));
     const results = searchPorter(db, { query: 'nonexistentxyz', limit: 5 });
     expect(results).toEqual([]);
     cleanup(dir, db);

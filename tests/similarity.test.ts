@@ -1,5 +1,5 @@
 import path from 'path';
-import { createTestDbWithMigrations, insertFts, setupTestDir, teardownTestDir } from './helpers/db.js';
+import { createTestDbWithFullSchema, insertFts, setupTestDir, teardownTestDir } from './helpers/db.js';
 import { findSimilar } from '../scripts/lib/similarity.js';
 
 const TEST_DIR = path.join(__dirname, '..', '.test-similarity');
@@ -7,7 +7,7 @@ const DB_PATH = path.join(TEST_DIR, 'mindlore.db');
 
 beforeEach(() => {
   setupTestDir(TEST_DIR, ['sources']);
-  const db = createTestDbWithMigrations(DB_PATH);
+  const db = createTestDbWithFullSchema(DB_PATH);
   insertFts(db, {
     path: path.join(TEST_DIR, 'sources', 'react-hooks.md'),
     slug: 'react-hooks',

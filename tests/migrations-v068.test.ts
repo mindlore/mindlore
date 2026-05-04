@@ -4,7 +4,7 @@ import Database from 'better-sqlite3';
 import path from 'path';
 import os from 'os';
 import fs from 'fs';
-import { createTestDbWithMigrations } from './helpers/db.js';
+import { createTestDbWithFullSchema } from './helpers/db.js';
 import { V068_MIGRATIONS } from '../scripts/lib/migrations-v068.js';
 import { runMigrations } from '../scripts/lib/schema-version.js';
 
@@ -16,7 +16,7 @@ describe('V068 Migrations', () => {
   beforeEach(() => {
     tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'mindlore-v068-test-'));
     dbPath = path.join(tmpDir, 'test.db');
-    db = createTestDbWithMigrations(dbPath);
+    db = createTestDbWithFullSchema(dbPath);
   });
 
   afterEach(() => {

@@ -1,7 +1,7 @@
 import fs from 'fs';
 import path from 'path';
 import os from 'os';
-import { createTestDbWithMigrations } from './helpers/db.js';
+import { createTestDbWithFullSchema } from './helpers/db.js';
 import { listUnpromoted, extractRawMetadata, cacheRawMetadata } from '../scripts/lib/triage.js';
 
 describe('raw inbox triage', () => {
@@ -62,7 +62,7 @@ describe('raw inbox triage', () => {
   it('caches metadata in raw_metadata table', () => {
     fs.writeFileSync(path.join(tmpDir, 'raw', 'cached.md'), '# Cached\nContent');
     const dbPath = path.join(tmpDir, 'mindlore.db');
-    const db = createTestDbWithMigrations(dbPath);
+    const db = createTestDbWithFullSchema(dbPath);
 
     cacheRawMetadata(db, path.join(tmpDir, 'raw', 'cached.md'), tmpDir);
 

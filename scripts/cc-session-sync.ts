@@ -372,8 +372,8 @@ export function syncSessions(
     }
   }
 
-  // Per-item transaction is intentional: each session syncs independently
-  // so one corrupt session file doesn't block the rest (partial failure tolerance).
+  // Per-item transaction: each session syncs independently so one corrupt
+  // session file doesn't block the rest (partial failure tolerance).
   const syncOne = db.transaction((op: SessionOp) => {
     const category = op.isSubagent ? CC_SUBAGENT_CATEGORY : CC_SESSION_CATEGORY;
 
@@ -393,7 +393,6 @@ export function syncSessions(
 
     upsertHash.run(op.destPath, op.hash, nowIso, category);
 
-    // Session summary injection (#9)
     if (!op.isSubagent) {
       try {
         const sessionSummary = extractSessionSummary(op.md);

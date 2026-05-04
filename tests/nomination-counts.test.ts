@@ -2,11 +2,8 @@ import Database from 'better-sqlite3';
 import path from 'path';
 import os from 'os';
 import fs from 'fs';
-import { createTestDbWithMigrations, insertEpisode } from './helpers/db.js';
+import { createTestDbWithFullSchema, insertEpisode } from './helpers/db.js';
 
-// NOT: createTestDbWithMigrations kullanılıyor (createTestDbWithFullSchema değil)
-// çünkü bu test v18 migration'a bağımlı değil. R5 (Task 16) sonrası
-// createTestDbWithFullSchema'ya geçiş opsiyonel.
 const { getNominationCounts } = require('../hooks/lib/mindlore-common.cjs');
 
 describe('getNominationCounts', () => {
@@ -17,7 +14,7 @@ describe('getNominationCounts', () => {
   beforeEach(() => {
     tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'mindlore-nom-counts-'));
     dbPath = path.join(tmpDir, 'test.db');
-    db = createTestDbWithMigrations(dbPath);
+    db = createTestDbWithFullSchema(dbPath);
   });
 
   afterEach(() => {

@@ -2,7 +2,7 @@ import path from 'path';
 import os from 'os';
 import fs from 'fs';
 import Database from 'better-sqlite3';
-import { createTestDbWithMigrations, createTestDbWithEpisodes, insertFts } from './helpers/db.js';
+import { createTestDbWithFullSchema, createTestDbWithEpisodes, insertFts } from './helpers/db.js';
 import { ensureSchemaTable, runMigrations } from '../scripts/lib/schema-version.js';
 import { V050_MIGRATIONS } from '../scripts/lib/migrations.js';
 import { V051_MIGRATIONS } from '../scripts/lib/migrations-v051.js';
@@ -25,7 +25,7 @@ function cleanup(dir: string, db?: Database.Database): void {
 describe('v0.6.3 migrations', () => {
   test('migration creates trigram table', () => {
     const dir = makeTmpDir();
-    const db = createTestDbWithMigrations(path.join(dir, 'mindlore.db'));
+    const db = createTestDbWithFullSchema(path.join(dir, 'mindlore.db'));
     const tables = db.prepare("SELECT name FROM sqlite_master").all() as Array<{ name: string }>;
     const names = tables.map(t => t.name);
     expect(names).toContain('mindlore_fts_trigram');
@@ -34,7 +34,7 @@ describe('v0.6.3 migrations', () => {
 
   test('migration creates vocabulary table', () => {
     const dir = makeTmpDir();
-    const db = createTestDbWithMigrations(path.join(dir, 'mindlore.db'));
+    const db = createTestDbWithFullSchema(path.join(dir, 'mindlore.db'));
     const tables = db.prepare("SELECT name FROM sqlite_master WHERE type='table'").all() as Array<{ name: string }>;
     const names = tables.map(t => t.name);
     expect(names).toContain('vocabulary');
@@ -70,7 +70,7 @@ describe('v0.6.3 migrations', () => {
 
   test('schema version is 19 after migration', () => {
     const dir = makeTmpDir();
-    const db = createTestDbWithMigrations(path.join(dir, 'mindlore.db'));
+    const db = createTestDbWithFullSchema(path.join(dir, 'mindlore.db'));
     const row = db.prepare('SELECT MAX(version) as v FROM schema_versions').get() as { v: number };
     expect(row.v).toBe(19);
     cleanup(dir, db);
@@ -78,7 +78,7 @@ describe('v0.6.3 migrations', () => {
 
   test('vocabulary table accepts inserts and dedup', () => {
     const dir = makeTmpDir();
-    const db = createTestDbWithMigrations(path.join(dir, 'mindlore.db'));
+    const db = createTestDbWithFullSchema(path.join(dir, 'mindlore.db'));
     db.prepare('INSERT INTO vocabulary (word) VALUES (?)').run('typescript');
     db.prepare('INSERT OR IGNORE INTO vocabulary (word) VALUES (?)').run('typescript');
     const count = (db.prepare('SELECT COUNT(*) as c FROM vocabulary').get() as { c: number }).c;

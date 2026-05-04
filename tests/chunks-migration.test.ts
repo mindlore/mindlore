@@ -1,7 +1,7 @@
 import fs from 'fs';
 import os from 'os';
 import path from 'path';
-import { createTestDbWithMigrations } from './helpers/db.js';
+import { createTestDbWithFullSchema } from './helpers/db.js';
 import { chunkMarkdown } from '../scripts/lib/chunker.js';
 import type BetterSqlite3 from 'better-sqlite3';
 type Database = BetterSqlite3.Database;
@@ -12,7 +12,7 @@ describe('chunks table migration', () => {
 
   beforeEach(() => {
     tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'mindlore-chunks-'));
-    db = createTestDbWithMigrations(path.join(tmpDir, 'test.db'));
+    db = createTestDbWithFullSchema(path.join(tmpDir, 'test.db'));
   });
 
   afterEach(() => {

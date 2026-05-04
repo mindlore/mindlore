@@ -2,7 +2,7 @@ import fs from 'fs';
 import os from 'os';
 import path from 'path';
 import { levenshtein, findClosestWords, correctQuery, populateVocabulary, loadVocabulary } from '../scripts/lib/fuzzy.js';
-import { createTestDbWithMigrations } from './helpers/db.js';
+import { createTestDbWithFullSchema } from './helpers/db.js';
 import type BetterSqlite3 from 'better-sqlite3';
 type Database = BetterSqlite3.Database;
 
@@ -36,7 +36,7 @@ describe('DB integration', () => {
 
   beforeEach(() => {
     tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'mindlore-fuzzy-'));
-    db = createTestDbWithMigrations(path.join(tmpDir, 'test.db'));
+    db = createTestDbWithFullSchema(path.join(tmpDir, 'test.db'));
   });
 
   afterEach(() => {

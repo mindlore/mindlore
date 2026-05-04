@@ -203,9 +203,9 @@ describe('openDatabase CJS', () => {
 
 describe('Timestamp columns', () => {
   test('should write created_at on first index, updated_at on re-index', () => {
-    const { createTestDbWithMigrations } = require('./helpers/db.js');
+    const { createTestDbWithFullSchema } = require('./helpers/db.js');
     // eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- test helper returns Database
-    const db = createTestDbWithMigrations(DB_PATH) as import('better-sqlite3').Database;
+    const db = createTestDbWithFullSchema(DB_PATH) as import('better-sqlite3').Database;
 
     const testPath = path.join(TEST_DIR, 'sources', 'test-timestamps.md');
     const hash1 = 'aaa111';
@@ -244,9 +244,9 @@ describe('Timestamp columns', () => {
 
 describe('Project scope on index', () => {
   test('should write project_scope on index', () => {
-    const { createTestDbWithMigrations } = require('./helpers/db.js');
+    const { createTestDbWithFullSchema } = require('./helpers/db.js');
     // eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- test helper returns Database
-    const db = createTestDbWithMigrations(DB_PATH) as import('better-sqlite3').Database;
+    const db = createTestDbWithFullSchema(DB_PATH) as import('better-sqlite3').Database;
 
     const testPath = path.join(TEST_DIR, 'sources', 'test-scope.md');
     const hash = 'abc123';
@@ -277,9 +277,9 @@ describe('Project scope on index', () => {
 
 describe('Quality to importance mapping', () => {
   test('should map quality high to importance 1.0', () => {
-    const { createTestDbWithMigrations } = require('./helpers/db.js');
+    const { createTestDbWithFullSchema } = require('./helpers/db.js');
     // eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- test helper returns Database
-    const db = createTestDbWithMigrations(DB_PATH) as import('better-sqlite3').Database;
+    const db = createTestDbWithFullSchema(DB_PATH) as import('better-sqlite3').Database;
 
     const testPath = path.join(TEST_DIR, 'sources', 'test-importance-high.md');
     const upsertHash = db.prepare(`
@@ -304,9 +304,9 @@ describe('Quality to importance mapping', () => {
   });
 
   test('should map quality medium to importance 0.6', () => {
-    const { createTestDbWithMigrations } = require('./helpers/db.js');
+    const { createTestDbWithFullSchema } = require('./helpers/db.js');
     // eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- test helper returns Database
-    const db = createTestDbWithMigrations(DB_PATH) as import('better-sqlite3').Database;
+    const db = createTestDbWithFullSchema(DB_PATH) as import('better-sqlite3').Database;
 
     const testPath = path.join(TEST_DIR, 'sources', 'test-importance-medium.md');
     const upsertHash = db.prepare(`
@@ -330,9 +330,9 @@ describe('Quality to importance mapping', () => {
   });
 
   test('should map quality low to importance 0.3', () => {
-    const { createTestDbWithMigrations } = require('./helpers/db.js');
+    const { createTestDbWithFullSchema } = require('./helpers/db.js');
     // eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- test helper returns Database
-    const db = createTestDbWithMigrations(DB_PATH) as import('better-sqlite3').Database;
+    const db = createTestDbWithFullSchema(DB_PATH) as import('better-sqlite3').Database;
 
     const testPath = path.join(TEST_DIR, 'sources', 'test-importance-low.md');
     const upsertHash = db.prepare(`
@@ -356,9 +356,9 @@ describe('Quality to importance mapping', () => {
   });
 
   test('should default importance to 0.5 when quality is missing', () => {
-    const { createTestDbWithMigrations } = require('./helpers/db.js');
+    const { createTestDbWithFullSchema } = require('./helpers/db.js');
     // eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- test helper returns Database
-    const db = createTestDbWithMigrations(DB_PATH) as import('better-sqlite3').Database;
+    const db = createTestDbWithFullSchema(DB_PATH) as import('better-sqlite3').Database;
 
     const testPath = path.join(TEST_DIR, 'sources', 'test-no-quality.md');
     const upsertHash = db.prepare(`

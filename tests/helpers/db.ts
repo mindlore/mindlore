@@ -67,15 +67,13 @@ export function createTestDbAtVersion(dbPath: string, maxVersion: number): Datab
   return db;
 }
 
-export function createTestDbWithMigrations(dbPath: string): Database.Database {
+export function createTestDbWithFullSchema(dbPath: string): Database.Database {
   const db = createTestDb(dbPath);
   ensureEpisodesTableCjs(db);
   ensureSchemaTable(db);
   runMigrations(db, ALL_MIGRATIONS);
   return db;
 }
-
-export const createTestDbWithFullSchema = createTestDbWithMigrations;
 
 export interface FtsEntry {
   [key: string]: string | null | undefined;
@@ -134,7 +132,7 @@ export function destroyEpisodesTestEnv(env: EpisodesTestEnv): void {
 export function createEpisodesTestEnvWithMigrations(prefix: string): EpisodesTestEnv {
   const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), `mindlore-${prefix}-`));
   const dbPath = path.join(tmpDir, 'test.db');
-  const db = createTestDbWithMigrations(dbPath);
+  const db = createTestDbWithFullSchema(dbPath);
   return { db, tmpDir };
 }
 

@@ -2,7 +2,7 @@ import path from 'path';
 import os from 'os';
 import fs from 'fs';
 import Database from 'better-sqlite3';
-import { createTestDbWithMigrations, insertFts } from './helpers/db.js';
+import { createTestDbWithFullSchema, insertFts } from './helpers/db.js';
 import { search, extractKeywords } from '../scripts/lib/search-engine.js';
 
 function makeTmpDir(): string {
@@ -15,7 +15,7 @@ function cleanup(dir: string, db?: Database.Database): void {
 }
 
 function seedDb(dbPath: string): Database.Database {
-  const db = createTestDbWithMigrations(dbPath);
+  const db = createTestDbWithFullSchema(dbPath);
   insertFts(db, {
     path: '/sources/typescript.md',
     slug: 'typescript',

@@ -1,7 +1,7 @@
 import fs from 'fs';
 import path from 'path';
 import Database from 'better-sqlite3';
-import { createTestDbWithMigrations, setupTestDir, teardownTestDir, sha256 } from './helpers/db.js';
+import { createTestDbWithFullSchema, setupTestDir, teardownTestDir, sha256 } from './helpers/db.js';
 import { dbAll } from '../scripts/lib/db-helpers.js';
 
 const TEST_DIR = path.join(__dirname, '..', '.test-cc-memory-sync');
@@ -31,7 +31,7 @@ describe('CC Memory Sync', () => {
       'Run tests before every commit.',
     ].join('\n'));
 
-    const db = createTestDbWithMigrations(DB_PATH);
+    const db = createTestDbWithFullSchema(DB_PATH);
     const { parseFrontmatter, insertFtsRow }: {
       parseFrontmatter: (c: string) => { meta: Record<string, unknown> };
       insertFtsRow: (db: Database.Database, entry: Record<string, unknown>) => void;
@@ -88,7 +88,7 @@ describe('CC Memory Sync', () => {
       'Senior developer focused on security.',
     ].join('\n'));
 
-    const db = createTestDbWithMigrations(DB_PATH);
+    const db = createTestDbWithFullSchema(DB_PATH);
     const copyDir = path.join(TEST_DIR, 'memory', 'test-project');
     fs.mkdirSync(copyDir, { recursive: true });
     const content = fs.readFileSync(memFile, 'utf8');
@@ -115,7 +115,7 @@ describe('CC Memory Sync', () => {
     fs.writeFileSync(memFile, content);
 
     const hash = sha256(content);
-    const db = createTestDbWithMigrations(DB_PATH);
+    const db = createTestDbWithFullSchema(DB_PATH);
 
     // First index: insert file_hash
     db.prepare(
