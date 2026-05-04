@@ -2,6 +2,16 @@ import os from 'os';
 import fs from 'fs';
 import path from 'path';
 
+export const KNOWN_HOOK_EVENTS = [
+  'SessionStart', 'SessionEnd', 'UserPromptSubmit',
+  'FileChanged', 'PreToolUse', 'PostToolUse',
+  'PreCompact', 'PostCompact', 'CwdChanged',
+] as const;
+
+export function isKnownHookEvent(s: string): boolean {
+  return (KNOWN_HOOK_EVENTS as readonly string[]).includes(s);
+}
+
 export const MINDLORE_DIR = '.mindlore';
 export const GLOBAL_MINDLORE_DIR = process.env.MINDLORE_HOME ?? path.join(os.homedir(), MINDLORE_DIR);
 export const DB_NAME = 'mindlore.db';

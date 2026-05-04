@@ -45,11 +45,10 @@ describe('validate-manifest', () => {
   });
 
   it('accepts optional fields when missing', () => {
-    const minimal = { ...validV2 };
-    delete (minimal as Record<string,unknown>).minCCVersion;
-    delete (minimal as Record<string,unknown>).conflicts;
-    delete (minimal as Record<string,unknown>).dependencies;
-    const result = validateManifest(minimal);
+    const withOptionals = { ...validV2, minCCVersion: '2.1.0', conflicts: ['other'] };
+    delete (withOptionals as Record<string,unknown>).minCCVersion;
+    delete (withOptionals as Record<string,unknown>).conflicts;
+    const result = validateManifest(withOptionals);
     expect(result.valid).toBe(true);
   });
 

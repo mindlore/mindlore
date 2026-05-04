@@ -1,3 +1,5 @@
+import { isKnownHookEvent } from './constants.js';
+
 export interface ManifestValidationResult {
   valid: boolean;
   manifestVersion: number;
@@ -6,11 +8,14 @@ export interface ManifestValidationResult {
 }
 
 const SEMVER_RE = /^\d+\.\d+\.\d+$/;
-const KNOWN_EVENTS = [
-  'SessionStart', 'SessionEnd', 'UserPromptSubmit',
-  'FileChanged', 'PreToolUse', 'PostToolUse',
-  'PreCompact', 'PostCompact', 'CwdChanged',
-];
+
+function validateSemVer(value: unknown, label: string, errors: string[]): void {
+  if (value !== undefined) {
+    if (typeof value !== 'string' || !SEMVER_RE.test(value)) {
+      errors.push(`${label} must be valid SemVer (x.y.z), got: ${value}`);
+    }
+  }
+}
 
 export function validateManifest(manifest: Record<string, unknown>): ManifestValidationResult {
   const errors: string[] = [];
@@ -30,17 +35,8 @@ export function validateManifest(manifest: Record<string, unknown>): ManifestVal
   }
 
   if (mv >= 2) {
-    if (manifest.version !== undefined) {
-      if (typeof manifest.version !== 'string' || !SEMVER_RE.test(manifest.version)) {
-        errors.push(`version must be valid SemVer (x.y.z), got: ${manifest.version}`);
-      }
-    }
-
-    if (manifest.minCCVersion !== undefined) {
-      if (typeof manifest.minCCVersion !== 'string' || !SEMVER_RE.test(manifest.minCCVersion)) {
-        errors.push(`minCCVersion must be valid SemVer (x.y.z), got: ${manifest.minCCVersion}`);
-      }
-    }
+    validateSemVer(manifest.version, 'version', errors);
+    validateSemVer(manifest.minCCVersion, 'minCCVersion', errors);
 
     if (manifest.conflicts !== undefined) {
       if (!Array.isArray(manifest.conflicts) || !manifest.conflicts.every((c: unknown) => typeof c === 'string')) {
@@ -48,8 +44,6 @@ export function validateManifest(manifest: Record<string, unknown>): ManifestVal
       }
     }
   }
-
-  // Validate skills array
   if (manifest.skills !== undefined) {
     if (!Array.isArray(manifest.skills)) {
       errors.push('skills must be an array');
@@ -68,7 +62,6 @@ export function validateManifest(manifest: Record<string, unknown>): ManifestVal
     }
   }
 
-  // Validate hooks array
   if (manifest.hooks !== undefined) {
     if (!Array.isArray(manifest.hooks)) {
       errors.push('hooks must be an array');
@@ -83,7 +76,7 @@ export function validateManifest(manifest: Record<string, unknown>): ManifestVal
         const script = 'script' in h ? h.script : undefined;
         if (!event || typeof event !== 'string') errors.push(`hooks[${i}]: event is required`);
         if (!script || typeof script !== 'string') errors.push(`hooks[${i}]: script is required`);
-        if (event && typeof event === 'string' && !KNOWN_EVENTS.includes(event)) {
+        if (event && typeof event === 'string' && !isKnownHookEvent(event)) {
           warnings.push(`hooks[${i}]: unknown event "${event}"`);
         }
       }

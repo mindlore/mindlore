@@ -37,7 +37,6 @@ function main() {
 
   const mdFiles = getAllMdFiles(baseDir);
 
-
   const allHashes = new Map();
   for (const row of db.prepare('SELECT path, content_hash FROM file_hashes').all()) {
     allHashes.set(row.path, row.content_hash);
@@ -73,7 +72,7 @@ function main() {
       changedFiles.push({ file, hash, slug, description, type, category, title, tags, quality, dateCaptured, resolvedProject, body });
     }
 
-    // DB transaction: only DB writes — no file I/O inside to minimize lock hold time
+    // No file I/O inside — minimize lock hold time
     const transaction = db.transaction(() => {
       for (const item of changedFiles) {
         deleteFts.run(item.file);
