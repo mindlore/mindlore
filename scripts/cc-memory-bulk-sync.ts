@@ -119,8 +119,6 @@ export function syncToDb(
 
   const now = new Date().toISOString();
 
-  // Pre-process all files outside the DB transaction to avoid holding
-  // the write lock during slow file I/O (R4 root cause fix).
   interface SyncOp {
     srcPath: string;
     destPath: string;

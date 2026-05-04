@@ -372,7 +372,6 @@ export function syncSessions(
     }
   }
 
-  // DB transaction: only DB writes — no file I/O inside to minimize lock hold time (R4 fix)
   const syncOne = db.transaction((op: SessionOp) => {
     const category = op.isSubagent ? CC_SUBAGENT_CATEGORY : CC_SESSION_CATEGORY;
 

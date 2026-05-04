@@ -1,3 +1,11 @@
+/**
+ * R4 Convention: File I/O must happen BEFORE the DB transaction.
+ * Pre-read data into memory, then run DB writes in a single transaction.
+ * This prevents holding SQLite write locks during slow disk I/O.
+ *
+ * All secure file operations are centralized here.
+ */
+
 import fs from 'fs';
 
 export function safeMkdir(dirPath: string): void {

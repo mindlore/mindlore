@@ -59,8 +59,6 @@ function main() {
   try {
     const project = getProjectName();
 
-    // Pre-read all files outside the DB transaction to avoid holding
-    // the write lock during slow file I/O (R4 root cause fix).
     const changedFiles = [];
     for (const file of mdFiles) {
       const content = fs.readFileSync(file, 'utf8').replace(/\r\n/g, '\n');
