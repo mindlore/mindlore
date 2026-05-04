@@ -534,6 +534,7 @@ function main(): void {
     console.log('       npx mindlore memory-sync');
     console.log('       npx mindlore fetch-raw <url>');
     console.log('       npx mindlore daemon start|stop|status');
+    console.log('       npx mindlore mcp');
     console.log('       npx mindlore upgrade');
     process.exit(1);
   }
