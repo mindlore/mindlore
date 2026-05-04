@@ -3,6 +3,8 @@ import { handleSearch } from '../scripts/lib/tool-adapters/search-adapter';
 import { handleStats } from '../scripts/lib/tool-adapters/stats-adapter';
 import { handleRecall } from '../scripts/lib/tool-adapters/recall-adapter';
 import { handleBrief } from '../scripts/lib/tool-adapters/brief-adapter';
+import { handleIngest } from '../scripts/lib/tool-adapters/ingest-adapter';
+import { handleDecide } from '../scripts/lib/tool-adapters/decide-adapter';
 import type { McpContext } from '../scripts/lib/mcp-tools';
 import path from 'path';
 import os from 'os';
@@ -157,6 +159,82 @@ describe('brief adapter', () => {
       expect(result.summary).toBeDefined();
       expect(typeof result.recentDecisions).toBe('number');
       expect(typeof result.recentEpisodes).toBe('number');
+    } finally {
+      ctx.cleanup();
+    }
+  });
+});
+
+describe('ingest adapter', () => {
+  it('ingests text content and returns slug', () => {
+    const ctx = createTestContext();
+    try {
+      const result = handleIngest(ctx, {
+        type: 'text',
+        content: 'MCP protocol is a cross-host memory layer for AI agents.',
+        title: 'MCP Overview',
+      });
+      expect(result.slug).toBeDefined();
+      expect(result.path).toBeDefined();
+      expect(result.wordCount).toBeGreaterThan(0);
+    } finally {
+      ctx.cleanup();
+    }
+  });
+
+  it('rejects empty content', () => {
+    const ctx = createTestContext();
+    try {
+      expect(() => handleIngest(ctx, { type: 'text', content: '' })).toThrow();
+    } finally {
+      ctx.cleanup();
+    }
+  });
+});
+
+describe('decide adapter', () => {
+  it('saves a decision and returns slug', () => {
+    const ctx = createTestContext();
+    try {
+      const result = handleDecide(ctx, {
+        action: 'save',
+        title: 'Use Stdio Transport',
+        rationale: 'Proven model from context-mode, 14 platform support.',
+      });
+      expect(result.slug).toBe('use-stdio-transport');
+      expect(result.path).toContain('decisions');
+      expect(fs.existsSync(result.path as string)).toBe(true);
+    } finally {
+      ctx.cleanup();
+    }
+  });
+
+  it('lists decisions from empty dir', () => {
+    const ctx = createTestContext();
+    try {
+      const result = handleDecide(ctx, { action: 'list' });
+      expect(result.decisions).toEqual([]);
+      expect(result.total).toBe(0);
+    } finally {
+      ctx.cleanup();
+    }
+  });
+
+  it('lists saved decisions', () => {
+    const ctx = createTestContext();
+    try {
+      handleDecide(ctx, {
+        action: 'save',
+        title: 'Decision One',
+        rationale: 'First reason.',
+      });
+      handleDecide(ctx, {
+        action: 'save',
+        title: 'Decision Two',
+        rationale: 'Second reason.',
+      });
+      const result = handleDecide(ctx, { action: 'list' });
+      expect(result.decisions!.length).toBe(2);
     } finally {
       ctx.cleanup();
     }
