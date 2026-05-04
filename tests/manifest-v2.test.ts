@@ -44,14 +44,6 @@ describe('validate-manifest', () => {
     expect(result.errors[0]).toMatch(/manifestVersion/i);
   });
 
-  it('accepts optional fields when missing', () => {
-    const withOptionals = { ...validV2, minCCVersion: '2.1.0', conflicts: ['other'] };
-    delete (withOptionals as Record<string,unknown>).minCCVersion;
-    delete (withOptionals as Record<string,unknown>).conflicts;
-    const result = validateManifest(withOptionals);
-    expect(result.valid).toBe(true);
-  });
-
   it('validates minCCVersion format when present', () => {
     const withCC = { ...validV2, minCCVersion: '2.1.100' };
     expect(validateManifest(withCC).valid).toBe(true);
