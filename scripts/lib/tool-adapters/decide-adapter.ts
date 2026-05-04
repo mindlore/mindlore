@@ -33,7 +33,7 @@ interface DecideListOutput {
   total: number;
 }
 
-type DecideOutput = DecideSaveOutput & Partial<DecideListOutput>;
+type DecideOutput = DecideSaveOutput | DecideListOutput;
 
 function slugify(text: string): string {
   return text
@@ -102,5 +102,5 @@ export function handleDecide(ctx: McpContext, input: DecideInput): DecideOutput 
     });
   }
 
-  return { slug: '', path: '', decisions, total: decisions.length };
+  return { decisions, total: decisions.length };
 }

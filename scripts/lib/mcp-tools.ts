@@ -49,7 +49,7 @@ export function registerAllTools(server: McpServer, ctx: McpContext): void {
     'mindlore_ingest',
     'Add knowledge to Mindlore (text or file)',
     {
-      type: z.enum(['url', 'text', 'file']).describe('Source type'),
+      type: z.enum(['text', 'file']).describe('Source type'),
       content: z.string().describe('Text content, URL, or file path'),
       title: z.string().optional().describe('Title (auto-detected if omitted)'),
       tags: z.array(z.string()).optional().describe('Tags'),
@@ -144,7 +144,6 @@ export function registerAllTools(server: McpServer, ctx: McpContext): void {
     'mindlore_stats',
     'Health check and database statistics',
     {
-      detail: z.boolean().optional().describe('Extended stats (default: false)'),
     },
     async (input) => {
       return withMcpTelemetry(ctx.baseDir, 'mindlore_stats', async () => {

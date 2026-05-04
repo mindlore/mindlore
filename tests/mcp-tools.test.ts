@@ -196,14 +196,15 @@ describe('decide adapter', () => {
   it('saves a decision and returns slug', () => {
     const ctx = createTestContext();
     try {
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- discriminated union narrowing in test
       const result = handleDecide(ctx, {
         action: 'save',
         title: 'Use Stdio Transport',
         rationale: 'Proven model from context-mode, 14 platform support.',
-      });
+      }) as { slug: string; path: string };
       expect(result.slug).toBe('use-stdio-transport');
       expect(result.path).toContain('decisions');
-      expect(fs.existsSync(result.path as string)).toBe(true);
+      expect(fs.existsSync(result.path)).toBe(true);
     } finally {
       ctx.cleanup();
     }
@@ -212,7 +213,8 @@ describe('decide adapter', () => {
   it('lists decisions from empty dir', () => {
     const ctx = createTestContext();
     try {
-      const result = handleDecide(ctx, { action: 'list' });
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- discriminated union narrowing in test
+      const result = handleDecide(ctx, { action: 'list' }) as { decisions: unknown[]; total: number };
       expect(result.decisions).toEqual([]);
       expect(result.total).toBe(0);
     } finally {
@@ -233,8 +235,9 @@ describe('decide adapter', () => {
         title: 'Decision Two',
         rationale: 'Second reason.',
       });
-      const result = handleDecide(ctx, { action: 'list' });
-      expect(result.decisions!.length).toBe(2);
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- discriminated union narrowing in test
+      const result = handleDecide(ctx, { action: 'list' }) as { decisions: unknown[]; total: number };
+      expect(result.decisions.length).toBe(2);
     } finally {
       ctx.cleanup();
     }

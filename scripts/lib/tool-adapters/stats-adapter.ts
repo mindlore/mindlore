@@ -4,7 +4,7 @@ import type { McpContext } from '../mcp-tools.js';
 import { DB_NAME } from '../constants.js';
 
 interface StatsInput {
-  detail?: boolean;
+  [key: string]: never;
 }
 
 interface StatsOutput {
@@ -34,7 +34,7 @@ function countDir(dirPath: string): number {
 }
 
 export function handleStats(ctx: McpContext, input: StatsInput): StatsOutput {
-  void input;
+  void input; // no params currently
   const warnings: string[] = [];
 
   const sources = countDir(path.join(ctx.baseDir, 'sources'));
@@ -52,6 +52,7 @@ export function handleStats(ctx: McpContext, input: StatsInput): StatsOutput {
 
   let lastIndexed = 'never';
   try {
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- DB schema guarantees row shape
     const row = ctx.db.prepare(
       'SELECT last_indexed FROM file_hashes ORDER BY last_indexed DESC LIMIT 1'
     ).get() as { last_indexed: string } | undefined;
@@ -62,6 +63,7 @@ export function handleStats(ctx: McpContext, input: StatsInput): StatsOutput {
   try {
     const pkgPath = path.join(__dirname, '..', '..', 'package.json');
     const pkg = JSON.parse(fs.readFileSync(pkgPath, 'utf8'));
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- package.json structure is known
     version = (pkg as { version?: string }).version ?? '0.0.0';
   } catch { /* ignore */ }
 

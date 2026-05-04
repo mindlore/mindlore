@@ -28,6 +28,7 @@ export function extractSmartSnippet(
 
   let chunks: ChunkRow[];
   try {
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- DB schema guarantees ChunkRow shape
     chunks = db.prepare(
       'SELECT chunk_index, heading, breadcrumb, char_count FROM chunks WHERE source_path = ? ORDER BY chunk_index'
     ).all(sourcePath) as ChunkRow[];
@@ -60,7 +61,10 @@ export function extractSmartSnippet(
     return { snippet: extractSnippet(fullContent, terms, maxLen), heading: null };
   }
 
-  const bestParsed = parsedChunks[bestChunkIdx]!;
+  const bestParsed = parsedChunks[bestChunkIdx];
+  if (!bestParsed) {
+    return { snippet: extractSnippet(fullContent, terms, maxLen), heading: null };
+  }
   const chunkSnippet = extractSnippet(bestParsed.content, terms, maxLen);
   const heading = chunks[bestChunkIdx]?.heading ?? bestParsed.heading ?? null;
 

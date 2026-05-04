@@ -30,6 +30,7 @@ function sendRequest(proc: ChildProcess, request: JsonRpcRequest): Promise<JsonR
       for (const line of lines) {
         if (!line.trim()) continue;
         try {
+          // eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- JSON.parse in test context
           const parsed = JSON.parse(line) as JsonRpcResponse;
           if (parsed.id === request.id) {
             clearTimeout(timeout);
@@ -91,6 +92,7 @@ describe('MCP Server stdio integration', () => {
       method: 'tools/list',
     });
     expect(response.result).toBeDefined();
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- test assertion context
     const result = response.result as { tools: Array<{ name: string }> };
     const toolNames = result.tools.map(t => t.name);
     expect(toolNames).toContain('mindlore_search');

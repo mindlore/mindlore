@@ -3,7 +3,7 @@ import path from 'path';
 import type { McpContext } from '../mcp-tools.js';
 
 interface IngestInput {
-  type: 'url' | 'text' | 'file';
+  type: 'text' | 'file';
   content: string;
   title?: string;
   tags?: string[];
@@ -29,10 +29,6 @@ function slugify(text: string): string {
 export function handleIngest(ctx: McpContext, input: IngestInput): IngestOutput {
   if (!input.content || input.content.trim().length === 0) {
     throw new Error('Content is required and cannot be empty');
-  }
-
-  if (input.type === 'url') {
-    throw new Error('URL ingest requires async fetch — use /mindlore-ingest skill for URLs. MCP tool supports text and file types.');
   }
 
   let body: string;
