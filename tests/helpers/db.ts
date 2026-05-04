@@ -58,14 +58,6 @@ const ALL_MIGRATIONS = [
   ...V068_MIGRATIONS,
 ];
 
-export function createTestDbWithFullSchema(dbPath: string): Database.Database {
-  const db = createTestDb(dbPath);
-  ensureEpisodesTableCjs(db);
-  ensureSchemaTable(db);
-  runMigrations(db, ALL_MIGRATIONS);
-  return db;
-}
-
 export function createTestDbAtVersion(dbPath: string, maxVersion: number): Database.Database {
   const db = createTestDb(dbPath);
   ensureEpisodesTableCjs(db);
@@ -82,6 +74,8 @@ export function createTestDbWithMigrations(dbPath: string): Database.Database {
   runMigrations(db, ALL_MIGRATIONS);
   return db;
 }
+
+export const createTestDbWithFullSchema = createTestDbWithMigrations;
 
 export interface FtsEntry {
   [key: string]: string | null | undefined;
