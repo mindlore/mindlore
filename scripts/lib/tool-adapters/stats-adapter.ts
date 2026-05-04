@@ -3,10 +3,6 @@ import path from 'path';
 import type { McpContext } from '../mcp-tools.js';
 import { DB_NAME } from '../constants.js';
 
-interface StatsInput {
-  [key: string]: never;
-}
-
 interface StatsOutput {
   version: string;
   sources: number;
@@ -18,6 +14,17 @@ interface StatsOutput {
   health: 'ok' | 'warning' | 'error';
   warnings?: string[];
 }
+
+const COUNTED_DIRS = ['sources', 'episodes', 'decisions', 'learnings'] as const;
+
+const MODULE_VERSION = (() => {
+  try {
+    const pkgPath = path.join(__dirname, '..', '..', '..', '..', 'package.json');
+    const pkg = JSON.parse(fs.readFileSync(pkgPath, 'utf8'));
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- package.json structure is known
+    return (pkg as { version?: string }).version ?? '0.0.0';
+  } catch { return '0.0.0'; }
+})();
 
 function formatSize(bytes: number): string {
   if (bytes < 1024) return `${bytes} B`;
@@ -33,22 +40,17 @@ function countDir(dirPath: string): number {
   }
 }
 
-export function handleStats(ctx: McpContext, input: StatsInput): StatsOutput {
-  void input; // no params currently
+export function handleStats(ctx: McpContext): StatsOutput {
   const warnings: string[] = [];
 
-  const sources = countDir(path.join(ctx.baseDir, 'sources'));
-  const episodes = countDir(path.join(ctx.baseDir, 'episodes'));
-  const decisions = countDir(path.join(ctx.baseDir, 'decisions'));
-  const learnings = countDir(path.join(ctx.baseDir, 'learnings'));
+  const counts = Object.fromEntries(
+    COUNTED_DIRS.map(d => [d, countDir(path.join(ctx.baseDir, d))])
+  );
 
   let dbSize = '0 B';
   try {
-    const dbPath = path.join(ctx.baseDir, DB_NAME);
-    if (fs.existsSync(dbPath)) {
-      dbSize = formatSize(fs.statSync(dbPath).size);
-    }
-  } catch { /* ignore */ }
+    dbSize = formatSize(fs.statSync(path.join(ctx.baseDir, DB_NAME)).size);
+  } catch { /* ENOENT or other — default 0 B */ }
 
   let lastIndexed = 'never';
   try {
@@ -59,15 +61,17 @@ export function handleStats(ctx: McpContext, input: StatsInput): StatsOutput {
     if (row) lastIndexed = row.last_indexed;
   } catch { /* table may not exist */ }
 
-  let version = '0.0.0';
-  try {
-    const pkgPath = path.join(__dirname, '..', '..', '..', '..', 'package.json');
-    const pkg = JSON.parse(fs.readFileSync(pkgPath, 'utf8'));
-    // eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- package.json structure is known
-    version = (pkg as { version?: string }).version ?? '0.0.0';
-  } catch { /* ignore */ }
-
   const health = warnings.length === 0 ? 'ok' : 'warning';
 
-  return { version, sources, episodes, decisions, learnings, dbSize, lastIndexed, health, warnings: warnings.length > 0 ? warnings : undefined };
+  return {
+    version: MODULE_VERSION,
+    sources: counts.sources ?? 0,
+    episodes: counts.episodes ?? 0,
+    decisions: counts.decisions ?? 0,
+    learnings: counts.learnings ?? 0,
+    dbSize,
+    lastIndexed,
+    health,
+    warnings: warnings.length > 0 ? warnings : undefined,
+  };
 }

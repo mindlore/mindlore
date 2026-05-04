@@ -1,6 +1,7 @@
 import fs from 'fs';
 import path from 'path';
 import type { McpContext } from '../mcp-tools.js';
+import { slugify } from '../slugify.js';
 
 interface IngestInput {
   type: 'text' | 'file';
@@ -16,16 +17,6 @@ interface IngestOutput {
   indexed: boolean;
 }
 
-function slugify(text: string): string {
-  return text
-    .toLowerCase()
-    .replace(/[^a-z0-9\s-]/g, '')
-    .replace(/\s+/g, '-')
-    .replace(/-+/g, '-')
-    .slice(0, 60)
-    .replace(/^-|-$/g, '');
-}
-
 export function handleIngest(ctx: McpContext, input: IngestInput): IngestOutput {
   if (!input.content || input.content.trim().length === 0) {
     throw new Error('Content is required and cannot be empty');
@@ -36,8 +27,9 @@ export function handleIngest(ctx: McpContext, input: IngestInput): IngestOutput 
 
   if (input.type === 'file') {
     const filePath = path.resolve(input.content);
-    if (!fs.existsSync(filePath)) throw new Error(`File not found: ${filePath}`);
-    body = fs.readFileSync(filePath, 'utf8').replace(/\r\n/g, '\n');
+    try {
+      body = fs.readFileSync(filePath, 'utf8').replace(/\r\n/g, '\n');
+    } catch { throw new Error(`File not found: ${filePath}`); }
     title = input.title ?? path.basename(filePath, path.extname(filePath));
   } else {
     body = input.content;

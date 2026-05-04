@@ -33,7 +33,6 @@ async function main(): Promise<void> {
     }
   }
 
-  // Open DB with WAL mode + busy_timeout
   const dbPath = path.join(baseDir, DB_NAME);
   const db = new Database(dbPath);
   db.pragma('journal_mode = WAL');

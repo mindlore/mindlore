@@ -40,8 +40,10 @@ function parseFrontmatterSimple(content: string): { meta: Record<string, string>
 }
 
 function readDir(dirPath: string, type: string, since?: string, limit?: number): RecallItem[] {
-  if (!fs.existsSync(dirPath)) return [];
-  const files = fs.readdirSync(dirPath).filter(f => f.endsWith('.md')).sort().reverse();
+  let files: string[];
+  try {
+    files = fs.readdirSync(dirPath).filter(f => f.endsWith('.md')).sort().reverse();
+  } catch { return []; }
   const items: RecallItem[] = [];
   for (const file of files) {
     if (items.length >= (limit ?? DEFAULT_LIMIT)) break;

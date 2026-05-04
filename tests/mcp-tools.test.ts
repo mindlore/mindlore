@@ -93,7 +93,7 @@ describe('stats adapter', () => {
   it('returns basic stats', () => {
     const ctx = createTestContext();
     try {
-      const result = handleStats(ctx, {});
+      const result = handleStats(ctx);
       expect(result.health).toBeDefined();
       expect(typeof result.sources).toBe('number');
       expect(typeof result.dbSize).toBe('string');
@@ -105,7 +105,7 @@ describe('stats adapter', () => {
   it('returns version string', () => {
     const ctx = createTestContext();
     try {
-      const result = handleStats(ctx, {});
+      const result = handleStats(ctx);
       expect(result.version).toBeDefined();
     } finally {
       ctx.cleanup();

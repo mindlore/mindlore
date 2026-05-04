@@ -25,22 +25,16 @@ export async function withMcpTelemetry<T>(
   fn: () => Promise<T>
 ): Promise<T> {
   const start = Date.now();
+  const ts = new Date().toISOString();
   try {
     const result = await fn();
     writeMcpTelemetry(baseDir, {
-      ts: new Date().toISOString(),
-      tool: toolName,
-      durationMs: Date.now() - start,
-      success: true,
+      ts, tool: toolName, durationMs: Date.now() - start, success: true,
     });
     return result;
   } catch (err) {
     writeMcpTelemetry(baseDir, {
-      ts: new Date().toISOString(),
-      tool: toolName,
-      durationMs: Date.now() - start,
-      success: false,
-      error: errMsg(err),
+      ts, tool: toolName, durationMs: Date.now() - start, success: false, error: errMsg(err),
     });
     throw err;
   }

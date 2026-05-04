@@ -145,10 +145,10 @@ export function registerAllTools(server: McpServer, ctx: McpContext): void {
     'Health check and database statistics',
     {
     },
-    async (input) => {
+    async () => {
       return withMcpTelemetry(ctx.baseDir, 'mindlore_stats', async () => {
         try {
-          return toolResult(handleStats(ctx, input));
+          return toolResult(handleStats(ctx));
         } catch (err) {
           return toolError(errMsg(err));
         }

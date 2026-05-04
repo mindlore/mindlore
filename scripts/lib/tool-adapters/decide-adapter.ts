@@ -1,6 +1,7 @@
 import fs from 'fs';
 import path from 'path';
 import type { McpContext } from '../mcp-tools.js';
+import { slugify } from '../slugify.js';
 
 interface DecideSaveInput {
   action: 'save';
@@ -34,16 +35,6 @@ interface DecideListOutput {
 }
 
 type DecideOutput = DecideSaveOutput | DecideListOutput;
-
-function slugify(text: string): string {
-  return text
-    .toLowerCase()
-    .replace(/[^a-z0-9\s-]/g, '')
-    .replace(/\s+/g, '-')
-    .replace(/-+/g, '-')
-    .slice(0, 60)
-    .replace(/^-|-$/g, '');
-}
 
 export function handleDecide(ctx: McpContext, input: DecideInput): DecideOutput {
   const decisionsDir = path.join(ctx.baseDir, 'decisions');
