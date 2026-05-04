@@ -1,6 +1,8 @@
 import Database from 'better-sqlite3';
 import { handleSearch } from '../scripts/lib/tool-adapters/search-adapter';
 import { handleStats } from '../scripts/lib/tool-adapters/stats-adapter';
+import { handleRecall } from '../scripts/lib/tool-adapters/recall-adapter';
+import { handleBrief } from '../scripts/lib/tool-adapters/brief-adapter';
 import type { McpContext } from '../scripts/lib/mcp-tools';
 import path from 'path';
 import os from 'os';
@@ -103,6 +105,58 @@ describe('stats adapter', () => {
     try {
       const result = handleStats(ctx, {});
       expect(result.version).toBeDefined();
+    } finally {
+      ctx.cleanup();
+    }
+  });
+});
+
+describe('recall adapter', () => {
+  it('returns empty items for empty KB', () => {
+    const ctx = createTestContext();
+    try {
+      const result = handleRecall(ctx, { type: 'all' });
+      expect(result.items).toEqual([]);
+      expect(result.total).toBe(0);
+    } finally {
+      ctx.cleanup();
+    }
+  });
+
+  it('returns decisions when type=decisions', () => {
+    const ctx = createTestContext();
+    try {
+      // Create a test decision file
+      const decPath = path.join(ctx.baseDir, 'decisions', 'test-decision.md');
+      fs.writeFileSync(decPath, [
+        '---',
+        'slug: test-decision',
+        'type: decision',
+        'date: 2026-05-04',
+        'title: Use MCP Protocol',
+        'tags: [mcp, architecture]',
+        '---',
+        '',
+        'We decided to use MCP protocol for cross-host communication.',
+      ].join('\n'));
+
+      const result = handleRecall(ctx, { type: 'decisions' });
+      expect(result.items.length).toBe(1);
+      expect(result.items[0]!.title).toBe('Use MCP Protocol');
+    } finally {
+      ctx.cleanup();
+    }
+  });
+});
+
+describe('brief adapter', () => {
+  it('returns project brief for empty KB', () => {
+    const ctx = createTestContext();
+    try {
+      const result = handleBrief(ctx, {});
+      expect(result.summary).toBeDefined();
+      expect(typeof result.recentDecisions).toBe('number');
+      expect(typeof result.recentEpisodes).toBe('number');
     } finally {
       ctx.cleanup();
     }
