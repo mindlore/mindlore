@@ -33,6 +33,7 @@ export const DIRECTORIES = [
 export const SKIP_FILES = new Set(['INDEX.md', 'SCHEMA.md', 'log.md']);
 
 export const DB_BUSY_TIMEOUT_MS = 2000;
+export const MCP_BUSY_TIMEOUT_MS = 5000;
 
 export const CONFIG_FILE = 'config.json';
 
