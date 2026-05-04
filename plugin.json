@@ -77,6 +77,11 @@
       "description": "Periodic maintenance, stale detection, health trends"
     }
   ],
+  "mcpServer": {
+    "command": "npx",
+    "args": ["mindlore", "mcp"],
+    "env": {}
+  },
   "hooks": [
     {
       "event": "SessionStart",

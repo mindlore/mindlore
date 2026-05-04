@@ -503,6 +503,7 @@ function main(): void {
     'memory-sync': { script: './cc-memory-bulk-sync.js', passArgs: true },
     'fetch-raw': { script: './fetch-raw.js', passArgs: true },
     daemon: { script: './mindlore-daemon.js', passArgs: true },
+    mcp: { script: './mcp-server.js', passArgs: true },
   };
 
   const cliCmd = command ? cliCommands[command] : undefined;
