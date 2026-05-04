@@ -61,7 +61,7 @@ export function handleStats(ctx: McpContext, input: StatsInput): StatsOutput {
 
   let version = '0.0.0';
   try {
-    const pkgPath = path.join(__dirname, '..', '..', 'package.json');
+    const pkgPath = path.join(__dirname, '..', '..', '..', '..', 'package.json');
     const pkg = JSON.parse(fs.readFileSync(pkgPath, 'utf8'));
     // eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- package.json structure is known
     version = (pkg as { version?: string }).version ?? '0.0.0';

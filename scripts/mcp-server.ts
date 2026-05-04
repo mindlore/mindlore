@@ -12,7 +12,7 @@ import { errMsg } from './lib/err-msg.js';
 
 const PACKAGE_VERSION = (() => {
   try {
-    const pkg = JSON.parse(fs.readFileSync(path.join(__dirname, '..', 'package.json'), 'utf8'));
+    const pkg = JSON.parse(fs.readFileSync(path.join(__dirname, '..', '..', 'package.json'), 'utf8'));
     // eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- package.json structure is known
     return (pkg as { version?: string }).version ?? '0.0.0';
   } catch {
