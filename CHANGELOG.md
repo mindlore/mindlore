@@ -5,6 +5,29 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.6.9] - 2026-05-04
+
+### Added
+- `secure-io` helper: `safeReadFile`, `safeWriteFile`, `safeWriteJson` with path validation and atomic writes
+- Manifest validation library (`scripts/lib/validate-manifest.ts`) with v2 schema support
+- `validate-manifest-cli.ts` — CLI tool for plugin.json validation with error handling
+- `plugin.json` upgraded to manifest v2 (version, minCCVersion, conflicts fields)
+- `isKnownHookEvent()` guard function in constants.ts
+- `KNOWN_HOOK_EVENTS` constant exported from constants.ts (single source of truth)
+- Secure-io test suite (68 assertions)
+- Manifest v2 test suite (10 assertions)
+
+### Changed
+- Hooks and scripts migrated to secure-io helper (replaces raw fs calls)
+- Test tmpdir consolidated to `mkdtempSync` for parallel safety
+- Test DB setup consolidated to shared `createTestDbWithMigrations` helper
+- `validateSemVer` signature simplified: `(value, label, errors)` instead of stringly-typed field access
+- fts5-sync: early-return guard + bulk hash fetch for performance
+- fts5-sync: per-item transaction pattern (D5 fix) for reduced lock hold time
+
+### Fixed
+- Lint: unsafe type assertion in validate-manifest-cli replaced with type guard + spread
+
 ## [0.6.8] - 2026-05-03
 
 ### Added
