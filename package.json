@@ -22,7 +22,8 @@
     "cleanup": "node dist/scripts/maintain-cleanup.js",
     "perf": "node dist/scripts/mindlore-perf.js",
     "doctor": "node dist/scripts/mindlore-doctor.js",
-    "audit": "npm audit --audit-level=moderate"
+    "audit": "npm audit --audit-level=moderate",
+    "validate-manifest": "node dist/scripts/validate-manifest-cli.js"
   },
   "keywords": [
     "claude-code",
