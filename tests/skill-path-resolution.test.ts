@@ -5,19 +5,23 @@ import { execSync } from 'child_process';
 
 describe('Skill script path resolution', () => {
   const mindlorePkg = path.resolve(__dirname, '..');
-  const tmpDir = path.join(os.tmpdir(), `mindlore-path-res-${Date.now()}`);
+  const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'mindlore-path-res-'));
 
-  beforeEach(() => fs.mkdirSync(tmpDir, { recursive: true }));
   afterEach(() => fs.rmSync(tmpDir, { recursive: true, force: true }));
 
   test('scripts are reachable from a different CWD via MINDLORE_PKG', () => {
     const healthScript = path.join(mindlorePkg, 'dist', 'scripts', 'mindlore-health-check.js');
     expect(fs.existsSync(healthScript)).toBe(true);
 
-    const result = execSync(
-      `node "${healthScript}" "${path.join(os.homedir(), '.mindlore')}" 2>&1 || true`,
-      { cwd: tmpDir, encoding: 'utf8', timeout: 15000 }
-    );
+    let result: string;
+    try {
+      result = execSync(
+        `node "${healthScript}" "${path.join(os.homedir(), '.mindlore')}"`,
+        { cwd: tmpDir, encoding: 'utf8', timeout: 15000 }
+      );
+    } catch (err) {
+      result = (err as { stdout?: string; stderr?: string }).stdout || (err as { stdout?: string; stderr?: string }).stderr || '';
+    }
     expect(result).not.toContain('Cannot find module');
   });
 

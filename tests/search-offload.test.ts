@@ -3,7 +3,7 @@ import path from 'path';
 import os from 'os';
 
 describe('search hook offload+pointer', () => {
-  const tmpDir = path.join(os.tmpdir(), 'mindlore-offload-' + Date.now());
+  const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'mindlore-offload-'));
   const mindloreDir = path.join(tmpDir, '.mindlore');
   const tmpSubDir = path.join(mindloreDir, 'tmp');
 

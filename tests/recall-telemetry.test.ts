@@ -8,11 +8,12 @@ import { V052_MIGRATIONS } from '../scripts/lib/migrations-v052.js';
 import { V053_MIGRATIONS } from '../scripts/lib/migrations-v053.js';
 
 describe('Recall Telemetry', () => {
-  const tmpDir = path.join(os.tmpdir(), `mindlore-recall-${Date.now()}`);
-  const dbPath = path.join(tmpDir, 'mindlore.db');
+  let tmpDir: string;
+  let dbPath: string;
 
   beforeEach(() => {
-    fs.mkdirSync(tmpDir, { recursive: true });
+    tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'mindlore-recall-'));
+    dbPath = path.join(tmpDir, 'mindlore.db');
     const db = new Database(dbPath);
     db.exec(`
       CREATE TABLE IF NOT EXISTS file_hashes (path TEXT PRIMARY KEY, hash TEXT, last_indexed TEXT);

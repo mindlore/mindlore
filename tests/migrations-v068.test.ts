@@ -10,15 +10,18 @@ import { runMigrations } from '../scripts/lib/schema-version.js';
 
 describe('V068 Migrations', () => {
   let db: Database.Database;
-  const dbPath = path.join(os.tmpdir(), `mindlore-v068-test-${Date.now()}.db`);
+  let tmpDir: string;
+  let dbPath: string;
 
   beforeEach(() => {
+    tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'mindlore-v068-test-'));
+    dbPath = path.join(tmpDir, 'test.db');
     db = createTestDbWithMigrations(dbPath);
   });
 
   afterEach(() => {
     db.close();
-    fs.unlinkSync(dbPath);
+    fs.rmSync(tmpDir, { recursive: true, force: true });
   });
 
   test('v18: creates injected_at index', () => {

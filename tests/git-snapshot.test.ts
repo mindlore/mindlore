@@ -4,7 +4,7 @@ import os from 'os';
 import { execSync } from 'child_process';
 
 describe('Git Snapshot (Pre-Eviction)', () => {
-  const tmpDir = path.join(os.tmpdir(), `mindlore-snapshot-${Date.now()}`);
+  const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'mindlore-snapshot-'));
   const mindloreDir = path.join(tmpDir, '.mindlore');
 
   beforeEach(() => {
@@ -58,8 +58,7 @@ describe('Git Snapshot (Pre-Eviction)', () => {
 
   test('createPreEvictionTag returns null for non-git directory', async () => {
     const { createPreEvictionTag } = await import('../scripts/lib/git-snapshot.js');
-    const nonGit = path.join(os.tmpdir(), `no-git-${Date.now()}`);
-    fs.mkdirSync(nonGit, { recursive: true });
+    const nonGit = fs.mkdtempSync(path.join(os.tmpdir(), 'mindlore-no-git-'));
     try {
       const tag = createPreEvictionTag(nonGit, 'test.md');
       expect(tag).toBeNull();
@@ -70,8 +69,7 @@ describe('Git Snapshot (Pre-Eviction)', () => {
 
   test('listPreEvictionTags returns empty for non-git directory', async () => {
     const { listPreEvictionTags } = await import('../scripts/lib/git-snapshot.js');
-    const nonGit = path.join(os.tmpdir(), `no-git-${Date.now()}`);
-    fs.mkdirSync(nonGit, { recursive: true });
+    const nonGit = fs.mkdtempSync(path.join(os.tmpdir(), 'mindlore-no-git-'));
     try {
       const tags = listPreEvictionTags(nonGit);
       expect(tags).toEqual([]);

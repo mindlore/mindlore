@@ -22,7 +22,8 @@ function runWriteEpisodeFile(baseDir: string, project: string, commits: string[]
   // Since writeEpisodeFile is not exported, test via the hook's worker mode
   // by calling the hook with a crafted payload
   const payload = JSON.stringify({ baseDir, project, commits, changedFiles, reads });
-  const tmpFile = path.join(os.tmpdir(), `mindlore-test-epfile-${Date.now()}.json`);
+  const tmpFileDir = fs.mkdtempSync(path.join(os.tmpdir(), 'mindlore-test-epfile-'));
+  const tmpFile = path.join(tmpFileDir, 'payload.json');
   fs.writeFileSync(tmpFile, payload, 'utf8');
 
   const hookFile = path.join(__dirname, '..', 'hooks', 'mindlore-session-end.cjs');

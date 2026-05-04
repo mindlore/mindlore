@@ -11,15 +11,18 @@ const { getNominationCounts } = require('../hooks/lib/mindlore-common.cjs');
 
 describe('getNominationCounts', () => {
   let db: Database.Database;
-  const dbPath = path.join(os.tmpdir(), `mindlore-nom-counts-${Date.now()}.db`);
+  let tmpDir: string;
+  let dbPath: string;
 
   beforeEach(() => {
+    tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'mindlore-nom-counts-'));
+    dbPath = path.join(tmpDir, 'test.db');
     db = createTestDbWithMigrations(dbPath);
   });
 
   afterEach(() => {
     db.close();
-    try { fs.unlinkSync(dbPath); } catch {}
+    try { fs.rmSync(tmpDir, { recursive: true, force: true }); } catch {}
   });
 
   test('returns zero counts on empty table', () => {

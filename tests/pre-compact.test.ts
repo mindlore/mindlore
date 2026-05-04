@@ -1,5 +1,6 @@
 import fs from 'fs';
 import path from 'path';
+import os from 'os';
 import { execFileSync } from 'child_process';
 import { getExecStdout } from './helpers/exec.js';
 
@@ -22,7 +23,7 @@ describe('mindlore-pre-compact hook', () => {
   let testDir: string;
 
   beforeEach(() => {
-    testDir = path.join(__dirname, `.test-pre-compact-${Date.now()}`);
+    testDir = fs.mkdtempSync(path.join(os.tmpdir(), 'mindlore-pre-compact-'));
     const mindloreDir = path.join(testDir, '.mindlore');
     fs.mkdirSync(path.join(mindloreDir, 'episodes'), { recursive: true });
     fs.writeFileSync(path.join(mindloreDir, 'log.md'), '');
