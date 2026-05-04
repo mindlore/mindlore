@@ -372,6 +372,8 @@ export function syncSessions(
     }
   }
 
+  // Per-item transaction is intentional: each session syncs independently
+  // so one corrupt session file doesn't block the rest (partial failure tolerance).
   const syncOne = db.transaction((op: SessionOp) => {
     const category = op.isSubagent ? CC_SUBAGENT_CATEGORY : CC_SESSION_CATEGORY;
 
