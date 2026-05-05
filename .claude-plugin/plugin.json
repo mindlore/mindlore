@@ -27,6 +27,5 @@
       ]
     }
   },
-  "hooks": "./hooks/",
   "skills": "./skills/"
 }
