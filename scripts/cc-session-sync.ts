@@ -23,6 +23,7 @@ import {
 import { redactSecrets } from './lib/privacy-filter.js';
 import { CommonModuleBase, UPSERT_HASH_SQL, getArg } from './lib/sync-helpers.js';
 import { safeMkdir, safeWriteFile } from './lib/secure-io.js';
+import { errMsg } from './lib/err-msg.js';
 
 export interface SessionSyncResult {
   synced: number;
@@ -367,7 +368,7 @@ export function syncSessions(
 
       ops.push({ destPath, hash, sessionDate, shortId, slug, md, isSubagent });
     } catch (err) {
-      const msg = err instanceof Error ? err.message : String(err);
+      const msg = errMsg(err);
       result.errors.push(`${shortId}: ${msg}`);
     }
   }
@@ -414,7 +415,7 @@ export function syncSessions(
     try {
       syncOne(op);
     } catch (err) {
-      const msg = err instanceof Error ? err.message : String(err);
+      const msg = errMsg(err);
       result.errors.push(`${op.shortId}: ${msg}`);
     }
   }

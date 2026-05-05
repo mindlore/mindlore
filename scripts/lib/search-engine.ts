@@ -3,7 +3,7 @@ type Database = BetterSqlite3.Database;
 import { searchPorter, searchTrigram, computeRRF } from './rrf.js';
 import { correctQuery } from './fuzzy.js';
 import { rerankByProximity } from './proximity.js';
-import { extractSnippet } from './snippet.js';
+import { extractSmartSnippet } from './smart-snippet.js';
 import { fixVersionTokens, STOP_WORDS, STOP_WORDS_MIN_LENGTH, TURKISH_WORD_RE, Category } from './constants.js';
 
 export interface SearchOptions {
@@ -21,6 +21,7 @@ export interface SearchResult {
   tags: string;
   score: number;
   snippet?: string;
+  heading?: string | null;
   content?: string;
 }
 
@@ -139,8 +140,12 @@ export function search(db: Database, query: string, options: SearchOptions): Sea
     keywords,
   );
 
-  return ranked.slice(0, maxResults).map(r => ({
-    ...r,
-    snippet: r.content ? extractSnippet(r.content, keywords) : undefined,
-  }));
+  return ranked.slice(0, maxResults).map(r => {
+    const smart = r.content ? extractSmartSnippet(db, r.path, r.content, keywords) : undefined;
+    return {
+      ...r,
+      snippet: smart?.snippet,
+      heading: smart?.heading ?? null,
+    };
+  });
 }

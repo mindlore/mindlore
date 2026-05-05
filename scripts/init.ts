@@ -21,6 +21,7 @@ import { parseJsonObject, readJsonFile } from './lib/safe-parse.js';
 import { ensureSchemaTable, runMigrations } from './lib/schema-version.js';
 import { INIT_MIGRATIONS } from './lib/all-migrations.js';
 import { safeMkdir, safeWriteFile, safeWriteJson } from './lib/secure-io.js';
+import { errMsg } from './lib/err-msg.js';
 
 // eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- dynamic CJS require, typed by mindlore-common.d.cts
 const { SQL_FTS_CREATE, ensureEpisodesTable: ensureEpisodesTableCjs } = require(resolveHookCommon(__dirname)) as {
@@ -502,6 +503,7 @@ function main(): void {
     'memory-sync': { script: './cc-memory-bulk-sync.js', passArgs: true },
     'fetch-raw': { script: './fetch-raw.js', passArgs: true },
     daemon: { script: './mindlore-daemon.js', passArgs: true },
+    mcp: { script: './mcp-server.js', passArgs: true },
   };
 
   const cliCmd = command ? cliCommands[command] : undefined;
@@ -532,6 +534,7 @@ function main(): void {
     console.log('       npx mindlore memory-sync');
     console.log('       npx mindlore fetch-raw <url>');
     console.log('       npx mindlore daemon start|stop|status');
+    console.log('       npx mindlore mcp');
     console.log('       npx mindlore upgrade');
     process.exit(1);
   }
@@ -698,7 +701,7 @@ function main(): void {
         db.close();
       }
     } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : String(err);
+      const msg = errMsg(err);
       console.error('Auto-backfill failed (non-fatal):', msg);
     }
   }

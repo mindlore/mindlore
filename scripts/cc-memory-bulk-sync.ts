@@ -20,6 +20,7 @@ import {
 } from './lib/constants.js';
 import { CommonModuleWithFrontmatter, UPSERT_HASH_SQL, getArg } from './lib/sync-helpers.js';
 import { safeMkdir } from './lib/secure-io.js';
+import { errMsg } from './lib/err-msg.js';
 
 export interface SyncResult {
   synced: number;
@@ -158,7 +159,7 @@ export function syncToDb(
 
       ops.push({ srcPath, destPath, hash, ftsFields, body, projectName });
     } catch (err) {
-      const msg = err instanceof Error ? err.message : String(err);
+      const msg = errMsg(err);
       result.errors.push(`${path.basename(srcPath)}: ${msg}`);
     }
   }

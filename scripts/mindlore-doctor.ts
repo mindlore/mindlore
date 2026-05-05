@@ -3,6 +3,7 @@
 import fs from 'fs';
 import path from 'path';
 import { GLOBAL_MINDLORE_DIR, DB_NAME } from './lib/constants.js';
+import { errMsg } from './lib/err-msg.js';
 
 interface CheckResult {
   name: string;
@@ -104,8 +105,7 @@ export function checkDatabase(baseDir: string): CheckResult {
       message: result === 'ok' ? 'Integrity OK' : `Integrity: ${result}`,
     };
   } catch (err) {
-    const errMsg = err instanceof Error ? err.message : String(err);
-    return { name: 'Database', pass: false, message: `DB error: ${errMsg}` };
+    return { name: 'Database', pass: false, message: `DB error: ${errMsg(err)}` };
   }
 }
 
@@ -136,8 +136,7 @@ export function checkConfigVersion(baseDir: string, pkgVersion?: string): CheckR
       message: match ? `${configVersion} (current)` : `${configVersion} != ${version ?? 'unknown'}`,
     };
   } catch (err) {
-    const errMsg = err instanceof Error ? err.message : String(err);
-    return { name: 'Config Version', pass: false, message: errMsg };
+    return { name: 'Config Version', pass: false, message: errMsg(err) };
   }
 }
 
@@ -169,8 +168,7 @@ export function checkFtsTables(baseDir: string): CheckResult {
         : `Missing: ${missing.join(', ')}`,
     };
   } catch (err) {
-    const errMsg = err instanceof Error ? err.message : String(err);
-    return { name: 'FTS Tables', pass: false, message: errMsg };
+    return { name: 'FTS Tables', pass: false, message: errMsg(err) };
   }
 }
 
