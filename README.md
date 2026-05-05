@@ -126,15 +126,42 @@ Nine directories, each mapping to a frontmatter `type`:
 
 ## Installation
 
-### Minimal (default)
+### Option 1: Plugin (recommended)
+
+From Claude Code session:
+
+```
+/plugin marketplace add mindlore/mindlore
+/plugin install mindlore@mindlore
+```
+
+Or from terminal:
+
+```bash
+claude plugins marketplace add mindlore/mindlore
+claude plugins install mindlore
+```
+
+Restart Claude Code (or `/reload-plugins`). Installs hooks, skills, agents, and MCP server in one step.
+
+### Option 2: MCP Server only
+
+```bash
+npm i -g mindlore
+claude mcp add -s user mindlore -- npx mindlore mcp
+```
+
+Exposes 6 MCP tools (search, ingest, brief, decide, recall, stats). No hooks or skills.
+
+### Option 3: npx init
 
 ```bash
 npx mindlore
 ```
 
-Requires: Node.js 20+ (22, 24 supported), `better-sqlite3` ^12 (installed automatically).
+Sets up `~/.mindlore/` directory, registers hooks and skills globally. Requires Node.js 20+.
 
-### Recommended
+### Recommended extras
 
 ```bash
 npx mindlore --recommended

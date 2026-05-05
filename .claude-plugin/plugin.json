@@ -1,0 +1,32 @@
+{
+  "name": "mindlore",
+  "version": "0.7.0",
+  "description": "AI-native knowledge system for Claude Code. Persistent, searchable, evolving knowledge base with FTS5, 14 lifecycle hooks, 11 skills, and MCP server.",
+  "author": {
+    "name": "Ömer Faruk Can",
+    "url": "https://github.com/omrfc"
+  },
+  "homepage": "https://github.com/mindlore/mindlore#readme",
+  "repository": "https://github.com/mindlore/mindlore",
+  "license": "MIT",
+  "keywords": [
+    "knowledge-base",
+    "fts5",
+    "memory",
+    "mcp",
+    "hooks",
+    "skills",
+    "episodic-memory",
+    "session-tracking"
+  ],
+  "mcpServers": {
+    "mindlore": {
+      "command": "node",
+      "args": [
+        "${CLAUDE_PLUGIN_ROOT}/dist/scripts/mindlore-mcp-server.js"
+      ]
+    }
+  },
+  "hooks": "./hooks/",
+  "skills": "./skills/"
+}
