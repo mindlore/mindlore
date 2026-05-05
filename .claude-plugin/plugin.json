@@ -23,7 +23,7 @@
     "mindlore": {
       "command": "node",
       "args": [
-        "${CLAUDE_PLUGIN_ROOT}/dist/scripts/mindlore-mcp-server.js"
+        "${CLAUDE_PLUGIN_ROOT}/mcp-server.cjs"
       ]
     }
   },
