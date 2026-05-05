@@ -5,6 +5,30 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.7.0] - 2026-05-05
+
+### Added
+- **MCP Server** — JSON-RPC stdio server exposing 6 tools to Claude Code (`mindlore_stats`, `mindlore_search`, `mindlore_recall`, `mindlore_brief`, `mindlore_decide`, `mindlore_ingest`)
+- MCP tool adapters with input validation and telemetry (`scripts/lib/tool-adapters/`)
+- Heading-aware smart snippet extraction for search results
+- `errMsg` utility for consistent error message extraction across 9 files
+- `slugify` utility extracted as shared module (`scripts/lib/slugify.ts`)
+- MCP server lifecycle management (graceful shutdown, signal handling)
+- CLI `mcp` subcommand entry point (`npx mindlore mcp`)
+- `mcpServers` declaration in plugin.json for CC plugin integration
+- MCP server stdio integration test suite
+
+### Changed
+- plugin.json upgraded with `mcpServers` field (plugin manifest v2)
+- CLI help updated with `mcp` subcommand documentation
+
+### Fixed
+- Package.json path resolution for version display (was showing 0.0.0)
+- Schema honesty: removed unimplemented `detail` and `url` fields from tool schemas
+- `decide` tool schema: corrected union type for `action` field
+- TOCTOU race condition fix in file operations
+- Duplicate logic removed across tool adapters
+
 ## [0.6.9] - 2026-05-04
 
 ### Added
