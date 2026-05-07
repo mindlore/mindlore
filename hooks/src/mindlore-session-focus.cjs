@@ -1,0 +1,256 @@
+#!/usr/bin/env node
+'use strict';
+
+/**
+ * mindlore-session-focus — SessionStart hook
+ *
+ * Injects last delta file content + INDEX.md into session context.
+ * Fires once at session start via stdout additionalContext.
+ */
+
+const fs = require('fs');
+const path = require('path');
+const { findMindloreDir, readConfig, openDatabase, hasEpisodesTable, querySupersededChains, formatSupersededChains, hookLog, getProjectName, parseFrontmatter, withTelemetry, withTimeoutDb, listSnapshots, isCorruptionError, recoverCorruptDb, getNominationCounts } = require('./lib/mindlore-common.cjs');
+
+function truncateSection(content, sectionRegex, keepCount, label) {
+  const match = content.match(sectionRegex);
+  if (!match) return content;
+  const lines = match[2].trim().split('\n');
+  if (lines.length <= keepCount) return content;
+  const kept = lines.slice(0, keepCount).join('\n');
+  return content.replace(match[2].trim(), kept + `\n- ...ve ${lines.length - keepCount} ${label} daha`);
+}
+
+function truncateCommits(content) {
+  return truncateSection(content, /(## Commits\n)((?:- [^\n]+\n?)+)/, 5, 'commit');
+}
+
+function truncateChangedFiles(content) {
+  return truncateSection(content, /(## Changed Files\n)((?:- [^\n]+\n?)+)/, 10, 'dosya');
+}
+
+function tryOpenDb(dbPath) {
+  return openDatabase(dbPath, { readonly: true });
+}
+
+function getEpisodeStats(db, config, project) {
+  const chains = querySupersededChains(db, { project, days: 7, limit: 5 });
+  let consolidationMsg = null;
+  try {
+    const rawCount = withTimeoutDb(db,
+      "SELECT COUNT(*) as cnt FROM episodes WHERE consolidation_status = 'raw' OR consolidation_status IS NULL",
+      [], { mode: 'get' });
+    const cnt = rawCount?.cnt ?? 0;
+    const consolThreshold = config?.consolidation?.threshold ?? 50;
+    if (cnt >= consolThreshold) {
+      consolidationMsg = `[Mindlore] ${cnt} raw episode birikti — \`/mindlore-maintain consolidate\` ile birleştirmeyi düşün.`;
+    }
+  } catch (_err) { /* consolidation_status column may not exist yet */ }
+  return { chains, consolidationMsg };
+}
+
+function checkStaleContent(db) {
+  try {
+    const thirtyDaysAgo = new Date(Date.now() - (30 * 24 * 60 * 60 * 1000)).toISOString();
+    const row = withTimeoutDb(db, 'SELECT COUNT(*) as cnt FROM file_hashes WHERE last_indexed < ?', [thirtyDaysAgo], { mode: 'get' });
+    const staleCount = row?.cnt ?? 0;
+    if (staleCount > 3) {
+      return `[Mindlore: ${staleCount} dosya 30+ gundur guncellenmemis — \`/mindlore-evolve\` dusun]`;
+    }
+  } catch (_staleErr) { /* file_hashes may not exist */ }
+  return null;
+}
+
+function loadDbContent({ db, baseDir, config, output, timings, latestDeltaContent, sessionId }) {
+  const project = path.basename(process.cwd());
+  // Session payload: Session summary, Decisions, Friction, Learnings
+  const tPayload = Date.now();
+  try {
+    const { buildSessionPayload } = require('../dist/scripts/lib/session-payload.js');
+    const payloadBudget = config?.tokenBudget?.sessionInject ?? 2000;
+    const payload = buildSessionPayload({ db, baseDir, project, tokenBudget: payloadBudget, latestDeltaContent, sessionId });
+    for (const section of payload.sections) {
+      output.push(`[Mindlore ${section.label}]\n${section.content}`);
+    }
+  } catch (_payloadErr) {
+    // Session payload is optional — don't break session start
+  }
+  timings.db_payload = Date.now() - tPayload;
+
+  // Supersedes chain display + episode consolidation reminder
+  const tSuperseded = Date.now();
+  if (hasEpisodesTable(db)) {
+    const { chains, consolidationMsg } = getEpisodeStats(db, config, project);
+    if (chains.length > 0) {
+      output.push(`[Mindlore Supersedes]\n${formatSupersededChains(chains)}`);
+    }
+    if (consolidationMsg) {
+      output.push(consolidationMsg);
+    }
+  }
+  timings.db_episodes = Date.now() - tSuperseded;
+
+  // Stale content check
+  const tStale = Date.now();
+  const staleMsg = checkStaleContent(db);
+  if (staleMsg) {
+    output.push(staleMsg);
+  }
+  timings.db_stale = Date.now() - tStale;
+
+  // Auto reflect trigger (Q1) + Graduated lesson count (Q3)
+  try {
+    const counts = getNominationCounts(db, project);
+    if (counts.staged >= (config?.graduation?.reflectThreshold ?? 5)) {
+      output.push(`[Mindlore] ${counts.staged} bekleyen nomination var — \`/mindlore-reflect\` çalıştır`);
+    }
+    if (counts.graduated > 0) {
+      output.push(`[Mindlore Graduation] ${counts.graduated} lesson mezun oldu`);
+    }
+  } catch (_reflectErr) { /* graduation not available */ }
+}
+
+function main() {
+  const t0 = Date.now();
+  const baseDir = findMindloreDir();
+  if (!baseDir) return; // No .mindlore/ found, silently skip
+
+  // Read session_id from stdin (Claude Code passes { session_id } to SessionStart hooks)
+  let sessionId;
+  try {
+    const stdinData = JSON.parse(fs.readFileSync(0, 'utf8') || '{}');
+    sessionId = stdinData.session_id || undefined;
+  } catch { sessionId = undefined; }
+
+  const output = [];
+  const config = readConfig(baseDir);
+  const timings = {};
+  let sourceChars = 0;
+
+  // Inject INDEX.md
+  const tIndex = Date.now();
+  const indexPath = path.join(baseDir, 'INDEX.md');
+  if (fs.existsSync(indexPath)) {
+    const content = fs.readFileSync(indexPath, 'utf8').trim();
+    sourceChars += content.length;
+    output.push(`[Mindlore INDEX]\n${content}`);
+  }
+  timings.index_read = Date.now() - tIndex;
+
+  // Inject latest delta + reflect trigger (single readdirSync)
+  const tDiary = Date.now();
+  const diaryDir = path.join(baseDir, 'diary');
+  let latestDeltaContent = undefined;
+  if (fs.existsSync(diaryDir)) {
+    try {
+      const diaryFiles = listSnapshots(diaryDir).filter(f => f.startsWith('delta-'));
+
+      if (diaryFiles.length > 0) {
+        const latestName = diaryFiles[diaryFiles.length - 1];
+        const latestPath = path.join(diaryDir, latestName);
+        const deltaContent = fs.readFileSync(latestPath, 'utf8').trim();
+        sourceChars += deltaContent.length;
+        latestDeltaContent = deltaContent;
+        const { meta } = parseFrontmatter(deltaContent);
+        const deltaProject = meta.project || null;
+        const currentProject = getProjectName();
+        if (!deltaProject || deltaProject.toLowerCase() === currentProject.toLowerCase()) {
+          output.push(`[Mindlore Delta: ${latestName}]\n${truncateChangedFiles(truncateCommits(deltaContent))}`);
+        }
+      }
+
+      // Reflect trigger
+      const threshold = config?.reflect?.threshold ?? 5;
+      if (diaryFiles.length >= threshold) {
+        output.push(`[Mindlore] ${diaryFiles.length} diary entry birikti — \`/mindlore-log reflect\` calistirmayi dusun.`);
+      }
+    } catch (_err) { /* skip */ }
+  }
+  timings.diary_walk = Date.now() - tDiary;
+
+  // Version check: compare .version (installed) vs .pkg-version (package)
+  const tVersion = Date.now();
+  // Both are flat strings written by init — no JSON parse needed on session start
+  const versionPath = path.join(baseDir, '.version');
+  const pkgVersionPath = path.join(baseDir, '.pkg-version');
+  try {
+    if (fs.existsSync(versionPath) && fs.existsSync(pkgVersionPath)) {
+      const installed = fs.readFileSync(versionPath, 'utf8').trim();
+      const pkgVersion = fs.readFileSync(pkgVersionPath, 'utf8').trim();
+      if (pkgVersion && pkgVersion !== installed) {
+        output.push(`[Mindlore: Guncelleme mevcut (${installed} → ${pkgVersion}). \`npx mindlore init\` calistirin.]`);
+      }
+    }
+  } catch (_err) { /* skip */ }
+  timings.version_check = Date.now() - tVersion;
+
+  // v0.5.4: Consolidated session payload (replaces scattered episodes/activity/alerts injection)
+  const tDb = Date.now();
+  const outputLenBeforeDb = output.reduce((s, o) => s + o.length, 0);
+  try {
+    const dbPath = path.join(baseDir, 'mindlore.db');
+    const tDbOpen = Date.now();
+    const db = tryOpenDb(dbPath);
+    timings.db_open = Date.now() - tDbOpen;
+    timings.db_integrity = 0;
+
+    if (db) {
+      try {
+        // Schema version check: warn if DB is behind expected version
+        const tSchema = Date.now();
+        try {
+          const { EXPECTED_SCHEMA_VERSION } = require('../dist/scripts/lib/all-migrations.js');
+          const row = db.prepare('SELECT MAX(version) as v FROM schema_versions').get();
+          const current = row?.v ?? 0;
+          if (current < EXPECTED_SCHEMA_VERSION) {
+            output.push(`[Mindlore: schema güncel değil (v${current} → v${EXPECTED_SCHEMA_VERSION}). \`npx mindlore upgrade\` çalıştır.]`);
+          }
+        } catch (_schemaErr) { /* schema_versions may not exist yet */ }
+        timings.schema_check = Date.now() - tSchema;
+
+        loadDbContent({ db, baseDir, config, output, timings, latestDeltaContent, sessionId });
+      } catch (err) {
+        if (isCorruptionError(err)) {
+          recoverCorruptDb(db, dbPath, 'session-focus');
+        }
+      } finally {
+        try { db.close(); } catch { /* already closed by recovery */ }
+      }
+    }
+  } catch (_err) { /* graceful skip */ }
+  const outputLenAfterDb = output.reduce((s, o) => s + o.length, 0);
+  sourceChars += (outputLenAfterDb - outputLenBeforeDb);
+  timings.db_total = Date.now() - tDb;
+
+  timings.total = Date.now() - t0;
+  hookLog('session-focus', 'info', `timings: ${JSON.stringify(timings)}`);
+
+  // Token budget for session inject
+  // Defaults match DEFAULT_TOKEN_BUDGET in scripts/lib/constants.ts
+  const budgetConfig = config?.tokenBudget ?? {};
+  const maxInjectChars = (budgetConfig.sessionInject || 2000) * 4;
+
+  let joined = output.join('\n\n');
+  if (joined.length > maxInjectChars) {
+    joined = joined.slice(0, maxInjectChars) + '\n[...truncated by token budget]';
+  }
+
+  // v0.6.1: Daemon auto-start removed (daemon deprecated — MCP Server in v0.7)
+
+  if (joined.length > 0) {
+    process.stdout.write(joined + '\n');
+  }
+
+  const inject_tokens = Math.ceil(joined.length / 4);
+  const source_tokens = Math.ceil(sourceChars / 4);
+  return { inject_tokens, source_tokens };
+}
+
+withTelemetry('mindlore-session-focus', main).catch(err => {
+  hookLog('mindlore-session-focus', 'error', err?.message ?? String(err));
+  process.exit(0);
+});
+
+if (typeof module !== 'undefined') {
+  module.exports = { truncateCommits, truncateChangedFiles, getEpisodeStats, checkStaleContent };
+}

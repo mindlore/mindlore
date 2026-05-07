@@ -38,7 +38,7 @@ describe('Hook Smoke Tests', () => {
     for (const hook of expectedHooks) {
       const hookPath = path.join(HOOKS_DIR, hook);
       const content = fs.readFileSync(hookPath, 'utf8');
-      expect(content).toContain("'use strict'");
+      expect(content).toMatch(/['"]use strict['"]/)
     }
   });
 

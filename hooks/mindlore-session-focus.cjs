@@ -1,256 +1,2056 @@
 #!/usr/bin/env node
-'use strict';
+"use strict";
+var __create = Object.create;
+var __defProp = Object.defineProperty;
+var __getOwnPropDesc = Object.getOwnPropertyDescriptor;
+var __getOwnPropNames = Object.getOwnPropertyNames;
+var __getProtoOf = Object.getPrototypeOf;
+var __hasOwnProp = Object.prototype.hasOwnProperty;
+var __commonJS = (cb, mod) => function __require() {
+  return mod || (0, cb[__getOwnPropNames(cb)[0]])((mod = { exports: {} }).exports, mod), mod.exports;
+};
+var __copyProps = (to, from, except, desc) => {
+  if (from && typeof from === "object" || typeof from === "function") {
+    for (let key of __getOwnPropNames(from))
+      if (!__hasOwnProp.call(to, key) && key !== except)
+        __defProp(to, key, { get: () => from[key], enumerable: !(desc = __getOwnPropDesc(from, key)) || desc.enumerable });
+  }
+  return to;
+};
+var __toESM = (mod, isNodeMode, target) => (target = mod != null ? __create(__getProtoOf(mod)) : {}, __copyProps(
+  // If the importer is in node compatibility mode or this is not an ESM
+  // file that has been converted to a CommonJS file using a Babel-
+  // compatible transform (i.e. "__esModule" has not been set), then set
+  // "default" to the CommonJS "module.exports" for node compatibility.
+  isNodeMode || !mod || !mod.__esModule ? __defProp(target, "default", { value: mod, enumerable: true }) : target,
+  mod
+));
 
-/**
- * mindlore-session-focus — SessionStart hook
- *
- * Injects last delta file content + INDEX.md into session context.
- * Fires once at session start via stdout additionalContext.
- */
+// hooks/src/lib/constants.cjs
+var require_constants = __commonJS({
+  "hooks/src/lib/constants.cjs"(exports2, module2) {
+    "use strict";
+    var EPISODE_KINDS = [
+      "session",
+      "decision",
+      "event",
+      "preference",
+      "learning",
+      "friction",
+      "discovery",
+      "nomination",
+      "session-summary"
+    ];
+    function isValidKind(kind) {
+      return typeof kind === "string" && EPISODE_KINDS.includes(kind);
+    }
+    var DB_BUSY_TIMEOUT_MS = 2e3;
+    module2.exports = { EPISODE_KINDS, isValidKind, DB_BUSY_TIMEOUT_MS };
+  }
+});
 
-const fs = require('fs');
-const path = require('path');
-const { findMindloreDir, readConfig, openDatabase, hasEpisodesTable, querySupersededChains, formatSupersededChains, hookLog, getProjectName, parseFrontmatter, withTelemetry, withTimeoutDb, listSnapshots, isCorruptionError, recoverCorruptDb, getNominationCounts } = require('./lib/mindlore-common.cjs');
+// hooks/src/lib/secure-io.cjs
+var require_secure_io = __commonJS({
+  "hooks/src/lib/secure-io.cjs"(exports2, module2) {
+    "use strict";
+    var fs2 = require("fs");
+    function safeMkdir(dirPath) {
+      fs2.mkdirSync(dirPath, { recursive: true, mode: 448 });
+    }
+    function safeWriteFile(filePath, data) {
+      fs2.writeFileSync(filePath, data, { encoding: "utf8", mode: 384 });
+    }
+    function safeWriteJson(filePath, obj) {
+      safeWriteFile(filePath, JSON.stringify(obj, null, 2) + "\n");
+    }
+    module2.exports = { safeMkdir, safeWriteFile, safeWriteJson };
+  }
+});
 
+// dist/scripts/lib/constants.js
+var require_constants2 = __commonJS({
+  "dist/scripts/lib/constants.js"(exports2) {
+    "use strict";
+    var __importDefault = exports2 && exports2.__importDefault || function(mod) {
+      return mod && mod.__esModule ? mod : { "default": mod };
+    };
+    Object.defineProperty(exports2, "__esModule", { value: true });
+    exports2.CONSOLIDATION_THRESHOLD = exports2.STALE_THRESHOLD = exports2.DECAY_HALF_LIFE_DAYS = exports2.DEFAULT_TOKEN_BUDGET = exports2.CC_MEMORY_BOOST = exports2.CC_SUBAGENT_CATEGORY = exports2.CC_SESSION_CATEGORY = exports2.CC_MEMORY_CATEGORY = exports2.CC_MEMORY_DIR = exports2.CC_MEMORY_PATH_MARKER = exports2.TYPE_TO_DIR = exports2.QUALITY_HEURISTICS = exports2.QUALITY_VALUES = exports2.FRONTMATTER_TYPES = exports2.FTS5_COLUMNS = exports2.STOP_WORDS = exports2.TURKISH_WORD_RE = exports2.STOP_WORDS_MIN_LENGTH = exports2.SESSION_CATEGORIES = exports2.CATEGORIES = exports2.SCHEMA_VERSION = exports2.DEFAULT_MODELS = exports2.CONFIG_FILE = exports2.MCP_BUSY_TIMEOUT_MS = exports2.DB_BUSY_TIMEOUT_MS = exports2.SKIP_FILES = exports2.DIRECTORIES = exports2.DB_NAME = exports2.GLOBAL_MINDLORE_DIR = exports2.MINDLORE_DIR = exports2.KNOWN_HOOK_EVENTS = void 0;
+    exports2.isKnownHookEvent = isKnownHookEvent;
+    exports2.isSessionCategory = isSessionCategory;
+    exports2.fixVersionTokens = fixVersionTokens;
+    exports2.homedir = homedir;
+    exports2.getActiveMindloreDir = getActiveMindloreDir;
+    exports2.getAllDbs = getAllDbs;
+    exports2.getProjectName = getProjectName2;
+    exports2.log = log;
+    exports2.isContentFile = isContentFile;
+    exports2.resolveHookCommon = resolveHookCommon;
+    exports2.hasMarkitdown = hasMarkitdown;
+    exports2.hasYoutubeTranscript = hasYoutubeTranscript;
+    var os_1 = __importDefault(require("os"));
+    var fs_1 = __importDefault(require("fs"));
+    var path_1 = __importDefault(require("path"));
+    exports2.KNOWN_HOOK_EVENTS = [
+      "SessionStart",
+      "SessionEnd",
+      "UserPromptSubmit",
+      "FileChanged",
+      "PreToolUse",
+      "PostToolUse",
+      "PreCompact",
+      "PostCompact",
+      "CwdChanged"
+    ];
+    function isKnownHookEvent(s) {
+      return exports2.KNOWN_HOOK_EVENTS.includes(s);
+    }
+    exports2.MINDLORE_DIR = ".mindlore";
+    exports2.GLOBAL_MINDLORE_DIR = process.env.MINDLORE_HOME ?? path_1.default.join(os_1.default.homedir(), exports2.MINDLORE_DIR);
+    exports2.DB_NAME = "mindlore.db";
+    exports2.DIRECTORIES = [
+      "raw",
+      "sources",
+      "domains",
+      "analyses",
+      "insights",
+      "connections",
+      "learnings",
+      "diary",
+      "decisions",
+      "logs",
+      "memory"
+    ];
+    exports2.SKIP_FILES = /* @__PURE__ */ new Set(["INDEX.md", "SCHEMA.md", "log.md"]);
+    exports2.DB_BUSY_TIMEOUT_MS = 2e3;
+    exports2.MCP_BUSY_TIMEOUT_MS = 5e3;
+    exports2.CONFIG_FILE = "config.json";
+    exports2.DEFAULT_MODELS = {
+      ingest: "haiku",
+      evolve: "sonnet",
+      explore: "sonnet",
+      default: "haiku"
+    };
+    exports2.SCHEMA_VERSION = 1;
+    exports2.CATEGORIES = ["sources", "analyses", "domains", "episodes", "decisions", "raw", "sessions", "cc_memory", "cc-session", "cc-subagent", "diary", "insights", "connections", "learnings", "memory"];
+    exports2.SESSION_CATEGORIES = ["cc-subagent", "cc-session"];
+    function isSessionCategory(category) {
+      return exports2.SESSION_CATEGORIES.includes(category);
+    }
+    exports2.STOP_WORDS_MIN_LENGTH = 2;
+    exports2.TURKISH_WORD_RE = /[^\w\sçğıöşüÇĞİÖŞÜ-]/g;
+    exports2.STOP_WORDS = /* @__PURE__ */ new Set([
+      // English
+      "the",
+      "a",
+      "an",
+      "is",
+      "are",
+      "was",
+      "were",
+      "be",
+      "been",
+      "being",
+      "have",
+      "has",
+      "had",
+      "do",
+      "does",
+      "did",
+      "will",
+      "would",
+      "could",
+      "should",
+      "may",
+      "might",
+      "can",
+      "shall",
+      "to",
+      "of",
+      "in",
+      "for",
+      "on",
+      "with",
+      "at",
+      "by",
+      "from",
+      "as",
+      "into",
+      "through",
+      "during",
+      "it",
+      "its",
+      "this",
+      "that",
+      "these",
+      "those",
+      "what",
+      "which",
+      "who",
+      "whom",
+      "how",
+      "when",
+      "where",
+      "why",
+      "not",
+      "no",
+      "nor",
+      "so",
+      "if",
+      "or",
+      "but",
+      "all",
+      "each",
+      "every",
+      "both",
+      "few",
+      "more",
+      "most",
+      "other",
+      "some",
+      "such",
+      "only",
+      "own",
+      "same",
+      "than",
+      "and",
+      "about",
+      "between",
+      "after",
+      "before",
+      "above",
+      "below",
+      "up",
+      "down",
+      "out",
+      "very",
+      "just",
+      "also",
+      "now",
+      "then",
+      "here",
+      "there",
+      "too",
+      "yet",
+      "my",
+      "your",
+      "his",
+      "her",
+      "our",
+      "their",
+      "me",
+      "him",
+      "us",
+      "them",
+      "i",
+      "you",
+      "he",
+      "she",
+      "we",
+      "they",
+      // Turkish
+      "bir",
+      "bu",
+      "su",
+      "ne",
+      "nas\u0131l",
+      "neden",
+      "var",
+      "yok",
+      "mi",
+      "mu",
+      "m\u0131",
+      "ile",
+      "i\xE7in",
+      "de",
+      "da",
+      "ve",
+      "veya",
+      "ama",
+      "ise",
+      "hem",
+      "bakal\u0131m",
+      "gel",
+      "git",
+      "yap",
+      "et",
+      "al",
+      "ver",
+      "evet",
+      "hay\u0131r",
+      "tamam",
+      "ok",
+      "oldu",
+      "olur",
+      "dur",
+      "\u015Fimdi",
+      "sonra",
+      "\xF6nce",
+      "hemen",
+      "biraz",
+      "lan",
+      "ya",
+      "ki",
+      "abi",
+      "hadi",
+      "hey",
+      "selam",
+      "olarak",
+      "olan",
+      "gibi",
+      "kadar",
+      "daha",
+      "\xE7ok",
+      "en",
+      "bunu",
+      "buna",
+      "i\xE7inde",
+      "\xFCzerinde",
+      "aras\u0131nda",
+      "sonucu",
+      "taraf\u0131ndan",
+      "zaten",
+      "gayet",
+      "acaba",
+      "nedir",
+      "midir",
+      "mudur",
+      // Generic technical
+      "hook",
+      "file",
+      "dosya",
+      "kullan",
+      "ekle",
+      "yaz",
+      "oku",
+      "\xE7al\u0131\u015Ft\u0131r",
+      "kontrol",
+      "test",
+      "check",
+      "run",
+      "add",
+      "update",
+      "config",
+      "setup",
+      "install",
+      "start",
+      "stop",
+      "create",
+      "delete",
+      "remove",
+      "set",
+      "get",
+      "list",
+      "show",
+      "view",
+      "open",
+      "close",
+      "save",
+      "load"
+    ]);
+    var VERSION_RE = /v(\d+)\.(\d+)(?:\.(\d+))?/g;
+    function fixVersionTokens(query) {
+      return query.replace(VERSION_RE, (_m, a, b, c) => c ? `"v${a} ${b} ${c}"` : `"v${a} ${b}"`);
+    }
+    exports2.FTS5_COLUMNS = ["path", "slug", "description", "type", "category", "title", "content", "tags", "quality", "date_captured", "project"];
+    exports2.FRONTMATTER_TYPES = ["raw", "source", "domain", "analysis", "diary", "decision", "insight", "connection", "learning", "feedback", "user", "project", "reference", "note"];
+    exports2.QUALITY_VALUES = ["high", "medium", "low"];
+    exports2.QUALITY_HEURISTICS = {
+      "github-repo": "high",
+      "docs": "high",
+      "blog": "medium",
+      "video": "medium",
+      "x-thread": "medium",
+      "text-paste": "low",
+      "snippet": "low",
+      "forum": "low",
+      "cc-session": "low",
+      "cc-subagent": "low"
+    };
+    exports2.TYPE_TO_DIR = {
+      raw: "raw",
+      source: "sources",
+      domain: "domains",
+      analysis: "analyses",
+      insight: "insights",
+      connection: "connections",
+      learning: "learnings",
+      decision: "decisions",
+      diary: "diary",
+      feedback: "memory",
+      user: "memory",
+      project: "memory",
+      reference: "memory",
+      note: "memory"
+    };
+    exports2.CC_MEMORY_PATH_MARKER = path_1.default.join(".claude", "projects");
+    exports2.CC_MEMORY_DIR = "memory";
+    exports2.CC_MEMORY_CATEGORY = "cc-memory";
+    exports2.CC_SESSION_CATEGORY = "cc-session";
+    exports2.CC_SUBAGENT_CATEGORY = "cc-subagent";
+    exports2.CC_MEMORY_BOOST = 1.2;
+    function homedir() {
+      return os_1.default.homedir();
+    }
+    function getActiveMindloreDir() {
+      return exports2.GLOBAL_MINDLORE_DIR;
+    }
+    function getAllDbs() {
+      const dbPath = path_1.default.join(exports2.GLOBAL_MINDLORE_DIR, exports2.DB_NAME);
+      if (fs_1.default.existsSync(dbPath))
+        return [dbPath];
+      return [];
+    }
+    function getProjectName2() {
+      return path_1.default.basename(process.cwd());
+    }
+    function log(msg) {
+      console.log(`  ${msg}`);
+    }
+    function isContentFile(filePath) {
+      return !exports2.SKIP_FILES.has(path_1.default.basename(filePath));
+    }
+    function resolveHookCommon(callerDir) {
+      let dir = callerDir;
+      for (let i = 0; i < 5; i++) {
+        const target = path_1.default.join(dir, "hooks", "lib", "mindlore-common.cjs");
+        if (fs_1.default.existsSync(target))
+          return target;
+        const parent = path_1.default.dirname(dir);
+        if (parent === dir)
+          break;
+        dir = parent;
+      }
+      return path_1.default.resolve(callerDir, "..", "..", "hooks", "lib", "mindlore-common.cjs");
+    }
+    var markitdownCached = null;
+    function hasMarkitdown() {
+      if (markitdownCached !== null)
+        return markitdownCached;
+      try {
+        const cp = require("child_process");
+        const { execSync } = cp;
+        execSync("markitdown --version", { stdio: "pipe", timeout: 5e3 });
+        markitdownCached = true;
+      } catch (_err) {
+        markitdownCached = false;
+      }
+      return markitdownCached;
+    }
+    function hasYoutubeTranscript() {
+      try {
+        require.resolve("youtube-transcript");
+        return true;
+      } catch (_err) {
+        return false;
+      }
+    }
+    exports2.DEFAULT_TOKEN_BUDGET = {
+      sessionInject: 2e3,
+      searchResults: 1500,
+      perResult: 500
+    };
+    exports2.DECAY_HALF_LIFE_DAYS = 30;
+    exports2.STALE_THRESHOLD = 0.3;
+    exports2.CONSOLIDATION_THRESHOLD = 50;
+  }
+});
+
+// dist/scripts/lib/skeleton.js
+var require_skeleton = __commonJS({
+  "dist/scripts/lib/skeleton.js"(exports2) {
+    "use strict";
+    Object.defineProperty(exports2, "__esModule", { value: true });
+    exports2.extractSkeleton = extractSkeleton;
+    function jsSkeleton(lines) {
+      const kept = [];
+      let depth = 0;
+      let inMLComment = false;
+      for (const line of lines) {
+        const t = line.trim();
+        if (t.includes("/*") && !t.includes("*/"))
+          inMLComment = true;
+        if (t.includes("*/")) {
+          inMLComment = false;
+          continue;
+        }
+        if (inMLComment)
+          continue;
+        const opens = (line.match(/\{/g) ?? []).length;
+        const closes = (line.match(/\}/g) ?? []).length;
+        const keep = depth === 0 && (t.startsWith("import ") || t.startsWith("export ") || t.startsWith("const ") || t.startsWith("let ") || t.startsWith("var ") || t.startsWith("function ") || t.startsWith("async function ") || t.startsWith("class ") || t.startsWith("interface ") || t.startsWith("type ") || t.startsWith("enum ") || t.startsWith("//") || t.startsWith("module.exports") || t.startsWith("require("));
+        if (keep) {
+          kept.push(line);
+        } else if (depth === 0 && !t) {
+          if (kept.length && kept[kept.length - 1] !== "")
+            kept.push("");
+        }
+        depth = Math.max(0, depth + opens - closes);
+      }
+      return kept;
+    }
+    function pySkeleton(lines) {
+      const kept = [];
+      for (let i = 0; i < lines.length; i++) {
+        const line = lines[i];
+        const t = line.trim();
+        if (!t) {
+          if (kept.length && kept[kept.length - 1] !== "")
+            kept.push("");
+          continue;
+        }
+        const keep = t.startsWith("import ") || t.startsWith("from ") || t.startsWith("def ") || t.startsWith("async def ") || t.startsWith("class ") || t.startsWith("@") || t.startsWith("#") || Boolean(line.match(/^\S/) && t.match(/^[A-Z_][A-Z_0-9]*\s*=/));
+        if (keep) {
+          kept.push(line);
+          if ((t.startsWith("def ") || t.startsWith("class ")) && i + 1 < lines.length) {
+            const next = lines[i + 1].trim();
+            if (next.startsWith('"""') || next.startsWith("'''"))
+              kept.push(lines[i + 1]);
+          }
+        }
+      }
+      return kept;
+    }
+    function mdSkeleton(lines) {
+      return lines.filter((l) => l.trim().startsWith("#"));
+    }
+    function extractSkeleton(content, ext) {
+      const lines = content.split("\n");
+      let kept;
+      switch (ext.toLowerCase()) {
+        case "js":
+        case "ts":
+        case "jsx":
+        case "tsx":
+        case "mjs":
+        case "cjs":
+          kept = jsSkeleton(lines);
+          break;
+        case "py":
+          kept = pySkeleton(lines);
+          break;
+        case "md":
+        case "txt":
+        case "rst":
+          kept = mdSkeleton(lines);
+          break;
+        default:
+          return content;
+      }
+      if (kept.length >= lines.length * 0.75)
+        return content;
+      const label = `[SKELETON: ${lines.length} lines -> ${kept.length} shown]`;
+      return label + "\n\n" + kept.join("\n").replace(/\n{3,}/g, "\n\n") + "\n\n[Full file: ask for specific function/section by name]";
+    }
+  }
+});
+
+// hooks/src/lib/mindlore-common.cjs
+var require_mindlore_common = __commonJS({
+  "hooks/src/lib/mindlore-common.cjs"(exports2, module2) {
+    "use strict";
+    var fs2 = require("fs");
+    var path2 = require("path");
+    var crypto = require("crypto");
+    var os = require("os");
+    var { EPISODE_KINDS, isValidKind, DB_BUSY_TIMEOUT_MS } = require_constants();
+    var { safeMkdir, safeWriteFile } = require_secure_io();
+    var MINDLORE_DIR = ".mindlore";
+    var DB_NAME = "mindlore.db";
+    var SKIP_FILES = /* @__PURE__ */ new Set(["INDEX.md", "SCHEMA.md", "log.md"]);
+    function globalDir() {
+      if (process.env.MINDLORE_HOME) return process.env.MINDLORE_HOME;
+      return path2.join(os.homedir(), MINDLORE_DIR);
+    }
+    var GLOBAL_MINDLORE_DIR = globalDir();
+    function findMindloreDir2() {
+      const gDir = globalDir();
+      if (fs2.existsSync(gDir)) return gDir;
+      return null;
+    }
+    function getActiveMindloreDir() {
+      return globalDir();
+    }
+    function isInsideMindloreDir(resolvedPath) {
+      return resolvedPath.includes(path2.sep + MINDLORE_DIR + path2.sep) || resolvedPath.endsWith(path2.sep + MINDLORE_DIR);
+    }
+    function extractMindloreBaseDir(resolvedPath) {
+      const sepDir = path2.sep + MINDLORE_DIR;
+      let idx = resolvedPath.lastIndexOf(sepDir + path2.sep);
+      if (idx === -1 && resolvedPath.endsWith(sepDir)) {
+        idx = resolvedPath.length - sepDir.length;
+      }
+      if (idx === -1) return null;
+      return resolvedPath.slice(0, idx + sepDir.length);
+    }
+    function getAllDbs() {
+      const dbPath = path2.join(globalDir(), DB_NAME);
+      if (fs2.existsSync(dbPath)) return [dbPath];
+      return [];
+    }
+    function getProjectName2() {
+      return path2.basename(process.cwd());
+    }
+    function resolveProject(ftsProject, filePath, cwdFallback) {
+      if (ftsProject) return ftsProject;
+      const normalized = filePath.replace(/\\/g, "/");
+      const sessionMatch = normalized.match(/raw\/sessions\/([^/]+)\//);
+      if (sessionMatch) return sessionMatch[1];
+      const diaryMatch = normalized.match(/diary\/([^/]+)\//);
+      if (diaryMatch) return diaryMatch[1];
+      return cwdFallback;
+    }
+    function getLatestDelta(diaryDir) {
+      if (!fs2.existsSync(diaryDir)) return null;
+      const deltas = fs2.readdirSync(diaryDir).filter((f) => f.startsWith("delta-") && f.endsWith(".md")).sort().reverse();
+      if (deltas.length === 0) return null;
+      return path2.join(diaryDir, deltas[0]);
+    }
+    function sha256(content) {
+      return crypto.createHash("sha256").update(content, "utf8").digest("hex");
+    }
+    function parseFrontmatter2(content) {
+      const match = content.match(/^---\r?\n([\s\S]*?)\r?\n---/);
+      if (!match) return { meta: {}, body: content };
+      const meta = /* @__PURE__ */ Object.create(null);
+      const lines = match[1].split("\n");
+      for (const line of lines) {
+        const colonIdx = line.indexOf(":");
+        if (colonIdx === -1) continue;
+        const key = line.slice(0, colonIdx).trim();
+        if (key === "__proto__" || key === "constructor" || key === "prototype") continue;
+        let value = line.slice(colonIdx + 1).trim();
+        if (value.startsWith("[") && value.endsWith("]")) {
+          value = value.slice(1, -1).split(",").map((s) => s.trim().replace(/^["']|["']$/g, ""));
+        }
+        if (typeof value === "string") {
+          value = value.replace(/^["']|["']$/g, "");
+        }
+        meta[key] = value;
+      }
+      const bodyStart = content.indexOf("---", 3);
+      const body = bodyStart !== -1 ? content.slice(bodyStart + 3).replace(/^\r?\n/, "") : content;
+      return { meta, body };
+    }
+    function extractFtsMetadata(meta, body, filePath, baseDir) {
+      const slug = meta.slug || path2.basename(filePath, ".md");
+      const description = meta.description || "";
+      const type = meta.type || "";
+      const relativePath = baseDir ? path2.relative(baseDir, filePath) : filePath;
+      const category = path2.dirname(relativePath).split(path2.sep)[0] || "root";
+      let title = meta.title || meta.name || "";
+      if (!title) {
+        const headingMatch = body.match(/^#\s+(.+)/m);
+        title = headingMatch ? headingMatch[1].trim() : path2.basename(filePath, ".md");
+      }
+      let tags = "";
+      if (meta.tags) {
+        tags = Array.isArray(meta.tags) ? meta.tags.join(", ") : String(meta.tags);
+      }
+      const quality = meta.quality !== void 0 && meta.quality !== null ? meta.quality : null;
+      const dateCaptured = meta.date_captured || meta.date || null;
+      const project = meta.project || null;
+      return { slug, description, type, category, title, tags, quality, dateCaptured, project };
+    }
+    var SQL_FTS_CREATE = "CREATE VIRTUAL TABLE IF NOT EXISTS mindlore_fts USING fts5(path UNINDEXED, slug, description, type UNINDEXED, category, title, content, tags, quality UNINDEXED, date_captured UNINDEXED, project UNINDEXED, tokenize='porter unicode61')";
+    var SQL_FTS_INSERT = "INSERT INTO mindlore_fts (path, slug, description, type, category, title, content, tags, quality, date_captured, project) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
+    var SQL_FTS_TRIGRAM_INSERT = "INSERT INTO mindlore_fts_trigram (path, slug, description, type, category, title, content, tags, quality, date_captured, project) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
+    var SQL_FTS_SESSIONS_CREATE = "CREATE VIRTUAL TABLE IF NOT EXISTS mindlore_fts_sessions USING fts5(path, slug, description, type, category, title, content, tags, quality, date_captured, project)";
+    var SQL_FTS_SESSIONS_INSERT = "INSERT INTO mindlore_fts_sessions (path, slug, description, type, category, title, content, tags, quality, date_captured, project) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
+    var SESSION_CATEGORIES = ["cc-subagent", "cc-session"];
+    function isSessionCategory(category) {
+      return SESSION_CATEGORIES.includes(category);
+    }
+    var VERSION_RE = /v(\d+)\.(\d+)(?:\.(\d+))?/g;
+    function fixVersionTokens(query) {
+      return query.replace(VERSION_RE, (_m, a, b, c) => c ? `"v${a} ${b} ${c}"` : `"v${a} ${b}"`);
+    }
+    function insertFtsRow(db, entry) {
+      const vals = [
+        entry.path || "",
+        entry.slug || "",
+        entry.description || "",
+        entry.type || "",
+        entry.category || "",
+        entry.title || "",
+        entry.content || "",
+        entry.tags || "",
+        entry.quality || null,
+        entry.dateCaptured || null,
+        entry.project || null
+      ];
+      db.prepare(SQL_FTS_INSERT).run(...vals);
+      try {
+        db.prepare(SQL_FTS_TRIGRAM_INSERT).run(...vals);
+      } catch (_err) {
+      }
+    }
+    function extractHeadings(content, max) {
+      const headings = [];
+      for (const line of content.split("\n")) {
+        if (/^#{1,3}\s/.test(line)) {
+          headings.push(line.replace(/^#+\s*/, "").trim());
+          if (headings.length >= max) break;
+        }
+      }
+      return headings;
+    }
+    function requireDatabase() {
+      try {
+        return require("better-sqlite3");
+      } catch (_err) {
+        return null;
+      }
+    }
+    function openDatabase2(dbPath, opts) {
+      try {
+        const Database = requireDatabase();
+        if (!Database) return null;
+        if (!fs2.existsSync(dbPath)) return null;
+        const readonly = opts?.readonly ?? false;
+        const db = new Database(dbPath, { readonly });
+        if (!readonly) {
+          db.pragma("journal_mode = WAL");
+          db.pragma(`busy_timeout = ${DB_BUSY_TIMEOUT_MS}`);
+        }
+        return db;
+      } catch (_err) {
+        return null;
+      }
+    }
+    function getAllMdFiles(dir, skip) {
+      const skipSet = skip || SKIP_FILES;
+      const results = [];
+      if (!fs2.existsSync(dir)) return results;
+      const entries = fs2.readdirSync(dir, { withFileTypes: true });
+      for (const entry of entries) {
+        const fullPath = path2.join(dir, entry.name);
+        if (entry.isDirectory()) {
+          results.push(...getAllMdFiles(fullPath, skipSet));
+        } else if (entry.name.endsWith(".md") && !skipSet.has(entry.name)) {
+          results.push(fullPath);
+        }
+      }
+      return results;
+    }
+    function readHookStdin(fields) {
+      let input = "";
+      try {
+        input = fs2.readFileSync(0, "utf8").trim();
+      } catch (_err) {
+        return "";
+      }
+      if (!input) return "";
+      try {
+        const parsed = JSON.parse(input);
+        for (const f of fields) {
+          if (parsed[f]) return parsed[f];
+        }
+      } catch (_err) {
+      }
+      return input;
+    }
+    function readConfig2(mindloreDir) {
+      if (!mindloreDir) return null;
+      const configPath = path2.join(mindloreDir, "config.json");
+      try {
+        return JSON.parse(fs2.readFileSync(configPath, "utf8"));
+      } catch (_err) {
+        return null;
+      }
+    }
+    function detectSchemaVersion(db) {
+      try {
+        db.prepare("SELECT tags, quality, date_captured, project FROM mindlore_fts LIMIT 0").run();
+        return 11;
+      } catch (_err11) {
+        try {
+          db.prepare("SELECT tags, quality, date_captured FROM mindlore_fts LIMIT 0").run();
+          return 10;
+        } catch (_err10) {
+          try {
+            db.prepare("SELECT tags, quality FROM mindlore_fts LIMIT 0").run();
+            return 9;
+          } catch (_err9) {
+            try {
+              db.prepare("SELECT slug, description, category, title FROM mindlore_fts LIMIT 0").run();
+              return 7;
+            } catch (_err7) {
+              return 2;
+            }
+          }
+        }
+      }
+    }
+    var DEFAULT_MODELS = {
+      ingest: "haiku",
+      evolve: "sonnet",
+      explore: "sonnet",
+      default: "haiku"
+    };
+    var SQL_EPISODES_CREATE = `
+CREATE TABLE IF NOT EXISTS episodes (
+  id TEXT PRIMARY KEY,
+  kind TEXT NOT NULL,
+  scope TEXT NOT NULL DEFAULT 'project',
+  project TEXT,
+  summary TEXT NOT NULL,
+  body TEXT,
+  tags TEXT,
+  entities TEXT,
+  parent_id TEXT,
+  status TEXT NOT NULL DEFAULT 'active',
+  supersedes TEXT,
+  source TEXT,
+  created_at TEXT NOT NULL
+)`;
+    var MULTI_SESSION_TOKEN_CAP_CHARS = 2500;
+    var EPISODE_STATUSES_CJS = ["active", "superseded", "deleted", "staged", "reviewed", "approved", "rejected"];
+    var SQL_EPISODES_INDEXES = [
+      "CREATE INDEX IF NOT EXISTS idx_episodes_kind ON episodes(kind, status)",
+      "CREATE INDEX IF NOT EXISTS idx_episodes_project ON episodes(project, status)",
+      "CREATE INDEX IF NOT EXISTS idx_episodes_created ON episodes(created_at DESC)"
+    ];
+    function ensureEpisodesTable(db) {
+      db.exec(SQL_EPISODES_CREATE);
+      for (const idx of SQL_EPISODES_INDEXES) {
+        db.exec(idx);
+      }
+    }
+    function hasEpisodesTable2(db) {
+      const row = db.prepare("SELECT name FROM sqlite_master WHERE type='table' AND name='episodes'").get();
+      return row !== void 0;
+    }
+    function generateEpisodeId() {
+      const timestamp = Date.now().toString(36);
+      const random = crypto.randomBytes(6).toString("hex");
+      return `ep-${timestamp}-${random}`;
+    }
+    function insertBareEpisode(db, entry) {
+      const id = entry.id || generateEpisodeId();
+      const now = (/* @__PURE__ */ new Date()).toISOString();
+      db.prepare(`
+    INSERT INTO episodes (id, kind, scope, project, summary, body, tags, entities, parent_id, status, supersedes, source, created_at)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'active', ?, ?, ?)
+  `).run(
+        id,
+        entry.kind || "session",
+        entry.scope || "project",
+        entry.project || null,
+        entry.summary || "",
+        entry.body || null,
+        entry.tags || null,
+        entry.entities ? JSON.stringify(entry.entities) : null,
+        entry.parent_id || null,
+        entry.supersedes || null,
+        entry.source || "hook",
+        now
+      );
+      return id;
+    }
+    function queryRecentEpisodes(db, opts) {
+      const project = opts.project || null;
+      const limit = opts.limit || 3;
+      const hasConsolCol = db.pragma("table_info(episodes)").some((c) => c.name === "consolidation_status");
+      const consolFilter = hasConsolCol ? " AND (consolidation_status IS NULL OR consolidation_status != 'consolidated')" : "";
+      let sql = `SELECT kind, summary, created_at FROM episodes WHERE status = 'active'${consolFilter}`;
+      const params = [];
+      if (project) {
+        sql += " AND project = ?";
+        params.push(project);
+      }
+      sql += " ORDER BY created_at DESC LIMIT ?";
+      params.push(limit);
+      return db.prepare(sql).all(...params);
+    }
+    function querySupersededChains2(db, opts) {
+      const days = opts.days ?? 7;
+      const limit = opts.limit ?? 5;
+      const modifier = `-${days} days`;
+      const rows = db.prepare(`
+    SELECT new_ep.summary AS current_summary, old_ep.summary AS previous_summary, new_ep.body
+    FROM episodes new_ep
+    JOIN episodes old_ep ON new_ep.supersedes = old_ep.id
+    WHERE new_ep.project = ?
+      AND new_ep.created_at > datetime('now', ?)
+      AND old_ep.status = 'superseded'
+    ORDER BY new_ep.created_at DESC
+    LIMIT ?
+  `).all(opts.project, modifier, limit);
+      return rows.map((row) => ({
+        current: row.current_summary,
+        previous: row.previous_summary,
+        reason: parseReason(row.body)
+      }));
+    }
+    function parseReason(body) {
+      if (!body) return null;
+      const match = body.match(/## Reason\n(.+?)(?:\n##|\n*$)/s);
+      if (!match) return null;
+      return match[1].trim().split("\n")[0];
+    }
+    function formatSupersededChains2(chains) {
+      if (chains.length === 0) return "";
+      const lines = chains.map((c) => {
+        const base = `- ${c.current} \u2190 ${c.previous}`;
+        return c.reason ? `${base} (Reason: ${c.reason})` : base;
+      });
+      return lines.join("\n");
+    }
+    function queryMultiSessionEpisodes(db, opts) {
+      const days = opts.days ?? 3;
+      const limit = opts.limit ?? 20;
+      const modifier = `-${days} days`;
+      return db.prepare(`
+    SELECT kind, summary, created_at
+    FROM episodes
+    WHERE project = ?
+      AND status = 'active'
+      AND kind != 'session'
+      AND kind != 'nomination'
+      AND created_at > datetime('now', ?)
+    ORDER BY created_at DESC
+    LIMIT ?
+  `).all(opts.project, modifier, limit);
+    }
+    function formatMultiSessionEpisodes(episodes) {
+      if (episodes.length === 0) return "";
+      const byDate = {};
+      for (const ep of episodes) {
+        const date = (ep.created_at || "").slice(0, 10);
+        if (!byDate[date]) byDate[date] = [];
+        byDate[date].push(ep);
+      }
+      const lines = [];
+      let totalChars = 0;
+      for (const [date, eps] of Object.entries(byDate).sort((a, b) => b[0].localeCompare(a[0]))) {
+        if (totalChars > MULTI_SESSION_TOKEN_CAP_CHARS) break;
+        if (eps.length <= 5) {
+          for (const ep of eps) {
+            const line = `- [${date}] ${ep.kind}: ${String(ep.summary).slice(0, 100)}`;
+            totalChars += line.length;
+            if (totalChars > MULTI_SESSION_TOKEN_CAP_CHARS) break;
+            lines.push(line);
+          }
+        } else {
+          const kindCounts = {};
+          for (const ep of eps) {
+            kindCounts[ep.kind] = (kindCounts[ep.kind] || 0) + 1;
+          }
+          const counts = Object.entries(kindCounts).map(([k, c]) => `${c} ${k}`).join(", ");
+          lines.push(`- [${date}] ${counts}`);
+        }
+      }
+      return lines.join("\n");
+    }
+    var SHARED_STOP_WORDS = (() => {
+      try {
+        const { STOP_WORDS: STOP_WORDS2, STOP_WORDS_MIN_LENGTH: STOP_WORDS_MIN_LENGTH2 } = require_constants2();
+        return { STOP_WORDS: STOP_WORDS2, MIN_LENGTH: STOP_WORDS_MIN_LENGTH2 };
+      } catch {
+        return null;
+      }
+    })();
+    if (!SHARED_STOP_WORDS) {
+      hookLog2("common", "warn", "STOP_WORDS fallback active \u2014 run npm run build");
+    }
+    var STOP_WORDS = SHARED_STOP_WORDS?.STOP_WORDS ?? /* @__PURE__ */ new Set(["the", "a", "an", "is", "are", "and", "or", "but", "in", "on", "at", "to", "for", "of", "with", "bir", "bu", "de", "da", "ve"]);
+    var STOP_WORDS_MIN_LENGTH = SHARED_STOP_WORDS?.MIN_LENGTH ?? 2;
+    function extractKeywords(text, maxKeywords = 8) {
+      const words = text.toLowerCase().replace(/[^\w\s\u00e7\u011f\u0131\u00f6\u015f\u00fc-]/g, " ").split(/\s+/).filter((w) => w.length >= STOP_WORDS_MIN_LENGTH && !STOP_WORDS.has(w) && !/^\d+$/.test(w));
+      return [...new Set(words)].slice(0, maxKeywords);
+    }
+    function sanitizeKeyword(kw) {
+      const clean = kw.replace(/["*(){}[\]^~:]/g, "").replace(/-/g, " ").trim();
+      return clean.length >= 2 ? `"${clean}"` : null;
+    }
+    var SHARED_EXPORT_DIRS = (() => {
+      try {
+        const { DIRECTORIES } = require_constants2();
+        return [...DIRECTORIES, "memory"];
+      } catch {
+        return ["raw", "sources", "domains", "analyses", "insights", "connections", "learnings", "diary", "decisions", "memory"];
+      }
+    })();
+    function resolveWin32Bin(name) {
+      if (process.platform === "win32") {
+        try {
+          return require("child_process").execSync(`where ${name}`, { encoding: "utf8", timeout: 3e3, windowsHide: true }).trim().split("\n")[0].trim();
+        } catch (_e) {
+        }
+      }
+      return name;
+    }
+    var extractSkeleton = (() => {
+      try {
+        return require_skeleton().extractSkeleton;
+      } catch {
+        return (content) => content;
+      }
+    })();
+    var TELEMETRY_KEEP_LINES = 200;
+    function _rotateFile(filePath, maxBytes, keepLines) {
+      try {
+        const stat = fs2.statSync(filePath);
+        if (stat.size > maxBytes) {
+          const lines = fs2.readFileSync(filePath, "utf8").trim().split("\n");
+          const tmpPath = filePath + ".tmp";
+          safeWriteFile(tmpPath, lines.slice(-keepLines).join("\n") + "\n");
+          fs2.renameSync(tmpPath, filePath);
+        }
+      } catch {
+      }
+    }
+    var _telDirEnsured = false;
+    function _writeTelemetry({ hookName, duration_ms, ok, extra }) {
+      try {
+        if (!_telDirEnsured) {
+          safeMkdir(GLOBAL_MINDLORE_DIR);
+          _telDirEnsured = true;
+        }
+        const telPath = path2.join(GLOBAL_MINDLORE_DIR, "telemetry.jsonl");
+        const entry = { ts: (/* @__PURE__ */ new Date()).toISOString(), hook: hookName, duration_ms, ok };
+        if (extra && typeof extra === "object") {
+          for (const key of ["inject_tokens", "source_tokens", "injected_tokens", "full_read_tokens"]) {
+            if (typeof extra[key] === "number") entry[key] = extra[key];
+          }
+        }
+        const line = JSON.stringify(entry) + "\n";
+        _rotateFile(telPath, HOOK_LOG_MAX_BYTES, TELEMETRY_KEEP_LINES);
+        fs2.appendFileSync(telPath, line);
+      } catch {
+      }
+    }
+    async function withTelemetry2(hookName, fn) {
+      const start = Date.now();
+      let ok = true;
+      let result;
+      let thrown;
+      try {
+        result = await fn();
+      } catch (err) {
+        ok = false;
+        thrown = err;
+      }
+      const extra = result && typeof result === "object" ? result : void 0;
+      _writeTelemetry({ hookName, duration_ms: Date.now() - start, ok, extra });
+      if (thrown) throw thrown;
+      return result;
+    }
+    function withTelemetrySync(hookName, fn) {
+      const start = Date.now();
+      let ok = true;
+      let result;
+      let thrown;
+      try {
+        result = fn();
+      } catch (err) {
+        ok = false;
+        thrown = err;
+      }
+      const extra = result && typeof result === "object" ? result : void 0;
+      _writeTelemetry({ hookName, duration_ms: Date.now() - start, ok, extra });
+      if (thrown) throw thrown;
+      return result;
+    }
+    function withTimeoutDb2(db, sql, params = [], { timeoutMs = DB_BUSY_TIMEOUT_MS, mode = "all" } = {}) {
+      if (!db) return mode === "get" ? void 0 : [];
+      try {
+        db.pragma(`busy_timeout = ${timeoutMs}`);
+        const stmt = db.prepare(sql);
+        if (mode === "get") {
+          return params.length > 0 ? stmt.get(...params) : stmt.get();
+        }
+        return params.length > 0 ? stmt.all(...params) : stmt.all();
+      } catch (err) {
+        hookLog2("timeout", "warn", `DB query timeout/error: ${err.message}`);
+        _writeTelemetry({ hookName: "db_timeout", duration_ms: 0, ok: false });
+        return mode === "get" ? void 0 : [];
+      }
+    }
+    function getNominationCounts2(db, project) {
+      try {
+        const row = withTimeoutDb2(
+          db,
+          `SELECT
+        SUM(CASE WHEN status='staged' THEN 1 ELSE 0 END) AS staged,
+        SUM(CASE WHEN status='approved' AND graduated_at IS NOT NULL THEN 1 ELSE 0 END) AS graduated
+      FROM episodes
+      WHERE kind='nomination' AND project=?`,
+          [project],
+          { mode: "get" }
+        );
+        return { staged: row?.staged ?? 0, graduated: row?.graduated ?? 0 };
+      } catch (_err) {
+        return { staged: 0, graduated: 0 };
+      }
+    }
+    function cleanupExpiredInjectLog(db, ttlMs) {
+      if (ttlMs === void 0) ttlMs = 30 * 24 * 60 * 60 * 1e3;
+      try {
+        const cutoff = new Date(Date.now() - ttlMs).toISOString();
+        const result = db.prepare("DELETE FROM episode_inject_log WHERE injected_at < ?").run(cutoff);
+        return result.changes;
+      } catch (_err) {
+      }
+      return 0;
+    }
+    module2.exports = {
+      MINDLORE_DIR,
+      GLOBAL_MINDLORE_DIR,
+      globalDir,
+      DB_NAME,
+      SKIP_FILES,
+      findMindloreDir: findMindloreDir2,
+      getActiveMindloreDir,
+      getAllDbs,
+      getLatestDelta,
+      sha256,
+      parseFrontmatter: parseFrontmatter2,
+      extractFtsMetadata,
+      readHookStdin,
+      SQL_FTS_CREATE,
+      SQL_FTS_INSERT,
+      SQL_FTS_TRIGRAM_INSERT,
+      SQL_FTS_SESSIONS_CREATE,
+      SQL_FTS_SESSIONS_INSERT,
+      SESSION_CATEGORIES,
+      isSessionCategory,
+      fixVersionTokens,
+      insertFtsRow,
+      extractHeadings,
+      requireDatabase,
+      openDatabase: openDatabase2,
+      getAllMdFiles,
+      readConfig: readConfig2,
+      detectSchemaVersion,
+      getProjectName: getProjectName2,
+      resolveProject,
+      DEFAULT_MODELS,
+      // Episodes (v0.4.1)
+      EPISODE_KINDS,
+      EPISODE_KINDS_CJS: EPISODE_KINDS,
+      isValidKind,
+      EPISODE_STATUSES_CJS,
+      SQL_EPISODES_CREATE,
+      SQL_EPISODES_INDEXES,
+      ensureEpisodesTable,
+      hasEpisodesTable: hasEpisodesTable2,
+      generateEpisodeId,
+      insertBareEpisode,
+      queryRecentEpisodes,
+      querySupersededChains: querySupersededChains2,
+      formatSupersededChains: formatSupersededChains2,
+      queryMultiSessionEpisodes,
+      formatMultiSessionEpisodes,
+      // FTS5 search utilities (v0.4.3)
+      STOP_WORDS,
+      extractKeywords,
+      sanitizeKeyword,
+      // Hook logging (v0.5.1)
+      hookLog: hookLog2,
+      getRecentHookErrors,
+      // Shared helpers (v0.5.1)
+      SHARED_EXPORT_DIRS,
+      resolveWin32Bin,
+      // Skeleton compression (v0.5.2)
+      extractSkeleton,
+      // Recall telemetry (v0.5.3)
+      incrementRecallCount,
+      _rotateFile,
+      isInsideMindloreDir,
+      extractMindloreBaseDir,
+      // Telemetry (v0.6.0)
+      withTelemetry: withTelemetry2,
+      withTelemetrySync,
+      // DB timeout wrapper (v0.6.1)
+      withTimeoutDb: withTimeoutDb2,
+      // Raw file helpers (v0.6.3)
+      getUnpromotedRawFiles,
+      // Snapshot helpers (v0.6.3)
+      listSnapshots: listSnapshots2,
+      getLatestSnapshot,
+      // DB corruption recovery (v0.6.3)
+      isCorruptionError: isCorruptionError2,
+      recoverCorruptDb: recoverCorruptDb2,
+      // Lesson graduation (v0.6.7)
+      getNominationCounts: getNominationCounts2,
+      cleanupExpiredInjectLog
+    };
+    function isCorruptionError2(err) {
+      const code = err?.code ?? "";
+      const msg = String(err?.message ?? err);
+      return code === "SQLITE_CORRUPT" || code === "SQLITE_NOTADB" || /corrupt|malformed/i.test(msg);
+    }
+    function recoverCorruptDb2(db, dbPath, hookName) {
+      try {
+        db.close();
+      } catch {
+      }
+      const bakPath = dbPath + ".corrupt.bak";
+      try {
+        fs2.copyFileSync(dbPath, bakPath);
+      } catch {
+      }
+      try {
+        fs2.unlinkSync(dbPath);
+      } catch {
+      }
+      hookLog2(hookName, "warn", "corrupt DB detected, backed up and removed: " + dbPath);
+    }
+    function listSnapshots2(diaryDir) {
+      if (!fs2.existsSync(diaryDir)) return [];
+      return fs2.readdirSync(diaryDir).filter((f) => f.startsWith("delta-") || f.startsWith("compaction-")).sort();
+    }
+    function getLatestSnapshot(diaryDir) {
+      const files = listSnapshots2(diaryDir);
+      return files.length > 0 ? files[files.length - 1] : null;
+    }
+    function getUnpromotedRawFiles(baseDir) {
+      const rawDir = path2.join(baseDir, "raw");
+      const sourcesDir = path2.join(baseDir, "sources");
+      if (!fs2.existsSync(rawDir)) return [];
+      const sourceNames = fs2.existsSync(sourcesDir) ? new Set(fs2.readdirSync(sourcesDir).filter((f) => f.endsWith(".md"))) : /* @__PURE__ */ new Set();
+      return fs2.readdirSync(rawDir).filter((f) => f.endsWith(".md") && !sourceNames.has(f));
+    }
+    var _recallColCache = /* @__PURE__ */ new WeakMap();
+    function incrementRecallCount(db, filePath) {
+      try {
+        let hasCol = _recallColCache.get(db);
+        if (hasCol === void 0) {
+          hasCol = db.pragma("table_info(file_hashes)").some((c) => c.name === "recall_count");
+          _recallColCache.set(db, hasCol);
+        }
+        if (!hasCol) return;
+        db.prepare(`
+      UPDATE file_hashes
+      SET recall_count = COALESCE(recall_count, 0) + 1,
+          last_recalled_at = ?
+      WHERE path = ?
+    `).run((/* @__PURE__ */ new Date()).toISOString(), filePath);
+      } catch (_err) {
+      }
+    }
+    function hookLogPath() {
+      return path2.join(globalDir(), "diary", "_hook-log.jsonl");
+    }
+    var HOOK_LOG_MAX_BYTES = 512 * 1024;
+    var HOOK_LOG_KEEP_LINES = 500;
+    function hookLog2(hook, level, message) {
+      try {
+        const logFile = hookLogPath();
+        const entry = JSON.stringify({
+          ts: (/* @__PURE__ */ new Date()).toISOString(),
+          hook,
+          level,
+          msg: message,
+          pid: process.pid
+        });
+        _rotateFile(logFile, HOOK_LOG_MAX_BYTES, HOOK_LOG_KEEP_LINES);
+        fs2.appendFileSync(logFile, entry + "\n");
+      } catch (_err) {
+      }
+    }
+    function getRecentHookErrors(since, limit) {
+      const maxEntries = limit ?? 10;
+      const cutoff = since ?? new Date(Date.now() - 24 * 60 * 60 * 1e3).toISOString();
+      const results = [];
+      try {
+        if (!fs2.existsSync(hookLogPath())) return results;
+        const lines = fs2.readFileSync(hookLogPath(), "utf8").trim().split("\n");
+        for (let i = lines.length - 1; i >= 0 && results.length < maxEntries; i--) {
+          if (!lines[i]) continue;
+          try {
+            const entry = JSON.parse(lines[i]);
+            if (entry.ts < cutoff) break;
+            if (entry.level === "error" || entry.level === "warn") {
+              results.push(entry);
+            }
+          } catch (_parseErr) {
+          }
+        }
+      } catch (_err) {
+      }
+      return results.reverse();
+    }
+  }
+});
+
+// dist/scripts/lib/session-payload.js
+var require_session_payload = __commonJS({
+  "dist/scripts/lib/session-payload.js"(exports2) {
+    "use strict";
+    var __importDefault = exports2 && exports2.__importDefault || function(mod) {
+      return mod && mod.__esModule ? mod : { "default": mod };
+    };
+    Object.defineProperty(exports2, "__esModule", { value: true });
+    exports2.buildSessionPayload = buildSessionPayload;
+    var fs_1 = __importDefault(require("fs"));
+    var path_1 = __importDefault(require("path"));
+    var crypto_1 = __importDefault(require("crypto"));
+    var CHARS_PER_TOKEN = 4;
+    function estimateTokens(text) {
+      return Math.ceil(text.length / CHARS_PER_TOKEN);
+    }
+    function buildSessionSummary(baseDir, latestDeltaContent) {
+      if (latestDeltaContent) {
+        const lines2 = latestDeltaContent.split("\n").filter((l) => l.startsWith("- ") || l.startsWith("# "));
+        return lines2.slice(0, 10).join("\n") || "No previous session data.";
+      }
+      const diaryDir = path_1.default.join(baseDir, "diary");
+      if (!fs_1.default.existsSync(diaryDir))
+        return "No previous session data.";
+      const deltas = fs_1.default.readdirSync(diaryDir).filter((f) => f.startsWith("delta-")).sort();
+      if (deltas.length === 0)
+        return "No previous session data.";
+      const latestFile = deltas[deltas.length - 1] ?? "";
+      const latest = fs_1.default.readFileSync(path_1.default.join(diaryDir, latestFile), "utf8");
+      const lines = latest.split("\n").filter((l) => l.startsWith("- ") || l.startsWith("# "));
+      return lines.slice(0, 10).join("\n");
+    }
+    function buildEpisodeSections(db, project, sessionId) {
+      const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1e3).toISOString();
+      const dedupClause = sessionId ? "AND rowid NOT IN (SELECT episode_id FROM episode_inject_log WHERE session_id = ?)" : "";
+      const query = `SELECT rowid, kind, summary, created_at FROM episodes
+     WHERE status = 'active' AND project = ?
+       AND kind IN ('decision', 'friction', 'learning')
+       AND created_at >= ?
+       ${dedupClause}
+     ORDER BY kind, created_at DESC`;
+      const params = sessionId ? [project, sevenDaysAgo, sessionId] : [project, sevenDaysAgo];
+      const rawRows = db.prepare(query).all(...params);
+      const rows = rawRows;
+      if (sessionId && rows.length > 0) {
+        const now = (/* @__PURE__ */ new Date()).toISOString();
+        const insert = db.prepare(`INSERT OR IGNORE INTO episode_inject_log (session_id, episode_id, injected_at) VALUES (?, ?, ?)`);
+        db.transaction(() => {
+          for (const row of rows) {
+            insert.run(sessionId, row.rowid, now);
+          }
+        })();
+      }
+      const grouped = { decision: [], friction: [], learning: [] };
+      for (const row of rows) {
+        const kind = row.kind;
+        if (kind === "decision" || kind === "friction" || kind === "learning") {
+          grouped[kind].push(row);
+        }
+      }
+      const fmt = (items, limit) => items.slice(0, limit).map((r) => `- ${r.summary} (${r.created_at.slice(0, 10)})`).join("\n");
+      return {
+        decisions: grouped.decision.length > 0 ? fmt(grouped.decision, 5) : "No recent decisions.",
+        friction: grouped.friction.length > 0 ? fmt(grouped.friction, 3) : "No active friction points.",
+        learnings: grouped.learning.length > 0 ? fmt(grouped.learning, 5) : "No recent learnings."
+      };
+    }
+    function buildSessionPayload(opts) {
+      const { db, baseDir, project, tokenBudget = 2e3, latestDeltaContent, sessionId } = opts;
+      const sections = [];
+      const summary = buildSessionSummary(baseDir, latestDeltaContent);
+      sections.push({ label: "Session", content: summary, tokens: estimateTokens(summary) });
+      const episodes = buildEpisodeSections(db, project, sessionId);
+      sections.push({ label: "Decisions", content: episodes.decisions, tokens: estimateTokens(episodes.decisions) });
+      sections.push({ label: "Friction", content: episodes.friction, tokens: estimateTokens(episodes.friction) });
+      sections.push({ label: "Learnings", content: episodes.learnings, tokens: estimateTokens(episodes.learnings) });
+      try {
+        const summaries = db.prepare(`SELECT session_summary, created_at FROM episodes
+       WHERE kind = 'session-summary' AND project = ? AND session_summary IS NOT NULL
+       ORDER BY created_at DESC LIMIT 3`).all(project);
+        if (summaries.length > 0) {
+          const content = summaries.map((s) => `- ${s.created_at.slice(0, 16)}: ${s.session_summary}`).join("\n");
+          sections.push({ label: "Past Sessions", content: `# Son Sessionlar
+${content}`, tokens: estimateTokens(content) });
+        }
+      } catch {
+      }
+      let totalTokens = sections.reduce((sum, s) => sum + s.tokens, 0);
+      while (totalTokens > tokenBudget && sections.length > 1) {
+        const removed = sections.pop();
+        if (!removed)
+          break;
+        totalTokens -= removed.tokens;
+      }
+      const allContent = sections.map((s) => s.content).join("|");
+      const contentHash = crypto_1.default.createHash("md5").update(allContent).digest("hex").slice(0, 8);
+      return { sections, totalTokens, contentHash };
+    }
+  }
+});
+
+// dist/scripts/lib/migrations-v051.js
+var require_migrations_v051 = __commonJS({
+  "dist/scripts/lib/migrations-v051.js"(exports2) {
+    "use strict";
+    Object.defineProperty(exports2, "__esModule", { value: true });
+    exports2.V051_MIGRATIONS = void 0;
+    exports2.V051_MIGRATIONS = [
+      {
+        version: 2,
+        name: "add_source_type_and_project_scope",
+        up: (db) => {
+          const cols = db.pragma("table_info(file_hashes)");
+          const colNames = new Set(cols.map((c) => c.name));
+          if (!colNames.has("source_type")) {
+            db.exec("ALTER TABLE file_hashes ADD COLUMN source_type TEXT DEFAULT 'mindlore'");
+          }
+          if (!colNames.has("project_scope")) {
+            db.exec("ALTER TABLE file_hashes ADD COLUMN project_scope TEXT");
+          }
+          if (!colNames.has("content_hash")) {
+            db.exec("ALTER TABLE file_hashes ADD COLUMN content_hash TEXT");
+          }
+        }
+      }
+    ];
+  }
+});
+
+// dist/scripts/lib/migrations.js
+var require_migrations = __commonJS({
+  "dist/scripts/lib/migrations.js"(exports2) {
+    "use strict";
+    Object.defineProperty(exports2, "__esModule", { value: true });
+    exports2.V051_MIGRATIONS = exports2.V050_MIGRATIONS = void 0;
+    exports2.V050_MIGRATIONS = [
+      {
+        version: 1,
+        name: "add_vec_table_and_timestamps",
+        up: (db) => {
+          const cols = db.pragma("table_info(file_hashes)");
+          const colNames = new Set(cols.map((c) => c.name));
+          if (!colNames.has("created_at")) {
+            db.exec("ALTER TABLE file_hashes ADD COLUMN created_at TEXT");
+          }
+          if (!colNames.has("updated_at")) {
+            db.exec("ALTER TABLE file_hashes ADD COLUMN updated_at TEXT");
+          }
+        }
+      }
+    ];
+    var migrations_v051_js_1 = require_migrations_v051();
+    Object.defineProperty(exports2, "V051_MIGRATIONS", { enumerable: true, get: function() {
+      return migrations_v051_js_1.V051_MIGRATIONS;
+    } });
+  }
+});
+
+// dist/scripts/lib/migrations-v052.js
+var require_migrations_v052 = __commonJS({
+  "dist/scripts/lib/migrations-v052.js"(exports2) {
+    "use strict";
+    Object.defineProperty(exports2, "__esModule", { value: true });
+    exports2.V052_MIGRATIONS = void 0;
+    exports2.V052_MIGRATIONS = [
+      {
+        version: 3,
+        name: "add_skill_memory_table",
+        up: (db) => {
+          db.exec(`
+        CREATE TABLE IF NOT EXISTS skill_memory (
+          id INTEGER PRIMARY KEY,
+          skill_name TEXT NOT NULL,
+          key TEXT NOT NULL,
+          value TEXT NOT NULL,
+          updated_at TEXT NOT NULL,
+          access_count INTEGER DEFAULT 0,
+          UNIQUE(skill_name, key)
+        )
+      `);
+        }
+      }
+    ];
+  }
+});
+
+// dist/scripts/lib/migrations-v053.js
+var require_migrations_v053 = __commonJS({
+  "dist/scripts/lib/migrations-v053.js"(exports2) {
+    "use strict";
+    Object.defineProperty(exports2, "__esModule", { value: true });
+    exports2.V053_MIGRATIONS = void 0;
+    exports2.V053_MIGRATIONS = [
+      {
+        version: 4,
+        name: "add_recall_telemetry_and_decay",
+        up: (db) => {
+          const cols = db.pragma("table_info(file_hashes)");
+          const colNames = new Set(cols.map((c) => c.name));
+          if (!colNames.has("recall_count")) {
+            db.exec("ALTER TABLE file_hashes ADD COLUMN recall_count INTEGER DEFAULT 0");
+          }
+          if (!colNames.has("last_recalled_at")) {
+            db.exec("ALTER TABLE file_hashes ADD COLUMN last_recalled_at TEXT");
+          }
+          if (!colNames.has("archived_at")) {
+            db.exec("ALTER TABLE file_hashes ADD COLUMN archived_at TEXT");
+          }
+          if (!colNames.has("importance")) {
+            db.exec("ALTER TABLE file_hashes ADD COLUMN importance REAL DEFAULT 1.0");
+          }
+        }
+      },
+      {
+        version: 5,
+        name: "add_episode_consolidation",
+        up: (db) => {
+          const table = db.prepare("SELECT name FROM sqlite_master WHERE type='table' AND name='episodes'").get();
+          if (!table)
+            return;
+          const cols = db.pragma("table_info(episodes)");
+          const colNames = new Set(cols.map((c) => c.name));
+          if (!colNames.has("consolidation_status")) {
+            db.exec("ALTER TABLE episodes ADD COLUMN consolidation_status TEXT DEFAULT 'raw'");
+          }
+          if (!colNames.has("consolidated_into")) {
+            db.exec("ALTER TABLE episodes ADD COLUMN consolidated_into TEXT");
+          }
+          if (!colNames.has("decay_score")) {
+            db.exec("ALTER TABLE episodes ADD COLUMN decay_score REAL");
+          }
+          if (!colNames.has("last_decay_calc")) {
+            db.exec("ALTER TABLE episodes ADD COLUMN last_decay_calc TEXT");
+          }
+        }
+      }
+    ];
+  }
+});
+
+// dist/scripts/lib/migrations-v061.js
+var require_migrations_v061 = __commonJS({
+  "dist/scripts/lib/migrations-v061.js"(exports2) {
+    "use strict";
+    Object.defineProperty(exports2, "__esModule", { value: true });
+    exports2.V061_MIGRATIONS = void 0;
+    exports2.V061_MIGRATIONS = [
+      {
+        version: 6,
+        name: "cleanup_project_category",
+        up: (db) => {
+          db.exec(`
+        UPDATE mindlore_fts SET project = 'unknown'
+        WHERE project LIKE '.mindlore%' OR project LIKE 'C--%'
+      `);
+          db.exec(`
+        UPDATE mindlore_fts SET category = 'cc-subagent'
+        WHERE category IN ('subagent', 'cc_subagent')
+      `);
+          db.exec(`
+        UPDATE mindlore_fts SET category = 'cc-session'
+        WHERE category IN ('session', 'cc_session')
+      `);
+        }
+      },
+      {
+        version: 7,
+        name: "split_fts_sessions",
+        up: (db) => {
+          db.exec(`
+        CREATE VIRTUAL TABLE IF NOT EXISTS mindlore_fts_sessions USING fts5(
+          path, slug, description, type, category, title, content, tags,
+          quality, date_captured, project
+        )
+      `);
+          db.exec("BEGIN");
+          try {
+            db.exec(`
+          INSERT INTO mindlore_fts_sessions (path, slug, description, type, category, title, content, tags, quality, date_captured, project)
+          SELECT path, slug, description, type, category, title, content, tags, quality, date_captured, project
+          FROM mindlore_fts
+          WHERE category IN ('cc-subagent', 'cc-session')
+        `);
+            db.exec(`
+          DELETE FROM mindlore_fts WHERE category IN ('cc-subagent', 'cc-session')
+        `);
+            db.exec("COMMIT");
+          } catch (err) {
+            db.exec("ROLLBACK");
+            throw err;
+          }
+          const cols = db.pragma("table_info(file_hashes)");
+          if (!cols.some((c) => c.name === "table_target")) {
+            db.exec("ALTER TABLE file_hashes ADD COLUMN table_target TEXT DEFAULT 'mindlore_fts'");
+          }
+        }
+      }
+    ];
+  }
+});
+
+// dist/scripts/lib/migrations-v062.js
+var require_migrations_v062 = __commonJS({
+  "dist/scripts/lib/migrations-v062.js"(exports2) {
+    "use strict";
+    Object.defineProperty(exports2, "__esModule", { value: true });
+    exports2.V062_MIGRATIONS = void 0;
+    exports2.V062_MIGRATIONS = [
+      {
+        version: 8,
+        name: "raw_metadata_table",
+        up: (db) => {
+          db.exec(`
+        CREATE TABLE IF NOT EXISTS raw_metadata (
+          path TEXT PRIMARY KEY,
+          title TEXT,
+          url TEXT,
+          date_captured TEXT,
+          headings TEXT,
+          file_size INTEGER,
+          line_count INTEGER,
+          extracted_at TEXT NOT NULL
+        )
+      `);
+        }
+      },
+      {
+        version: 9,
+        name: "episodes_session_summary",
+        up: (db) => {
+          const cols = db.pragma("table_info(episodes)");
+          if (!cols.some((c) => c.name === "session_summary")) {
+            db.exec("ALTER TABLE episodes ADD COLUMN session_summary TEXT");
+          }
+        }
+      }
+    ];
+  }
+});
+
+// dist/scripts/lib/migrations-v063.js
+var require_migrations_v063 = __commonJS({
+  "dist/scripts/lib/migrations-v063.js"(exports2) {
+    "use strict";
+    Object.defineProperty(exports2, "__esModule", { value: true });
+    exports2.V063_MIGRATIONS = exports2.SQL_SEARCH_THROTTLE_CREATE = exports2.SQL_SEARCH_CACHE_CREATE = exports2.SQL_VOCABULARY_CREATE = exports2.SQL_FTS_TRIGRAM_CREATE = void 0;
+    exports2.SQL_FTS_TRIGRAM_CREATE = "CREATE VIRTUAL TABLE IF NOT EXISTS mindlore_fts_trigram USING fts5(path UNINDEXED, slug, description, type UNINDEXED, category, title, content, tags, quality UNINDEXED, date_captured UNINDEXED, project UNINDEXED, tokenize='trigram')";
+    exports2.SQL_VOCABULARY_CREATE = "CREATE TABLE IF NOT EXISTS vocabulary (word TEXT PRIMARY KEY) WITHOUT ROWID";
+    exports2.SQL_SEARCH_CACHE_CREATE = "CREATE TABLE IF NOT EXISTS search_cache (query_hash TEXT PRIMARY KEY, results_json TEXT NOT NULL, expires_at TEXT NOT NULL)";
+    exports2.SQL_SEARCH_THROTTLE_CREATE = "CREATE TABLE IF NOT EXISTS search_throttle (session_id TEXT PRIMARY KEY, call_count INTEGER NOT NULL DEFAULT 0, last_call TEXT NOT NULL)";
+    exports2.V063_MIGRATIONS = [
+      {
+        version: 10,
+        name: "fts_trigram_table",
+        up: (db) => {
+          db.exec(exports2.SQL_FTS_TRIGRAM_CREATE);
+          const porterCount = db.prepare("SELECT COUNT(*) as c FROM mindlore_fts").get().c;
+          if (porterCount > 0) {
+            db.exec(`
+          INSERT INTO mindlore_fts_trigram(path, slug, description, type, category, title, content, tags, quality, date_captured, project)
+          SELECT path, slug, description, type, category, title, content, tags, quality, date_captured, project
+          FROM mindlore_fts
+        `);
+          }
+        }
+      },
+      {
+        version: 11,
+        name: "vocabulary_table",
+        up: (db) => {
+          db.exec(exports2.SQL_VOCABULARY_CREATE);
+        }
+      },
+      {
+        version: 12,
+        name: "chunks_table",
+        up: (db) => {
+          db.exec(`
+        CREATE TABLE IF NOT EXISTS chunks (
+          id INTEGER PRIMARY KEY,
+          source_path TEXT NOT NULL,
+          chunk_index INTEGER NOT NULL,
+          heading TEXT,
+          breadcrumb TEXT,
+          char_count INTEGER,
+          UNIQUE(source_path, chunk_index)
+        )
+      `);
+        }
+      },
+      {
+        version: 13,
+        name: "search_cache_tables",
+        up: (db) => {
+          db.exec(exports2.SQL_SEARCH_CACHE_CREATE);
+          db.exec(exports2.SQL_SEARCH_THROTTLE_CREATE);
+        }
+      }
+    ];
+  }
+});
+
+// dist/scripts/lib/migrations-v066.js
+var require_migrations_v066 = __commonJS({
+  "dist/scripts/lib/migrations-v066.js"(exports2) {
+    "use strict";
+    Object.defineProperty(exports2, "__esModule", { value: true });
+    exports2.V066_MIGRATIONS = exports2.SQL_EPISODE_INJECT_LOG_CREATE = void 0;
+    exports2.SQL_EPISODE_INJECT_LOG_CREATE = "CREATE TABLE IF NOT EXISTS episode_inject_log (session_id TEXT NOT NULL, episode_id TEXT NOT NULL, injected_at TEXT NOT NULL, PRIMARY KEY (session_id, episode_id))";
+    exports2.V066_MIGRATIONS = [
+      {
+        version: 14,
+        name: "episode_inject_log",
+        up: (db) => {
+          db.exec(exports2.SQL_EPISODE_INJECT_LOG_CREATE);
+        }
+      }
+    ];
+  }
+});
+
+// dist/scripts/lib/migrations-v067.js
+var require_migrations_v067 = __commonJS({
+  "dist/scripts/lib/migrations-v067.js"(exports2) {
+    "use strict";
+    Object.defineProperty(exports2, "__esModule", { value: true });
+    exports2.V067_MIGRATIONS = void 0;
+    exports2.cleanupExpiredInjectLog = cleanupExpiredInjectLog;
+    var THIRTY_DAYS_MS = 30 * 24 * 60 * 60 * 1e3;
+    function cleanupExpiredInjectLog(db, ttlMs = THIRTY_DAYS_MS) {
+      const cutoff = new Date(Date.now() - ttlMs).toISOString();
+      const result = db.prepare("DELETE FROM episode_inject_log WHERE injected_at < ?").run(cutoff);
+      return result.changes;
+    }
+    exports2.V067_MIGRATIONS = [
+      {
+        version: 15,
+        name: "episodes_graduation_columns",
+        up: (db) => {
+          db.exec("ALTER TABLE episodes ADD COLUMN graduated_at TEXT");
+          db.exec("ALTER TABLE episodes ADD COLUMN rejected_at TEXT");
+          db.exec("ALTER TABLE episodes ADD COLUMN rejection_reason TEXT");
+        }
+      },
+      {
+        version: 16,
+        name: "episode_inject_log_integer_fix",
+        up: (db) => {
+          db.exec(`
+        CREATE TABLE episode_inject_log_new (
+          session_id TEXT NOT NULL,
+          episode_id INTEGER NOT NULL,
+          injected_at TEXT NOT NULL,
+          PRIMARY KEY (session_id, episode_id)
+        )
+      `);
+          db.exec(`
+        INSERT INTO episode_inject_log_new (session_id, episode_id, injected_at)
+        SELECT session_id, CAST(episode_id AS INTEGER), injected_at
+        FROM episode_inject_log
+      `);
+          db.exec("DROP TABLE episode_inject_log");
+          db.exec("ALTER TABLE episode_inject_log_new RENAME TO episode_inject_log");
+        }
+      },
+      {
+        version: 17,
+        name: "episode_inject_log_ttl",
+        up: (db) => {
+          cleanupExpiredInjectLog(db);
+        }
+      }
+    ];
+  }
+});
+
+// dist/scripts/lib/migrations-v068.js
+var require_migrations_v068 = __commonJS({
+  "dist/scripts/lib/migrations-v068.js"(exports2) {
+    "use strict";
+    Object.defineProperty(exports2, "__esModule", { value: true });
+    exports2.V068_MIGRATIONS = void 0;
+    exports2.V068_MIGRATIONS = [
+      {
+        version: 18,
+        name: "inject_log_injected_at_index",
+        up: (db) => {
+          db.exec("CREATE INDEX IF NOT EXISTS idx_inject_log_injected_at ON episode_inject_log(injected_at)");
+        }
+      },
+      {
+        version: 19,
+        name: "drop_dead_vec_tables",
+        up: (db) => {
+          const shadowTables = [
+            "documents_vec_info",
+            "documents_vec_chunks",
+            "documents_vec_rowids",
+            "documents_vec_vector_chunks00",
+            "documents_vec_metadatachunks00",
+            "documents_vec_metadatatext00",
+            "documents_vec_auxiliary"
+          ];
+          for (const table of shadowTables) {
+            db.exec(`DROP TABLE IF EXISTS "${table}"`);
+          }
+          try {
+            db.exec("DROP TABLE IF EXISTS documents_vec");
+          } catch {
+          }
+        }
+      }
+    ];
+  }
+});
+
+// dist/scripts/lib/all-migrations.js
+var require_all_migrations = __commonJS({
+  "dist/scripts/lib/all-migrations.js"(exports2) {
+    "use strict";
+    Object.defineProperty(exports2, "__esModule", { value: true });
+    exports2.EXPECTED_SCHEMA_VERSION = exports2.INIT_MIGRATIONS = exports2.FTS_DB_MIGRATIONS = exports2.ALL_MIGRATIONS = void 0;
+    var migrations_js_1 = require_migrations();
+    var migrations_v052_js_1 = require_migrations_v052();
+    var migrations_v053_js_1 = require_migrations_v053();
+    var migrations_v061_js_1 = require_migrations_v061();
+    var migrations_v062_js_1 = require_migrations_v062();
+    var migrations_v063_js_1 = require_migrations_v063();
+    var migrations_v066_js_1 = require_migrations_v066();
+    var migrations_v067_js_1 = require_migrations_v067();
+    var migrations_v068_js_1 = require_migrations_v068();
+    exports2.ALL_MIGRATIONS = [
+      ...migrations_js_1.V050_MIGRATIONS,
+      ...migrations_js_1.V051_MIGRATIONS,
+      ...migrations_v052_js_1.V052_MIGRATIONS,
+      ...migrations_v053_js_1.V053_MIGRATIONS,
+      ...migrations_v061_js_1.V061_MIGRATIONS,
+      ...migrations_v062_js_1.V062_MIGRATIONS,
+      ...migrations_v063_js_1.V063_MIGRATIONS,
+      ...migrations_v066_js_1.V066_MIGRATIONS,
+      ...migrations_v067_js_1.V067_MIGRATIONS,
+      ...migrations_v068_js_1.V068_MIGRATIONS
+    ];
+    var EPISODES_DEPENDENT = /* @__PURE__ */ new Set([9, 14, 15, 16, 17, 18]);
+    exports2.FTS_DB_MIGRATIONS = exports2.ALL_MIGRATIONS.filter((m) => !EPISODES_DEPENDENT.has(m.version));
+    exports2.INIT_MIGRATIONS = [
+      ...migrations_v062_js_1.V062_MIGRATIONS,
+      ...migrations_v063_js_1.V063_MIGRATIONS,
+      ...migrations_v066_js_1.V066_MIGRATIONS,
+      ...migrations_v067_js_1.V067_MIGRATIONS,
+      ...migrations_v068_js_1.V068_MIGRATIONS
+    ];
+    exports2.EXPECTED_SCHEMA_VERSION = Math.max(...exports2.ALL_MIGRATIONS.map((m) => m.version));
+  }
+});
+
+// hooks/src/mindlore-session-focus.cjs
+var fs = require("fs");
+var path = require("path");
+var { findMindloreDir, readConfig, openDatabase, hasEpisodesTable, querySupersededChains, formatSupersededChains, hookLog, getProjectName, parseFrontmatter, withTelemetry, withTimeoutDb, listSnapshots, isCorruptionError, recoverCorruptDb, getNominationCounts } = require_mindlore_common();
 function truncateSection(content, sectionRegex, keepCount, label) {
   const match = content.match(sectionRegex);
   if (!match) return content;
-  const lines = match[2].trim().split('\n');
+  const lines = match[2].trim().split("\n");
   if (lines.length <= keepCount) return content;
-  const kept = lines.slice(0, keepCount).join('\n');
-  return content.replace(match[2].trim(), kept + `\n- ...ve ${lines.length - keepCount} ${label} daha`);
+  const kept = lines.slice(0, keepCount).join("\n");
+  return content.replace(match[2].trim(), kept + `
+- ...ve ${lines.length - keepCount} ${label} daha`);
 }
-
 function truncateCommits(content) {
-  return truncateSection(content, /(## Commits\n)((?:- [^\n]+\n?)+)/, 5, 'commit');
+  return truncateSection(content, /(## Commits\n)((?:- [^\n]+\n?)+)/, 5, "commit");
 }
-
 function truncateChangedFiles(content) {
-  return truncateSection(content, /(## Changed Files\n)((?:- [^\n]+\n?)+)/, 10, 'dosya');
+  return truncateSection(content, /(## Changed Files\n)((?:- [^\n]+\n?)+)/, 10, "dosya");
 }
-
 function tryOpenDb(dbPath) {
   return openDatabase(dbPath, { readonly: true });
 }
-
 function getEpisodeStats(db, config, project) {
   const chains = querySupersededChains(db, { project, days: 7, limit: 5 });
   let consolidationMsg = null;
   try {
-    const rawCount = withTimeoutDb(db,
+    const rawCount = withTimeoutDb(
+      db,
       "SELECT COUNT(*) as cnt FROM episodes WHERE consolidation_status = 'raw' OR consolidation_status IS NULL",
-      [], { mode: 'get' });
+      [],
+      { mode: "get" }
+    );
     const cnt = rawCount?.cnt ?? 0;
     const consolThreshold = config?.consolidation?.threshold ?? 50;
     if (cnt >= consolThreshold) {
-      consolidationMsg = `[Mindlore] ${cnt} raw episode birikti — \`/mindlore-maintain consolidate\` ile birleştirmeyi düşün.`;
+      consolidationMsg = `[Mindlore] ${cnt} raw episode birikti \u2014 \`/mindlore-maintain consolidate\` ile birle\u015Ftirmeyi d\xFC\u015F\xFCn.`;
     }
-  } catch (_err) { /* consolidation_status column may not exist yet */ }
+  } catch (_err) {
+  }
   return { chains, consolidationMsg };
 }
-
 function checkStaleContent(db) {
   try {
-    const thirtyDaysAgo = new Date(Date.now() - (30 * 24 * 60 * 60 * 1000)).toISOString();
-    const row = withTimeoutDb(db, 'SELECT COUNT(*) as cnt FROM file_hashes WHERE last_indexed < ?', [thirtyDaysAgo], { mode: 'get' });
+    const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1e3).toISOString();
+    const row = withTimeoutDb(db, "SELECT COUNT(*) as cnt FROM file_hashes WHERE last_indexed < ?", [thirtyDaysAgo], { mode: "get" });
     const staleCount = row?.cnt ?? 0;
     if (staleCount > 3) {
-      return `[Mindlore: ${staleCount} dosya 30+ gundur guncellenmemis — \`/mindlore-evolve\` dusun]`;
+      return `[Mindlore: ${staleCount} dosya 30+ gundur guncellenmemis \u2014 \`/mindlore-evolve\` dusun]`;
     }
-  } catch (_staleErr) { /* file_hashes may not exist */ }
+  } catch (_staleErr) {
+  }
   return null;
 }
-
 function loadDbContent({ db, baseDir, config, output, timings, latestDeltaContent, sessionId }) {
   const project = path.basename(process.cwd());
-  // Session payload: Session summary, Decisions, Friction, Learnings
   const tPayload = Date.now();
   try {
-    const { buildSessionPayload } = require('../dist/scripts/lib/session-payload.js');
-    const payloadBudget = config?.tokenBudget?.sessionInject ?? 2000;
+    const { buildSessionPayload } = require_session_payload();
+    const payloadBudget = config?.tokenBudget?.sessionInject ?? 2e3;
     const payload = buildSessionPayload({ db, baseDir, project, tokenBudget: payloadBudget, latestDeltaContent, sessionId });
     for (const section of payload.sections) {
-      output.push(`[Mindlore ${section.label}]\n${section.content}`);
+      output.push(`[Mindlore ${section.label}]
+${section.content}`);
     }
   } catch (_payloadErr) {
-    // Session payload is optional — don't break session start
   }
   timings.db_payload = Date.now() - tPayload;
-
-  // Supersedes chain display + episode consolidation reminder
   const tSuperseded = Date.now();
   if (hasEpisodesTable(db)) {
     const { chains, consolidationMsg } = getEpisodeStats(db, config, project);
     if (chains.length > 0) {
-      output.push(`[Mindlore Supersedes]\n${formatSupersededChains(chains)}`);
+      output.push(`[Mindlore Supersedes]
+${formatSupersededChains(chains)}`);
     }
     if (consolidationMsg) {
       output.push(consolidationMsg);
     }
   }
   timings.db_episodes = Date.now() - tSuperseded;
-
-  // Stale content check
   const tStale = Date.now();
   const staleMsg = checkStaleContent(db);
   if (staleMsg) {
     output.push(staleMsg);
   }
   timings.db_stale = Date.now() - tStale;
-
-  // Auto reflect trigger (Q1) + Graduated lesson count (Q3)
   try {
     const counts = getNominationCounts(db, project);
     if (counts.staged >= (config?.graduation?.reflectThreshold ?? 5)) {
-      output.push(`[Mindlore] ${counts.staged} bekleyen nomination var — \`/mindlore-reflect\` çalıştır`);
+      output.push(`[Mindlore] ${counts.staged} bekleyen nomination var \u2014 \`/mindlore-reflect\` \xE7al\u0131\u015Ft\u0131r`);
     }
     if (counts.graduated > 0) {
       output.push(`[Mindlore Graduation] ${counts.graduated} lesson mezun oldu`);
     }
-  } catch (_reflectErr) { /* graduation not available */ }
+  } catch (_reflectErr) {
+  }
 }
-
 function main() {
   const t0 = Date.now();
   const baseDir = findMindloreDir();
-  if (!baseDir) return; // No .mindlore/ found, silently skip
-
-  // Read session_id from stdin (Claude Code passes { session_id } to SessionStart hooks)
+  if (!baseDir) return;
   let sessionId;
   try {
-    const stdinData = JSON.parse(fs.readFileSync(0, 'utf8') || '{}');
-    sessionId = stdinData.session_id || undefined;
-  } catch { sessionId = undefined; }
-
+    const stdinData = JSON.parse(fs.readFileSync(0, "utf8") || "{}");
+    sessionId = stdinData.session_id || void 0;
+  } catch {
+    sessionId = void 0;
+  }
   const output = [];
   const config = readConfig(baseDir);
   const timings = {};
   let sourceChars = 0;
-
-  // Inject INDEX.md
   const tIndex = Date.now();
-  const indexPath = path.join(baseDir, 'INDEX.md');
+  const indexPath = path.join(baseDir, "INDEX.md");
   if (fs.existsSync(indexPath)) {
-    const content = fs.readFileSync(indexPath, 'utf8').trim();
+    const content = fs.readFileSync(indexPath, "utf8").trim();
     sourceChars += content.length;
-    output.push(`[Mindlore INDEX]\n${content}`);
+    output.push(`[Mindlore INDEX]
+${content}`);
   }
   timings.index_read = Date.now() - tIndex;
-
-  // Inject latest delta + reflect trigger (single readdirSync)
   const tDiary = Date.now();
-  const diaryDir = path.join(baseDir, 'diary');
-  let latestDeltaContent = undefined;
+  const diaryDir = path.join(baseDir, "diary");
+  let latestDeltaContent = void 0;
   if (fs.existsSync(diaryDir)) {
     try {
-      const diaryFiles = listSnapshots(diaryDir).filter(f => f.startsWith('delta-'));
-
+      const diaryFiles = listSnapshots(diaryDir).filter((f) => f.startsWith("delta-"));
       if (diaryFiles.length > 0) {
         const latestName = diaryFiles[diaryFiles.length - 1];
         const latestPath = path.join(diaryDir, latestName);
-        const deltaContent = fs.readFileSync(latestPath, 'utf8').trim();
+        const deltaContent = fs.readFileSync(latestPath, "utf8").trim();
         sourceChars += deltaContent.length;
         latestDeltaContent = deltaContent;
         const { meta } = parseFrontmatter(deltaContent);
         const deltaProject = meta.project || null;
         const currentProject = getProjectName();
         if (!deltaProject || deltaProject.toLowerCase() === currentProject.toLowerCase()) {
-          output.push(`[Mindlore Delta: ${latestName}]\n${truncateChangedFiles(truncateCommits(deltaContent))}`);
+          output.push(`[Mindlore Delta: ${latestName}]
+${truncateChangedFiles(truncateCommits(deltaContent))}`);
         }
       }
-
-      // Reflect trigger
       const threshold = config?.reflect?.threshold ?? 5;
       if (diaryFiles.length >= threshold) {
-        output.push(`[Mindlore] ${diaryFiles.length} diary entry birikti — \`/mindlore-log reflect\` calistirmayi dusun.`);
+        output.push(`[Mindlore] ${diaryFiles.length} diary entry birikti \u2014 \`/mindlore-log reflect\` calistirmayi dusun.`);
       }
-    } catch (_err) { /* skip */ }
+    } catch (_err) {
+    }
   }
   timings.diary_walk = Date.now() - tDiary;
-
-  // Version check: compare .version (installed) vs .pkg-version (package)
   const tVersion = Date.now();
-  // Both are flat strings written by init — no JSON parse needed on session start
-  const versionPath = path.join(baseDir, '.version');
-  const pkgVersionPath = path.join(baseDir, '.pkg-version');
+  const versionPath = path.join(baseDir, ".version");
+  const pkgVersionPath = path.join(baseDir, ".pkg-version");
   try {
     if (fs.existsSync(versionPath) && fs.existsSync(pkgVersionPath)) {
-      const installed = fs.readFileSync(versionPath, 'utf8').trim();
-      const pkgVersion = fs.readFileSync(pkgVersionPath, 'utf8').trim();
+      const installed = fs.readFileSync(versionPath, "utf8").trim();
+      const pkgVersion = fs.readFileSync(pkgVersionPath, "utf8").trim();
       if (pkgVersion && pkgVersion !== installed) {
-        output.push(`[Mindlore: Guncelleme mevcut (${installed} → ${pkgVersion}). \`npx mindlore init\` calistirin.]`);
+        output.push(`[Mindlore: Guncelleme mevcut (${installed} \u2192 ${pkgVersion}). \`npx mindlore init\` calistirin.]`);
       }
     }
-  } catch (_err) { /* skip */ }
+  } catch (_err) {
+  }
   timings.version_check = Date.now() - tVersion;
-
-  // v0.5.4: Consolidated session payload (replaces scattered episodes/activity/alerts injection)
   const tDb = Date.now();
   const outputLenBeforeDb = output.reduce((s, o) => s + o.length, 0);
   try {
-    const dbPath = path.join(baseDir, 'mindlore.db');
+    const dbPath = path.join(baseDir, "mindlore.db");
     const tDbOpen = Date.now();
     const db = tryOpenDb(dbPath);
     timings.db_open = Date.now() - tDbOpen;
     timings.db_integrity = 0;
-
     if (db) {
       try {
-        // Schema version check: warn if DB is behind expected version
         const tSchema = Date.now();
         try {
-          const { EXPECTED_SCHEMA_VERSION } = require('../dist/scripts/lib/all-migrations.js');
-          const row = db.prepare('SELECT MAX(version) as v FROM schema_versions').get();
+          const { EXPECTED_SCHEMA_VERSION } = require_all_migrations();
+          const row = db.prepare("SELECT MAX(version) as v FROM schema_versions").get();
           const current = row?.v ?? 0;
           if (current < EXPECTED_SCHEMA_VERSION) {
-            output.push(`[Mindlore: schema güncel değil (v${current} → v${EXPECTED_SCHEMA_VERSION}). \`npx mindlore upgrade\` çalıştır.]`);
+            output.push(`[Mindlore: schema g\xFCncel de\u011Fil (v${current} \u2192 v${EXPECTED_SCHEMA_VERSION}). \`npx mindlore upgrade\` \xE7al\u0131\u015Ft\u0131r.]`);
           }
-        } catch (_schemaErr) { /* schema_versions may not exist yet */ }
+        } catch (_schemaErr) {
+        }
         timings.schema_check = Date.now() - tSchema;
-
         loadDbContent({ db, baseDir, config, output, timings, latestDeltaContent, sessionId });
       } catch (err) {
         if (isCorruptionError(err)) {
-          recoverCorruptDb(db, dbPath, 'session-focus');
+          recoverCorruptDb(db, dbPath, "session-focus");
         }
       } finally {
-        try { db.close(); } catch { /* already closed by recovery */ }
+        try {
+          db.close();
+        } catch {
+        }
       }
     }
-  } catch (_err) { /* graceful skip */ }
+  } catch (_err) {
+  }
   const outputLenAfterDb = output.reduce((s, o) => s + o.length, 0);
-  sourceChars += (outputLenAfterDb - outputLenBeforeDb);
+  sourceChars += outputLenAfterDb - outputLenBeforeDb;
   timings.db_total = Date.now() - tDb;
-
   timings.total = Date.now() - t0;
-  hookLog('session-focus', 'info', `timings: ${JSON.stringify(timings)}`);
-
-  // Token budget for session inject
-  // Defaults match DEFAULT_TOKEN_BUDGET in scripts/lib/constants.ts
+  hookLog("session-focus", "info", `timings: ${JSON.stringify(timings)}`);
   const budgetConfig = config?.tokenBudget ?? {};
-  const maxInjectChars = (budgetConfig.sessionInject || 2000) * 4;
-
-  let joined = output.join('\n\n');
+  const maxInjectChars = (budgetConfig.sessionInject || 2e3) * 4;
+  let joined = output.join("\n\n");
   if (joined.length > maxInjectChars) {
-    joined = joined.slice(0, maxInjectChars) + '\n[...truncated by token budget]';
+    joined = joined.slice(0, maxInjectChars) + "\n[...truncated by token budget]";
   }
-
-  // v0.6.1: Daemon auto-start removed (daemon deprecated — MCP Server in v0.7)
-
   if (joined.length > 0) {
-    process.stdout.write(joined + '\n');
+    process.stdout.write(joined + "\n");
   }
-
   const inject_tokens = Math.ceil(joined.length / 4);
   const source_tokens = Math.ceil(sourceChars / 4);
   return { inject_tokens, source_tokens };
 }
-
-withTelemetry('mindlore-session-focus', main).catch(err => {
-  hookLog('mindlore-session-focus', 'error', err?.message ?? String(err));
+withTelemetry("mindlore-session-focus", main).catch((err) => {
+  hookLog("mindlore-session-focus", "error", err?.message ?? String(err));
   process.exit(0);
 });
-
-if (typeof module !== 'undefined') {
+if (typeof module !== "undefined") {
   module.exports = { truncateCommits, truncateChangedFiles, getEpisodeStats, checkStaleContent };
 }
