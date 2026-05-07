@@ -14,7 +14,7 @@ const sharedRules = {
 
 module.exports = [
   {
-    ignores: ['**/*.d.ts'],
+    ignores: ['**/*.d.ts', 'hooks/*.cjs'],
   },
   {
     files: ['**/*.cjs'],
