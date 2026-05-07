@@ -47,14 +47,11 @@ if (process.argv.includes('--worker')) {
     await safeRunAsync(() => writeBareEpisode(baseDir, project, commits, changedFiles, reads), 'episode');
     await safeRunAsync(() => writeEpisodeFile(baseDir, project, commits, changedFiles, reads), 'episode-file');
 
+    const nodeExe = resolveWin32Bin('node') || process.execPath;
     function runSyncScript(scriptName, args, timeoutMs, label) {
-      // Try bundled CJS next to this hook first, then fall back to dist/scripts/
       const cjsName = scriptName.replace(/\.js$/, '.cjs');
-      const bundledPath = path.join(__dirname, cjsName);
-      const distPath = path.join(__dirname, '..', 'dist', 'scripts', scriptName);
-      const scriptPath = fs.existsSync(bundledPath) ? bundledPath : distPath;
-      if (!fs.existsSync(scriptPath)) return;
-      const nodeExe = resolveWin32Bin('node') || process.execPath;
+      const scriptPath = [path.join(__dirname, cjsName), path.join(__dirname, '..', 'dist', 'scripts', scriptName)].find(p => fs.existsSync(p));
+      if (!scriptPath) return;
       try {
         execFileSync(nodeExe, [scriptPath, ...args], {
           timeout: timeoutMs,

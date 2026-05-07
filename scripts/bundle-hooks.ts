@@ -30,52 +30,45 @@ const distRedirect: Plugin = {
   },
 };
 
+const BASE_CONFIG = {
+  bundle: true,
+  platform: 'node' as const,
+  target: 'node20',
+  format: 'cjs' as const,
+  outdir: HOOKS_OUT,
+  outExtension: { '.js': '.cjs' },
+  logLevel: 'info' as const,
+  minify: false,
+  sourcemap: false,
+};
+
 async function main() {
-  const result = await build({
-    entryPoints,
-    bundle: true,
-    platform: 'node',
-    target: 'node20',
-    format: 'cjs',
-    outdir: HOOKS_OUT,
-    outExtension: { '.js': '.cjs' },
-    external: ['better-sqlite3', './lib/secure-io.cjs', './lib/mindlore-common.cjs'],
-    plugins: [distRedirect],
-    logLevel: 'info',
-    minify: false,
-    sourcemap: false,
-  });
-
-  console.log(`Bundled ${entryPoints.length} hooks → hooks/`);
-  if (result.errors.length) {
-    console.error('Errors:', result.errors);
-    process.exit(1);
-  }
-
-  // Bundle sync scripts separately (different source dir → flat output)
   const scriptEntries = SYNC_SCRIPTS
     .map(f => join(SCRIPTS_DIR, f))
     .filter(f => require('fs').existsSync(f));
 
-  if (scriptEntries.length > 0) {
-    const r2 = await build({
+  const builds = [
+    build({
+      ...BASE_CONFIG,
+      entryPoints,
+      external: ['better-sqlite3', './lib/secure-io.cjs', './lib/mindlore-common.cjs'],
+      plugins: [distRedirect],
+    }),
+    ...(scriptEntries.length > 0 ? [build({
+      ...BASE_CONFIG,
       entryPoints: scriptEntries,
-      bundle: true,
-      platform: 'node',
-      target: 'node20',
-      format: 'cjs',
-      outdir: HOOKS_OUT,
-      outExtension: { '.js': '.cjs' },
       external: ['better-sqlite3'],
-      logLevel: 'info',
-      minify: false,
-      sourcemap: false,
-    });
-    console.log(`Bundled ${scriptEntries.length} sync scripts → hooks/`);
-    if (r2.errors.length) {
-      console.error('Errors:', r2.errors);
-      process.exit(1);
-    }
+    })] : []),
+  ];
+
+  const results = await Promise.all(builds);
+  console.log(`Bundled ${entryPoints.length} hooks → hooks/`);
+  if (scriptEntries.length > 0) console.log(`Bundled ${scriptEntries.length} sync scripts → hooks/`);
+
+  const errors = results.flatMap(r => r.errors);
+  if (errors.length) {
+    console.error('Errors:', errors);
+    process.exit(1);
   }
 }
 
