@@ -34,7 +34,10 @@ if (process.argv.includes("--worker")) {
     await safeRunAsync(() => writeBareEpisode(baseDir, project, commits, changedFiles, reads), "episode");
     await safeRunAsync(() => writeEpisodeFile(baseDir, project, commits, changedFiles, reads), "episode-file");
     function runSyncScript(scriptName, args, timeoutMs, label) {
-      const scriptPath = path.join(__dirname, "..", "dist", "scripts", scriptName);
+      const cjsName = scriptName.replace(/\.js$/, ".cjs");
+      const bundledPath = path.join(__dirname, cjsName);
+      const distPath = path.join(__dirname, "..", "dist", "scripts", scriptName);
+      const scriptPath = fs.existsSync(bundledPath) ? bundledPath : distPath;
       if (!fs.existsSync(scriptPath)) return;
       const nodeExe = resolveWin32Bin("node") || process.execPath;
       try {
