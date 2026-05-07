@@ -5,6 +5,25 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.7.1] - 2026-05-07
+
+### Fixed
+- Sync scripts (`cc-session-sync`, `cc-memory-bulk-sync`) now bundled alongside hooks for plugin cache compatibility — previously silently skipped because `dist/` was absent in plugin cache
+- Bundled MCP server as `mcp-server.cjs` for plugin runtime
+- Plugin hooks format updated to `hooks/hooks.json` with CC settings schema
+- Removed `execSync` from hooks, replaced with `execFileSync` (command injection prevention)
+- Externalized `secure-io.cjs` and `mindlore-common.cjs` in esbuild bundle (preserves octal permissions, prevents DB constructor inlining)
+- Eslint config: bundled hooks (esbuild output) excluded from lint
+
+### Added
+- `.claude-plugin` marketplace manifest for CC plugin install
+- Esbuild bundle pipeline for all 14 hooks (`hooks/src/` → `hooks/*.cjs`)
+- Bundled-first script path resolution with `dist/` fallback
+
+### Changed
+- `bundle-hooks.ts`: shared `BASE_CONFIG`, parallel `Promise.all` build
+- Script resolution simplified to single `.find()` with cached `nodeExe`
+
 ## [0.7.0] - 2026-05-05
 
 ### Added
