@@ -142,7 +142,7 @@ describe('Search Hook — DB Access Pattern', () => {
     const hookSource = fs.readFileSync(
       path.join(__dirname, '..', 'hooks', 'mindlore-search.cjs'), 'utf8'
     );
-    expect(hookSource).toContain("hookLog('search'");
+    expect(hookSource).toMatch(/hookLog\(['"]search['"]/)
   });
 });
 

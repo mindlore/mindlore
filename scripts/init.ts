@@ -674,9 +674,6 @@ function main(): void {
   // Recommended profile tips
   if (isRecommended) {
     console.log('\n  Recommended setup:');
-    log('Install markitdown for better web/doc extraction:');
-    log('  pip install markitdown');
-    log('');
     log('Install context-mode for token savings:');
     log('  See: https://github.com/context-mode/context-mode');
   }

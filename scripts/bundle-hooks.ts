@@ -10,10 +10,16 @@ const entryPoints = readdirSync(HOOKS_SRC)
   .filter(f => f.startsWith('mindlore-') && f.endsWith('.cjs'))
   .map(f => join(HOOKS_SRC, f));
 
+const EXTERNAL_LIBS = ['secure-io'];
+
 const distRedirect: Plugin = {
   name: 'dist-redirect',
   setup(b) {
     b.onResolve({ filter: /dist\/scripts/ }, args => {
+      const basename = args.path.split('/').pop()?.replace(/\.js$/, '') ?? '';
+      if (EXTERNAL_LIBS.includes(basename)) {
+        return { path: `./lib/${basename}.cjs`, external: true };
+      }
       const resolved = resolve(args.resolveDir, args.path);
       const fromRoot = resolve(PROJECT_ROOT, 'dist', resolved.split(/dist[/\\]/).pop()!);
       return { path: fromRoot };
@@ -30,7 +36,7 @@ async function main() {
     format: 'cjs',
     outdir: HOOKS_OUT,
     outExtension: { '.js': '.cjs' },
-    external: ['better-sqlite3'],
+    external: ['better-sqlite3', './lib/secure-io.cjs', './lib/mindlore-common.cjs'],
     plugins: [distRedirect],
     logLevel: 'info',
     minify: false,

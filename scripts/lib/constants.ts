@@ -225,26 +225,7 @@ export function resolveHookCommon(callerDir: string): string {
 }
 
 /**
- * Check if markitdown (Python) is installed.
- * Memoized — spawns child process only once per session.
- */
-let markitdownCached: boolean | null = null;
-export function hasMarkitdown(): boolean {
-  if (markitdownCached !== null) return markitdownCached;
-  try {
-    const cp: typeof import('child_process') = require('child_process');
-    const { execSync } = cp;
-    execSync('markitdown --version', { stdio: 'pipe', timeout: 5000 });
-    markitdownCached = true;
-  } catch (_err) {
-    markitdownCached = false;
-  }
-  return markitdownCached;
-}
-
-/**
  * Check if youtube-transcript npm package is available.
- * Optional fallback for YouTube transcript extraction when markitdown is absent.
  */
 export function hasYoutubeTranscript(): boolean {
   try {
