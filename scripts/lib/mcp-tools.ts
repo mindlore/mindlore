@@ -8,6 +8,7 @@ import { handleRecall } from './tool-adapters/recall-adapter.js';
 import { handleBrief } from './tool-adapters/brief-adapter.js';
 import { handleIngest } from './tool-adapters/ingest-adapter.js';
 import { handleDecide } from './tool-adapters/decide-adapter.js';
+import { handleRelate } from './tool-adapters/relate-adapter.js';
 import { withMcpTelemetry } from './mcp-telemetry.js';
 import { errMsg } from './err-msg.js';
 
@@ -149,6 +150,28 @@ export function registerAllTools(server: McpServer, ctx: McpContext): void {
       return withMcpTelemetry(ctx.baseDir, 'mindlore_stats', async () => {
         try {
           return toolResult(handleStats(ctx));
+        } catch (err) {
+          return toolError(errMsg(err));
+        }
+      });
+    }
+  );
+
+  server.tool(
+    'mindlore_relate',
+    'Manage source-to-source relations (Knowledge Graph)',
+    {
+      action: z.enum(['add', 'remove', 'list']).describe('Action'),
+      source_a: z.string().optional().describe('Source slug (required for add/remove)'),
+      source_b: z.string().optional().describe('Target source slug (required for add/remove)'),
+      relation_type: z.enum(['cites', 'extends', 'contradicts', 'supersedes']).optional()
+        .describe('Relation type (required for add/remove)'),
+      source: z.string().optional().describe('Filter relations by source slug (for list)'),
+    },
+    async (input) => {
+      return withMcpTelemetry(ctx.baseDir, 'mindlore_relate', async () => {
+        try {
+          return toolResult(handleRelate(ctx, input));
         } catch (err) {
           return toolError(errMsg(err));
         }
