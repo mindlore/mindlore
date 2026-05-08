@@ -14,6 +14,7 @@ import { V063_MIGRATIONS } from '../../scripts/lib/migrations-v063.js';
 import { V066_MIGRATIONS } from '../../scripts/lib/migrations-v066.js';
 import { V067_MIGRATIONS } from '../../scripts/lib/migrations-v067.js';
 import { V068_MIGRATIONS } from '../../scripts/lib/migrations-v068.js';
+import { V072_MIGRATIONS } from '../../scripts/lib/migrations-v072.js';
 
 // Hook'lar .cjs kalıyor — SQL constants'ları oradan import ediyoruz
 const { SQL_FTS_CREATE, insertFtsRow, ensureEpisodesTable: ensureEpisodesTableCjs, parseFrontmatter: parseFrontmatterCjs, extractFtsMetadata: extractFtsMetadataCjs, resolveProject: resolveProjectCjs }: {
@@ -55,7 +56,7 @@ const ALL_MIGRATIONS = [
   ...V050_MIGRATIONS, ...V051_MIGRATIONS, ...V052_MIGRATIONS,
   ...V053_MIGRATIONS, ...V061_MIGRATIONS, ...V062_MIGRATIONS,
   ...V063_MIGRATIONS, ...V066_MIGRATIONS, ...V067_MIGRATIONS,
-  ...V068_MIGRATIONS,
+  ...V068_MIGRATIONS, ...V072_MIGRATIONS,
 ];
 
 export function createTestDbAtVersion(dbPath: string, maxVersion: number): Database.Database {
