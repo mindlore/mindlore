@@ -74,6 +74,23 @@ function extractNegativePatterns(content) {
   }
   return patterns;
 }
+var _lessonsEnforcementCached = null;
+function hasLessonsEnforcementHook() {
+  if (_lessonsEnforcementCached !== null) return _lessonsEnforcementCached;
+  try {
+    const settingsPath = path.join(os.homedir(), ".claude", "settings.json");
+    const settings = JSON.parse(fs.readFileSync(settingsPath, "utf8"));
+    const hooks = settings.hooks || {};
+    const preToolUse = hooks.PreToolUse || [];
+    _lessonsEnforcementCached = preToolUse.some((entry) => {
+      const cmds = (entry.hooks || []).map((h) => h.command || "").concat(entry.command || "");
+      return cmds.some((c) => c.includes("lessons-enforcement"));
+    });
+  } catch (_err) {
+    _lessonsEnforcementCached = false;
+  }
+  return _lessonsEnforcementCached;
+}
 function checkContent(content, patterns) {
   const matches = [];
   for (const p of patterns) {
@@ -117,6 +134,7 @@ function main() {
         toolInput.new_string || ""
       ].join("\n");
       if (allContent.trim().length < 10) return process.exit(0);
+      if (hasLessonsEnforcementHook()) return process.exit(0);
       const mindloreDir = findMindloreDir();
       const cachePath = mindloreDir ? path.join(mindloreDir, "diary", `_pattern-cache-${getProjectName()}.json`) : null;
       const cache = readCache(cachePath);
