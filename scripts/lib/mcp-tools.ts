@@ -26,6 +26,22 @@ function toolError(message: string): { content: Array<{ type: 'text'; text: stri
   return { content: [{ type: 'text', text: message }], isError: true };
 }
 
+function wrapTool<TInput, TOutput>(
+  ctx: McpContext,
+  toolName: string,
+  handler: (ctx: McpContext, input: TInput) => TOutput
+): (input: TInput) => Promise<{ content: Array<{ type: 'text'; text: string }>; isError?: true }> {
+  return async (input: TInput) => {
+    return withMcpTelemetry(ctx.baseDir, toolName, async () => {
+      try {
+        return toolResult(handler(ctx, input));
+      } catch (err) {
+        return toolError(errMsg(err));
+      }
+    });
+  };
+}
+
 export function registerAllTools(server: McpServer, ctx: McpContext): void {
   server.tool(
     'mindlore_search',
@@ -36,15 +52,7 @@ export function registerAllTools(server: McpServer, ctx: McpContext): void {
       scope: z.enum(['sources', 'episodes', 'decisions', 'all']).optional().describe('Filter scope'),
       contentType: z.enum(['code', 'prose']).optional().describe('Content type filter'),
     },
-    async (input) => {
-      return withMcpTelemetry(ctx.baseDir, 'mindlore_search', async () => {
-        try {
-          return toolResult(handleSearch(ctx, input));
-        } catch (err) {
-          return toolError(errMsg(err));
-        }
-      });
-    }
+    wrapTool(ctx, 'mindlore_search', handleSearch)
   );
 
   server.tool(
@@ -56,15 +64,7 @@ export function registerAllTools(server: McpServer, ctx: McpContext): void {
       title: z.string().optional().describe('Title (auto-detected if omitted)'),
       tags: z.array(z.string()).optional().describe('Tags'),
     },
-    async (input) => {
-      return withMcpTelemetry(ctx.baseDir, 'mindlore_ingest', async () => {
-        try {
-          return toolResult(handleIngest(ctx, input));
-        } catch (err) {
-          return toolError(errMsg(err));
-        }
-      });
-    }
+    wrapTool(ctx, 'mindlore_ingest', handleIngest)
   );
 
   server.tool(
@@ -75,15 +75,7 @@ export function registerAllTools(server: McpServer, ctx: McpContext): void {
       limit: z.number().min(1).max(50).optional().describe('Max items (default: 10)'),
       since: z.string().optional().describe('ISO date filter (UTC)'),
     },
-    async (input) => {
-      return withMcpTelemetry(ctx.baseDir, 'mindlore_recall', async () => {
-        try {
-          return toolResult(handleRecall(ctx, input));
-        } catch (err) {
-          return toolError(errMsg(err));
-        }
-      });
-    }
+    wrapTool(ctx, 'mindlore_recall', handleRecall)
   );
 
   server.tool(
@@ -92,15 +84,7 @@ export function registerAllTools(server: McpServer, ctx: McpContext): void {
     {
       scope: z.enum(['full', 'recent']).optional().describe('Scope (default: recent)'),
     },
-    async (input) => {
-      return withMcpTelemetry(ctx.baseDir, 'mindlore_brief', async () => {
-        try {
-          return toolResult(handleBrief(ctx, input));
-        } catch (err) {
-          return toolError(errMsg(err));
-        }
-      });
-    }
+    wrapTool(ctx, 'mindlore_brief', handleBrief)
   );
 
   server.tool(
@@ -115,31 +99,25 @@ export function registerAllTools(server: McpServer, ctx: McpContext): void {
       limit: z.number().min(1).max(50).optional().describe('Max items for list'),
       since: z.string().optional().describe('ISO date filter for list'),
     },
-    async (input) => {
-      return withMcpTelemetry(ctx.baseDir, 'mindlore_decide', async () => {
-        try {
-          if (input.action === 'save') {
-            if (!input.title || !input.rationale) {
-              return toolError('title and rationale are required for save action');
-            }
-            return toolResult(handleDecide(ctx, {
-              action: 'save',
-              title: input.title,
-              rationale: input.rationale,
-              alternatives: input.alternatives,
-              supersedes: input.supersedes,
-            }));
-          }
-          return toolResult(handleDecide(ctx, {
-            action: 'list',
-            limit: input.limit,
-            since: input.since,
-          }));
-        } catch (err) {
-          return toolError(errMsg(err));
+    wrapTool(ctx, 'mindlore_decide', (c, input) => {
+      if (input.action === 'save') {
+        if (!input.title || !input.rationale) {
+          throw new Error('title and rationale are required for save action');
         }
+        return handleDecide(c, {
+          action: 'save',
+          title: input.title,
+          rationale: input.rationale,
+          alternatives: input.alternatives,
+          supersedes: input.supersedes,
+        });
+      }
+      return handleDecide(c, {
+        action: 'list',
+        limit: input.limit,
+        since: input.since,
       });
-    }
+    })
   );
 
   server.tool(
@@ -147,15 +125,7 @@ export function registerAllTools(server: McpServer, ctx: McpContext): void {
     'Health check and database statistics',
     {
     },
-    async () => {
-      return withMcpTelemetry(ctx.baseDir, 'mindlore_stats', async () => {
-        try {
-          return toolResult(handleStats(ctx));
-        } catch (err) {
-          return toolError(errMsg(err));
-        }
-      });
-    }
+    wrapTool(ctx, 'mindlore_stats', (_c, _input) => handleStats(ctx))
   );
 
   server.tool(
@@ -169,15 +139,7 @@ export function registerAllTools(server: McpServer, ctx: McpContext): void {
         .describe('Relation type (required for add/remove)'),
       source: z.string().optional().describe('Filter relations by source slug (for list)'),
     },
-    async (input) => {
-      return withMcpTelemetry(ctx.baseDir, 'mindlore_relate', async () => {
-        try {
-          return toolResult(handleRelate(ctx, input));
-        } catch (err) {
-          return toolError(errMsg(err));
-        }
-      });
-    }
+    wrapTool(ctx, 'mindlore_relate', handleRelate)
   );
 
   server.tool(
@@ -188,14 +150,6 @@ export function registerAllTools(server: McpServer, ctx: McpContext): void {
       section: z.string().optional().describe('Heading title for section-level retrieval'),
       include_relations: z.boolean().optional().describe('Include related sources (default: true)'),
     },
-    async (input) => {
-      return withMcpTelemetry(ctx.baseDir, 'mindlore_get', async () => {
-        try {
-          return toolResult(handleGet(ctx, input));
-        } catch (err) {
-          return toolError(errMsg(err));
-        }
-      });
-    }
+    wrapTool(ctx, 'mindlore_get', handleGet)
   );
 }
