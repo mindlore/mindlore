@@ -72,7 +72,7 @@ describe('v0.6.3 migrations', () => {
     const dir = makeTmpDir();
     const db = createTestDbWithFullSchema(path.join(dir, 'mindlore.db'));
     const row = db.prepare('SELECT MAX(version) as v FROM schema_versions').get() as { v: number };
-    expect(row.v).toBe(19);
+    expect(row.v).toBe(20);
     cleanup(dir, db);
   });
 

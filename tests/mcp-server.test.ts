@@ -101,7 +101,9 @@ describe('MCP Server stdio integration', () => {
     expect(toolNames).toContain('mindlore_recall');
     expect(toolNames).toContain('mindlore_brief');
     expect(toolNames).toContain('mindlore_decide');
-    expect(toolNames).toHaveLength(6);
+    expect(toolNames).toContain('mindlore_relate');
+    expect(toolNames).toContain('mindlore_get');
+    expect(toolNames).toHaveLength(8);
   });
 
   it('executes mindlore_stats tool', async () => {
