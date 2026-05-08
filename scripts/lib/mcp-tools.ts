@@ -9,6 +9,7 @@ import { handleBrief } from './tool-adapters/brief-adapter.js';
 import { handleIngest } from './tool-adapters/ingest-adapter.js';
 import { handleDecide } from './tool-adapters/decide-adapter.js';
 import { handleRelate } from './tool-adapters/relate-adapter.js';
+import { handleGet } from './tool-adapters/get-adapter.js';
 import { withMcpTelemetry } from './mcp-telemetry.js';
 import { errMsg } from './err-msg.js';
 
@@ -172,6 +173,25 @@ export function registerAllTools(server: McpServer, ctx: McpContext): void {
       return withMcpTelemetry(ctx.baseDir, 'mindlore_relate', async () => {
         try {
           return toolResult(handleRelate(ctx, input));
+        } catch (err) {
+          return toolError(errMsg(err));
+        }
+      });
+    }
+  );
+
+  server.tool(
+    'mindlore_get',
+    'Retrieve full content or specific section of a knowledge source',
+    {
+      source: z.string().describe('Source slug'),
+      section: z.string().optional().describe('Heading title for section-level retrieval'),
+      include_relations: z.boolean().optional().describe('Include related sources (default: true)'),
+    },
+    async (input) => {
+      return withMcpTelemetry(ctx.baseDir, 'mindlore_get', async () => {
+        try {
+          return toolResult(handleGet(ctx, input));
         } catch (err) {
           return toolError(errMsg(err));
         }
