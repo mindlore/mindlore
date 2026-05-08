@@ -44,10 +44,11 @@ describe('E2E: KG pipeline — ingest → relate → search → get', () => {
     const rel = handleRelate(ctx, { action: 'add', source_a: 'nextjs-guide', source_b: 'react-guide', relation_type: 'extends' }) as { created: boolean };
     expect(rel.created).toBe(true);
 
-    // 4. Search for "Next.js" → related should include react-guide
+    // 4. Search for "Next.js" → related should include react-guide via KG
     const search = handleSearch(ctx, { query: 'Next.js SSR' });
     const nextResult = search.results.find(r => r.slug === 'nextjs-guide');
     expect(nextResult).toBeDefined();
+    expect(search.related.some(r => r.source === 'react-guide' && r.relation_type === 'extends')).toBe(true);
 
     // 5. Get source with relations
     const got = handleGet(ctx, { source: 'nextjs-guide' });

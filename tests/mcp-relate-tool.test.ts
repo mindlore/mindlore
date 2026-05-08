@@ -60,13 +60,14 @@ describe('mindlore_relate tool', () => {
     expect(result.total).toBe(2);
   });
 
-  it('lists relations filtered by source', () => {
+  it('lists relations filtered by source — includes both outgoing and incoming edges', () => {
     handleRelate(ctx, { action: 'add', source_a: 'alpha', source_b: 'beta', relation_type: 'extends' });
     handleRelate(ctx, { action: 'add', source_a: 'beta', source_b: 'alpha', relation_type: 'cites' });
     // eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion
-    const result = handleRelate(ctx, { action: 'list', source: 'alpha' }) as { relations: Array<{ source_a: string }>; total: number };
-    expect(result.relations).toHaveLength(1);
-    expect(result.relations[0]!.source_a).toBe('alpha');
+    const result = handleRelate(ctx, { action: 'list', source: 'alpha' }) as { relations: Array<{ source_a: string; source_b: string }>; total: number };
+    expect(result.relations).toHaveLength(2);
+    expect(result.relations.some(r => r.source_a === 'alpha' && r.source_b === 'beta')).toBe(true);
+    expect(result.relations.some(r => r.source_a === 'beta' && r.source_b === 'alpha')).toBe(true);
   });
 
   it('throws on invalid relation_type', () => {

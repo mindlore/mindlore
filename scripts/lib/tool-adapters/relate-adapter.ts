@@ -58,12 +58,12 @@ export function handleRelate(ctx: McpContext, input: RelateInput): RelateResult 
     return { removed: result.changes > 0 };
   }
 
-  // list
+  // list — both outgoing (source_a) and incoming (source_b) edges
   const query = input.source
-    ? 'SELECT id, source_a, source_b, relation_type, created_at FROM mindlore_relations WHERE source_a = ? ORDER BY created_at DESC'
+    ? 'SELECT id, source_a, source_b, relation_type, created_at FROM mindlore_relations WHERE source_a = ? OR source_b = ? ORDER BY created_at DESC'
     : 'SELECT id, source_a, source_b, relation_type, created_at FROM mindlore_relations ORDER BY created_at DESC';
 
-  const params = input.source ? [input.source] : [];
+  const params = input.source ? [input.source, input.source] : [];
   const rows = dbAll<{ id: number; source_a: string; source_b: string; relation_type: string; created_at: string }>(ctx.db, query, ...params);
 
   return { relations: rows, total: rows.length };
