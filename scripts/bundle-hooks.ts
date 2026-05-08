@@ -11,7 +11,8 @@ const entryPoints = readdirSync(HOOKS_SRC)
   .map(f => join(HOOKS_SRC, f));
 
 const SCRIPTS_DIR = join(PROJECT_ROOT, 'dist', 'scripts');
-const SYNC_SCRIPTS = ['cc-session-sync.js', 'cc-memory-bulk-sync.js'];
+const SYNC_SCRIPTS = readdirSync(SCRIPTS_DIR)
+  .filter((f: string) => f.startsWith('cc-') && f.endsWith('.js'));
 
 const EXTERNAL_LIBS = ['secure-io'];
 
