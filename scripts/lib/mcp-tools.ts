@@ -26,6 +26,17 @@ function toolError(message: string): { content: Array<{ type: 'text'; text: stri
   return { content: [{ type: 'text', text: message }], isError: true };
 }
 
+const TOOL_NAMES = {
+  search: 'mindlore_search',
+  ingest: 'mindlore_ingest',
+  recall: 'mindlore_recall',
+  brief: 'mindlore_brief',
+  decide: 'mindlore_decide',
+  stats: 'mindlore_stats',
+  relate: 'mindlore_relate',
+  get: 'mindlore_get',
+} as const;
+
 function wrapTool<TInput, TOutput>(
   ctx: McpContext,
   toolName: string,
@@ -44,7 +55,7 @@ function wrapTool<TInput, TOutput>(
 
 export function registerAllTools(server: McpServer, ctx: McpContext): void {
   server.tool(
-    'mindlore_search',
+    TOOL_NAMES.search,
     'FTS5 + hybrid search across Mindlore knowledge base',
     {
       query: z.string().describe('Search query'),
@@ -52,11 +63,11 @@ export function registerAllTools(server: McpServer, ctx: McpContext): void {
       scope: z.enum(['sources', 'episodes', 'decisions', 'all']).optional().describe('Filter scope'),
       contentType: z.enum(['code', 'prose']).optional().describe('Content type filter'),
     },
-    wrapTool(ctx, 'mindlore_search', handleSearch)
+    wrapTool(ctx, TOOL_NAMES.search, handleSearch)
   );
 
   server.tool(
-    'mindlore_ingest',
+    TOOL_NAMES.ingest,
     'Add knowledge to Mindlore (text or file)',
     {
       type: z.enum(['text', 'file']).describe('Source type'),
@@ -64,31 +75,31 @@ export function registerAllTools(server: McpServer, ctx: McpContext): void {
       title: z.string().optional().describe('Title (auto-detected if omitted)'),
       tags: z.array(z.string()).optional().describe('Tags'),
     },
-    wrapTool(ctx, 'mindlore_ingest', handleIngest)
+    wrapTool(ctx, TOOL_NAMES.ingest, handleIngest)
   );
 
   server.tool(
-    'mindlore_recall',
+    TOOL_NAMES.recall,
     'Retrieve decisions, episodes, or learnings',
     {
       type: z.enum(['decisions', 'episodes', 'learnings', 'all']).describe('What to recall'),
       limit: z.number().min(1).max(50).optional().describe('Max items (default: 10)'),
       since: z.string().optional().describe('ISO date filter (UTC)'),
     },
-    wrapTool(ctx, 'mindlore_recall', handleRecall)
+    wrapTool(ctx, TOOL_NAMES.recall, handleRecall)
   );
 
   server.tool(
-    'mindlore_brief',
+    TOOL_NAMES.brief,
     'Project briefing — summary of knowledge base state',
     {
       scope: z.enum(['full', 'recent']).optional().describe('Scope (default: recent)'),
     },
-    wrapTool(ctx, 'mindlore_brief', handleBrief)
+    wrapTool(ctx, TOOL_NAMES.brief, handleBrief)
   );
 
   server.tool(
-    'mindlore_decide',
+    TOOL_NAMES.decide,
     'Record or list decisions with supersedes chain',
     {
       action: z.enum(['save', 'list']).describe('Action'),
@@ -99,7 +110,7 @@ export function registerAllTools(server: McpServer, ctx: McpContext): void {
       limit: z.number().min(1).max(50).optional().describe('Max items for list'),
       since: z.string().optional().describe('ISO date filter for list'),
     },
-    wrapTool(ctx, 'mindlore_decide', (c, input) => {
+    wrapTool(ctx, TOOL_NAMES.decide, (c, input) => {
       if (input.action === 'save') {
         if (!input.title || !input.rationale) {
           throw new Error('title and rationale are required for save action');
@@ -121,15 +132,15 @@ export function registerAllTools(server: McpServer, ctx: McpContext): void {
   );
 
   server.tool(
-    'mindlore_stats',
+    TOOL_NAMES.stats,
     'Health check and database statistics',
     {
     },
-    wrapTool(ctx, 'mindlore_stats', (_c, _input) => handleStats(ctx))
+    wrapTool(ctx, TOOL_NAMES.stats, (_c, _input) => handleStats(ctx))
   );
 
   server.tool(
-    'mindlore_relate',
+    TOOL_NAMES.relate,
     'Manage source-to-source relations (Knowledge Graph)',
     {
       action: z.enum(['add', 'remove', 'list']).describe('Action'),
@@ -139,17 +150,17 @@ export function registerAllTools(server: McpServer, ctx: McpContext): void {
         .describe('Relation type (required for add/remove)'),
       source: z.string().optional().describe('Filter relations by source slug (for list)'),
     },
-    wrapTool(ctx, 'mindlore_relate', handleRelate)
+    wrapTool(ctx, TOOL_NAMES.relate, handleRelate)
   );
 
   server.tool(
-    'mindlore_get',
+    TOOL_NAMES.get,
     'Retrieve full content or specific section of a knowledge source',
     {
       source: z.string().describe('Source slug'),
       section: z.string().optional().describe('Heading title for section-level retrieval'),
       include_relations: z.boolean().optional().describe('Include related sources (default: true)'),
     },
-    wrapTool(ctx, 'mindlore_get', handleGet)
+    wrapTool(ctx, TOOL_NAMES.get, handleGet)
   );
 }
