@@ -26,7 +26,8 @@
     "validate-manifest": "node dist/scripts/validate-manifest-cli.js",
     "bundle:hooks": "npx tsx scripts/bundle-hooks.ts",
     "bundle:mcp": "npx esbuild scripts/mcp-server.ts --bundle --platform=node --target=node20 --format=cjs --outfile=mcp-server.cjs --external:better-sqlite3",
-    "bundle": "npm run bundle:hooks && npm run bundle:mcp"
+    "bundle": "npm run bundle:hooks && npm run bundle:mcp",
+    "postinstall": "npm rebuild better-sqlite3"
   },
   "keywords": [
     "claude-code",
