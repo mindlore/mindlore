@@ -1,7 +1,7 @@
 {
   "name": "mindlore",
   "version": "0.7.0",
-  "description": "AI-native knowledge system for Claude Code. Persistent, searchable, evolving knowledge base with FTS5, 14 lifecycle hooks, 11 skills, and MCP server.",
+  "description": "AI-native knowledge system for Claude Code. Persistent, searchable, evolving knowledge base with FTS5, Knowledge Graph, 14 lifecycle hooks, 11 skills, and MCP server.",
   "author": {
     "name": "Ömer Faruk Can",
     "url": "https://github.com/omrfc"
