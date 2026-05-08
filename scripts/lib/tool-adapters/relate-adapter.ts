@@ -1,7 +1,8 @@
 import type { McpContext } from '../mcp-tools.js';
 import { RELATION_TYPES, type RelationType } from '../constants.js';
+import { dbAll } from '../db-helpers.js';
 
-interface RelateInput {
+export interface RelateInput {
   action: 'add' | 'remove' | 'list';
   source_a?: string;
   source_b?: string;
@@ -9,10 +10,10 @@ interface RelateInput {
   source?: string;
 }
 
-interface AddResult { created: boolean; existing: boolean; relation: { source_a: string; source_b: string; relation_type: string } }
-interface RemoveResult { removed: boolean }
-interface ListResult { relations: Array<{ id: number; source_a: string; source_b: string; relation_type: string; created_at: string }>; total: number }
-type RelateResult = AddResult | RemoveResult | ListResult;
+export interface AddResult { created: boolean; existing: boolean; relation: { source_a: string; source_b: string; relation_type: string } }
+export interface RemoveResult { removed: boolean }
+export interface ListResult { relations: Array<{ id: number; source_a: string; source_b: string; relation_type: string; created_at: string }>; total: number }
+export type RelateResult = AddResult | RemoveResult | ListResult;
 
 function validateSlug(ctx: McpContext, slug: string): void {
   const row = ctx.db.prepare('SELECT 1 FROM mindlore_fts WHERE slug = ? LIMIT 1').get(slug);
@@ -20,7 +21,7 @@ function validateSlug(ctx: McpContext, slug: string): void {
 }
 
 function validateRelationType(type: string): asserts type is RelationType {
-  if (!RELATION_TYPES.includes(type as RelationType)) {
+  if (!(RELATION_TYPES as readonly string[]).includes(type)) {
     throw new Error(`Invalid relation_type "${type}". Valid: ${RELATION_TYPES.join(', ')}`);
   }
 }
@@ -63,7 +64,7 @@ export function handleRelate(ctx: McpContext, input: RelateInput): RelateResult 
     : 'SELECT id, source_a, source_b, relation_type, created_at FROM mindlore_relations ORDER BY created_at DESC';
 
   const params = input.source ? [input.source] : [];
-  const rows = ctx.db.prepare(query).all(...params) as Array<{ id: number; source_a: string; source_b: string; relation_type: string; created_at: string }>;
+  const rows = dbAll<{ id: number; source_a: string; source_b: string; relation_type: string; created_at: string }>(ctx.db, query, ...params);
 
   return { relations: rows, total: rows.length };
 }

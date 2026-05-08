@@ -37,7 +37,7 @@ const TOOL_NAMES = {
   get: 'mindlore_get',
 } as const;
 
-function wrapTool<TInput, TOutput>(
+function wrapTool<TInput extends object, TOutput>(
   ctx: McpContext,
   toolName: string,
   handler: (ctx: McpContext, input: TInput) => TOutput

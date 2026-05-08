@@ -2,6 +2,7 @@ import { search, extractKeywords } from '../search-engine.js';
 import { extractSmartSnippet } from '../smart-snippet.js';
 import type { McpContext } from '../mcp-tools.js';
 import { SYMMETRIC_TYPES, buildPriorityCase, MAX_RELATED_SOURCES, RELATED_OVERFETCH } from '../constants.js';
+import { dbAll } from '../db-helpers.js';
 
 interface SearchInput {
   query: string;
@@ -55,7 +56,7 @@ function getRelatedForSlugs(ctx: McpContext, slugs: string[], excludeSlugs: Set<
       ORDER BY CASE relation_type ${priorityCase} END
       LIMIT ?
     `;
-    const rows = ctx.db.prepare(sql).all(slug, slug, ...symmetricParams, RELATED_OVERFETCH) as Array<{ source: string; relation_type: string; direction: 'outgoing' | 'incoming' }>;
+    const rows = dbAll<{ source: string; relation_type: string; direction: 'outgoing' | 'incoming' }>(ctx.db, sql, slug, slug, ...symmetricParams, RELATED_OVERFETCH);
     for (const row of rows) {
       if (!excludeSlugs.has(row.source)) {
         all.push({ ...row, via: slug });

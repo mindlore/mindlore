@@ -24,6 +24,7 @@ describe('mindlore_relate tool', () => {
   });
 
   it('adds a new relation', () => {
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion
     const result = handleRelate(ctx, { action: 'add', source_a: 'alpha', source_b: 'beta', relation_type: 'extends' }) as { created: boolean; existing: boolean };
     expect(result.created).toBe(true);
     expect(result.existing).toBe(false);
@@ -31,6 +32,7 @@ describe('mindlore_relate tool', () => {
 
   it('returns existing=true for duplicate relation', () => {
     handleRelate(ctx, { action: 'add', source_a: 'alpha', source_b: 'beta', relation_type: 'extends' });
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion
     const result = handleRelate(ctx, { action: 'add', source_a: 'alpha', source_b: 'beta', relation_type: 'extends' }) as { created: boolean; existing: boolean };
     expect(result.created).toBe(false);
     expect(result.existing).toBe(true);
@@ -38,11 +40,13 @@ describe('mindlore_relate tool', () => {
 
   it('removes a relation', () => {
     handleRelate(ctx, { action: 'add', source_a: 'alpha', source_b: 'beta', relation_type: 'cites' });
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion
     const result = handleRelate(ctx, { action: 'remove', source_a: 'alpha', source_b: 'beta', relation_type: 'cites' }) as { removed: boolean };
     expect(result.removed).toBe(true);
   });
 
   it('returns removed=false for non-existent relation', () => {
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion
     const result = handleRelate(ctx, { action: 'remove', source_a: 'alpha', source_b: 'beta', relation_type: 'cites' }) as { removed: boolean };
     expect(result.removed).toBe(false);
   });
@@ -50,6 +54,7 @@ describe('mindlore_relate tool', () => {
   it('lists all relations', () => {
     handleRelate(ctx, { action: 'add', source_a: 'alpha', source_b: 'beta', relation_type: 'extends' });
     handleRelate(ctx, { action: 'add', source_a: 'beta', source_b: 'alpha', relation_type: 'cites' });
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion
     const result = handleRelate(ctx, { action: 'list' }) as { relations: Array<{ source_a: string }>; total: number };
     expect(result.relations).toHaveLength(2);
     expect(result.total).toBe(2);
@@ -58,6 +63,7 @@ describe('mindlore_relate tool', () => {
   it('lists relations filtered by source', () => {
     handleRelate(ctx, { action: 'add', source_a: 'alpha', source_b: 'beta', relation_type: 'extends' });
     handleRelate(ctx, { action: 'add', source_a: 'beta', source_b: 'alpha', relation_type: 'cites' });
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion
     const result = handleRelate(ctx, { action: 'list', source: 'alpha' }) as { relations: Array<{ source_a: string }>; total: number };
     expect(result.relations).toHaveLength(1);
     expect(result.relations[0]!.source_a).toBe('alpha');
@@ -65,6 +71,7 @@ describe('mindlore_relate tool', () => {
 
   it('throws on invalid relation_type', () => {
     expect(() => {
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion
       handleRelate(ctx, { action: 'add', source_a: 'alpha', source_b: 'beta', relation_type: 'invalid' as 'cites' });
     }).toThrow();
   });
@@ -77,6 +84,7 @@ describe('mindlore_relate tool', () => {
 
   it('requires source_a and source_b for add action', () => {
     expect(() => {
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion
       handleRelate(ctx, { action: 'add', source_a: 'alpha' } as never);
     }).toThrow();
   });

@@ -3,20 +3,21 @@ import type { McpContext } from '../mcp-tools.js';
 import { chunkMarkdown } from '../chunker.js';
 import { slugify } from '../slugify.js';
 import { SYMMETRIC_TYPES, buildPriorityCase, MAX_RELATED_SOURCES, RELATED_OVERFETCH } from '../constants.js';
+import { dbGet, dbAll } from '../db-helpers.js';
 
-interface GetInput {
+export interface GetInput {
   source: string;
   section?: string;
   include_relations?: boolean;
 }
 
-interface RelatedSource {
+export interface RelatedSource {
   source: string;
   relation_type: string;
   direction: 'outgoing' | 'incoming';
 }
 
-interface GetOutput {
+export interface GetOutput {
   title: string;
   slug: string;
   content: string;
@@ -27,7 +28,7 @@ interface GetOutput {
 }
 
 function lookupSourcePath(ctx: McpContext, slug: string): { path: string; title: string } {
-  const row = ctx.db.prepare('SELECT path, title FROM mindlore_fts WHERE slug = ? LIMIT 1').get(slug) as { path: string; title: string } | undefined;
+  const row = dbGet<{ path: string; title: string }>(ctx.db, 'SELECT path, title FROM mindlore_fts WHERE slug = ? LIMIT 1', slug);
   if (!row) throw new Error(`Source slug "${slug}" not found in knowledge base`);
   return row;
 }
@@ -49,7 +50,7 @@ function getRelations(ctx: McpContext, slug: string): RelatedSource[] {
     LIMIT ?
   `;
 
-  return ctx.db.prepare(sql).all(slug, slug, ...symmetricParams, RELATED_OVERFETCH) as RelatedSource[];
+  return dbAll<RelatedSource>(ctx.db, sql, slug, slug, ...symmetricParams, RELATED_OVERFETCH);
 }
 
 export function handleGet(ctx: McpContext, input: GetInput): GetOutput {

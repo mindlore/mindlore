@@ -40,6 +40,7 @@ describe('E2E: KG pipeline — ingest → relate → search → get', () => {
     insertFts(ctx.db, { path: b.path, slug: b.slug, title: 'Next.js Guide', content: 'Next.js builds on top of React for SSR', category: 'raw', type: 'raw' });
 
     // 3. Relate: B extends A
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion
     const rel = handleRelate(ctx, { action: 'add', source_a: 'nextjs-guide', source_b: 'react-guide', relation_type: 'extends' }) as { created: boolean };
     expect(rel.created).toBe(true);
 

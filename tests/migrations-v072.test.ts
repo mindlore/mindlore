@@ -2,6 +2,7 @@ import path from 'path';
 import fs from 'fs';
 import os from 'os';
 import { createTestDbWithFullSchema } from './helpers/db';
+import { dbAll } from '../scripts/lib/db-helpers.js';
 
 describe('migrations-v072', () => {
   let testDir: string;
@@ -21,7 +22,7 @@ describe('migrations-v072', () => {
     const tables = db.prepare("SELECT name FROM sqlite_master WHERE type='table' AND name='mindlore_relations'").all();
     expect(tables).toHaveLength(1);
 
-    const cols = db.prepare("PRAGMA table_info(mindlore_relations)").all() as Array<{ name: string; type: string; notnull: number }>;
+    const cols = dbAll<{ name: string; type: string; notnull: number }>(db, "PRAGMA table_info(mindlore_relations)");
     const colNames = cols.map(c => c.name);
     expect(colNames).toContain('id');
     expect(colNames).toContain('source_a');
@@ -58,7 +59,7 @@ describe('migrations-v072', () => {
 
   it('creates indexes on source_a, source_b, relation_type', () => {
     const db = createTestDbWithFullSchema(dbPath);
-    const indexes = db.prepare("SELECT name FROM sqlite_master WHERE type='index' AND tbl_name='mindlore_relations'").all() as Array<{ name: string }>;
+    const indexes = dbAll<{ name: string }>(db, "SELECT name FROM sqlite_master WHERE type='index' AND tbl_name='mindlore_relations'");
     const names = indexes.map(i => i.name);
     expect(names).toContain('idx_relations_source_a');
     expect(names).toContain('idx_relations_source_b');

@@ -75,6 +75,7 @@ This is the usage section.
 
   it('includes relations when include_relations is true', () => {
     handleRelate(ctx, { action: 'add', source_a: 'alpha-source', source_b: 'beta', relation_type: 'extends' });
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion
     const result = handleGet(ctx, { source: 'alpha-source', include_relations: true }) as { relations: Array<{ source: string; relation_type: string; direction: string }> };
     expect(result.relations).toHaveLength(1);
     expect(result.relations[0]!.source).toBe('beta');
