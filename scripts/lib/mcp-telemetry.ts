@@ -1,4 +1,4 @@
-import fs from 'fs';
+import { promises as fsp } from 'fs';
 import path from 'path';
 import { errMsg } from './err-msg.js';
 
@@ -11,12 +11,10 @@ interface TelemetryEntry {
 }
 
 export function writeMcpTelemetry(baseDir: string, entry: TelemetryEntry): void {
-  try {
-    const telemetryPath = path.join(baseDir, 'telemetry.jsonl');
-    fs.appendFileSync(telemetryPath, JSON.stringify(entry) + '\n');
-  } catch {
+  const telemetryPath = path.join(baseDir, 'telemetry.jsonl');
+  fsp.appendFile(telemetryPath, JSON.stringify(entry) + '\n').catch(() => {
     // telemetry write failure is non-fatal
-  }
+  });
 }
 
 export async function withMcpTelemetry<T>(
