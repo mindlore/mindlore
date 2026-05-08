@@ -122,6 +122,27 @@ export const QUALITY_HEURISTICS: Record<string, QualityValue> = {
   'cc-subagent': 'low',
 };
 
+export const RELATION_TYPES = ['cites', 'extends', 'contradicts', 'supersedes'] as const;
+export type RelationType = typeof RELATION_TYPES[number];
+
+export const SYMMETRIC_TYPES = new Set<RelationType>(['contradicts']);
+
+export const RELATION_PRIORITY: Record<RelationType, number> = {
+  supersedes: 1,
+  contradicts: 2,
+  extends: 3,
+  cites: 4,
+};
+
+export const MAX_RELATED_SOURCES = 5;
+export const RELATED_OVERFETCH = 10;
+
+export function buildPriorityCase(): string {
+  return Object.entries(RELATION_PRIORITY)
+    .map(([type, priority]) => `WHEN '${type}' THEN ${priority}`)
+    .join(' ');
+}
+
 export const TYPE_TO_DIR: Record<string, string> = {
   raw: 'raw',
   source: 'sources',
