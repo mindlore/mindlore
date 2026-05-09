@@ -6,11 +6,14 @@ import { execFileSync } from 'child_process';
 const HOOK_PATH = path.join(__dirname, '..', 'hooks', 'mindlore-dont-repeat.cjs');
 
 function runHook(input: object, settingsContent?: string): string {
-  const tmpSettings = path.join(os.tmpdir(), `mindlore-test-settings-${Date.now()}.json`);
   const realSettings = path.join(os.homedir(), '.claude', 'settings.json');
 
   let backup: string | null = null;
+  const claudeDir = path.dirname(realSettings);
   if (settingsContent !== undefined) {
+    if (!fs.existsSync(claudeDir)) {
+      fs.mkdirSync(claudeDir, { recursive: true });
+    }
     if (fs.existsSync(realSettings)) {
       backup = fs.readFileSync(realSettings, 'utf8');
     }
@@ -35,7 +38,7 @@ function runHook(input: object, settingsContent?: string): string {
     if (backup !== null) {
       fs.writeFileSync(realSettings, backup, 'utf8');
     } else if (settingsContent !== undefined) {
-      try { fs.unlinkSync(tmpSettings); } catch { /* noop */ }
+      try { fs.unlinkSync(realSettings); } catch { /* noop */ }
     }
   }
 }
