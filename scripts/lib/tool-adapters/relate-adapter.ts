@@ -1,6 +1,7 @@
 import type { McpContext } from '../mcp-tools.js';
 import { RELATION_TYPES, type RelationType } from '../constants.js';
-import { dbGet, dbAll } from '../db-helpers.js';
+import { dbAll } from '../db-helpers.js';
+import { assertSlugExists } from '../relation-helpers.js';
 
 export interface RelateInput {
   action: 'add' | 'remove' | 'list';
@@ -15,11 +16,6 @@ export interface RemoveResult { removed: boolean }
 export interface ListResult { relations: Array<{ id: number; source_a: string; source_b: string; relation_type: string; created_at: string }>; total: number }
 export type RelateResult = AddResult | RemoveResult | ListResult;
 
-function validateSlug(ctx: McpContext, slug: string): void {
-  const row = dbGet<{ found: number }>(ctx.db, 'SELECT 1 AS found FROM mindlore_fts WHERE slug = ? LIMIT 1', slug);
-  if (!row) throw new Error(`Source slug "${slug}" not found in knowledge base`);
-}
-
 function validateRelationType(type: string): asserts type is RelationType {
   if (!(RELATION_TYPES as readonly string[]).includes(type)) {
     throw new Error(`Invalid relation_type "${type}". Valid: ${RELATION_TYPES.join(', ')}`);
@@ -32,8 +28,8 @@ export function handleRelate(ctx: McpContext, input: RelateInput): RelateResult 
       throw new Error('add requires source_a, source_b, and relation_type');
     }
     validateRelationType(input.relation_type);
-    validateSlug(ctx, input.source_a);
-    validateSlug(ctx, input.source_b);
+    assertSlugExists(ctx.db, input.source_a);
+    assertSlugExists(ctx.db, input.source_b);
 
     const result = ctx.db.prepare(
       'INSERT OR IGNORE INTO mindlore_relations (source_a, source_b, relation_type) VALUES (?, ?, ?)'
@@ -60,8 +56,8 @@ export function handleRelate(ctx: McpContext, input: RelateInput): RelateResult 
 
   // list — both outgoing (source_a) and incoming (source_b) edges
   const query = input.source
-    ? 'SELECT id, source_a, source_b, relation_type, created_at FROM mindlore_relations WHERE source_a = ? OR source_b = ? ORDER BY created_at DESC'
-    : 'SELECT id, source_a, source_b, relation_type, created_at FROM mindlore_relations ORDER BY created_at DESC';
+    ? 'SELECT id, source_a, source_b, relation_type, created_at FROM mindlore_relations WHERE source_a = ? OR source_b = ? ORDER BY created_at DESC LIMIT 100'
+    : 'SELECT id, source_a, source_b, relation_type, created_at FROM mindlore_relations ORDER BY created_at DESC LIMIT 100';
 
   const params = input.source ? [input.source, input.source] : [];
   const rows = dbAll<{ id: number; source_a: string; source_b: string; relation_type: string; created_at: string }>(ctx.db, query, ...params);

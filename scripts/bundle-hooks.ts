@@ -1,5 +1,5 @@
 import { build, Plugin } from 'esbuild';
-import { readdirSync } from 'fs';
+import { existsSync, readdirSync } from 'fs';
 import { join, resolve } from 'path';
 
 const PROJECT_ROOT = join(__dirname, '..');
@@ -11,8 +11,9 @@ const entryPoints = readdirSync(HOOKS_SRC)
   .map(f => join(HOOKS_SRC, f));
 
 const SCRIPTS_DIR = join(PROJECT_ROOT, 'dist', 'scripts');
-const SYNC_SCRIPTS = readdirSync(SCRIPTS_DIR)
-  .filter((f: string) => f.startsWith('cc-') && f.endsWith('.js'));
+const SYNC_SCRIPTS = existsSync(SCRIPTS_DIR)
+  ? readdirSync(SCRIPTS_DIR).filter((f: string) => f.startsWith('cc-') && f.endsWith('.js'))
+  : [];
 
 const EXTERNAL_LIBS = ['secure-io'];
 

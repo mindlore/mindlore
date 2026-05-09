@@ -2,7 +2,18 @@ import type BetterSqlite3 from 'better-sqlite3';
 type Database = BetterSqlite3.Database;
 
 import { SYMMETRIC_TYPES, buildPriorityCase, RELATED_OVERFETCH } from './constants.js';
-import { dbAll } from './db-helpers.js';
+import { dbGet, dbAll } from './db-helpers.js';
+
+export interface SourceRow {
+  path: string;
+  title: string;
+}
+
+export function assertSlugExists(db: Database, slug: string): SourceRow {
+  const row = dbGet<SourceRow>(db, 'SELECT path, title FROM mindlore_fts WHERE slug = ? LIMIT 1', slug);
+  if (!row) throw new Error(`Source slug "${slug}" not found in knowledge base`);
+  return row;
+}
 
 export interface RelatedSource {
   source: string;

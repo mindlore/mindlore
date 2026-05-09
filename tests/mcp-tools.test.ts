@@ -37,6 +37,14 @@ function createTestContext(): McpContext & { cleanup: () => void } {
     CREATE TABLE IF NOT EXISTS vocabulary (
       word TEXT PRIMARY KEY
     );
+    CREATE TABLE IF NOT EXISTS mindlore_relations (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      source_a TEXT NOT NULL,
+      source_b TEXT NOT NULL,
+      relation_type TEXT NOT NULL CHECK(relation_type IN ('cites', 'extends', 'contradicts', 'supersedes')),
+      created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%SZ', 'now')),
+      UNIQUE(source_a, source_b, relation_type)
+    );
   `);
   return {
     db,
@@ -83,6 +91,21 @@ describe('search adapter', () => {
       }
       const result = handleSearch(ctx, { query: 'content topic', limit: 3 });
       expect(result.results.length).toBeLessThanOrEqual(3);
+    } finally {
+      ctx.cleanup();
+    }
+  });
+
+  it('returns related field in search results', () => {
+    const ctx = createTestContext();
+    try {
+      ctx.db.prepare(
+        'INSERT INTO mindlore_fts (path, slug, description, type, category, title, content, tags, quality, date_captured, project) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)'
+      ).run('/test/a.md', 'a', 'desc', 'source', 'sources', 'A', 'content A', 'tag', '5', '2026-05-04', 'mindlore');
+
+      const result = handleSearch(ctx, { query: 'content A' });
+      expect(result.related).toBeDefined();
+      expect(Array.isArray(result.related)).toBe(true);
     } finally {
       ctx.cleanup();
     }

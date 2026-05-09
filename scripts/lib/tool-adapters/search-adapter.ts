@@ -80,12 +80,14 @@ export function handleSearch(ctx: McpContext, input: SearchInput): SearchOutput 
     };
   });
 
-  const resultSlugs = new Set(mapped.map(r => r.slug));
+  const slugList = mapped.map(r => r.slug);
+  const resultSlugs = new Set(slugList);
   let related: RelatedSource[] = [];
   try {
-    related = getRelatedForSlugs(ctx, mapped.map(r => r.slug), resultSlugs);
-  } catch {
-    // relations table may not exist in old DBs — graceful degradation
+    related = getRelatedForSlugs(ctx, slugList, resultSlugs);
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : '';
+    if (!msg.includes('no such table')) throw err;
   }
 
   return {
