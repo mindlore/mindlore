@@ -6,14 +6,14 @@
   },
   "metadata": {
     "description": "Claude Code plugins by Ömer Faruk Can",
-    "version": "0.7.1"
+    "version": "0.7.2"
   },
   "plugins": [
     {
       "name": "mindlore",
       "source": "./",
       "description": "AI-native knowledge system for Claude Code. Persistent, searchable, evolving knowledge base with FTS5, 14 lifecycle hooks, 11 skills, and MCP server.",
-      "version": "0.7.1",
+      "version": "0.7.2",
       "author": {
         "name": "Ömer Faruk Can"
       },

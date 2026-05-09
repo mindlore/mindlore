@@ -5,6 +5,33 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.7.2] - 2026-05-09
+
+### Added
+- **Knowledge Graph** — `mindlore_relations` table with `cites`, `extends`, `contradicts`, `supersedes` relation types
+- **`mindlore_relate` MCP tool** — add, remove, list edges between knowledge sources
+- **`mindlore_get` MCP tool** — retrieve full source content by slug with optional section filtering
+- **Memory Relate** — search results now include related sources via KG edges
+- KG relation constants and types (`RELATION_TYPES`, `MAX_RELATED_SOURCES`)
+- E2E Knowledge Graph pipeline test (ingest → relate → search → get)
+- `dont-repeat` dedup test for lessons-enforcement detection
+- Plugin cache regression test with dynamic `SYNC_SCRIPTS`
+
+### Changed
+- Extracted `relation-helpers.ts` — shared slug validation and relation queries
+- Extracted tool adapters (`get-adapter.ts`, `relate-adapter.ts`, `search-adapter.ts`)
+- Extracted `wrapTool` helper — eliminated 8 identical try/catch blocks
+- Added `TOOL_NAMES` map — eliminated tool name string literals
+- MCP telemetry: `appendFileSync` → async fire-and-forget for lower latency
+- SQL cache for prepared statements in relation queries
+
+### Fixed
+- `dont-repeat` hook dedup when `lessons-enforcement` is registered
+- `relate list` now returns both outgoing and incoming edges
+- Postinstall rebuild + MCP server version path
+- Marketplace.json version sync to match package.json
+- 7 review findings from full-branch simplify (code quality, naming, dead code)
+
 ## [0.7.1] - 2026-05-07
 
 ### Fixed

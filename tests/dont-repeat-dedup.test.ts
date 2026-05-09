@@ -26,8 +26,11 @@ function runHook(input: object, settingsContent?: string): string {
     });
     return result;
   } catch (err: unknown) {
-    const e = err as { stdout?: string; status?: number };
-    return e.stdout ?? '';
+    if (err !== null && err !== undefined && typeof err === 'object' && 'stdout' in err) {
+      const stdout = (err as { stdout: unknown }).stdout;
+      return typeof stdout === 'string' ? stdout : '';
+    }
+    return '';
   } finally {
     if (backup !== null) {
       fs.writeFileSync(realSettings, backup, 'utf8');

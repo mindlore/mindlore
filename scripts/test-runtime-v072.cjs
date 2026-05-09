@@ -1,5 +1,5 @@
 const Database = require('better-sqlite3');
-const path = require('path');
+
 const { ALL_MIGRATIONS } = require('../dist/scripts/lib/all-migrations.js');
 const { runMigrations, ensureSchemaTable } = require('../dist/scripts/lib/schema-version.js');
 
