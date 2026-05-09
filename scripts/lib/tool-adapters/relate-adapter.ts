@@ -1,6 +1,6 @@
 import type { McpContext } from '../mcp-tools.js';
 import { RELATION_TYPES, type RelationType } from '../constants.js';
-import { dbAll } from '../db-helpers.js';
+import { dbGet, dbAll } from '../db-helpers.js';
 
 export interface RelateInput {
   action: 'add' | 'remove' | 'list';
@@ -16,7 +16,7 @@ export interface ListResult { relations: Array<{ id: number; source_a: string; s
 export type RelateResult = AddResult | RemoveResult | ListResult;
 
 function validateSlug(ctx: McpContext, slug: string): void {
-  const row = ctx.db.prepare('SELECT 1 FROM mindlore_fts WHERE slug = ? LIMIT 1').get(slug);
+  const row = dbGet<{ found: number }>(ctx.db, 'SELECT 1 AS found FROM mindlore_fts WHERE slug = ? LIMIT 1', slug);
   if (!row) throw new Error(`Source slug "${slug}" not found in knowledge base`);
 }
 

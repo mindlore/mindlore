@@ -2,19 +2,14 @@ import fs from 'fs';
 import type { McpContext } from '../mcp-tools.js';
 import { chunkMarkdown } from '../chunker.js';
 import { slugify } from '../slugify.js';
-import { SYMMETRIC_TYPES, buildPriorityCase, MAX_RELATED_SOURCES, RELATED_OVERFETCH } from '../constants.js';
-import { dbGet, dbAll } from '../db-helpers.js';
+import { MAX_RELATED_SOURCES } from '../constants.js';
+import { dbGet } from '../db-helpers.js';
+import { getRelationsForSlug, type RelatedSource } from '../relation-helpers.js';
 
 export interface GetInput {
   source: string;
   section?: string;
   include_relations?: boolean;
-}
-
-export interface RelatedSource {
-  source: string;
-  relation_type: string;
-  direction: 'outgoing' | 'incoming';
 }
 
 export interface GetOutput {
@@ -31,26 +26,6 @@ function lookupSourcePath(ctx: McpContext, slug: string): { path: string; title:
   const row = dbGet<{ path: string; title: string }>(ctx.db, 'SELECT path, title FROM mindlore_fts WHERE slug = ? LIMIT 1', slug);
   if (!row) throw new Error(`Source slug "${slug}" not found in knowledge base`);
   return row;
-}
-
-function getRelations(ctx: McpContext, slug: string): RelatedSource[] {
-  const symmetricList = [...SYMMETRIC_TYPES].map(() => '?').join(',');
-  const symmetricParams = [...SYMMETRIC_TYPES];
-  const priorityCase = buildPriorityCase();
-
-  const sql = `
-    SELECT * FROM (
-      SELECT source_b AS source, relation_type, 'outgoing' AS direction
-      FROM mindlore_relations WHERE source_a = ?
-      UNION ALL
-      SELECT source_a AS source, relation_type, 'incoming' AS direction
-      FROM mindlore_relations WHERE source_b = ? AND relation_type IN (${symmetricList})
-    )
-    ORDER BY CASE relation_type ${priorityCase} END
-    LIMIT ?
-  `;
-
-  return dbAll<RelatedSource>(ctx.db, sql, slug, slug, ...symmetricParams, RELATED_OVERFETCH);
 }
 
 export function handleGet(ctx: McpContext, input: GetInput): GetOutput {
@@ -87,9 +62,8 @@ export function handleGet(ctx: McpContext, input: GetInput): GetOutput {
 
   const includeRelations = input.include_relations !== false;
   if (includeRelations) {
-    const related = getRelations(ctx, input.source);
-    const deduped = related.slice(0, MAX_RELATED_SOURCES);
-    if (deduped.length > 0) result.relations = deduped;
+    const related = getRelationsForSlug(ctx.db, input.source, MAX_RELATED_SOURCES);
+    if (related.length > 0) result.relations = related;
   }
 
   return result;

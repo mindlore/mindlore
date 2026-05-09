@@ -521,6 +521,36 @@ var require_migrations_v068 = __commonJS({
   }
 });
 
+// dist/scripts/lib/migrations-v072.js
+var require_migrations_v072 = __commonJS({
+  "dist/scripts/lib/migrations-v072.js"(exports2) {
+    "use strict";
+    Object.defineProperty(exports2, "__esModule", { value: true });
+    exports2.V072_MIGRATIONS = void 0;
+    exports2.V072_MIGRATIONS = [
+      {
+        version: 20,
+        name: "create_mindlore_relations",
+        up: (db) => {
+          db.exec(`
+        CREATE TABLE IF NOT EXISTS mindlore_relations (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          source_a TEXT NOT NULL,
+          source_b TEXT NOT NULL,
+          relation_type TEXT NOT NULL CHECK(relation_type IN ('cites', 'extends', 'contradicts', 'supersedes')),
+          created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%SZ', 'now')),
+          UNIQUE(source_a, source_b, relation_type)
+        );
+        CREATE INDEX IF NOT EXISTS idx_relations_source_a ON mindlore_relations(source_a);
+        CREATE INDEX IF NOT EXISTS idx_relations_source_b ON mindlore_relations(source_b);
+        CREATE INDEX IF NOT EXISTS idx_relations_type ON mindlore_relations(relation_type);
+      `);
+        }
+      }
+    ];
+  }
+});
+
 // dist/scripts/lib/all-migrations.js
 var require_all_migrations = __commonJS({
   "dist/scripts/lib/all-migrations.js"(exports2) {
@@ -536,6 +566,7 @@ var require_all_migrations = __commonJS({
     var migrations_v066_js_1 = require_migrations_v066();
     var migrations_v067_js_1 = require_migrations_v067();
     var migrations_v068_js_1 = require_migrations_v068();
+    var migrations_v072_js_1 = require_migrations_v072();
     exports2.ALL_MIGRATIONS = [
       ...migrations_js_1.V050_MIGRATIONS,
       ...migrations_js_1.V051_MIGRATIONS,
@@ -546,7 +577,8 @@ var require_all_migrations = __commonJS({
       ...migrations_v063_js_1.V063_MIGRATIONS,
       ...migrations_v066_js_1.V066_MIGRATIONS,
       ...migrations_v067_js_1.V067_MIGRATIONS,
-      ...migrations_v068_js_1.V068_MIGRATIONS
+      ...migrations_v068_js_1.V068_MIGRATIONS,
+      ...migrations_v072_js_1.V072_MIGRATIONS
     ];
     var EPISODES_DEPENDENT = /* @__PURE__ */ new Set([9, 14, 15, 16, 17, 18]);
     exports2.FTS_DB_MIGRATIONS = exports2.ALL_MIGRATIONS.filter((m) => !EPISODES_DEPENDENT.has(m.version));
@@ -555,7 +587,8 @@ var require_all_migrations = __commonJS({
       ...migrations_v063_js_1.V063_MIGRATIONS,
       ...migrations_v066_js_1.V066_MIGRATIONS,
       ...migrations_v067_js_1.V067_MIGRATIONS,
-      ...migrations_v068_js_1.V068_MIGRATIONS
+      ...migrations_v068_js_1.V068_MIGRATIONS,
+      ...migrations_v072_js_1.V072_MIGRATIONS
     ];
     exports2.EXPECTED_SCHEMA_VERSION = Math.max(...exports2.ALL_MIGRATIONS.map((m) => m.version));
   }

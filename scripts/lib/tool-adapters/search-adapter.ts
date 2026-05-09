@@ -1,8 +1,8 @@
 import { search, extractKeywords } from '../search-engine.js';
 import { extractSmartSnippet } from '../smart-snippet.js';
 import type { McpContext } from '../mcp-tools.js';
-import { SYMMETRIC_TYPES, buildPriorityCase, MAX_RELATED_SOURCES, RELATED_OVERFETCH } from '../constants.js';
-import { dbAll } from '../db-helpers.js';
+import { MAX_RELATED_SOURCES } from '../constants.js';
+import { getRelationsForSlug, type RelatedSource as BaseRelatedSource } from '../relation-helpers.js';
 
 interface SearchInput {
   query: string;
@@ -11,10 +11,7 @@ interface SearchInput {
   contentType?: string;
 }
 
-interface RelatedSource {
-  source: string;
-  relation_type: string;
-  direction: 'outgoing' | 'incoming';
+interface RelatedSource extends BaseRelatedSource {
   via: string;
 }
 
@@ -39,24 +36,10 @@ const MAX_SNIPPET_LEN = 500;
 function getRelatedForSlugs(ctx: McpContext, slugs: string[], excludeSlugs: Set<string>): RelatedSource[] {
   if (slugs.length === 0) return [];
 
-  const symmetricList = [...SYMMETRIC_TYPES].map(() => '?').join(',');
-  const symmetricParams = [...SYMMETRIC_TYPES];
-  const priorityCase = buildPriorityCase();
   const all: RelatedSource[] = [];
 
   for (const slug of slugs) {
-    const sql = `
-      SELECT * FROM (
-        SELECT source_b AS source, relation_type, 'outgoing' AS direction
-        FROM mindlore_relations WHERE source_a = ?
-        UNION ALL
-        SELECT source_a AS source, relation_type, 'incoming' AS direction
-        FROM mindlore_relations WHERE source_b = ? AND relation_type IN (${symmetricList})
-      )
-      ORDER BY CASE relation_type ${priorityCase} END
-      LIMIT ?
-    `;
-    const rows = dbAll<{ source: string; relation_type: string; direction: 'outgoing' | 'incoming' }>(ctx.db, sql, slug, slug, ...symmetricParams, RELATED_OVERFETCH);
+    const rows = getRelationsForSlug(ctx.db, slug);
     for (const row of rows) {
       if (!excludeSlugs.has(row.source)) {
         all.push({ ...row, via: slug });
