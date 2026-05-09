@@ -1,8 +1,8 @@
 #!/usr/bin/env node
 
+import { execSync } from 'child_process';
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
-import Database from 'better-sqlite3';
 import fs from 'fs';
 import path from 'path';
 import { resolveMindloreHome } from './lib/mcp-namespace.js';
@@ -10,9 +10,47 @@ import { MCP_BUSY_TIMEOUT_MS, DB_NAME } from './lib/constants.js';
 import { registerAllTools } from './lib/mcp-tools.js';
 import { errMsg } from './lib/err-msg.js';
 
+function resolvePluginRoot(): string {
+  let dir = __dirname;
+  for (let i = 0; i < 5; i++) {
+    if (fs.existsSync(path.join(dir, 'node_modules', 'better-sqlite3'))) return dir;
+    const parent = path.dirname(dir);
+    if (parent === dir) break;
+    dir = parent;
+  }
+  return __dirname;
+}
+
+function ensureSqliteBinding(root: string): void {
+  const modDir = path.join(root, 'node_modules', 'better-sqlite3');
+  const bindingPath = path.join(modDir, 'build', 'Release', 'better_sqlite3.node');
+  if (fs.existsSync(modDir) && !fs.existsSync(bindingPath)) {
+    process.stderr.write('mindlore-mcp: rebuilding better-sqlite3 native binding...\n');
+    try {
+      execSync('npm rebuild better-sqlite3', {
+        cwd: root,
+        stdio: ['ignore', 'pipe', 'pipe'],
+        timeout: 60_000,
+      });
+    } catch (e) {
+      process.stderr.write(`mindlore-mcp: auto-rebuild failed. Run manually:\n  cd "${root}" && npm rebuild better-sqlite3\n`);
+      process.stderr.write(`  Error: ${e instanceof Error ? e.message : String(e)}\n`);
+    }
+  }
+}
+
+const pluginRoot = resolvePluginRoot();
+ensureSqliteBinding(pluginRoot);
+
+// eslint-disable-next-line @typescript-eslint/no-require-imports, @typescript-eslint/no-var-requires -- absolute path required for plugin cache resolution
+const Database: typeof import('better-sqlite3') = require(path.join(pluginRoot, 'node_modules', 'better-sqlite3'));
+
 const PACKAGE_VERSION = (() => {
   try {
-    const pkg = JSON.parse(fs.readFileSync(path.join(__dirname, '..', 'package.json'), 'utf8'));
+    const pkgPath = fs.existsSync(path.join(__dirname, 'package.json'))
+      ? path.join(__dirname, 'package.json')
+      : path.join(__dirname, '..', 'package.json');
+    const pkg = JSON.parse(fs.readFileSync(pkgPath, 'utf8'));
     // eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- package.json structure is known
     return (pkg as { version?: string }).version ?? '0.0.0';
   } catch {

@@ -12481,18 +12481,21 @@ var require_dist = __commonJS({
         throw new Error(`Unknown format "${name}"`);
       return f;
     };
-    function addFormats(ajv, list, fs9, exportName) {
+    function addFormats(ajv, list, fs10, exportName) {
       var _a3;
       var _b;
       (_a3 = (_b = ajv.opts.code).formats) !== null && _a3 !== void 0 ? _a3 : _b.formats = (0, codegen_1._)`require("ajv-formats/dist/formats").${exportName}`;
       for (const f of list)
-        ajv.addFormat(f, fs9[f]);
+        ajv.addFormat(f, fs10[f]);
     }
     module2.exports = exports2 = formatsPlugin;
     Object.defineProperty(exports2, "__esModule", { value: true });
     exports2.default = formatsPlugin;
   }
 });
+
+// scripts/mcp-server.ts
+var import_child_process = require("child_process");
 
 // node_modules/zod/v3/helpers/util.js
 var util;
@@ -36552,8 +36555,7 @@ var StdioServerTransport = class {
 };
 
 // scripts/mcp-server.ts
-var import_better_sqlite32 = __toESM(require("better-sqlite3"));
-var import_fs8 = __toESM(require("fs"));
+var import_fs9 = __toESM(require("fs"));
 var import_path9 = __toESM(require("path"));
 
 // scripts/lib/mcp-namespace.ts
@@ -36783,6 +36785,19 @@ var VERSION_RE = /v(\d+)\.(\d+)(?:\.(\d+))?/g;
 function fixVersionTokens(query) {
   return query.replace(VERSION_RE, (_m, a, b, c) => c ? `"v${a} ${b} ${c}"` : `"v${a} ${b}"`);
 }
+var RELATION_TYPES = ["cites", "extends", "contradicts", "supersedes"];
+var SYMMETRIC_TYPES = /* @__PURE__ */ new Set(["contradicts"]);
+var RELATION_PRIORITY = {
+  supersedes: 1,
+  contradicts: 2,
+  extends: 3,
+  cites: 4
+};
+var MAX_RELATED_SOURCES = 5;
+var RELATED_OVERFETCH = 10;
+function buildPriorityCase() {
+  return Object.entries(RELATION_PRIORITY).map(([type, priority]) => `WHEN '${type}' THEN ${priority}`).join(" ");
+}
 var CC_MEMORY_PATH_MARKER = import_path.default.join(".claude", "projects");
 
 // scripts/lib/mcp-namespace.ts
@@ -36799,6 +36814,14 @@ function resolveMindloreHome() {
 
 // scripts/lib/db-helpers.ts
 var import_better_sqlite3 = __toESM(require("better-sqlite3"));
+function dbGet(db, sql, ...params) {
+  const result = db.prepare(sql).get(...params);
+  if (result === void 0) return void 0;
+  if (typeof result !== "object" || result === null) {
+    throw new TypeError(`Expected object from query, got ${typeof result}`);
+  }
+  return result;
+}
 function dbAll(db, sql, ...params) {
   const results = db.prepare(sql).all(...params);
   return results;
@@ -37217,10 +37240,56 @@ function search(db, query, options) {
   });
 }
 
+// scripts/lib/relation-helpers.ts
+function assertSlugExists(db, slug) {
+  const row = dbGet(db, "SELECT path, title FROM mindlore_fts WHERE slug = ? LIMIT 1", slug);
+  if (!row) throw new Error(`Source slug "${slug}" not found in knowledge base`);
+  return row;
+}
+var symmetricPlaceholders = Array.from(SYMMETRIC_TYPES).map(() => "?").join(",");
+var symmetricValues = [...SYMMETRIC_TYPES];
+var priorityCaseExpr = buildPriorityCase();
+var RELATIONS_SQL = `
+  SELECT * FROM (
+    SELECT source_b AS source, relation_type, 'outgoing' AS direction
+    FROM mindlore_relations WHERE source_a = ?
+    UNION ALL
+    SELECT source_a AS source, relation_type, 'incoming' AS direction
+    FROM mindlore_relations WHERE source_b = ? AND relation_type IN (${symmetricPlaceholders})
+  )
+  ORDER BY CASE relation_type ${priorityCaseExpr} END
+  LIMIT ?
+`;
+function getRelationsForSlug(db, slug, limit = RELATED_OVERFETCH) {
+  return dbAll(db, RELATIONS_SQL, slug, slug, ...symmetricValues, limit);
+}
+
 // scripts/lib/tool-adapters/search-adapter.ts
 var MAX_LIMIT = 20;
 var DEFAULT_LIMIT = 5;
 var MAX_SNIPPET_LEN = 500;
+function getRelatedForSlugs(ctx, slugs, excludeSlugs) {
+  if (slugs.length === 0) return [];
+  const all = [];
+  for (const slug of slugs) {
+    const rows = getRelationsForSlug(ctx.db, slug);
+    for (const row of rows) {
+      if (!excludeSlugs.has(row.source)) {
+        all.push({ ...row, via: slug });
+      }
+    }
+  }
+  const seen = /* @__PURE__ */ new Set();
+  const deduped = [];
+  for (const item of all) {
+    const key = `${item.source}:${item.relation_type}`;
+    if (!seen.has(key)) {
+      seen.add(key);
+      deduped.push(item);
+    }
+  }
+  return deduped.slice(0, MAX_RELATED_SOURCES);
+}
 function handleSearch(ctx, input) {
   const limit = Math.min(input.limit ?? DEFAULT_LIMIT, MAX_LIMIT);
   const results = search(ctx.db, input.query, { maxResults: limit });
@@ -37236,10 +37305,20 @@ function handleSearch(ctx, input) {
       path: r.path
     };
   });
+  const slugList = mapped.map((r) => r.slug);
+  const resultSlugs = new Set(slugList);
+  let related = [];
+  try {
+    related = getRelatedForSlugs(ctx, slugList, resultSlugs);
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : "";
+    if (!msg.includes("no such table")) throw err;
+  }
   return {
     results: mapped,
     total: mapped.length,
-    truncated: results.length >= limit
+    truncated: results.length >= limit,
+    related
   };
 }
 
@@ -37520,13 +37599,90 @@ function handleDecide(ctx, input) {
   return { decisions, total: decisions.length };
 }
 
-// scripts/lib/mcp-telemetry.ts
+// scripts/lib/tool-adapters/relate-adapter.ts
+function validateRelationType(type) {
+  if (!RELATION_TYPES.includes(type)) {
+    throw new Error(`Invalid relation_type "${type}". Valid: ${RELATION_TYPES.join(", ")}`);
+  }
+}
+function handleRelate(ctx, input) {
+  if (input.action === "add") {
+    if (!input.source_a || !input.source_b || !input.relation_type) {
+      throw new Error("add requires source_a, source_b, and relation_type");
+    }
+    validateRelationType(input.relation_type);
+    assertSlugExists(ctx.db, input.source_a);
+    assertSlugExists(ctx.db, input.source_b);
+    const result = ctx.db.prepare(
+      "INSERT OR IGNORE INTO mindlore_relations (source_a, source_b, relation_type) VALUES (?, ?, ?)"
+    ).run(input.source_a, input.source_b, input.relation_type);
+    return {
+      created: result.changes > 0,
+      existing: result.changes === 0,
+      relation: { source_a: input.source_a, source_b: input.source_b, relation_type: input.relation_type }
+    };
+  }
+  if (input.action === "remove") {
+    if (!input.source_a || !input.source_b || !input.relation_type) {
+      throw new Error("remove requires source_a, source_b, and relation_type");
+    }
+    validateRelationType(input.relation_type);
+    const result = ctx.db.prepare(
+      "DELETE FROM mindlore_relations WHERE source_a = ? AND source_b = ? AND relation_type = ?"
+    ).run(input.source_a, input.source_b, input.relation_type);
+    return { removed: result.changes > 0 };
+  }
+  const query = input.source ? "SELECT id, source_a, source_b, relation_type, created_at FROM mindlore_relations WHERE source_a = ? OR source_b = ? ORDER BY created_at DESC LIMIT 100" : "SELECT id, source_a, source_b, relation_type, created_at FROM mindlore_relations ORDER BY created_at DESC LIMIT 100";
+  const params = input.source ? [input.source, input.source] : [];
+  const rows = dbAll(ctx.db, query, ...params);
+  return { relations: rows, total: rows.length };
+}
+
+// scripts/lib/tool-adapters/get-adapter.ts
 var import_fs7 = __toESM(require("fs"));
+function handleGet(ctx, input) {
+  const { path: sourcePath, title } = assertSlugExists(ctx.db, input.source);
+  let raw;
+  try {
+    raw = import_fs7.default.readFileSync(sourcePath, "utf8").replace(/\r\n/g, "\n");
+  } catch {
+    throw new Error(`Source file not found on disk: ${sourcePath}`);
+  }
+  const size = Buffer.byteLength(raw, "utf8");
+  const result = {
+    title,
+    slug: input.source,
+    content: raw,
+    metadata: { path: sourcePath, size }
+  };
+  if (input.section) {
+    const chunks = chunkMarkdown(raw);
+    const targetSlug = slugify2(input.section);
+    const match = chunks.find((c) => c.heading && slugify2(c.heading) === targetSlug);
+    if (match) {
+      result.content = match.content;
+      result.section = match.heading.replace(/^#+\s*/, "");
+    } else {
+      result.content = "";
+      const sections = chunks.filter((c) => c.heading).map((c) => c.heading.replace(/^#+\s*/, ""));
+      if (sections.length > 0) result.available_sections = sections;
+    }
+  }
+  const includeRelations = input.include_relations !== false;
+  if (includeRelations) {
+    const related = getRelationsForSlug(ctx.db, input.source, MAX_RELATED_SOURCES);
+    if (related.length > 0) result.relations = related;
+  }
+  return result;
+}
+
+// scripts/lib/mcp-telemetry.ts
+var import_fs8 = __toESM(require("fs"));
 var import_path8 = __toESM(require("path"));
 function writeMcpTelemetry(baseDir, entry) {
   try {
     const telemetryPath = import_path8.default.join(baseDir, "telemetry.jsonl");
-    import_fs7.default.appendFileSync(telemetryPath, JSON.stringify(entry) + "\n");
+    import_fs8.default.appendFileSync(telemetryPath, JSON.stringify(entry) + "\n");
   } catch {
   }
 }
@@ -37561,9 +37717,30 @@ function toolResult(data) {
 function toolError(message) {
   return { content: [{ type: "text", text: message }], isError: true };
 }
+var TOOL_NAMES = {
+  search: "mindlore_search",
+  ingest: "mindlore_ingest",
+  recall: "mindlore_recall",
+  brief: "mindlore_brief",
+  decide: "mindlore_decide",
+  stats: "mindlore_stats",
+  relate: "mindlore_relate",
+  get: "mindlore_get"
+};
+function wrapTool(ctx, toolName, handler) {
+  return async (input) => {
+    return withMcpTelemetry(ctx.baseDir, toolName, async () => {
+      try {
+        return toolResult(handler(ctx, input));
+      } catch (err) {
+        return toolError(errMsg(err));
+      }
+    });
+  };
+}
 function registerAllTools(server, ctx) {
   server.tool(
-    "mindlore_search",
+    TOOL_NAMES.search,
     "FTS5 + hybrid search across Mindlore knowledge base",
     {
       query: external_exports.string().describe("Search query"),
@@ -37571,18 +37748,10 @@ function registerAllTools(server, ctx) {
       scope: external_exports.enum(["sources", "episodes", "decisions", "all"]).optional().describe("Filter scope"),
       contentType: external_exports.enum(["code", "prose"]).optional().describe("Content type filter")
     },
-    async (input) => {
-      return withMcpTelemetry(ctx.baseDir, "mindlore_search", async () => {
-        try {
-          return toolResult(handleSearch(ctx, input));
-        } catch (err) {
-          return toolError(errMsg(err));
-        }
-      });
-    }
+    wrapTool(ctx, TOOL_NAMES.search, handleSearch)
   );
   server.tool(
-    "mindlore_ingest",
+    TOOL_NAMES.ingest,
     "Add knowledge to Mindlore (text or file)",
     {
       type: external_exports.enum(["text", "file"]).describe("Source type"),
@@ -37590,52 +37759,28 @@ function registerAllTools(server, ctx) {
       title: external_exports.string().optional().describe("Title (auto-detected if omitted)"),
       tags: external_exports.array(external_exports.string()).optional().describe("Tags")
     },
-    async (input) => {
-      return withMcpTelemetry(ctx.baseDir, "mindlore_ingest", async () => {
-        try {
-          return toolResult(handleIngest(ctx, input));
-        } catch (err) {
-          return toolError(errMsg(err));
-        }
-      });
-    }
+    wrapTool(ctx, TOOL_NAMES.ingest, handleIngest)
   );
   server.tool(
-    "mindlore_recall",
+    TOOL_NAMES.recall,
     "Retrieve decisions, episodes, or learnings",
     {
       type: external_exports.enum(["decisions", "episodes", "learnings", "all"]).describe("What to recall"),
       limit: external_exports.number().min(1).max(50).optional().describe("Max items (default: 10)"),
       since: external_exports.string().optional().describe("ISO date filter (UTC)")
     },
-    async (input) => {
-      return withMcpTelemetry(ctx.baseDir, "mindlore_recall", async () => {
-        try {
-          return toolResult(handleRecall(ctx, input));
-        } catch (err) {
-          return toolError(errMsg(err));
-        }
-      });
-    }
+    wrapTool(ctx, TOOL_NAMES.recall, handleRecall)
   );
   server.tool(
-    "mindlore_brief",
+    TOOL_NAMES.brief,
     "Project briefing \u2014 summary of knowledge base state",
     {
       scope: external_exports.enum(["full", "recent"]).optional().describe("Scope (default: recent)")
     },
-    async (input) => {
-      return withMcpTelemetry(ctx.baseDir, "mindlore_brief", async () => {
-        try {
-          return toolResult(handleBrief(ctx, input));
-        } catch (err) {
-          return toolError(errMsg(err));
-        }
-      });
-    }
+    wrapTool(ctx, TOOL_NAMES.brief, handleBrief)
   );
   server.tool(
-    "mindlore_decide",
+    TOOL_NAMES.decide,
     "Record or list decisions with supersedes chain",
     {
       action: external_exports.enum(["save", "list"]).describe("Action"),
@@ -37646,52 +37791,94 @@ function registerAllTools(server, ctx) {
       limit: external_exports.number().min(1).max(50).optional().describe("Max items for list"),
       since: external_exports.string().optional().describe("ISO date filter for list")
     },
-    async (input) => {
-      return withMcpTelemetry(ctx.baseDir, "mindlore_decide", async () => {
-        try {
-          if (input.action === "save") {
-            if (!input.title || !input.rationale) {
-              return toolError("title and rationale are required for save action");
-            }
-            return toolResult(handleDecide(ctx, {
-              action: "save",
-              title: input.title,
-              rationale: input.rationale,
-              alternatives: input.alternatives,
-              supersedes: input.supersedes
-            }));
-          }
-          return toolResult(handleDecide(ctx, {
-            action: "list",
-            limit: input.limit,
-            since: input.since
-          }));
-        } catch (err) {
-          return toolError(errMsg(err));
+    wrapTool(ctx, TOOL_NAMES.decide, (c, input) => {
+      if (input.action === "save") {
+        if (!input.title || !input.rationale) {
+          throw new Error("title and rationale are required for save action");
         }
+        return handleDecide(c, {
+          action: "save",
+          title: input.title,
+          rationale: input.rationale,
+          alternatives: input.alternatives,
+          supersedes: input.supersedes
+        });
+      }
+      return handleDecide(c, {
+        action: "list",
+        limit: input.limit,
+        since: input.since
       });
-    }
+    })
   );
   server.tool(
-    "mindlore_stats",
+    TOOL_NAMES.stats,
     "Health check and database statistics",
     {},
-    async () => {
-      return withMcpTelemetry(ctx.baseDir, "mindlore_stats", async () => {
-        try {
-          return toolResult(handleStats(ctx));
-        } catch (err) {
-          return toolError(errMsg(err));
-        }
-      });
-    }
+    wrapTool(ctx, TOOL_NAMES.stats, (_c, _input) => handleStats(ctx))
+  );
+  server.tool(
+    TOOL_NAMES.relate,
+    "Manage source-to-source relations (Knowledge Graph)",
+    {
+      action: external_exports.enum(["add", "remove", "list"]).describe("Action"),
+      source_a: external_exports.string().optional().describe("Source slug (required for add/remove)"),
+      source_b: external_exports.string().optional().describe("Target source slug (required for add/remove)"),
+      relation_type: external_exports.enum(["cites", "extends", "contradicts", "supersedes"]).optional().describe("Relation type (required for add/remove)"),
+      source: external_exports.string().optional().describe("Filter relations by source slug (for list)")
+    },
+    wrapTool(ctx, TOOL_NAMES.relate, handleRelate)
+  );
+  server.tool(
+    TOOL_NAMES.get,
+    "Retrieve full content or specific section of a knowledge source",
+    {
+      source: external_exports.string().describe("Source slug"),
+      section: external_exports.string().optional().describe("Heading title for section-level retrieval"),
+      include_relations: external_exports.boolean().optional().describe("Include related sources (default: true)")
+    },
+    wrapTool(ctx, TOOL_NAMES.get, handleGet)
   );
 }
 
 // scripts/mcp-server.ts
+function resolvePluginRoot() {
+  let dir = __dirname;
+  for (let i = 0; i < 5; i++) {
+    if (import_fs9.default.existsSync(import_path9.default.join(dir, "node_modules", "better-sqlite3"))) return dir;
+    const parent = import_path9.default.dirname(dir);
+    if (parent === dir) break;
+    dir = parent;
+  }
+  return __dirname;
+}
+function ensureSqliteBinding(root) {
+  const modDir = import_path9.default.join(root, "node_modules", "better-sqlite3");
+  const bindingPath = import_path9.default.join(modDir, "build", "Release", "better_sqlite3.node");
+  if (import_fs9.default.existsSync(modDir) && !import_fs9.default.existsSync(bindingPath)) {
+    process.stderr.write("mindlore-mcp: rebuilding better-sqlite3 native binding...\n");
+    try {
+      (0, import_child_process.execSync)("npm rebuild better-sqlite3", {
+        cwd: root,
+        stdio: ["ignore", "pipe", "pipe"],
+        timeout: 6e4
+      });
+    } catch (e) {
+      process.stderr.write(`mindlore-mcp: auto-rebuild failed. Run manually:
+  cd "${root}" && npm rebuild better-sqlite3
+`);
+      process.stderr.write(`  Error: ${e instanceof Error ? e.message : String(e)}
+`);
+    }
+  }
+}
+var pluginRoot = resolvePluginRoot();
+ensureSqliteBinding(pluginRoot);
+var Database = require(import_path9.default.join(pluginRoot, "node_modules", "better-sqlite3"));
 var PACKAGE_VERSION = (() => {
   try {
-    const pkg = JSON.parse(import_fs8.default.readFileSync(import_path9.default.join(__dirname, "..", "..", "package.json"), "utf8"));
+    const pkgPath = import_fs9.default.existsSync(import_path9.default.join(__dirname, "package.json")) ? import_path9.default.join(__dirname, "package.json") : import_path9.default.join(__dirname, "..", "package.json");
+    const pkg = JSON.parse(import_fs9.default.readFileSync(pkgPath, "utf8"));
     return pkg.version ?? "0.0.0";
   } catch {
     return "0.0.0";
@@ -37699,15 +37886,15 @@ var PACKAGE_VERSION = (() => {
 })();
 async function main() {
   const baseDir = resolveMindloreHome();
-  if (!import_fs8.default.existsSync(baseDir)) {
-    import_fs8.default.mkdirSync(baseDir, { recursive: true });
+  if (!import_fs9.default.existsSync(baseDir)) {
+    import_fs9.default.mkdirSync(baseDir, { recursive: true });
     for (const sub of ["sources", "episodes", "decisions", "diary", "raw", "domains", "analyses", "learnings"]) {
       const dir = import_path9.default.join(baseDir, sub);
-      if (!import_fs8.default.existsSync(dir)) import_fs8.default.mkdirSync(dir, { recursive: true });
+      if (!import_fs9.default.existsSync(dir)) import_fs9.default.mkdirSync(dir, { recursive: true });
     }
   }
   const dbPath = import_path9.default.join(baseDir, DB_NAME);
-  const db = new import_better_sqlite32.default(dbPath);
+  const db = new Database(dbPath);
   db.pragma("journal_mode = WAL");
   db.pragma(`busy_timeout = ${MCP_BUSY_TIMEOUT_MS}`);
   const server = new McpServer({
