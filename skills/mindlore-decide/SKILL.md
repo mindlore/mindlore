@@ -1,3 +1,10 @@
+---
+name: mindlore-decide
+description: Record or list decisions with supersedes chain
+effort: low
+context: fork
+---
+
 # Skill: Mindlore Decide
 
 Record and list decisions in the `.mindlore/decisions/` directory.

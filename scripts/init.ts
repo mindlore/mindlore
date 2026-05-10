@@ -36,14 +36,8 @@ interface PluginHook {
   script: string;
 }
 
-interface PluginSkill {
-  name: string;
-  path: string;
-}
-
 interface PluginManifest {
   hooks?: PluginHook[];
-  skills?: PluginSkill[];
   [key: string]: unknown;
 }
 
@@ -360,33 +354,6 @@ function addSchemaToProjectDocs(): boolean {
   return false;
 }
 
-// ── Step 6: Register skills ────────────────────────────────────────────
-
-function registerSkills(packageRoot: string, plugin: PluginManifest): number {
-  const skillsDir = path.join(homedir(), '.claude', 'skills');
-  ensureDir(skillsDir);
-
-  if (!plugin.skills || plugin.skills.length === 0) return 0;
-
-  let added = 0;
-  for (const skill of plugin.skills) {
-    const skillSrcDir = path.join(packageRoot, path.dirname(skill.path));
-    const skillDestDir = path.join(skillsDir, skill.name);
-
-    ensureDir(skillDestDir);
-    const entries = fs.readdirSync(skillSrcDir, { withFileTypes: true });
-    for (const entry of entries) {
-      if (!entry.isFile()) continue;
-      fs.copyFileSync(
-        path.join(skillSrcDir, entry.name),
-        path.join(skillDestDir, entry.name),
-      );
-    }
-    added++;
-  }
-
-  return added;
-}
 
 // ── Step 7: Install better-sqlite3 if needed ──────────────────────────
 
@@ -596,7 +563,7 @@ function main(): void {
     log('WARNING: Auto-index failed — run: npx mindlore index');
   }
 
-  // Read plugin.json once for hooks + skills
+  // Read plugin.json for hooks registration
   const pluginPath = path.join(packageRoot, 'plugin.json');
   const plugin: PluginManifest = fs.existsSync(pluginPath)
     ? readJsonFile<PluginManifest>(pluginPath)
@@ -622,15 +589,7 @@ function main(): void {
       : 'SCHEMA.md already in project settings',
   );
 
-  // Step 7: Skills
-  const skillsAdded = registerSkills(packageRoot, plugin);
-  log(
-    skillsAdded > 0
-      ? `Registered ${skillsAdded} skills in ~/.claude/skills/`
-      : 'Skills already registered',
-  );
-
-  // Step 8: Config (models for model-router hook)
+  // Step 7: Config (models for model-router hook)
   const configCreated = ensureConfig(baseDir, packageRoot);
   log(
     configCreated
@@ -706,40 +665,12 @@ function main(): void {
   safeWriteFile(pkgVersionPath, packageJson.version);
   log(`Version: ${packageJson.version}`);
 
-  // Step 12: Register agents (v0.6.1)
-  const agentsAdded = registerAgents(packageRoot);
-  if (agentsAdded > 0) {
-    log(`Registered ${agentsAdded} agents in ~/.claude/agents/`);
-  }
-
-  // Step 13: Auto-doctor (v0.6.1)
+  // Step 12: Auto-doctor (v0.6.1)
   runDoctor(packageRoot);
 
   console.log('\n  Done! Start with: /mindlore-ingest\n');
 }
 
-function registerAgents(packageRoot: string): number {
-  const agentsDir = path.join(packageRoot, 'agents');
-  if (!fs.existsSync(agentsDir)) return 0;
-
-  const targetDir = path.join(homedir(), '.claude', 'agents');
-  ensureDir(targetDir);
-
-  let copied = 0;
-  for (const file of fs.readdirSync(agentsDir)) {
-    const src = path.join(agentsDir, file);
-    const dest = path.join(targetDir, file);
-    if (!fs.statSync(src).isFile()) continue;
-    if (fs.existsSync(dest)) {
-      const srcStat = fs.statSync(src);
-      const destStat = fs.statSync(dest);
-      if (srcStat.size === destStat.size && srcStat.mtimeMs <= destStat.mtimeMs) continue;
-    }
-    fs.copyFileSync(src, dest);
-    copied++;
-  }
-  return copied;
-}
 
 function runDoctor(packageRoot: string): void {
   try {

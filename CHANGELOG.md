@@ -5,6 +5,16 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Changed
+- **init.ts:** Removed `registerSkills` and `registerAgents` — plugin marketplace is now the sole distribution path for skills and agents
+- **package.json:** Added `.claude-plugin/` to `files` array so npm tarball includes marketplace manifest
+- **SKILL.md frontmatter:** Added missing `name`, `description`, `effort`, `context` fields to `mindlore-decide` and `mindlore-log`
+
+### Migration
+- Users upgrading from <= 0.7.2 should manually delete `~/.claude/skills/mindlore-*` (except `mindlore-release` if installed separately) and `~/.claude/agents/mindlore-*` to remove duplicate skill/agent copies
+
 ## [0.7.2] - 2026-05-09
 
 ### Added
