@@ -1,0 +1,2 @@
+# Mark bundled hook outputs as generated (excluded from GitHub language stats)
+hooks/*.cjs linguist-generated=true
