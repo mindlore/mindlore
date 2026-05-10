@@ -5,14 +5,27 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
+## [0.7.3] - 2026-05-10
+
+### Added
+- **Plugin detection gate** (`scripts/lib/detect-plugin.ts`) — detects CC marketplace plugin via cache directory
+- **Settings cleanup module** (`scripts/lib/settings-cleanup.ts`) — idempotent legacy hook removal (shared by init + uninstall)
+- **Install matrix test** — 4-scenario test (marketplace-only, npx-only, both, upgrade)
+- **DB singleton test** — confirms init and MCP share same DB path
+- **Version sync test** — asserts 5 version fields equal across manifests
+- **Test fixtures** — 3 mock settings.json files for CI-safe hook testing
 
 ### Changed
-- **init.ts:** Plugin detection gate — if CC marketplace plugin installed, hooks/skills/agents come from auto-discovery; if npx-only, they are registered to settings.json/user scope as before
-- **doctor:** `checkHooks` now validates plugin.json hooks array (auto-discovery) instead of settings.json
-- **settings-cleanup module:** Shared module for idempotent legacy hook removal (used by init + uninstall)
-- **package.json:** Added `.claude-plugin/` to `files` array so npm tarball includes marketplace manifest
-- **SKILL.md frontmatter:** Added missing `name`, `description`, `effort`, `context` fields to `mindlore-decide` and `mindlore-log`
+- **init.ts:** Dual-path gate — plugin installed → auto-discovery + cleanup; no plugin → register hooks/skills/agents to settings.json
+- **doctor:** `checkHooks` validates plugin.json hooks array (auto-discovery) instead of settings.json
+- **uninstall.ts:** Delegates to shared settings-cleanup module + adds orphan agent cleanup
+- **registerAgents:** Optimized stat calls (4→2 per file), uses `withFileTypes`
+- **package.json:** Added `.claude-plugin/` to `files` array
+- **SKILL.md frontmatter:** Added missing fields to `mindlore-decide` and `mindlore-log`
+
+### Fixed
+- **Hook double-fire eliminated** — npx init no longer writes hooks when plugin auto-discovery is active
+- **Deduplicated HookEntry interface** — single source in constants.ts
 
 ### Migration
 - Users upgrading from <= 0.7.2 with both npx and marketplace plugin: run `npx mindlore` once — legacy hooks in settings.json are automatically cleaned up (backup created). No manual action needed.
