@@ -71,6 +71,7 @@
     "typescript": "^6.0.2"
   },
   "files": [
+    ".claude-plugin/",
     "agents/",
     "dist/",
     "hooks/",

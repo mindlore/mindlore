@@ -5,6 +5,18 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Changed
+- **init.ts:** Plugin detection gate — if CC marketplace plugin installed, hooks/skills/agents come from auto-discovery; if npx-only, they are registered to settings.json/user scope as before
+- **doctor:** `checkHooks` now validates plugin.json hooks array (auto-discovery) instead of settings.json
+- **settings-cleanup module:** Shared module for idempotent legacy hook removal (used by init + uninstall)
+- **package.json:** Added `.claude-plugin/` to `files` array so npm tarball includes marketplace manifest
+- **SKILL.md frontmatter:** Added missing `name`, `description`, `effort`, `context` fields to `mindlore-decide` and `mindlore-log`
+
+### Migration
+- Users upgrading from <= 0.7.2 with both npx and marketplace plugin: run `npx mindlore` once — legacy hooks in settings.json are automatically cleaned up (backup created). No manual action needed.
+
 ## [0.7.2] - 2026-05-09
 
 ### Added

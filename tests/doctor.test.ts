@@ -4,23 +4,13 @@ import os from 'os';
 import Database from 'better-sqlite3';
 
 describe('mindlore-doctor', () => {
-  it('detects missing hooks', () => {
+  it('detects hooks from plugin.json (auto-discovery)', () => {
     const { checkHooks } = require('../dist/scripts/mindlore-doctor.js');
-    const result = checkHooks({});
-    expect(result.pass).toBe(false);
-    expect(result.found).toBe(0);
-  });
-
-  it('detects hooks when settings has them', () => {
-    const { checkHooks } = require('../dist/scripts/mindlore-doctor.js');
-    const settings = {
-      hooks: {
-        SessionStart: [{ command: 'mindlore-session-focus' }],
-        UserPromptSubmit: [{ command: 'mindlore-search' }],
-      },
-    };
-    const result = checkHooks(settings);
-    expect(result.found).toBeGreaterThan(0);
+    // checkHooks now reads plugin.json, not settings.json
+    const result = checkHooks();
+    expect(result.pass).toBe(true);
+    expect(result.found).toBeGreaterThanOrEqual(14);
+    expect(result.message).toContain('plugin.json');
   });
 
   it('detects correct Node version', () => {

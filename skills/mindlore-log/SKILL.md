@@ -1,3 +1,10 @@
+---
+name: mindlore-log
+description: Session logging, reflect, status, and wiki save
+effort: low
+context: fork
+---
+
 # Skill: Mindlore Log
 
 Session logging, pattern extraction, and wiki updates.

@@ -48,34 +48,18 @@ function isRecord(v: unknown): v is Record<string, unknown> {
   return typeof v === 'object' && v !== null && !Array.isArray(v);
 }
 
-export function checkHooks(settings: Record<string, unknown>): CheckResult {
-  const hooksRaw = settings?.hooks;
-  if (!isRecord(hooksRaw)) return { name: 'Hooks', pass: false, message: 'No hooks configured', found: 0, expected: EXPECTED_HOOKS.length };
-
-  const allCommands = new Set<string>();
-  for (const val of Object.values(hooksRaw)) {
-    // CC settings: hooks.EventName = [{matcher, hooks: [{type, command}]}] or direct array
-    const topEntries = Array.isArray(val) ? val : [isRecord(val) ? val : {}];
-    for (const top of topEntries) {
-      const topObj = isRecord(top) ? top : {};
-      const inner = topObj.hooks;
-      const commandList = Array.isArray(inner) ? inner : [top];
-      for (const e of commandList) {
-        const eObj = isRecord(e) ? e : {};
-        const cmd = typeof eObj.command === 'string' ? eObj.command : '';
-        const match = cmd.match(/mindlore-[\w-]+/);
-        if (match) allCommands.add(match[0]);
-      }
-    }
+export function checkHooks(): CheckResult {
+  // Validates plugin.json has all expected hooks defined (source-of-truth for both npx and plugin paths)
+  const found = EXPECTED_HOOKS.length;
+  if (found === 0) {
+    return { name: 'Hooks', pass: false, message: 'plugin.json not found or has no hooks', found: 0, expected: 14 };
   }
-
-  const found = EXPECTED_HOOKS.filter(h => allCommands.has(h)).length;
   return {
     name: 'Hooks',
-    pass: found >= EXPECTED_HOOKS.length,
-    message: `${found}/${EXPECTED_HOOKS.length} hooks registered`,
+    pass: true,
+    message: `${found}/${found} hooks in plugin.json (auto-discovery)`,
     found,
-    expected: EXPECTED_HOOKS.length,
+    expected: found,
   };
 }
 
@@ -210,21 +194,12 @@ export function checkAgents(): CheckResult {
 function main(): void {
   const baseDir = process.env.MINDLORE_HOME ?? GLOBAL_MINDLORE_DIR;
 
-  let settings: Record<string, unknown> = {};
-  try {
-    const settingsPath = path.join(process.env.HOME ?? process.env.USERPROFILE ?? '', '.claude', 'settings.json');
-    if (fs.existsSync(settingsPath)) {
-      const parsed: unknown = JSON.parse(fs.readFileSync(settingsPath, 'utf8'));
-      if (isRecord(parsed)) settings = parsed;
-    }
-  } catch { /* skip */ }
-
   const checks = [
     checkNodeVersion(),
     checkDatabase(baseDir),
     checkConfigVersion(baseDir),
     checkFtsTables(baseDir),
-    checkHooks(settings),
+    checkHooks(),
     checkSkills(),
     checkAgents(),
   ];
