@@ -84,6 +84,7 @@
       "description": "Mindlore MCP server: FTS5 search, episodic memory, knowledge graph relations, and KB management"
     }
   },
+  "_hooks_note": "Hooks loaded by CC plugin auto-discovery from hooks/ directory. This array is metadata only — not read by CC or init.",
   "hooks": [
     {
       "event": "SessionStart",

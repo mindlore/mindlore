@@ -1,16 +1,10 @@
 import fs from 'fs';
-import type { Settings } from './constants.js';
+import type { Settings, HookEntry } from './constants.js';
 import { parseJsonObject } from './safe-parse.js';
 
 export interface CleanupResult {
   removed: number;
   backupCreated: boolean;
-}
-
-interface HookEntry {
-  hooks?: Array<{ command?: string }>;
-  command?: string;
-  [key: string]: unknown;
 }
 
 const NODE_MODULES_PATTERN = /node_modules[/\\]mindlore[/\\]hooks[/\\]/;
@@ -43,7 +37,7 @@ export function cleanupLegacyHooks(settingsPath: string): CleanupResult {
     if (!Array.isArray(entries)) continue;
 
     const filtered = entries.filter((entry) => {
-      if (isLegacyMindloreHook(entry as HookEntry)) {
+      if (isLegacyMindloreHook(entry)) {
         removed++;
         return false;
       }

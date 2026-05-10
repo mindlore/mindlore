@@ -26,5 +26,5 @@
         "${CLAUDE_PLUGIN_ROOT}/mcp-server.cjs"
       ]
     }
-  },
+  }
 }

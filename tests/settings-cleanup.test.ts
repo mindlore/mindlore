@@ -30,6 +30,7 @@ describe('cleanupLegacyHooks', () => {
     expect(result.backupCreated).toBe(true);
 
     const settings = readJson(settingsPath);
+    /* eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- test fixture shape */
     const hooks = settings.hooks as Record<string, unknown[]>;
 
     // PreToolUse should keep only bash-guard (user hook)
@@ -55,6 +56,7 @@ describe('cleanupLegacyHooks', () => {
     expect(result.removed).toBe(2); // read-guard + session-end
 
     const settings = readJson(settingsPath);
+    /* eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- test fixture shape */
     const hooks = settings.hooks as Record<string, unknown[]>;
 
     // PreToolUse: bash-guard + user custom mindlore hook kept, node_modules one removed
@@ -72,6 +74,7 @@ describe('cleanupLegacyHooks', () => {
     expect(fs.existsSync(backupPath)).toBe(true);
     // Backup should be the original content
     const backup = readJson(backupPath);
+    /* eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- test fixture shape */
     const hooks = backup.hooks as Record<string, unknown[]>;
     expect(hooks.PreToolUse).toHaveLength(3);
   });

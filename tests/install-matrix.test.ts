@@ -109,6 +109,7 @@ describe('Install Matrix — 4 scenarios', () => {
       const preToolUse = settings.hooks.PreToolUse;
       expect(preToolUse).toHaveLength(2); // bash-guard + user custom
       const commands = preToolUse.flatMap((e: Record<string, unknown>) =>
+        /* eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- test fixture shape */
         ((e.hooks ?? [e]) as Array<{ command?: string }>).map((h) => h.command ?? ''),
       );
       expect(commands.some((c: string) => c.includes('mindlore-custom-hook'))).toBe(true);
