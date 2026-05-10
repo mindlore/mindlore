@@ -1,0 +1,11 @@
+{
+  "permissions": { "allow": ["Bash(git:*)"] },
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "Bash",
+        "hooks": [{ "type": "command", "command": "node \"C:/Users/test/.claude/hooks/bash-guard.cjs\"" }]
+      }
+    ]
+  }
+}

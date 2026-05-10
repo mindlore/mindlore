@@ -1,0 +1,22 @@
+{
+  "permissions": { "allow": ["Bash(git:*)"] },
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "Bash",
+        "hooks": [{ "type": "command", "command": "node \"C:/Users/test/.claude/hooks/bash-guard.cjs\"" }]
+      },
+      {
+        "hooks": [{ "type": "command", "command": "node \"C:\\Users\\test\\AppData\\Roaming\\npm\\node_modules\\mindlore\\hooks\\mindlore-read-guard.cjs\"" }]
+      },
+      {
+        "hooks": [{ "type": "command", "command": "node \"/home/user/.claude/hooks/mindlore-custom-hook.cjs\"" }]
+      }
+    ],
+    "SessionEnd": [
+      {
+        "hooks": [{ "type": "command", "command": "node \"C:\\Users\\test\\AppData\\Roaming\\npm\\node_modules\\mindlore\\hooks\\mindlore-session-end.cjs\"" }]
+      }
+    ]
+  }
+}
