@@ -135,3 +135,22 @@ describe('init.ts mergeHooks removal verification', () => {
     expect(initSource).toContain('cleanupLegacyHooks');
   });
 });
+
+describe('uninstall.ts shared module usage', () => {
+  it('uninstall.ts should not contain inline removeHooks implementation', () => {
+    const uninstallSource = fs.readFileSync(
+      path.join(__dirname, '..', 'scripts', 'uninstall.ts'),
+      'utf8',
+    );
+    // Should not have inline hook filtering logic
+    expect(uninstallSource).not.toContain("includes('mindlore-')");
+  });
+
+  it('uninstall.ts should import from settings-cleanup', () => {
+    const uninstallSource = fs.readFileSync(
+      path.join(__dirname, '..', 'scripts', 'uninstall.ts'),
+      'utf8',
+    );
+    expect(uninstallSource).toContain('settings-cleanup');
+  });
+});

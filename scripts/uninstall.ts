@@ -13,59 +13,15 @@ import fs from 'fs';
 import path from 'path';
 import { homedir, log, GLOBAL_MINDLORE_DIR } from './lib/constants.js';
 import type { Settings } from './lib/constants.js';
+import { cleanupLegacyHooks } from './lib/settings-cleanup.js';
 import { readJsonFile } from './lib/safe-parse.js';
 
 // ── Remove hooks from settings.json ────────────────────────────────────
 
 function removeHooks(): number {
   const settingsPath = path.join(homedir(), '.claude', 'settings.json');
-
-  if (!fs.existsSync(settingsPath)) {
-    log('No settings.json found, skipping hooks');
-    return 0;
-  }
-
-  let settings: Settings;
-  try {
-    settings = readJsonFile<Settings>(settingsPath);
-  } catch (_err) {
-    log('Could not parse settings.json, skipping hooks');
-    return 0;
-  }
-
-  if (!settings.hooks) return 0;
-
-  let removed = 0;
-  for (const event of Object.keys(settings.hooks)) {
-    const entries = settings.hooks[event];
-    if (!Array.isArray(entries)) continue;
-
-    const filtered = entries.filter((entry) => {
-      const hooks = entry.hooks ?? [];
-      const hasMindlore = hooks.some(
-        (h) => (h.command ?? '').includes('mindlore-'),
-      );
-      const flatMindlore = (entry.command ?? '').includes('mindlore-');
-
-      if (hasMindlore || flatMindlore) {
-        removed++;
-        return false;
-      }
-      return true;
-    });
-
-    settings.hooks[event] = filtered;
-
-    if (settings.hooks[event].length === 0) {
-      delete settings.hooks[event];
-    }
-  }
-
-  if (removed > 0) {
-    fs.writeFileSync(settingsPath, JSON.stringify(settings, null, 2), 'utf8');
-  }
-
-  return removed;
+  const result = cleanupLegacyHooks(settingsPath);
+  return result.removed;
 }
 
 // ── Remove skills from ~/.claude/skills/ ───────────────────────────────
@@ -91,6 +47,18 @@ function removeSkills(): number {
     if (fs.existsSync(skillPath)) {
       fs.rmSync(skillPath, { recursive: true, force: true });
       removed++;
+    }
+  }
+
+  // Also remove orphan agents from ~/.claude/agents/
+  const agentsDir = path.join(homedir(), '.claude', 'agents');
+  if (fs.existsSync(agentsDir)) {
+    for (const file of fs.readdirSync(agentsDir)) {
+      if (file.startsWith('mindlore-')) {
+        const agentPath = path.join(agentsDir, file);
+        fs.rmSync(agentPath, { recursive: true, force: true });
+        removed++;
+      }
     }
   }
 
