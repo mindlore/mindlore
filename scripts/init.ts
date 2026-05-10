@@ -15,6 +15,7 @@ import path from 'path';
 import { execFileSync } from 'child_process';
 import { MINDLORE_DIR, GLOBAL_MINDLORE_DIR, DB_NAME, DIRECTORIES, CONFIG_FILE, DEFAULT_MODELS, DB_BUSY_TIMEOUT_MS, homedir, log, resolveHookCommon } from './lib/constants.js';
 import type { Settings } from './lib/constants.js';
+import { cleanupLegacyHooks } from './lib/settings-cleanup.js';
 import { dbPragma } from './lib/db-helpers.js';
 import { mergeDefaults } from './lib/merge-defaults.js';
 import { parseJsonObject, readJsonFile } from './lib/safe-parse.js';
@@ -30,16 +31,6 @@ const { SQL_FTS_CREATE, ensureEpisodesTable: ensureEpisodesTableCjs } = require(
 };
 
 const TEMPLATE_FILES = ['INDEX.md', 'log.md'];
-
-interface PluginHook {
-  event: string;
-  script: string;
-}
-
-interface PluginManifest {
-  hooks?: PluginHook[];
-  [key: string]: unknown;
-}
 
 // ── Helpers ────────────────────────────────────────────────────────────
 
@@ -217,107 +208,6 @@ function createDatabase(baseDir: string): boolean {
 
   db.close();
   return true;
-}
-
-// ── Step 4: Merge hooks into settings.json ─────────────────────────────
-
-interface HookEntry { hooks?: Array<{ command?: string }>; command?: string }
-
-function countMindloreHooks(allHooks: Record<string, unknown[]>): number {
-  let total = 0;
-  for (const event of Object.keys(allHooks)) {
-    const entries = allHooks[event] ?? [];
-    for (const raw of entries) {
-      // eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- caller-controlled JSON shape from settings.json
-      const entry = raw as HookEntry;
-      const hooks = entry.hooks && Array.isArray(entry.hooks) ? entry.hooks : [entry];
-      for (const h of hooks) {
-        if ((h.command ?? '').includes('mindlore-')) total++;
-      }
-    }
-  }
-  return total;
-}
-
-function mergeHooks(packageRoot: string, existingPlugin?: PluginManifest): { added: number; total: number } | false {
-  const settingsPath = path.join(homedir(), '.claude', 'settings.json');
-
-  if (!fs.existsSync(settingsPath)) {
-    log('WARNING: ~/.claude/settings.json not found. Hooks not registered.');
-    log('Create it manually or install Claude Code first.');
-    return false;
-  }
-
-  let settings: Settings;
-  try {
-    const raw = fs.readFileSync(settingsPath, 'utf8');
-    settings = parseJsonObject<Settings>(raw);
-  } catch (_err) {
-    log('WARNING: Could not parse settings.json. Hooks not registered.');
-    return false;
-  }
-
-  let plugin: PluginManifest;
-  if (existingPlugin) {
-    plugin = existingPlugin;
-  } else {
-    const pluginPath = path.join(packageRoot, 'plugin.json');
-    if (!fs.existsSync(pluginPath)) {
-      log('WARNING: plugin.json not found. Hooks not registered.');
-      return false;
-    }
-    plugin = readJsonFile<PluginManifest>(pluginPath);
-  }
-  if (!plugin.hooks || plugin.hooks.length === 0) {
-    return false;
-  }
-
-  if (!settings.hooks) {
-    settings.hooks = {};
-  }
-
-  let added = 0;
-  for (const hook of plugin.hooks) {
-    const event = hook.event;
-    if (!settings.hooks[event]) {
-      settings.hooks[event] = [];
-    }
-
-    const hookScript = path.join(packageRoot, hook.script);
-    const hookName = path.basename(hook.script, '.cjs');
-
-    const exists = settings.hooks[event].some((entry) => {
-      if (entry.hooks && Array.isArray(entry.hooks)) {
-        return entry.hooks.some((h) => (h.command ?? '').includes(hookName));
-      }
-      return (entry.command ?? '').includes(hookName);
-    });
-
-    if (!exists) {
-      settings.hooks[event].push({
-        hooks: [
-          {
-            type: 'command',
-            command: `node "${hookScript}"`,
-          },
-        ],
-      });
-      added++;
-    }
-  }
-
-  if (added > 0) {
-    const backupPath = settingsPath + '.mindlore-backup';
-    if (!fs.existsSync(backupPath)) {
-      fs.copyFileSync(settingsPath, backupPath);
-    }
-    fs.writeFileSync(settingsPath, JSON.stringify(settings, null, 2), 'utf8');
-  }
-
-  // Count total mindlore hooks across all events
-  const total = countMindloreHooks(settings.hooks ?? {});
-
-  return { added, total };
 }
 
 // ── Step 5: Add SCHEMA.md to projectDocFiles ───────────────────────────
@@ -563,22 +453,11 @@ function main(): void {
     log('WARNING: Auto-index failed — run: npx mindlore index');
   }
 
-  // Read plugin.json for hooks registration
-  const pluginPath = path.join(packageRoot, 'plugin.json');
-  const plugin: PluginManifest = fs.existsSync(pluginPath)
-    ? readJsonFile<PluginManifest>(pluginPath)
-    : {};
-
-  // Step 5: Hooks
-  const hooksResult = mergeHooks(packageRoot, plugin);
-  if (typeof hooksResult === 'object' && hooksResult !== null) {
-    if (hooksResult.added > 0) {
-      log(`Registered ${hooksResult.added} new hooks (${hooksResult.total} total) in ~/.claude/settings.json`);
-    } else {
-      log(`Hooks already registered (${hooksResult.total} total)`);
-    }
-  } else {
-    log('Hooks not registered (settings.json not found)');
+  // Step 5: Clean up legacy hooks from settings.json (idempotent)
+  const settingsPath = path.join(homedir(), '.claude', 'settings.json');
+  const cleanupResult = cleanupLegacyHooks(settingsPath);
+  if (cleanupResult.removed > 0) {
+    log(`Cleaned ${cleanupResult.removed} legacy hooks from settings.json (plugin auto-discovery active)`);
   }
 
   // Step 6: SCHEMA.md in projectDocFiles (global SCHEMA.md path)

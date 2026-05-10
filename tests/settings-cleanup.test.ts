@@ -115,3 +115,23 @@ describe('cleanupLegacyHooks', () => {
     expect(result.removed).toBeGreaterThan(0);
   });
 });
+
+describe('init.ts mergeHooks removal verification', () => {
+  it('init.ts should not contain mergeHooks function', () => {
+    const initSource = fs.readFileSync(
+      path.join(__dirname, '..', 'scripts', 'init.ts'),
+      'utf8',
+    );
+    expect(initSource).not.toContain('function mergeHooks');
+    expect(initSource).not.toContain('function countMindloreHooks');
+    expect(initSource).not.toContain('interface PluginHook');
+  });
+
+  it('init.ts should import and call cleanupLegacyHooks', () => {
+    const initSource = fs.readFileSync(
+      path.join(__dirname, '..', 'scripts', 'init.ts'),
+      'utf8',
+    );
+    expect(initSource).toContain('cleanupLegacyHooks');
+  });
+});
