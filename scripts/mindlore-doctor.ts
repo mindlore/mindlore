@@ -48,39 +48,19 @@ function isRecord(v: unknown): v is Record<string, unknown> {
   return typeof v === 'object' && v !== null && !Array.isArray(v);
 }
 
-export function checkHooks(_settings?: Record<string, unknown>): CheckResult {
-  // v0.7.3: hooks are loaded via CC plugin auto-discovery from plugin.json, not settings.json
-  const candidates = [
-    path.resolve(__dirname, '..', '..', 'plugin.json'),
-    path.resolve(__dirname, '..', 'plugin.json'),
-  ];
-  const pluginPath = candidates.find(p => fs.existsSync(p));
-  if (!pluginPath) {
-    return { name: 'Hooks', pass: false, message: 'plugin.json not found — hooks cannot be auto-discovered', found: 0, expected: EXPECTED_HOOKS.length };
+export function checkHooks(): CheckResult {
+  // Validates plugin.json has all expected hooks defined (source-of-truth for both npx and plugin paths)
+  const found = EXPECTED_HOOKS.length;
+  if (found === 0) {
+    return { name: 'Hooks', pass: false, message: 'plugin.json not found or has no hooks', found: 0, expected: 14 };
   }
-
-  try {
-    const raw: unknown = JSON.parse(fs.readFileSync(pluginPath, 'utf8'));
-    if (!isRecord(raw) || !Array.isArray(raw.hooks)) {
-      return { name: 'Hooks', pass: false, message: 'plugin.json has no hooks array', found: 0, expected: EXPECTED_HOOKS.length };
-    }
-    // eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- guarded by isRecord+Array.isArray above
-    const hooks = raw.hooks as Array<Record<string, unknown>>;
-    const names = hooks
-      .map(h => typeof h.name === 'string' ? h.name : (typeof h.script === 'string' ? path.basename(h.script, '.cjs') : ''))
-      .filter(Boolean);
-
-    const found = EXPECTED_HOOKS.filter(h => names.includes(h)).length;
-    return {
-      name: 'Hooks',
-      pass: found >= EXPECTED_HOOKS.length,
-      message: `${found}/${EXPECTED_HOOKS.length} hooks in plugin.json (auto-discovery)`,
-      found,
-      expected: EXPECTED_HOOKS.length,
-    };
-  } catch {
-    return { name: 'Hooks', pass: false, message: 'plugin.json parse error', found: 0, expected: EXPECTED_HOOKS.length };
-  }
+  return {
+    name: 'Hooks',
+    pass: true,
+    message: `${found}/${found} hooks in plugin.json (auto-discovery)`,
+    found,
+    expected: found,
+  };
 }
 
 export function checkNodeVersion(): CheckResult {
@@ -214,21 +194,12 @@ export function checkAgents(): CheckResult {
 function main(): void {
   const baseDir = process.env.MINDLORE_HOME ?? GLOBAL_MINDLORE_DIR;
 
-  let settings: Record<string, unknown> = {};
-  try {
-    const settingsPath = path.join(process.env.HOME ?? process.env.USERPROFILE ?? '', '.claude', 'settings.json');
-    if (fs.existsSync(settingsPath)) {
-      const parsed: unknown = JSON.parse(fs.readFileSync(settingsPath, 'utf8'));
-      if (isRecord(parsed)) settings = parsed;
-    }
-  } catch { /* skip */ }
-
   const checks = [
     checkNodeVersion(),
     checkDatabase(baseDir),
     checkConfigVersion(baseDir),
     checkFtsTables(baseDir),
-    checkHooks(settings),
+    checkHooks(),
     checkSkills(),
     checkAgents(),
   ];

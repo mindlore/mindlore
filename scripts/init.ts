@@ -14,7 +14,7 @@ import fs from 'fs';
 import path from 'path';
 import { execFileSync } from 'child_process';
 import { MINDLORE_DIR, GLOBAL_MINDLORE_DIR, DB_NAME, DIRECTORIES, CONFIG_FILE, DEFAULT_MODELS, DB_BUSY_TIMEOUT_MS, homedir, log, resolveHookCommon } from './lib/constants.js';
-import type { Settings } from './lib/constants.js';
+import type { Settings, HookEntry } from './lib/constants.js';
 import { cleanupLegacyHooks } from './lib/settings-cleanup.js';
 import { detectPluginInstalled } from './lib/detect-plugin.js';
 import { dbPragma } from './lib/db-helpers.js';
@@ -46,10 +46,7 @@ interface PluginManifest {
   [key: string]: unknown;
 }
 
-interface HookEntry { hooks?: Array<{ command?: string }>; command?: string }
-
 // ── Helpers ────────────────────────────────────────────────────────────
-
 
 function countMindloreHooks(allHooks: Record<string, unknown[]>): number {
   let total = 0;
@@ -135,7 +132,7 @@ function mergeHooks(packageRoot: string, existingPlugin?: PluginManifest): { add
   }
 
   if (added > 0) {
-    const backupPath = settingsPath + '.mindlore-backup';
+    const backupPath = settingsPath + '.mindlore-migration-backup';
     if (!fs.existsSync(backupPath)) {
       fs.copyFileSync(settingsPath, backupPath);
     }
@@ -180,15 +177,15 @@ function registerAgents(packageRoot: string): number {
   ensureDir(targetDir);
 
   let copied = 0;
-  for (const file of fs.readdirSync(agentsDir)) {
-    const src = path.join(agentsDir, file);
-    const dest = path.join(targetDir, file);
-    if (!fs.statSync(src).isFile()) continue;
-    if (fs.existsSync(dest)) {
-      const srcStat = fs.statSync(src);
+  for (const entry of fs.readdirSync(agentsDir, { withFileTypes: true })) {
+    if (!entry.isFile()) continue;
+    const src = path.join(agentsDir, entry.name);
+    const dest = path.join(targetDir, entry.name);
+    const srcStat = fs.statSync(src);
+    try {
       const destStat = fs.statSync(dest);
       if (srcStat.size === destStat.size && srcStat.mtimeMs <= destStat.mtimeMs) continue;
-    }
+    } catch { /* dest doesn't exist */ }
     fs.copyFileSync(src, dest);
     copied++;
   }
@@ -656,7 +653,7 @@ function main(): void {
     }
   }
 
-  // Step 6: SCHEMA.md in projectDocFiles (global SCHEMA.md path)
+  // Step 7: SCHEMA.md in projectDocFiles (global SCHEMA.md path)
   const schemaAdded = addSchemaToProjectDocs();
   log(
     schemaAdded
@@ -664,7 +661,7 @@ function main(): void {
       : 'SCHEMA.md already in project settings',
   );
 
-  // Step 7: Config (models for model-router hook)
+  // Step 8: Config (models for model-router hook)
   const configCreated = ensureConfig(baseDir, packageRoot);
   log(
     configCreated
