@@ -48,35 +48,39 @@ function isRecord(v: unknown): v is Record<string, unknown> {
   return typeof v === 'object' && v !== null && !Array.isArray(v);
 }
 
-export function checkHooks(settings: Record<string, unknown>): CheckResult {
-  const hooksRaw = settings?.hooks;
-  if (!isRecord(hooksRaw)) return { name: 'Hooks', pass: false, message: 'No hooks configured', found: 0, expected: EXPECTED_HOOKS.length };
-
-  const allCommands = new Set<string>();
-  for (const val of Object.values(hooksRaw)) {
-    // CC settings: hooks.EventName = [{matcher, hooks: [{type, command}]}] or direct array
-    const topEntries = Array.isArray(val) ? val : [isRecord(val) ? val : {}];
-    for (const top of topEntries) {
-      const topObj = isRecord(top) ? top : {};
-      const inner = topObj.hooks;
-      const commandList = Array.isArray(inner) ? inner : [top];
-      for (const e of commandList) {
-        const eObj = isRecord(e) ? e : {};
-        const cmd = typeof eObj.command === 'string' ? eObj.command : '';
-        const match = cmd.match(/mindlore-[\w-]+/);
-        if (match) allCommands.add(match[0]);
-      }
-    }
+export function checkHooks(_settings?: Record<string, unknown>): CheckResult {
+  // v0.7.3: hooks are loaded via CC plugin auto-discovery from plugin.json, not settings.json
+  const candidates = [
+    path.resolve(__dirname, '..', '..', 'plugin.json'),
+    path.resolve(__dirname, '..', 'plugin.json'),
+  ];
+  const pluginPath = candidates.find(p => fs.existsSync(p));
+  if (!pluginPath) {
+    return { name: 'Hooks', pass: false, message: 'plugin.json not found — hooks cannot be auto-discovered', found: 0, expected: EXPECTED_HOOKS.length };
   }
 
-  const found = EXPECTED_HOOKS.filter(h => allCommands.has(h)).length;
-  return {
-    name: 'Hooks',
-    pass: found >= EXPECTED_HOOKS.length,
-    message: `${found}/${EXPECTED_HOOKS.length} hooks registered`,
-    found,
-    expected: EXPECTED_HOOKS.length,
-  };
+  try {
+    const raw: unknown = JSON.parse(fs.readFileSync(pluginPath, 'utf8'));
+    if (!isRecord(raw) || !Array.isArray(raw.hooks)) {
+      return { name: 'Hooks', pass: false, message: 'plugin.json has no hooks array', found: 0, expected: EXPECTED_HOOKS.length };
+    }
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- guarded by isRecord+Array.isArray above
+    const hooks = raw.hooks as Array<Record<string, unknown>>;
+    const names = hooks
+      .map(h => typeof h.name === 'string' ? h.name : (typeof h.script === 'string' ? path.basename(h.script, '.cjs') : ''))
+      .filter(Boolean);
+
+    const found = EXPECTED_HOOKS.filter(h => names.includes(h)).length;
+    return {
+      name: 'Hooks',
+      pass: found >= EXPECTED_HOOKS.length,
+      message: `${found}/${EXPECTED_HOOKS.length} hooks in plugin.json (auto-discovery)`,
+      found,
+      expected: EXPECTED_HOOKS.length,
+    };
+  } catch {
+    return { name: 'Hooks', pass: false, message: 'plugin.json parse error', found: 0, expected: EXPECTED_HOOKS.length };
+  }
 }
 
 export function checkNodeVersion(): CheckResult {

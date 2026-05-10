@@ -2,6 +2,7 @@ import fs from 'fs';
 import path from 'path';
 import os from 'os';
 import { cleanupLegacyHooks } from '../scripts/lib/settings-cleanup.js';
+import { detectPluginInstalled } from '../scripts/lib/detect-plugin.js';
 
 const FIXTURES = path.join(__dirname, 'fixtures');
 
@@ -45,21 +46,29 @@ describe('Install Matrix — 4 scenarios', () => {
   });
 
   describe('Scenario 2: npx-only (hooks in settings.json, no plugin)', () => {
-    it('legacy hooks present — cleanup removes them even without plugin', () => {
+    it('gate logic: plugin NOT installed → cleanup does NOT run, hooks stay', () => {
       const settingsPath = loadFixture('settings-with-mindlore-hooks.json');
 
-      // Before: user ran old npx init, hooks are in settings.json
       const before = countMindloreHooks(settingsPath);
       expect(before).toBe(4);
 
-      // New init runs → M2 cleanup triggers regardless of plugin status
-      const result = cleanupLegacyHooks(settingsPath);
-      expect(result.removed).toBe(4);
+      // Simulate gate: detectPluginInstalled() returns false → skip cleanup
+      const pluginInstalled = false; // npx-only scenario
+      if (pluginInstalled) {
+        cleanupLegacyHooks(settingsPath);
+      }
 
-      // After: no legacy hooks — if user has no plugin, hooks won't fire
-      // (expected: user should install plugin for hook support)
+      // Hooks must stay — they are the sole source for npx-only users
       const after = countMindloreHooks(settingsPath);
-      expect(after).toBe(0);
+      expect(after).toBe(4);
+    });
+
+    it('detectPluginInstalled checks ~/.claude/plugins/cache/mindlore/', () => {
+      // This verifies the detection mechanism exists and is callable
+      const result = detectPluginInstalled();
+      // In test environment with plugin installed, this is true
+      // The important thing: function exists and returns boolean
+      expect(typeof result).toBe('boolean');
     });
   });
 

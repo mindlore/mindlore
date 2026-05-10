@@ -16,6 +16,7 @@ import { execFileSync } from 'child_process';
 import { MINDLORE_DIR, GLOBAL_MINDLORE_DIR, DB_NAME, DIRECTORIES, CONFIG_FILE, DEFAULT_MODELS, DB_BUSY_TIMEOUT_MS, homedir, log, resolveHookCommon } from './lib/constants.js';
 import type { Settings } from './lib/constants.js';
 import { cleanupLegacyHooks } from './lib/settings-cleanup.js';
+import { detectPluginInstalled } from './lib/detect-plugin.js';
 import { dbPragma } from './lib/db-helpers.js';
 import { mergeDefaults } from './lib/merge-defaults.js';
 import { parseJsonObject, readJsonFile } from './lib/safe-parse.js';
@@ -32,7 +33,167 @@ const { SQL_FTS_CREATE, ensureEpisodesTable: ensureEpisodesTableCjs } = require(
 
 const TEMPLATE_FILES = ['INDEX.md', 'log.md'];
 
+// ── Interfaces ─────────────────────────────────────────────────────────
+
+interface PluginHook {
+  event: string;
+  script: string;
+}
+
+interface PluginManifest {
+  hooks?: PluginHook[];
+  skills?: Array<{ name: string; path: string }>;
+  [key: string]: unknown;
+}
+
+interface HookEntry { hooks?: Array<{ command?: string }>; command?: string }
+
 // ── Helpers ────────────────────────────────────────────────────────────
+
+
+function countMindloreHooks(allHooks: Record<string, unknown[]>): number {
+  let total = 0;
+  for (const event of Object.keys(allHooks)) {
+    const entries = allHooks[event] ?? [];
+    for (const raw of entries) {
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- caller-controlled JSON shape from settings.json
+      const entry = raw as HookEntry;
+      const hooks = entry.hooks && Array.isArray(entry.hooks) ? entry.hooks : [entry];
+      for (const h of hooks) {
+        if ((h.command ?? '').includes('mindlore-')) total++;
+      }
+    }
+  }
+  return total;
+}
+
+function mergeHooks(packageRoot: string, existingPlugin?: PluginManifest): { added: number; total: number } | false {
+  const settingsPath = path.join(homedir(), '.claude', 'settings.json');
+
+  if (!fs.existsSync(settingsPath)) {
+    log('WARNING: ~/.claude/settings.json not found. Hooks not registered.');
+    log('Create it manually or install Claude Code first.');
+    return false;
+  }
+
+  let settings: Settings;
+  try {
+    const raw = fs.readFileSync(settingsPath, 'utf8');
+    settings = parseJsonObject<Settings>(raw);
+  } catch {
+    log('WARNING: Could not parse settings.json. Hooks not registered.');
+    return false;
+  }
+
+  let plugin: PluginManifest;
+  if (existingPlugin) {
+    plugin = existingPlugin;
+  } else {
+    const pluginPath = path.join(packageRoot, 'plugin.json');
+    if (!fs.existsSync(pluginPath)) {
+      log('WARNING: plugin.json not found. Hooks not registered.');
+      return false;
+    }
+    plugin = readJsonFile<PluginManifest>(pluginPath);
+  }
+  if (!plugin.hooks || plugin.hooks.length === 0) {
+    return false;
+  }
+
+  if (!settings.hooks) {
+    settings.hooks = {};
+  }
+
+  let added = 0;
+  for (const hook of plugin.hooks) {
+    const event = hook.event;
+    if (!settings.hooks[event]) {
+      settings.hooks[event] = [];
+    }
+
+    const hookScript = path.join(packageRoot, hook.script);
+    const hookName = path.basename(hook.script, '.cjs');
+
+    const exists = settings.hooks[event].some((entry) => {
+      if (entry.hooks && Array.isArray(entry.hooks)) {
+        return entry.hooks.some((h) => (h.command ?? '').includes(hookName));
+      }
+      return (entry.command ?? '').includes(hookName);
+    });
+
+    if (!exists) {
+      settings.hooks[event].push({
+        hooks: [
+          {
+            type: 'command',
+            command: `node "${hookScript}"`,
+          },
+        ],
+      });
+      added++;
+    }
+  }
+
+  if (added > 0) {
+    const backupPath = settingsPath + '.mindlore-backup';
+    if (!fs.existsSync(backupPath)) {
+      fs.copyFileSync(settingsPath, backupPath);
+    }
+    fs.writeFileSync(settingsPath, JSON.stringify(settings, null, 2), 'utf8');
+  }
+
+  const total = countMindloreHooks(settings.hooks ?? {});
+  return { added, total };
+}
+
+function registerSkills(packageRoot: string, plugin: PluginManifest): number {
+  const skillsDir = path.join(homedir(), '.claude', 'skills');
+  ensureDir(skillsDir);
+
+  if (!plugin.skills || plugin.skills.length === 0) return 0;
+
+  let added = 0;
+  for (const skill of plugin.skills) {
+    const skillSrcDir = path.join(packageRoot, path.dirname(skill.path));
+    const skillDestDir = path.join(skillsDir, skill.name);
+
+    ensureDir(skillDestDir);
+    const entries = fs.readdirSync(skillSrcDir, { withFileTypes: true });
+    for (const entry of entries) {
+      if (!entry.isFile()) continue;
+      fs.copyFileSync(
+        path.join(skillSrcDir, entry.name),
+        path.join(skillDestDir, entry.name),
+      );
+    }
+    added++;
+  }
+
+  return added;
+}
+
+function registerAgents(packageRoot: string): number {
+  const agentsDir = path.join(packageRoot, 'agents');
+  if (!fs.existsSync(agentsDir)) return 0;
+
+  const targetDir = path.join(homedir(), '.claude', 'agents');
+  ensureDir(targetDir);
+
+  let copied = 0;
+  for (const file of fs.readdirSync(agentsDir)) {
+    const src = path.join(agentsDir, file);
+    const dest = path.join(targetDir, file);
+    if (!fs.statSync(src).isFile()) continue;
+    if (fs.existsSync(dest)) {
+      const srcStat = fs.statSync(src);
+      const destStat = fs.statSync(dest);
+      if (srcStat.size === destStat.size && srcStat.mtimeMs <= destStat.mtimeMs) continue;
+    }
+    fs.copyFileSync(src, dest);
+    copied++;
+  }
+  return copied;
+}
 
 function resolvePackageRoot(): string {
   // When compiled to dist/scripts/, go up two levels to reach package root
@@ -453,11 +614,46 @@ function main(): void {
     log('WARNING: Auto-index failed — run: npx mindlore index');
   }
 
-  // Step 5: Clean up legacy hooks from settings.json (idempotent)
-  const settingsPath = path.join(homedir(), '.claude', 'settings.json');
-  const cleanupResult = cleanupLegacyHooks(settingsPath);
-  if (cleanupResult.removed > 0) {
-    log(`Cleaned ${cleanupResult.removed} legacy hooks from settings.json (plugin auto-discovery active)`);
+  // Step 5: Hooks, Skills, Agents — gate on plugin detection
+  const pluginInstalled = detectPluginInstalled();
+  const pluginPath = path.join(packageRoot, 'plugin.json');
+  const plugin: PluginManifest = fs.existsSync(pluginPath)
+    ? readJsonFile<PluginManifest>(pluginPath)
+    : {};
+
+  if (pluginInstalled) {
+    // Plugin auto-discovery active — clean legacy hooks from settings.json
+    const settingsPath = path.join(homedir(), '.claude', 'settings.json');
+    const cleanupResult = cleanupLegacyHooks(settingsPath);
+    if (cleanupResult.removed > 0) {
+      log(`Cleaned ${cleanupResult.removed} legacy hooks from settings.json (plugin auto-discovery active)`);
+    } else {
+      log('Hooks: plugin auto-discovery active');
+    }
+  } else {
+    // No plugin — register hooks/skills/agents via settings.json + user scope
+    const hooksResult = mergeHooks(packageRoot, plugin);
+    if (typeof hooksResult === 'object' && hooksResult !== null) {
+      if (hooksResult.added > 0) {
+        log(`Registered ${hooksResult.added} new hooks (${hooksResult.total} total) in ~/.claude/settings.json`);
+      } else {
+        log(`Hooks already registered (${hooksResult.total} total)`);
+      }
+    } else {
+      log('Hooks not registered (settings.json not found)');
+    }
+
+    const skillsAdded = registerSkills(packageRoot, plugin);
+    log(
+      skillsAdded > 0
+        ? `Registered ${skillsAdded} skills in ~/.claude/skills/`
+        : 'Skills already registered',
+    );
+
+    const agentsAdded = registerAgents(packageRoot);
+    if (agentsAdded > 0) {
+      log(`Registered ${agentsAdded} agents in ~/.claude/agents/`);
+    }
   }
 
   // Step 6: SCHEMA.md in projectDocFiles (global SCHEMA.md path)

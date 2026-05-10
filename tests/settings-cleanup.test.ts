@@ -119,23 +119,31 @@ describe('cleanupLegacyHooks', () => {
   });
 });
 
-describe('init.ts mergeHooks removal verification', () => {
-  it('init.ts should not contain mergeHooks function', () => {
+describe('init.ts plugin gate verification', () => {
+  it('init.ts should have detectPluginInstalled gate', () => {
     const initSource = fs.readFileSync(
       path.join(__dirname, '..', 'scripts', 'init.ts'),
       'utf8',
     );
-    expect(initSource).not.toContain('function mergeHooks');
-    expect(initSource).not.toContain('function countMindloreHooks');
-    expect(initSource).not.toContain('interface PluginHook');
+    expect(initSource).toContain('detectPluginInstalled');
   });
 
-  it('init.ts should import and call cleanupLegacyHooks', () => {
+  it('init.ts should have both mergeHooks and cleanupLegacyHooks (gated)', () => {
     const initSource = fs.readFileSync(
       path.join(__dirname, '..', 'scripts', 'init.ts'),
       'utf8',
     );
+    expect(initSource).toContain('mergeHooks');
     expect(initSource).toContain('cleanupLegacyHooks');
+  });
+
+  it('init.ts should have registerSkills and registerAgents for npx-only path', () => {
+    const initSource = fs.readFileSync(
+      path.join(__dirname, '..', 'scripts', 'init.ts'),
+      'utf8',
+    );
+    expect(initSource).toContain('registerSkills');
+    expect(initSource).toContain('registerAgents');
   });
 });
 
