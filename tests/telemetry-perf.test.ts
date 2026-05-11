@@ -26,28 +26,29 @@ describe('mindlore-perf', () => {
   });
 
   it('calculates p50/p95 per hook', () => {
-    const { parseTelemetry, calculatePercentiles } = require('../dist/scripts/mindlore-perf.js');
+    const { parseTelemetry, groupByHook, calculatePercentiles } = require('../dist/scripts/mindlore-perf.js');
     const entries = parseTelemetry(telPath);
+    const groups = groupByHook(entries);
 
-    const percs = calculatePercentiles(entries, 'search');
+    const percs = calculatePercentiles(groups['search'] ?? []);
     expect(percs.p50).toBe(200);
     expect(percs.count).toBe(3);
   });
 
   it('calculates percentiles for session-focus', () => {
-    const { parseTelemetry, calculatePercentiles } = require('../dist/scripts/mindlore-perf.js');
+    const { parseTelemetry, groupByHook, calculatePercentiles } = require('../dist/scripts/mindlore-perf.js');
     const entries = parseTelemetry(telPath);
+    const groups = groupByHook(entries);
 
-    const percs = calculatePercentiles(entries, 'session-focus');
+    const percs = calculatePercentiles(groups['session-focus'] ?? []);
     expect(percs.count).toBe(2);
     expect(percs.errorCount).toBe(1);
   });
 
-  it('returns zero percentiles for unknown hook', () => {
-    const { parseTelemetry, calculatePercentiles } = require('../dist/scripts/mindlore-perf.js');
-    const entries = parseTelemetry(telPath);
+  it('returns zero percentiles for empty array', () => {
+    const { calculatePercentiles } = require('../dist/scripts/mindlore-perf.js');
 
-    const percs = calculatePercentiles(entries, 'nonexistent');
+    const percs = calculatePercentiles([]);
     expect(percs.count).toBe(0);
     expect(percs.p50).toBe(0);
   });

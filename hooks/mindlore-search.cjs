@@ -1160,11 +1160,14 @@ function main() {
           continue;
         }
       }
+      const t0 = Date.now();
       const results = searchEngineMod.search(db, userMessage, {
         project,
         maxResults: effectiveMax,
         synonyms
       });
+      const t1 = Date.now();
+      hookLog('search', 'debug', `searchEngine query took ${t1 - t0}ms`);
       if (cache) cache.set(userMessage, results);
       const baseDir = path.dirname(dbPath);
       for (const r of results) {

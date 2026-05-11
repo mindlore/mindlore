@@ -64,19 +64,18 @@ function percentile(sorted: number[], p: number): number {
   return sorted[Math.max(0, idx)] ?? 0;
 }
 
-export function calculatePercentiles(entries: TelemetryEntry[], hookName?: string): Percentiles {
-  const filtered = hookName ? entries.filter(e => e.hook === hookName) : entries;
-  if (filtered.length === 0) return { p50: 0, p95: 0, p99: 0, count: 0, errorCount: 0, mean: 0 };
+export function calculatePercentiles(entries: TelemetryEntry[]): Percentiles {
+  if (entries.length === 0) return { p50: 0, p95: 0, p99: 0, count: 0, errorCount: 0, mean: 0 };
 
-  const durations = filtered.map(e => e.duration_ms).sort((a, b) => a - b);
-  const errorCount = filtered.filter(e => !e.ok).length;
+  const durations = entries.map(e => e.duration_ms).sort((a, b) => a - b);
+  const errorCount = entries.filter(e => !e.ok).length;
   const sum = durations.reduce((a, b) => a + b, 0);
 
   return {
     p50: percentile(durations, 50),
     p95: percentile(durations, 95),
     p99: percentile(durations, 99),
-    count: filtered.length,
+    count: entries.length,
     errorCount,
     mean: Math.round(sum / durations.length),
   };
