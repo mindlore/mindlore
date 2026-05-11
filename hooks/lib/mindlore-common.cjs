@@ -705,7 +705,7 @@ function _writeTelemetry({ hookName, duration_ms, ok, budget_ms, budget_exceeded
     const telPath = path.join(telDir, 'telemetry.jsonl');
     const entry = { ts: new Date().toISOString(), hook: hookName, duration_ms, ok, budget_ms, budget_exceeded };
     if (extra && typeof extra === 'object') {
-      for (const key of ['inject_tokens', 'source_tokens', 'injected_tokens', 'full_read_tokens']) {
+      for (const key of ['inject_tokens', 'source_tokens', 'injected_tokens', 'full_read_tokens', 'search_ms', 'result_count']) {
         if (typeof extra[key] === 'number') entry[key] = extra[key];
       }
     }

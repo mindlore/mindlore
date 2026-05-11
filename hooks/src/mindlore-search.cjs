@@ -33,6 +33,7 @@ try {
 function main() {
   const userMessage = readHookStdin(['prompt', 'content', 'message', 'query']);
   if (!userMessage || userMessage.length < MIN_QUERY_WORDS) return;
+  let searchMs = 0;
 
   const dbPaths = getAllDbs();
   if (dbPaths.length === 0) return;
@@ -82,11 +83,13 @@ function main() {
         }
       }
 
+      const t0 = Date.now();
       const results = searchEngineMod.search(db, userMessage, {
         project,
         maxResults: effectiveMax,
         synonyms,
       });
+      searchMs += Date.now() - t0;
 
       if (cache) cache.set(userMessage, results);
 
@@ -192,6 +195,7 @@ function main() {
 
     process.stdout.write(outputStr);
   }
+  return { search_ms: searchMs, result_count: relevant.length };
 }
 
 withTelemetry('mindlore-search', main).catch(err => {

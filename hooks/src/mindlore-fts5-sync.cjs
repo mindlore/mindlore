@@ -15,6 +15,10 @@ const fs = require('fs');
 const path = require('path');
 const { DB_NAME, sha256, openDatabase, getAllMdFiles, parseFrontmatter, extractFtsMetadata, insertFtsRow, readHookStdin, getActiveMindloreDir, getProjectName, resolveProject, hookLog, withTelemetry, SQL_FTS_SESSIONS_INSERT, isSessionCategory, isInsideMindloreDir } = require('./lib/mindlore-common.cjs');
 
+function shouldIndexFile(filePath) {
+  return !!(filePath && filePath.endsWith('.md'));
+}
+
 function main() {
   const filePath = readHookStdin(['path', 'file_path']);
 
@@ -22,9 +26,7 @@ function main() {
   const resolved = path.resolve(filePath);
   if (!isInsideMindloreDir(resolved)) return;
 
-  // Skip if this is a single .md file change — mindlore-index.cjs handles those.
-  // This hook is for bulk changes (git pull, manual batch edits).
-  if (filePath.endsWith('.md')) return;
+  if (!shouldIndexFile(filePath)) return;
 
   const baseDir = getActiveMindloreDir();
   if (!fs.existsSync(baseDir)) return;
@@ -91,6 +93,8 @@ function main() {
   }
 
 }
+
+module.exports = { shouldIndexFile };
 
 withTelemetry('mindlore-fts5-sync', main).catch(err => {
   hookLog('mindlore-fts5-sync', 'error', err?.message ?? String(err));

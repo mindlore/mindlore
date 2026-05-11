@@ -11,6 +11,8 @@ interface TelemetryEntry {
   ok: boolean;
   inject_tokens?: number;
   source_tokens?: number;
+  search_ms?: number;
+  result_count?: number;
 }
 
 interface Percentiles {
@@ -42,6 +44,8 @@ export function parseTelemetry(telPath: string): TelemetryEntry[] {
             : typeof obj.injected_tokens === 'number' ? obj.injected_tokens : undefined,
           source_tokens: typeof obj.source_tokens === 'number' ? obj.source_tokens
             : typeof obj.full_read_tokens === 'number' ? obj.full_read_tokens : undefined,
+          search_ms: typeof obj.search_ms === 'number' ? obj.search_ms : undefined,
+          result_count: typeof obj.result_count === 'number' ? obj.result_count : undefined,
         });
       }
     } catch { /* skip malformed lines */ }
@@ -91,6 +95,12 @@ function formatReport(entries: TelemetryEntry[]): string {
     const percs = calculatePercentiles(groups[hook] ?? []);
     lines.push(`${hook} (${percs.count} calls, ${percs.errorCount} errors)`);
     lines.push(`  p50: ${percs.p50}ms  p95: ${percs.p95}ms  p99: ${percs.p99}ms  mean: ${percs.mean}ms`);
+    const searchEntries = (groups[hook] ?? []).filter(e => e.search_ms !== undefined);
+    if (searchEntries.length > 0) {
+      const avgSearch = Math.round(searchEntries.reduce((s, e) => s + (e.search_ms ?? 0), 0) / searchEntries.length);
+      const avgResults = (searchEntries.reduce((s, e) => s + (e.result_count ?? 0), 0) / searchEntries.length).toFixed(1);
+      lines.push(`  search_engine: avg ${avgSearch}ms, avg ${avgResults} results`);
+    }
     lines.push('');
   }
 
