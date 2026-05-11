@@ -37,5 +37,12 @@ describe('hook-helpers', () => {
     it('returns 0 for empty', () => {
       expect(countMindloreHooks({})).toBe(0);
     });
+
+    it('skips non-object entries gracefully', () => {
+      const hooks = {
+        SessionStart: [null, undefined, 42, 'string', { command: 'node mindlore-search.cjs' }] as unknown[],
+      };
+      expect(countMindloreHooks(hooks)).toBe(1);
+    });
   });
 });
