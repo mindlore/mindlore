@@ -110,25 +110,7 @@ export function registerAllTools(server: McpServer, ctx: McpContext): void {
       limit: z.number().min(1).max(50).optional().describe('Max items for list'),
       since: z.string().optional().describe('ISO date filter for list'),
     },
-    wrapTool(ctx, TOOL_NAMES.decide, (c, input) => {
-      if (input.action === 'save') {
-        if (!input.title || !input.rationale) {
-          throw new Error('title and rationale are required for save action');
-        }
-        return handleDecide(c, {
-          action: 'save',
-          title: input.title,
-          rationale: input.rationale,
-          alternatives: input.alternatives,
-          supersedes: input.supersedes,
-        });
-      }
-      return handleDecide(c, {
-        action: 'list',
-        limit: input.limit,
-        since: input.since,
-      });
-    })
+    wrapTool(ctx, TOOL_NAMES.decide, (c, input) => handleDecide(c, input as unknown as import('./tool-adapters/decide-adapter.js').DecideInput))
   );
 
   server.tool(

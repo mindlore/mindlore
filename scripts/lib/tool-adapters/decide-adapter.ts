@@ -17,7 +17,7 @@ interface DecideListInput {
   since?: string;
 }
 
-type DecideInput = DecideSaveInput | DecideListInput;
+export type DecideInput = DecideSaveInput | DecideListInput;
 
 interface DecideSaveOutput {
   slug: string;
@@ -37,6 +37,12 @@ interface DecideListOutput {
 type DecideOutput = DecideSaveOutput | DecideListOutput;
 
 export function handleDecide(ctx: McpContext, input: DecideInput): DecideOutput {
+  if (input.action === 'save') {
+    if (!input.title || !input.rationale) {
+      throw new Error('title and rationale are required for save action');
+    }
+  }
+
   const decisionsDir = path.join(ctx.baseDir, 'decisions');
   if (!fs.existsSync(decisionsDir)) fs.mkdirSync(decisionsDir, { recursive: true });
 

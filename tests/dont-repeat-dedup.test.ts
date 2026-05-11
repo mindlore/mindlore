@@ -6,7 +6,8 @@ import { execFileSync } from 'child_process';
 const HOOK_PATH = path.join(__dirname, '..', 'hooks', 'mindlore-dont-repeat.cjs');
 
 function runHook(input: object, settingsContent?: string): string {
-  const realSettings = path.join(os.homedir(), '.claude', 'settings.json');
+  const homeDir = process.env.USERPROFILE || os.homedir();
+  const realSettings = path.join(homeDir, '.claude', 'settings.json');
 
   let backup: string | null = null;
   const claudeDir = path.dirname(realSettings);
@@ -51,6 +52,20 @@ describe('dont-repeat dedup with lessons-enforcement', () => {
       new_string: 'appendFileSync is dangerous pattern that should trigger',
     },
   };
+
+  let origUserProfile: string | undefined;
+  let tmpHome: string;
+
+  beforeAll(() => {
+    origUserProfile = process.env.USERPROFILE;
+    tmpHome = fs.mkdtempSync(path.join(os.tmpdir(), 'mindlore-test-home-'));
+    process.env.USERPROFILE = tmpHome;
+  });
+
+  afterAll(() => {
+    process.env.USERPROFILE = origUserProfile;
+    fs.rmSync(tmpHome, { recursive: true, force: true });
+  });
 
   it('exits silently when lessons-enforcement hook is registered', () => {
     const settings = JSON.stringify({
