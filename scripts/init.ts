@@ -14,7 +14,8 @@ import fs from 'fs';
 import path from 'path';
 import { execFileSync } from 'child_process';
 import { MINDLORE_DIR, GLOBAL_MINDLORE_DIR, DB_NAME, DIRECTORIES, CONFIG_FILE, DEFAULT_MODELS, DB_BUSY_TIMEOUT_MS, homedir, log, resolveHookCommon } from './lib/constants.js';
-import type { Settings, HookEntry } from './lib/constants.js';
+import type { Settings } from './lib/constants.js';
+import { countMindloreHooks } from './lib/hook-helpers.js';
 import { cleanupLegacyHooks } from './lib/settings-cleanup.js';
 import { detectPluginInstalled } from './lib/detect-plugin.js';
 import { dbPragma } from './lib/db-helpers.js';
@@ -47,22 +48,6 @@ interface PluginManifest {
 }
 
 // ── Helpers ────────────────────────────────────────────────────────────
-
-function countMindloreHooks(allHooks: Record<string, unknown[]>): number {
-  let total = 0;
-  for (const event of Object.keys(allHooks)) {
-    const entries = allHooks[event] ?? [];
-    for (const raw of entries) {
-      // eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- caller-controlled JSON shape from settings.json
-      const entry = raw as HookEntry;
-      const hooks = entry.hooks && Array.isArray(entry.hooks) ? entry.hooks : [entry];
-      for (const h of hooks) {
-        if ((h.command ?? '').includes('mindlore-')) total++;
-      }
-    }
-  }
-  return total;
-}
 
 function mergeHooks(packageRoot: string, existingPlugin?: PluginManifest): { added: number; total: number } | false {
   const settingsPath = path.join(homedir(), '.claude', 'settings.json');
@@ -139,6 +124,9 @@ function mergeHooks(packageRoot: string, existingPlugin?: PluginManifest): { add
     fs.writeFileSync(settingsPath, JSON.stringify(settings, null, 2), 'utf8');
   }
 
+  // npx-only path: countMindloreHooks checks settings.json hooks array
+  // for mindlore- prefixed commands. In plugin mode, hooks come from
+  // auto-discovery, not settings.json, so this count may be 0.
   const total = countMindloreHooks(settings.hooks ?? {});
   return { added, total };
 }

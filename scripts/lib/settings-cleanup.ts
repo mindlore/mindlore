@@ -1,6 +1,7 @@
 import fs from 'fs';
 import type { Settings, HookEntry } from './constants.js';
 import { parseJsonObject } from './safe-parse.js';
+import { unwrapHookEntries } from './hook-helpers.js';
 
 export interface CleanupResult {
   removed: number;
@@ -10,8 +11,7 @@ export interface CleanupResult {
 const NODE_MODULES_PATTERN = /node_modules[/\\]mindlore[/\\]hooks[/\\]/;
 
 function isLegacyMindloreHook(entry: HookEntry): boolean {
-  const hooks = entry.hooks && Array.isArray(entry.hooks) ? entry.hooks : [entry];
-  return hooks.some((h) => NODE_MODULES_PATTERN.test(h.command ?? ''));
+  return unwrapHookEntries(entry).some((h) => NODE_MODULES_PATTERN.test(h.command ?? ''));
 }
 
 export function cleanupLegacyHooks(settingsPath: string): CleanupResult {
