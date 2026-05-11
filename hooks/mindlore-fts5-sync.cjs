@@ -5,12 +5,16 @@
 var fs = require("fs");
 var path = require("path");
 var { DB_NAME, sha256, openDatabase, getAllMdFiles, parseFrontmatter, extractFtsMetadata, insertFtsRow, readHookStdin, getActiveMindloreDir, getProjectName, resolveProject, hookLog, withTelemetry, SQL_FTS_SESSIONS_INSERT, isSessionCategory, isInsideMindloreDir } = require("./lib/mindlore-common.cjs");
+function shouldIndexFile(filePath) {
+  return !!(filePath && filePath.endsWith('.md'));
+}
+
 function main() {
   const filePath = readHookStdin(["path", "file_path"]);
   if (!filePath) return;
   const resolved = path.resolve(filePath);
   if (!isInsideMindloreDir(resolved)) return;
-  if (filePath.endsWith(".md")) return;
+  if (!shouldIndexFile(filePath)) return;
   const baseDir = getActiveMindloreDir();
   if (!fs.existsSync(baseDir)) return;
   const dbPath = path.join(baseDir, DB_NAME);
@@ -63,6 +67,8 @@ function main() {
     db.close();
   }
 }
+module.exports = { shouldIndexFile };
+
 withTelemetry("mindlore-fts5-sync", main).catch((err) => {
   hookLog("mindlore-fts5-sync", "error", err?.message ?? String(err));
   process.exit(0);
