@@ -1100,7 +1100,7 @@ var require_search_cache = __commonJS({
 // hooks/src/mindlore-search.cjs
 var fs = require("fs");
 var path = require("path");
-var { getAllDbs, openDatabase, extractHeadings, readHookStdin, readConfig, hookLog, incrementRecallCount, withTelemetry } = require("./lib/mindlore-common.cjs");
+var { getAllDbs, openDatabase, extractHeadings, readConfig, hookLog, incrementRecallCount, withTelemetry } = require("./lib/mindlore-common.cjs");
 var MAX_RESULTS = 3;
 var MIN_QUERY_WORDS = 3;
 var searchEngineMod;
@@ -1113,8 +1113,20 @@ try {
   SearchCacheMod = require_search_cache();
 } catch (_err) {
 }
+function parseStdin() {
+  try {
+    const raw = fs.readFileSync(0, "utf8").trim();
+    if (!raw) return { userMessage: "", sessionId: "unknown" };
+    const parsed = JSON.parse(raw);
+    const userMessage = parsed.prompt || parsed.content || parsed.message || parsed.query || raw;
+    const sessionId = parsed.session_id || "unknown";
+    return { userMessage, sessionId };
+  } catch (_err) {
+    return { userMessage: "", sessionId: "unknown" };
+  }
+}
 function main() {
-  const userMessage = readHookStdin(["prompt", "content", "message", "query"]);
+  const { userMessage, sessionId } = parseStdin();
   if (!userMessage || userMessage.length < MIN_QUERY_WORDS) return;
   let searchMs = 0;
   const dbPaths = getAllDbs();
@@ -1126,13 +1138,6 @@ function main() {
   const project = path.basename(process.cwd());
   const config = readConfig(path.dirname(dbPaths[0]));
   const synonyms = config && config.synonyms ? config.synonyms : {};
-  let sessionId;
-  try {
-    const stdinData = JSON.parse(process.env.CLAUDE_HOOK_STDIN || "{}");
-    sessionId = stdinData.session_id || "unknown";
-  } catch (_) {
-    sessionId = "unknown";
-  }
   const allResults = [];
   for (const dbPath of dbPaths) {
     const db = openDatabase(dbPath);

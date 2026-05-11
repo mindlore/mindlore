@@ -11,7 +11,7 @@
 
 const fs = require('fs');
 const path = require('path');
-const { getAllDbs, openDatabase, extractHeadings, readHookStdin, readConfig, hookLog, incrementRecallCount, withTelemetry } = require('./lib/mindlore-common.cjs');
+const { getAllDbs, openDatabase, extractHeadings, readConfig, hookLog, incrementRecallCount, withTelemetry } = require('./lib/mindlore-common.cjs');
 
 const MAX_RESULTS = 3;
 const MIN_QUERY_WORDS = 3;
@@ -30,8 +30,21 @@ try {
   // search-cache not built yet
 }
 
+function parseStdin() {
+  try {
+    const raw = fs.readFileSync(0, 'utf8').trim();
+    if (!raw) return { userMessage: '', sessionId: 'unknown' };
+    const parsed = JSON.parse(raw);
+    const userMessage = parsed.prompt || parsed.content || parsed.message || parsed.query || raw;
+    const sessionId = parsed.session_id || 'unknown';
+    return { userMessage, sessionId };
+  } catch (_err) {
+    return { userMessage: '', sessionId: 'unknown' };
+  }
+}
+
 function main() {
-  const userMessage = readHookStdin(['prompt', 'content', 'message', 'query']);
+  const { userMessage, sessionId } = parseStdin();
   if (!userMessage || userMessage.length < MIN_QUERY_WORDS) return;
   let searchMs = 0;
 
@@ -46,15 +59,6 @@ function main() {
   const project = path.basename(process.cwd());
   const config = readConfig(path.dirname(dbPaths[0]));
   const synonyms = (config && config.synonyms) ? config.synonyms : {};
-
-  // Read session_id from stdin for throttling
-  let sessionId;
-  try {
-    const stdinData = JSON.parse(process.env.CLAUDE_HOOK_STDIN || '{}');
-    sessionId = stdinData.session_id || 'unknown';
-  } catch (_) {
-    sessionId = 'unknown';
-  }
 
   const allResults = [];
   for (const dbPath of dbPaths) {

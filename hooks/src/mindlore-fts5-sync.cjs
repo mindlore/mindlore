@@ -23,10 +23,9 @@ function main() {
   const filePath = readHookStdin(['path', 'file_path']);
 
   if (!filePath) return;
+  if (!shouldIndexFile(filePath)) return;
   const resolved = path.resolve(filePath);
   if (!isInsideMindloreDir(resolved)) return;
-
-  if (!shouldIndexFile(filePath)) return;
 
   const baseDir = getActiveMindloreDir();
   if (!fs.existsSync(baseDir)) return;

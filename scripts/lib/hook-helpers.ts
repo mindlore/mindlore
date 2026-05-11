@@ -17,7 +17,7 @@ export function countMindloreHooks(allHooks: Record<string, unknown[]>): number 
   for (const entries of Object.values(allHooks)) {
     for (const raw of entries ?? []) {
       if (!isHookEntry(raw)) continue;
-      total += unwrapHookEntries(raw).filter((h) => (h.command ?? '').includes('mindlore-')).length;
+      if (isMindloreHook(raw)) total += unwrapHookEntries(raw).filter((h) => (h.command ?? '').includes('mindlore-')).length;
     }
   }
   return total;
