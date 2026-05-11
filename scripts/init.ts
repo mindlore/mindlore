@@ -615,6 +615,42 @@ function main(): void {
     } else {
       log('Hooks: plugin auto-discovery active');
     }
+
+    // Clean legacy skills from ~/.claude/skills/ (plugin auto-discovery serves them)
+    const skillsDir = path.join(homedir(), '.claude', 'skills');
+    if (fs.existsSync(skillsDir) && plugin.skills) {
+      let skillsRemoved = 0;
+      for (const skill of plugin.skills) {
+        const destDir = path.join(skillsDir, skill.name);
+        if (fs.existsSync(destDir)) {
+          fs.rmSync(destDir, { recursive: true });
+          skillsRemoved++;
+        }
+      }
+      if (skillsRemoved > 0) {
+        log(`Cleaned ${skillsRemoved} legacy skills from ~/.claude/skills/ (plugin auto-discovery active)`);
+      }
+    }
+
+    // Clean legacy agents from ~/.claude/agents/
+    const agentsDir = path.join(homedir(), '.claude', 'agents');
+    if (fs.existsSync(agentsDir)) {
+      const agentsSrcDir = path.join(packageRoot, 'agents');
+      if (fs.existsSync(agentsSrcDir)) {
+        let agentsRemoved = 0;
+        for (const entry of fs.readdirSync(agentsSrcDir, { withFileTypes: true })) {
+          if (!entry.isFile() || !entry.name.endsWith('.md')) continue;
+          const destPath = path.join(agentsDir, entry.name);
+          if (fs.existsSync(destPath)) {
+            fs.unlinkSync(destPath);
+            agentsRemoved++;
+          }
+        }
+        if (agentsRemoved > 0) {
+          log(`Cleaned ${agentsRemoved} legacy agents from ~/.claude/agents/ (plugin auto-discovery active)`);
+        }
+      }
+    }
   } else {
     // No plugin — register hooks/skills/agents via settings.json + user scope
     const hooksResult = mergeHooks(packageRoot, plugin);

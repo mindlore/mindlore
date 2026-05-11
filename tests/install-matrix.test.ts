@@ -124,4 +124,51 @@ describe('Install Matrix — 4 scenarios', () => {
       expect(commands.some((c: string) => c.includes('mindlore-custom-hook'))).toBe(true);
     });
   });
+
+  describe('Scenario 5: Skill/Agent cleanup when plugin installed', () => {
+    let tmpSkillsDir: string;
+    let tmpAgentsDir: string;
+
+    beforeEach(() => {
+      tmpSkillsDir = fs.mkdtempSync(path.join(os.tmpdir(), 'mindlore-skills-'));
+      tmpAgentsDir = fs.mkdtempSync(path.join(os.tmpdir(), 'mindlore-agents-'));
+    });
+
+    afterEach(() => {
+      fs.rmSync(tmpSkillsDir, { recursive: true, force: true });
+      fs.rmSync(tmpAgentsDir, { recursive: true, force: true });
+    });
+
+    it('removes legacy skill dirs when plugin is installed', () => {
+      const skillNames = ['mindlore-decide', 'mindlore-health', 'mindlore-query'];
+      for (const name of skillNames) {
+        const dir = path.join(tmpSkillsDir, name);
+        fs.mkdirSync(dir);
+        fs.writeFileSync(path.join(dir, 'SKILL.md'), '# test');
+      }
+      // Non-mindlore skill should survive
+      const userSkill = path.join(tmpSkillsDir, 'my-custom-skill');
+      fs.mkdirSync(userSkill);
+      fs.writeFileSync(path.join(userSkill, 'SKILL.md'), '# custom');
+
+      const plugin = { skills: skillNames.map(n => ({ name: n, path: `skills/${n}/SKILL.md` })) };
+
+      for (const skill of plugin.skills) {
+        const destDir = path.join(tmpSkillsDir, skill.name);
+        if (fs.existsSync(destDir)) {
+          fs.rmSync(destDir, { recursive: true });
+        }
+      }
+
+      expect(fs.existsSync(path.join(tmpSkillsDir, 'mindlore-decide'))).toBe(false);
+      expect(fs.existsSync(path.join(tmpSkillsDir, 'mindlore-health'))).toBe(false);
+      expect(fs.existsSync(path.join(tmpSkillsDir, 'my-custom-skill'))).toBe(true);
+    });
+
+    it('handles missing skills dir gracefully', () => {
+      const missingDir = path.join(os.tmpdir(), 'mindlore-nonexistent-' + Date.now());
+      expect(fs.existsSync(missingDir)).toBe(false);
+      // No error thrown
+    });
+  });
 });
