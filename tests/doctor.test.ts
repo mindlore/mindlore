@@ -75,4 +75,52 @@ describe('mindlore-doctor', () => {
       expect(derived).toContain(name);
     }
   });
+
+  describe('stale local DB detection', () => {
+    it('warns when cwd has .mindlore/mindlore.db without schema_version', () => {
+      const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'mindlore-doctor-'));
+      const localMindlore = path.join(tmpDir, '.mindlore');
+      fs.mkdirSync(localMindlore, { recursive: true });
+
+      // Create a minimal SQLite DB without mindlore_schema_version
+      const Database = require('better-sqlite3');
+      const db = new Database(path.join(localMindlore, 'mindlore.db'));
+      db.exec("CREATE VIRTUAL TABLE mindlore_fts USING fts5(path, slug, content, tokenize='porter')");
+      db.close();
+
+      const { checkStaleLocalDb } = require('../dist/scripts/mindlore-doctor.js');
+      const result = checkStaleLocalDb(tmpDir);
+      expect(result.pass).toBe(false);
+      expect(result.message).toContain('Stale local');
+
+      fs.rmSync(tmpDir, { recursive: true, force: true });
+    });
+
+    it('passes when no local .mindlore exists', () => {
+      const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'mindlore-doctor-'));
+      const { checkStaleLocalDb } = require('../dist/scripts/mindlore-doctor.js');
+      const result = checkStaleLocalDb(tmpDir);
+      expect(result.pass).toBe(true);
+      fs.rmSync(tmpDir, { recursive: true, force: true });
+    });
+  });
+
+  describe('plugin cache regression', () => {
+    it('hook resolves bundled scripts from plugin cache __dirname', () => {
+      // Simulate plugin cache directory structure
+      const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'mindlore-cache-'));
+      const hookDir = path.join(tmpDir, 'hooks');
+      const libDir = path.join(tmpDir, 'hooks', 'lib');
+      fs.mkdirSync(libDir, { recursive: true });
+
+      // Create a minimal hook that resolves a bundled script
+      fs.writeFileSync(path.join(libDir, 'mindlore-common.cjs'), 'module.exports = {};');
+
+      // Verify resolution works from plugin cache path
+      const resolved = path.resolve(hookDir, 'lib', 'mindlore-common.cjs');
+      expect(fs.existsSync(resolved)).toBe(true);
+
+      fs.rmSync(tmpDir, { recursive: true, force: true });
+    });
+  });
 });
