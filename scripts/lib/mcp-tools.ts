@@ -110,6 +110,7 @@ export function registerAllTools(server: McpServer, ctx: McpContext): void {
       limit: z.number().min(1).max(50).optional().describe('Max items for list'),
       since: z.string().optional().describe('ISO date filter for list'),
     },
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- zod ShapeOutput union cannot narrow to DecideInput discriminant
     wrapTool(ctx, TOOL_NAMES.decide, (c, input) => handleDecide(c, input as unknown as import('./tool-adapters/decide-adapter.js').DecideInput))
   );
 
