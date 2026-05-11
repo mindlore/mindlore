@@ -4,8 +4,6 @@
  */
 
 import Database from 'better-sqlite3';
-import fs from 'fs';
-import path from 'path';
 import crypto from 'crypto';
 import type { EpisodeKind } from './episodes.js';
 
@@ -34,19 +32,10 @@ function estimateTokens(text: string): number {
   return Math.ceil(text.length / CHARS_PER_TOKEN);
 }
 
-function buildSessionSummary(baseDir: string, latestDeltaContent?: string): string {
-  if (latestDeltaContent) {
-    const lines = latestDeltaContent.split('\n').filter(l => l.startsWith('- ') || l.startsWith('# '));
-    return lines.slice(0, 10).join('\n') || 'No previous session data.';
-  }
-  const diaryDir = path.join(baseDir, 'diary');
-  if (!fs.existsSync(diaryDir)) return 'No previous session data.';
-  const deltas = fs.readdirSync(diaryDir).filter(f => f.startsWith('delta-')).sort();
-  if (deltas.length === 0) return 'No previous session data.';
-  const latestFile = deltas[deltas.length - 1] ?? '';
-  const latest = fs.readFileSync(path.join(diaryDir, latestFile), 'utf8');
-  const lines = latest.split('\n').filter(l => l.startsWith('- ') || l.startsWith('# '));
-  return lines.slice(0, 10).join('\n');
+function buildSessionSummary(_baseDir: string, latestDeltaContent?: string): string {
+  if (!latestDeltaContent) return 'No previous session data.';
+  const lines = latestDeltaContent.split('\n').filter(l => l.startsWith('- ') || l.startsWith('# '));
+  return lines.slice(0, 10).join('\n') || 'No previous session data.';
 }
 
 function buildEpisodeSections(db: Database.Database, project: string, sessionId?: string): { decisions: string; friction: string; learnings: string } {

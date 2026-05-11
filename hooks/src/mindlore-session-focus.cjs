@@ -150,11 +150,11 @@ function main() {
         const latestPath = path.join(diaryDir, latestName);
         const deltaContent = fs.readFileSync(latestPath, 'utf8').trim();
         sourceChars += deltaContent.length;
-        latestDeltaContent = deltaContent;
         const { meta } = parseFrontmatter(deltaContent);
         const deltaProject = meta.project || null;
         const currentProject = getProjectName();
         if (!deltaProject || deltaProject.toLowerCase() === currentProject.toLowerCase()) {
+          latestDeltaContent = deltaContent;
           output.push(`[Mindlore Delta: ${latestName}]\n${truncateChangedFiles(truncateCommits(deltaContent))}`);
         }
       }

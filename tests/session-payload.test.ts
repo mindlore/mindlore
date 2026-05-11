@@ -133,14 +133,10 @@ describe('buildSessionPayload', () => {
     expect(payload.totalTokens).toBe(expectedTotal);
   });
 
-  test('reads latest delta file when multiple exist', () => {
-    writeDelta('delta-2026-04-18.md', '# Old\n- Old stuff');
-    writeDelta('delta-2026-04-19.md', '# Latest\n- Latest stuff');
-
-    const payload = buildSessionPayload({ db, baseDir, project: PROJECT });
+  test('uses latestDeltaContent parameter for Session section', () => {
+    const payload = buildSessionPayload({ db, baseDir, project: PROJECT, latestDeltaContent: '# Latest\n- Latest stuff' });
 
     expect(payload.sections[0]!.content).toContain('Latest stuff');
-    expect(payload.sections[0]!.content).not.toContain('Old stuff');
   });
 
   test('only returns episodes for matching project', () => {
@@ -163,5 +159,22 @@ describe('buildSessionPayload', () => {
 
     expect(payload.sections).toHaveLength(1);
     expect(payload.sections[0]!.label).toBe('Session');
+  });
+
+  test('Session section shows "No previous session data" when latestDeltaContent is undefined', () => {
+    writeDelta('delta-2026-04-19.md', '---\nproject: other-project\n---\n# Other\n- Kastell stuff');
+
+    const payload = buildSessionPayload({ db, baseDir, project: PROJECT });
+
+    expect(payload.sections[0]!.content).toContain('No previous session data');
+    expect(payload.sections[0]!.content).not.toContain('Kastell');
+  });
+
+  test('Session section uses latestDeltaContent when provided', () => {
+    const delta = '# My Project\n- Did feature work\n- Fixed bug';
+
+    const payload = buildSessionPayload({ db, baseDir, project: PROJECT, latestDeltaContent: delta });
+
+    expect(payload.sections[0]!.content).toContain('Did feature work');
   });
 });

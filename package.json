@@ -1,6 +1,6 @@
 {
   "name": "mindlore",
-  "version": "0.7.3",
+  "version": "0.7.4",
   "description": "AI-native knowledge system for Claude Code",
   "type": "commonjs",
   "bin": {
@@ -27,7 +27,7 @@
     "bundle:hooks": "npx tsx scripts/bundle-hooks.ts",
     "bundle:mcp": "npx esbuild scripts/mcp-server.ts --bundle --platform=node --target=node20 --format=cjs --outfile=mcp-server.cjs --external:better-sqlite3",
     "bundle": "npm run bundle:hooks && npm run bundle:mcp",
-    "postinstall": "npm rebuild better-sqlite3"
+    "postinstall": "npm run build && npm rebuild better-sqlite3"
   },
   "keywords": [
     "claude-code",

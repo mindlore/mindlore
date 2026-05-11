@@ -11,6 +11,8 @@ interface TelemetryEntry {
   ok: boolean;
   inject_tokens?: number;
   source_tokens?: number;
+  search_ms?: number;
+  result_count?: number;
 }
 
 interface Percentiles {
@@ -42,6 +44,8 @@ export function parseTelemetry(telPath: string): TelemetryEntry[] {
             : typeof obj.injected_tokens === 'number' ? obj.injected_tokens : undefined,
           source_tokens: typeof obj.source_tokens === 'number' ? obj.source_tokens
             : typeof obj.full_read_tokens === 'number' ? obj.full_read_tokens : undefined,
+          search_ms: typeof obj.search_ms === 'number' ? obj.search_ms : undefined,
+          result_count: typeof obj.result_count === 'number' ? obj.result_count : undefined,
         });
       }
     } catch { /* skip malformed lines */ }
@@ -64,19 +68,18 @@ function percentile(sorted: number[], p: number): number {
   return sorted[Math.max(0, idx)] ?? 0;
 }
 
-export function calculatePercentiles(entries: TelemetryEntry[], hookName?: string): Percentiles {
-  const filtered = hookName ? entries.filter(e => e.hook === hookName) : entries;
-  if (filtered.length === 0) return { p50: 0, p95: 0, p99: 0, count: 0, errorCount: 0, mean: 0 };
+export function calculatePercentiles(entries: TelemetryEntry[]): Percentiles {
+  if (entries.length === 0) return { p50: 0, p95: 0, p99: 0, count: 0, errorCount: 0, mean: 0 };
 
-  const durations = filtered.map(e => e.duration_ms).sort((a, b) => a - b);
-  const errorCount = filtered.filter(e => !e.ok).length;
+  const durations = entries.map(e => e.duration_ms).sort((a, b) => a - b);
+  const errorCount = entries.filter(e => !e.ok).length;
   const sum = durations.reduce((a, b) => a + b, 0);
 
   return {
     p50: percentile(durations, 50),
     p95: percentile(durations, 95),
     p99: percentile(durations, 99),
-    count: filtered.length,
+    count: entries.length,
     errorCount,
     mean: Math.round(sum / durations.length),
   };
@@ -92,6 +95,12 @@ function formatReport(entries: TelemetryEntry[]): string {
     const percs = calculatePercentiles(groups[hook] ?? []);
     lines.push(`${hook} (${percs.count} calls, ${percs.errorCount} errors)`);
     lines.push(`  p50: ${percs.p50}ms  p95: ${percs.p95}ms  p99: ${percs.p99}ms  mean: ${percs.mean}ms`);
+    const searchEntries = (groups[hook] ?? []).filter(e => e.search_ms !== undefined);
+    if (searchEntries.length > 0) {
+      const avgSearch = Math.round(searchEntries.reduce((s, e) => s + (e.search_ms ?? 0), 0) / searchEntries.length);
+      const avgResults = (searchEntries.reduce((s, e) => s + (e.result_count ?? 0), 0) / searchEntries.length).toFixed(1);
+      lines.push(`  search_engine: avg ${avgSearch}ms, avg ${avgResults} results`);
+    }
     lines.push('');
   }
 

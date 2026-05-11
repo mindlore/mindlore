@@ -2,8 +2,10 @@
 
 import fs from 'fs';
 import path from 'path';
+import os from 'os';
 import { GLOBAL_MINDLORE_DIR, DB_NAME } from './lib/constants.js';
 import { errMsg } from './lib/err-msg.js';
+import { readJsonFile } from './lib/safe-parse.js';
 
 interface CheckResult {
   name: string;
@@ -29,8 +31,8 @@ export function loadExpectedHooks(): string[] {
   const pluginPath = candidates.find(p => fs.existsSync(p));
   if (!pluginPath) return FALLBACK_HOOKS;
   try {
-    const raw: unknown = JSON.parse(fs.readFileSync(pluginPath, 'utf8'));
-    if (isRecord(raw) && Array.isArray(raw.hooks)) {
+    const raw = readJsonFile<Record<string, unknown>>(pluginPath);
+    if (Array.isArray(raw.hooks)) {
       // eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- guarded by isRecord+Array.isArray above
       const hooks = raw.hooks as Array<Record<string, unknown>>;
       const names = hooks
@@ -99,16 +101,16 @@ export function checkConfigVersion(baseDir: string, pkgVersion?: string): CheckR
     return { name: 'Config Version', pass: false, message: 'config.json not found' };
   }
   try {
-    const configRaw: unknown = JSON.parse(fs.readFileSync(configPath, 'utf8'));
-    const configVersion = isRecord(configRaw) && typeof configRaw.version === 'string' ? configRaw.version : undefined;
+    const configRaw = readJsonFile<Record<string, unknown>>(configPath);
+    const configVersion = typeof configRaw.version === 'string' ? configRaw.version : undefined;
     let version = pkgVersion;
     if (!version) {
       // Try multiple paths — dist/scripts/ vs scripts/
       for (const rel of ['..', '../..']) {
         const p = path.join(__dirname, rel, 'package.json');
         if (fs.existsSync(p)) {
-          const pkgRaw: unknown = JSON.parse(fs.readFileSync(p, 'utf8'));
-          version = isRecord(pkgRaw) && typeof pkgRaw.version === 'string' ? pkgRaw.version : undefined;
+          const pkgRaw = readJsonFile<{ version?: string }>(p);
+          version = typeof pkgRaw.version === 'string' ? pkgRaw.version : undefined;
           break;
         }
       }
@@ -191,6 +193,73 @@ export function checkAgents(): CheckResult {
   };
 }
 
+export function checkStaleLocalDb(cwd: string): CheckResult {
+  const localDb = path.join(cwd, '.mindlore', 'mindlore.db');
+  if (!fs.existsSync(localDb)) {
+    return { name: 'Stale Local DB', pass: true, message: 'No local .mindlore/ DB' };
+  }
+
+  try {
+    const Database = require('better-sqlite3');
+    const db = new Database(localDb, { readonly: true });
+    const sv = db.prepare("SELECT name FROM sqlite_master WHERE name='mindlore_schema_version'").get();
+    db.close();
+
+    if (!sv) {
+      return {
+        name: 'Stale Local DB',
+        pass: false,
+        message: `Stale local .mindlore/mindlore.db found in ${cwd} — pre-v0.6.0 schema, no schema_version table. Global DB (~/.mindlore/) should be used. Delete local DB: rm ${localDb}`,
+      };
+    }
+    return { name: 'Stale Local DB', pass: true, message: 'Local .mindlore/ DB exists with schema_version' };
+  } catch {
+    return { name: 'Stale Local DB', pass: false, message: `Local .mindlore/mindlore.db exists but unreadable: ${localDb}` };
+  }
+}
+
+export function checkStalePluginCache(): CheckResult {
+  const cacheDir = path.join(os.homedir(), '.claude', 'plugins', 'cache', 'mindlore', 'mindlore');
+  if (!fs.existsSync(cacheDir)) return { name: 'Plugin Cache', pass: true, message: 'No plugin cache found' };
+
+  try {
+    const versions = fs.readdirSync(cacheDir).filter(d => {
+      return fs.statSync(path.join(cacheDir, d)).isDirectory();
+    });
+    if (versions.length <= 1) return { name: 'Plugin Cache', pass: true, message: `Plugin cache: ${versions[0] ?? 'none'}` };
+
+    const sorted = versions.sort((a, b) => a.localeCompare(b, undefined, { numeric: true }));
+    const latest = sorted[sorted.length - 1];
+    const stale = sorted.slice(0, -1);
+
+    return {
+      name: 'Plugin Cache',
+      pass: false,
+      message: `Stale plugin cache: ${stale.join(', ')} (latest: ${latest}). Remove: ${stale.map(v => path.join(cacheDir, v)).join(', ')}`,
+    };
+  } catch {
+    return { name: 'Plugin Cache', pass: true, message: 'Plugin cache check skipped' };
+  }
+}
+
+export function checkStaleTempDirs(): CheckResult {
+  const cacheRoot = path.join(os.homedir(), '.claude', 'plugins', 'cache');
+  if (!fs.existsSync(cacheRoot)) return { name: 'Stale Temp Dirs', pass: true, message: 'No plugin cache root' };
+
+  try {
+    const tempDirs = fs.readdirSync(cacheRoot).filter(d => d.startsWith('temp_npm_'));
+    if (tempDirs.length === 0) return { name: 'Stale Temp Dirs', pass: true, message: 'No stale temp dirs' };
+
+    return {
+      name: 'Stale Temp Dirs',
+      pass: false,
+      message: `${tempDirs.length} stale temp_npm_* dirs in plugin cache. Remove: ${tempDirs.map(d => path.join(cacheRoot, d)).join(', ')}`,
+    };
+  } catch {
+    return { name: 'Stale Temp Dirs', pass: true, message: 'Temp dir check skipped' };
+  }
+}
+
 function main(): void {
   const baseDir = process.env.MINDLORE_HOME ?? GLOBAL_MINDLORE_DIR;
 
@@ -202,6 +271,9 @@ function main(): void {
     checkHooks(),
     checkSkills(),
     checkAgents(),
+    checkStaleLocalDb(process.cwd()),
+    checkStalePluginCache(),
+    checkStaleTempDirs(),
   ];
 
   console.log('\nMindlore Doctor\n' + '='.repeat(30));

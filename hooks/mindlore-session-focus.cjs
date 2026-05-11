@@ -14,28 +14,16 @@ var require_session_payload = __commonJS({
     };
     Object.defineProperty(exports2, "__esModule", { value: true });
     exports2.buildSessionPayload = buildSessionPayload;
-    var fs_1 = __importDefault(require("fs"));
-    var path_1 = __importDefault(require("path"));
     var crypto_1 = __importDefault(require("crypto"));
     var CHARS_PER_TOKEN = 4;
     function estimateTokens(text) {
       return Math.ceil(text.length / CHARS_PER_TOKEN);
     }
-    function buildSessionSummary(baseDir, latestDeltaContent) {
-      if (latestDeltaContent) {
-        const lines2 = latestDeltaContent.split("\n").filter((l) => l.startsWith("- ") || l.startsWith("# "));
-        return lines2.slice(0, 10).join("\n") || "No previous session data.";
-      }
-      const diaryDir = path_1.default.join(baseDir, "diary");
-      if (!fs_1.default.existsSync(diaryDir))
+    function buildSessionSummary(_baseDir, latestDeltaContent) {
+      if (!latestDeltaContent)
         return "No previous session data.";
-      const deltas = fs_1.default.readdirSync(diaryDir).filter((f) => f.startsWith("delta-")).sort();
-      if (deltas.length === 0)
-        return "No previous session data.";
-      const latestFile = deltas[deltas.length - 1] ?? "";
-      const latest = fs_1.default.readFileSync(path_1.default.join(diaryDir, latestFile), "utf8");
-      const lines = latest.split("\n").filter((l) => l.startsWith("- ") || l.startsWith("# "));
-      return lines.slice(0, 10).join("\n");
+      const lines = latestDeltaContent.split("\n").filter((l) => l.startsWith("- ") || l.startsWith("# "));
+      return lines.slice(0, 10).join("\n") || "No previous session data.";
     }
     function buildEpisodeSections(db, project, sessionId) {
       const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1e3).toISOString();
@@ -725,11 +713,11 @@ ${content}`);
         const latestPath = path.join(diaryDir, latestName);
         const deltaContent = fs.readFileSync(latestPath, "utf8").trim();
         sourceChars += deltaContent.length;
-        latestDeltaContent = deltaContent;
         const { meta } = parseFrontmatter(deltaContent);
         const deltaProject = meta.project || null;
         const currentProject = getProjectName();
         if (!deltaProject || deltaProject.toLowerCase() === currentProject.toLowerCase()) {
+          latestDeltaContent = deltaContent;
           output.push(`[Mindlore Delta: ${latestName}]
 ${truncateChangedFiles(truncateCommits(deltaContent))}`);
         }

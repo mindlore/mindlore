@@ -34,11 +34,10 @@ var require_constants = __commonJS({
       return mod && mod.__esModule ? mod : { "default": mod };
     };
     Object.defineProperty(exports2, "__esModule", { value: true });
-    exports2.CONSOLIDATION_THRESHOLD = exports2.STALE_THRESHOLD = exports2.DECAY_HALF_LIFE_DAYS = exports2.DEFAULT_TOKEN_BUDGET = exports2.CC_MEMORY_BOOST = exports2.CC_SUBAGENT_CATEGORY = exports2.CC_SESSION_CATEGORY = exports2.CC_MEMORY_CATEGORY = exports2.CC_MEMORY_DIR = exports2.CC_MEMORY_PATH_MARKER = exports2.TYPE_TO_DIR = exports2.RELATED_OVERFETCH = exports2.MAX_RELATED_SOURCES = exports2.RELATION_PRIORITY = exports2.SYMMETRIC_TYPES = exports2.RELATION_TYPES = exports2.QUALITY_HEURISTICS = exports2.QUALITY_VALUES = exports2.FRONTMATTER_TYPES = exports2.FTS5_COLUMNS = exports2.STOP_WORDS = exports2.TURKISH_WORD_RE = exports2.STOP_WORDS_MIN_LENGTH = exports2.SESSION_CATEGORIES = exports2.CATEGORIES = exports2.SCHEMA_VERSION = exports2.DEFAULT_MODELS = exports2.CONFIG_FILE = exports2.MCP_BUSY_TIMEOUT_MS = exports2.DB_BUSY_TIMEOUT_MS = exports2.SKIP_FILES = exports2.DIRECTORIES = exports2.DB_NAME = exports2.GLOBAL_MINDLORE_DIR = exports2.MINDLORE_DIR = exports2.KNOWN_HOOK_EVENTS = void 0;
+    exports2.CONSOLIDATION_THRESHOLD = exports2.STALE_THRESHOLD = exports2.DECAY_HALF_LIFE_DAYS = exports2.DEFAULT_TOKEN_BUDGET = exports2.CC_MEMORY_BOOST = exports2.CC_SUBAGENT_CATEGORY = exports2.CC_SESSION_CATEGORY = exports2.CC_MEMORY_CATEGORY = exports2.CC_MEMORY_DIR = exports2.CC_MEMORY_PATH_MARKER = exports2.TYPE_TO_DIR = exports2.PRIORITY_CASE = exports2.RELATED_OVERFETCH = exports2.MAX_RELATED_SOURCES = exports2.RELATION_PRIORITY = exports2.SYMMETRIC_TYPES = exports2.RELATION_TYPES = exports2.QUALITY_HEURISTICS = exports2.QUALITY_VALUES = exports2.FRONTMATTER_TYPES = exports2.FTS5_COLUMNS = exports2.STOP_WORDS = exports2.TURKISH_WORD_RE = exports2.STOP_WORDS_MIN_LENGTH = exports2.SESSION_CATEGORIES = exports2.CATEGORIES = exports2.SCHEMA_VERSION = exports2.DEFAULT_MODELS = exports2.CONFIG_FILE = exports2.MCP_BUSY_TIMEOUT_MS = exports2.DB_BUSY_TIMEOUT_MS = exports2.SKIP_FILES = exports2.DIRECTORIES = exports2.DB_NAME = exports2.GLOBAL_MINDLORE_DIR = exports2.MINDLORE_DIR = exports2.KNOWN_HOOK_EVENTS = void 0;
     exports2.isKnownHookEvent = isKnownHookEvent;
     exports2.isSessionCategory = isSessionCategory;
     exports2.fixVersionTokens = fixVersionTokens;
-    exports2.buildPriorityCase = buildPriorityCase;
     exports2.homedir = homedir;
     exports2.getActiveMindloreDir = getActiveMindloreDir;
     exports2.getAllDbs = getAllDbs2;
@@ -336,9 +335,7 @@ var require_constants = __commonJS({
     };
     exports2.MAX_RELATED_SOURCES = 5;
     exports2.RELATED_OVERFETCH = 10;
-    function buildPriorityCase() {
-      return Object.entries(exports2.RELATION_PRIORITY).map(([type, priority]) => `WHEN '${type}' THEN ${priority}`).join(" ");
-    }
+    exports2.PRIORITY_CASE = "WHEN 'supersedes' THEN 1 WHEN 'contradicts' THEN 2 WHEN 'extends' THEN 3 WHEN 'cites' THEN 4";
     exports2.TYPE_TO_DIR = {
       raw: "raw",
       source: "sources",
@@ -1103,7 +1100,7 @@ var require_search_cache = __commonJS({
 // hooks/src/mindlore-search.cjs
 var fs = require("fs");
 var path = require("path");
-var { getAllDbs, openDatabase, extractHeadings, readHookStdin, readConfig, hookLog, incrementRecallCount, withTelemetry } = require("./lib/mindlore-common.cjs");
+var { getAllDbs, openDatabase, extractHeadings, readConfig, hookLog, incrementRecallCount, withTelemetry } = require("./lib/mindlore-common.cjs");
 var MAX_RESULTS = 3;
 var MIN_QUERY_WORDS = 3;
 var searchEngineMod;
@@ -1116,9 +1113,22 @@ try {
   SearchCacheMod = require_search_cache();
 } catch (_err) {
 }
+function parseStdin() {
+  try {
+    const raw = fs.readFileSync(0, "utf8").trim();
+    if (!raw) return { userMessage: "", sessionId: "unknown" };
+    const parsed = JSON.parse(raw);
+    const userMessage = parsed.prompt || parsed.content || parsed.message || parsed.query || raw;
+    const sessionId = parsed.session_id || "unknown";
+    return { userMessage, sessionId };
+  } catch (_err) {
+    return { userMessage: "", sessionId: "unknown" };
+  }
+}
 function main() {
-  const userMessage = readHookStdin(["prompt", "content", "message", "query"]);
+  const { userMessage, sessionId } = parseStdin();
   if (!userMessage || userMessage.length < MIN_QUERY_WORDS) return;
+  let searchMs = 0;
   const dbPaths = getAllDbs();
   if (dbPaths.length === 0) return;
   if (!searchEngineMod) {
@@ -1128,13 +1138,6 @@ function main() {
   const project = path.basename(process.cwd());
   const config = readConfig(path.dirname(dbPaths[0]));
   const synonyms = config && config.synonyms ? config.synonyms : {};
-  let sessionId;
-  try {
-    const stdinData = JSON.parse(process.env.CLAUDE_HOOK_STDIN || "{}");
-    sessionId = stdinData.session_id || "unknown";
-  } catch (_) {
-    sessionId = "unknown";
-  }
   const allResults = [];
   for (const dbPath of dbPaths) {
     const db = openDatabase(dbPath);
@@ -1160,11 +1163,13 @@ function main() {
           continue;
         }
       }
+      const t0 = Date.now();
       const results = searchEngineMod.search(db, userMessage, {
         project,
         maxResults: effectiveMax,
         synonyms
       });
+      searchMs += Date.now() - t0;
       if (cache) cache.set(userMessage, results);
       const baseDir = path.dirname(dbPath);
       for (const r of results) {
@@ -1256,6 +1261,7 @@ Summary: ${summary}...
     }
     process.stdout.write(outputStr);
   }
+  return { search_ms: searchMs, result_count: relevant.length };
 }
 withTelemetry("mindlore-search", main).catch((err) => {
   hookLog("mindlore-search", "error", err?.message ?? String(err));

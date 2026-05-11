@@ -137,11 +137,7 @@ export const RELATION_PRIORITY: Record<RelationType, number> = {
 export const MAX_RELATED_SOURCES = 5;
 export const RELATED_OVERFETCH = 10;
 
-export function buildPriorityCase(): string {
-  return Object.entries(RELATION_PRIORITY)
-    .map(([type, priority]) => `WHEN '${type}' THEN ${priority}`)
-    .join(' ');
-}
+export const PRIORITY_CASE = "WHEN 'supersedes' THEN 1 WHEN 'contradicts' THEN 2 WHEN 'extends' THEN 3 WHEN 'cites' THEN 4" as const;
 
 export const TYPE_TO_DIR: Record<string, string> = {
   raw: 'raw',

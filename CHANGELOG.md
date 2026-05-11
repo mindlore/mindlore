@@ -5,6 +5,39 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.7.4] - 2026-05-11
+
+### Added
+- **Hook latency budget** (`P18`) — category-based caps (fast: 30ms, medium: 50ms, slow: 200ms) with log+warn in `withTelemetry`/`withTelemetrySync`
+- **Hook vs MCP audit matrix** (`P15`) — 14-hook decision matrix documenting keep/migrate/retire rationale
+- **Shared hook-unwrap helper** (`D2+D3`) — `scripts/lib/hook-helpers.ts` with `unwrapHookEntries`, `isMindloreHook`, `countMindloreHooks`
+- **Search latency profiling** (`V3`) — timing breakdown in `mindlore-search.cjs`, `calculatePercentiles` O(N) cleanup in `mindlore-perf.ts`
+- **Baseline perf measurement** (`T0`) — `v074-baseline-perf.txt` for before/after comparison
+
+### Changed
+- **`resolveMindloreHome`** (`D5`) — removed cwd-based local detection, always resolves to global `~/.mindlore/`
+- **`mindlore-fts5-sync.cjs`** (`V1+V2`) — `.md` extension guard skips non-markdown files; bulk hash fetch replaces per-file queries
+- **`init.ts` + `settings-cleanup.ts`** (`D2+D3`) — refactored to use shared `unwrapHookEntries` helper
+- **`constants.ts`** (`K1`) — dead code removal
+- **`decide-adapter.ts`** (`K2`) — validation moved to adapter
+- **`buildPriorityCase`** (`K3`) — typed return
+- **`mindlore-health-check.ts`** (`K5`) — naming consistency
+- **CI parity** (`P7`) — test alignment with CI environment
+- **`package.json`** — added `postinstall` rebuild script
+
+### Fixed
+- **Doctor safe-parse** (`D1+D6`) — `JSON.parse` → `readJsonFile` for 3 callsites; stale DB/cache detection; plugin cache regression test
+- **Lint errors** — unsafe type assertion in `hook-helpers.ts` replaced with type guard
+
+### Performance
+- `mindlore-session-focus` mean: 360ms → 199ms (−45%)
+- `mindlore-research-guard` p95: 108ms → 76ms (−30%)
+- `mindlore-fts5-sync` p95: 7ms → 4ms (−43%)
+- `mindlore-read-guard` mean: 27ms → 22ms (−19%)
+
+### Stats
+- 117 test suites, 852 tests (v0.7.3: 114 suites, 838 tests)
+
 ## [0.7.3] - 2026-05-10
 
 ### Added

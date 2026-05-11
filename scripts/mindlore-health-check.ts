@@ -216,9 +216,9 @@ class HealthChecker {
       try {
         const { getSchemaVersion } = require('./lib/schema-version.js');
         const version = getSchemaVersion(db);
-        return { ok: true, detail: `v${version}` };
+        return { ok: true, detail: `DB table schema_versions: v${version}` };
       } catch (_err) {
-        return { warn: true, detail: 'schema_versions table missing' };
+        return { warn: true, detail: 'DB table schema_versions missing' };
       }
     }));
   }

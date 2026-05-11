@@ -663,6 +663,24 @@ const extractSkeleton = (() => {
 
 const TELEMETRY_KEEP_LINES = 200;
 
+const HOOK_LATENCY_BUDGETS = {
+  'mindlore-session-focus': 100,
+  'mindlore-session-end': 100,
+  'mindlore-pre-compact': 100,
+  'mindlore-post-compact': 100,
+  'mindlore-search': 50,
+  'mindlore-decision-detector': 50,
+  'mindlore-index': 50,
+  'mindlore-fts5-sync': 50,
+  'mindlore-cwd-changed': 50,
+  'mindlore-read-guard': 30,
+  'mindlore-post-read': 30,
+  'mindlore-dont-repeat': 30,
+  'mindlore-model-router': 30,
+  'mindlore-research-guard': 30,
+};
+const DEFAULT_BUDGET_MS = 50;
+
 function _rotateFile(filePath, maxBytes, keepLines) {
   try {
     const stat = fs.statSync(filePath);
@@ -677,16 +695,17 @@ function _rotateFile(filePath, maxBytes, keepLines) {
 
 let _telDirEnsured = false;
 
-function _writeTelemetry({ hookName, duration_ms, ok, extra }) {
+function _writeTelemetry({ hookName, duration_ms, ok, budget_ms, budget_exceeded, extra }) {
   try {
+    const telDir = globalDir();
     if (!_telDirEnsured) {
-      safeMkdir(GLOBAL_MINDLORE_DIR);
+      safeMkdir(telDir);
       _telDirEnsured = true;
     }
-    const telPath = path.join(GLOBAL_MINDLORE_DIR, 'telemetry.jsonl');
-    const entry = { ts: new Date().toISOString(), hook: hookName, duration_ms, ok };
+    const telPath = path.join(telDir, 'telemetry.jsonl');
+    const entry = { ts: new Date().toISOString(), hook: hookName, duration_ms, ok, budget_ms, budget_exceeded };
     if (extra && typeof extra === 'object') {
-      for (const key of ['inject_tokens', 'source_tokens', 'injected_tokens', 'full_read_tokens']) {
+      for (const key of ['inject_tokens', 'source_tokens', 'injected_tokens', 'full_read_tokens', 'search_ms', 'result_count']) {
         if (typeof extra[key] === 'number') entry[key] = extra[key];
       }
     }
@@ -707,8 +726,14 @@ async function withTelemetry(hookName, fn) {
     ok = false;
     thrown = err;
   }
+  const duration = Date.now() - start;
+  const budget = HOOK_LATENCY_BUDGETS[hookName] ?? DEFAULT_BUDGET_MS;
+  const budgetExceeded = duration > budget;
+  if (budgetExceeded) {
+    process.stderr.write(`[Mindlore] hook ${hookName} took ${duration}ms (budget: ${budget}ms)\n`);
+  }
   const extra = (result && typeof result === 'object') ? result : undefined;
-  _writeTelemetry({ hookName, duration_ms: Date.now() - start, ok, extra });
+  _writeTelemetry({ hookName, duration_ms: duration, ok, budget_ms: budget, budget_exceeded: budgetExceeded, extra });
   if (thrown) throw thrown;
   return result;
 }
@@ -724,8 +749,14 @@ function withTelemetrySync(hookName, fn) {
     ok = false;
     thrown = err;
   }
+  const duration = Date.now() - start;
+  const budget = HOOK_LATENCY_BUDGETS[hookName] ?? DEFAULT_BUDGET_MS;
+  const budgetExceeded = duration > budget;
+  if (budgetExceeded) {
+    process.stderr.write(`[Mindlore] hook ${hookName} took ${duration}ms (budget: ${budget}ms)\n`);
+  }
   const extra = (result && typeof result === 'object') ? result : undefined;
-  _writeTelemetry({ hookName, duration_ms: Date.now() - start, ok, extra });
+  _writeTelemetry({ hookName, duration_ms: duration, ok, budget_ms: budget, budget_exceeded: budgetExceeded, extra });
   if (thrown) throw thrown;
   return result;
 }
@@ -741,7 +772,7 @@ function withTimeoutDb(db, sql, params = [], { timeoutMs = DB_BUSY_TIMEOUT_MS, m
     return params.length > 0 ? stmt.all(...params) : stmt.all();
   } catch (err) {
     hookLog('timeout', 'warn', `DB query timeout/error: ${err.message}`);
-    _writeTelemetry({ hookName: 'db_timeout', duration_ms: 0, ok: false });
+    _writeTelemetry({ hookName: 'db_timeout', duration_ms: 0, ok: false, budget_ms: DEFAULT_BUDGET_MS, budget_exceeded: false });
     return mode === 'get' ? undefined : [];
   }
 }
@@ -837,6 +868,8 @@ module.exports = {
   // Telemetry (v0.6.0)
   withTelemetry,
   withTelemetrySync,
+  HOOK_LATENCY_BUDGETS,
+  DEFAULT_BUDGET_MS,
   // DB timeout wrapper (v0.6.1)
   withTimeoutDb,
   // Raw file helpers (v0.6.3)

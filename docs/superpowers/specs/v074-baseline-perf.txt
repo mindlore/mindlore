@@ -1,0 +1,47 @@
+
+> mindlore@0.7.3 perf
+> node dist/scripts/mindlore-perf.js
+
+Mindlore Performance Report
+========================================
+
+db_timeout (9 calls, 9 errors)
+  p50: 0ms  p95: 0ms  p99: 0ms  mean: 0ms
+
+mindlore-decision-detector (54 calls, 0 errors)
+  p50: 1ms  p95: 2ms  p99: 2ms  mean: 1ms
+
+mindlore-dont-repeat (46 calls, 0 errors)
+  p50: 6ms  p95: 10ms  p99: 13ms  mean: 7ms
+
+mindlore-fts5-sync (37 calls, 0 errors)
+  p50: 1ms  p95: 7ms  p99: 78ms  mean: 3ms
+
+mindlore-index (37 calls, 0 errors)
+  p50: 1ms  p95: 114ms  p99: 183ms  mean: 9ms
+
+mindlore-model-router (37 calls, 0 errors)
+  p50: 1ms  p95: 1ms  p99: 1ms  mean: 1ms
+
+mindlore-post-read (247 calls, 0 errors)
+  p50: 7ms  p95: 12ms  p99: 16ms  mean: 8ms
+
+mindlore-read-guard (219 calls, 0 errors)
+  p50: 4ms  p95: 11ms  p99: 18ms  mean: 27ms
+
+mindlore-research-guard (38 calls, 0 errors)
+  p50: 1ms  p95: 108ms  p99: 125ms  mean: 15ms
+
+mindlore-search (54 calls, 0 errors)
+  p50: 27ms  p95: 65ms  p99: 146ms  mean: 31ms
+
+mindlore-session-end (7 calls, 0 errors)
+  p50: 393ms  p95: 530ms  p99: 530ms  mean: 419ms
+
+mindlore-session-focus (26 calls, 0 errors)
+  p50: 25ms  p95: 1659ms  p99: 2107ms  mean: 360ms
+
+test-no-return (9 calls, 0 errors)
+  p50: 1ms  p95: 1ms  p99: 1ms  mean: 1ms
+
+Total: 820 entries across 13 hooks
