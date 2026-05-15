@@ -109,11 +109,16 @@ Onaylamak istediklerini sec, veya 'skip':
    UPDATE episodes SET status = 'rejected', rejected_at = datetime('now'), rejection_reason = ? WHERE id = ?
    ```
 
-## On End — Write skill_memory
+## On End — Write skill_memory (success-only)
 
 ```bash
-node "$MINDLORE_PKG/dist/scripts/lib/skill-runner.js" mindlore-reflect lib/skill-memory.js set mindlore-reflect last_reflect_date "$(date -I)"
-node "$MINDLORE_PKG/dist/scripts/lib/skill-runner.js" mindlore-reflect lib/skill-memory.js set mindlore-reflect nomination_count "{staged_count}"
+# ONLY update last_reflect_date if reflect completed successfully (no parse errors,
+# no DB errors). If any failure occurred during pattern extraction, leave the date
+# unchanged so the next session retries.
+if [ "$REFLECT_EXIT_CODE" = "0" ]; then
+  node "$MINDLORE_PKG/dist/scripts/lib/skill-runner.js" mindlore-reflect skill-memory set mindlore-reflect last_reflect_date "$(date -I)"
+fi
+node "$MINDLORE_PKG/dist/scripts/lib/skill-runner.js" mindlore-reflect skill-memory set mindlore-reflect nomination_count "{staged_count}"
 ```
 
 ## Quick Health Summary (v0.5.3)
