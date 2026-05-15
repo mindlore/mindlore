@@ -7,11 +7,33 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.7.5] - 2026-05-15
+
+### Added
+- Dream Cycle: episode→lesson graduation pipeline (default target: `learnings/`).
+- 7-day auto-reflect trigger (session-start, fire-and-forget detached spawn).
+- `[Mindlore Learnings]` block injected at session-start (top-10 lessons, scope-filtered, 6000-char budget).
+- `[Mindlore Nomination]` block injected at session-start (staged nominations visible).
+- Skill failure tracking: regex-based detection, `kind: 'skill_failure'` episodes feed reflect 3-tier confidence.
+- `skill-runner.js` wrapper: unified telemetry emission point for all skill→script calls.
+- `npx mindlore clean-cache` command (removes stale plugin versions + temp_npm_* dirs).
+
 ### Fixed
-- **Skill duplicate fix** — init cleanup removes legacy skill dirs from `~/.claude/skills/` and agent files from `~/.claude/agents/` when plugin auto-discovery is active
-- **Session-focus cross-project leak** — `buildSessionSummary` fallback removed; delta only injected when project matches
-- **Search session_id** — `parseStdin` reads both prompt and session_id from stdin in single parse (was always `'unknown'`)
-- **fts5-sync guard order** — cheap `.endsWith('.md')` check before expensive `path.resolve`
+- Auto-index `database is locked`: parent now closes DB and runs `wal_checkpoint(TRUNCATE)` before spawning indexer; silent catch replaced with `init.log` capture.
+- Episode counter hook: SQL now uses `(consolidation_status = 'raw' OR consolidation_status IS NULL)`; excludes `session`/`session-summary` kinds from "raw episode" count.
+- sqlite-vec extension loaded once per connection (previously per-event).
+
+### Changed
+- Reflect skill: `last_reflect_date` updated only on successful completion.
+- Lesson frontmatter: optional `project: <name|global>` field (backward compatible).
+- SKILL.md files: all script invocations routed through `skill-runner.js`.
+
+### Refactored
+- `CC_PLUGIN_CACHE_DIR` centralized in `scripts/lib/constants.ts`.
+- `SYNC_SCRIPTS` glob-discovered via `hooks/lib/sync-scripts.cjs`.
+
+### Docs
+- README: "Marketplace vs npm" section explains the two distribution channels.
 
 ## [0.7.4] - 2026-05-11
 
