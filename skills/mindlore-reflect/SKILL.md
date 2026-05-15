@@ -48,15 +48,22 @@ Onaylamak istediklerini sec, veya 'skip':
 ## Flow
 
 1. Read active episodes: `WHERE status = 'active' AND source IN ('hook', 'diary')`
-2. Filter by time: `--days 7` (default), `--days 30`
-3. Present summary: "Found N episodes spanning DATE1 to DATE2"
-4. LLM analyzes episodes for recurring patterns:
+2. **Run skill failure scan (NEW v0.7.5):**
+
+   ```bash
+   node "$MINDLORE_PKG/dist/scripts/lib/skill-runner.js" mindlore-reflect reflect-failure-scan
+   ```
+
+   This populates `episodes` table with `kind: 'skill_failure'` rows from `telemetry.jsonl`. Subsequent pattern analysis treats these like any other episode — 3+ repetitions of the same `(skill, script, error)` triple → nomination via existing 3-tier confidence logic.
+3. Filter by time: `--days 7` (default), `--days 30`
+4. Present summary: "Found N episodes spanning DATE1 to DATE2"
+5. LLM analyzes episodes for recurring patterns:
    - Repeated decisions (same choice 2+ times)
    - Recurring frictions (same blocker/error)
    - Discovery patterns (assumptions that keep breaking)
    - Workflow patterns that worked well
 
-5. **3-Tier Confidence Assessment:**
+6. **3-Tier Confidence Assessment:**
 
    | Tekrar | Tier | Aksiyon |
    |--------|------|---------|
@@ -64,7 +71,7 @@ Onaylamak istediklerini sec, veya 'skip':
    | 2x | Learning | `kind: learning` episode olustur, learnings/ dosyasina yaz |
    | 3x+ | Nomination | `kind: nomination, status: staged, source: reflect` episode olustur |
 
-6. **Structured report:**
+7. **Structured report:**
    ```
    -- Reflect Raporu (son {days} gun, {N} episode) --
 
@@ -83,13 +90,13 @@ Onaylamak istediklerini sec, veya 'skip':
      [ ] {rule} ({repeat_count}x, {confidence} confidence)
    ```
 
-7. **Nomination creation (3x+ tekrar):**
+8. **Nomination creation (3x+ tekrar):**
    ```sql
    INSERT INTO episodes (summary, body, kind, status, source, project, created_at)
    VALUES (?, ?, 'nomination', 'staged', 'reflect', ?, ?)
    ```
 
-8. **Nomination approval flow:**
+9. **Nomination approval flow:**
    User approves -> `status: staged -> approved` -> write to target:
    - **`learnings/{topic}.md`** (DEFAULT — selected if user presses Enter / leaves blank)
    - `claude.md` -> project CLAUDE.md'ye kural ekle (opt-in)
