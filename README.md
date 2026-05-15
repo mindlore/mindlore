@@ -171,6 +171,24 @@ Also suggests installing:
 - **markitdown** — better web/document extraction (URL, DOCX, YouTube)
 - **context-mode** — token savings for large sessions
 
+## Marketplace vs npm
+
+Mindlore is distributed two ways:
+
+- **CC Plugin** (recommended for Claude Code users):
+  ```bash
+  claude plugins add mindlore
+  ```
+  Hook auto-discovery; no manual hook wiring.
+
+- **npm CLI** (standalone, CI, or non-CC environments):
+  ```bash
+  npx mindlore
+  ```
+  Bare CLI; you wire hooks yourself if you want them.
+
+Choose plugin if you use Claude Code; choose npm if you need the CLI without CC plumbing.
+
 ## How It Works
 
 Mindlore operates through Claude Code lifecycle hooks — invisible background scripts
