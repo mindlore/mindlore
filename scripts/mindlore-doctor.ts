@@ -14,13 +14,11 @@ interface CheckResult {
   expected?: number;
 }
 
-const FALLBACK_HOOKS = [
-  'mindlore-session-focus', 'mindlore-search', 'mindlore-decision-detector',
-  'mindlore-index', 'mindlore-fts5-sync', 'mindlore-session-end',
-  'mindlore-pre-compact', 'mindlore-post-compact', 'mindlore-read-guard',
-  'mindlore-post-read', 'mindlore-dont-repeat', 'mindlore-cwd-changed',
-  'mindlore-model-router', 'mindlore-research-guard',
-];
+function getFallbackHooks(): string[] {
+  const hooksDir = path.resolve(__dirname, '..', 'hooks');
+  const { getSyncScripts } = require('../hooks/lib/sync-scripts.cjs');
+  return getSyncScripts(hooksDir).map((p: string) => path.basename(p, '.cjs'));
+}
 
 export function loadExpectedHooks(): string[] {
   const candidates = [
@@ -28,7 +26,7 @@ export function loadExpectedHooks(): string[] {
     path.resolve(__dirname, '..', 'plugin.json'),
   ];
   const pluginPath = candidates.find(p => fs.existsSync(p));
-  if (!pluginPath) return FALLBACK_HOOKS;
+  if (!pluginPath) return getFallbackHooks();
   try {
     const raw = readJsonFile<Record<string, unknown>>(pluginPath);
     if (Array.isArray(raw.hooks)) {
@@ -40,7 +38,7 @@ export function loadExpectedHooks(): string[] {
       if (names.length > 0) return names;
     }
   } catch { /* fallback */ }
-  return FALLBACK_HOOKS;
+  return getFallbackHooks();
 }
 
 const EXPECTED_HOOKS = loadExpectedHooks();

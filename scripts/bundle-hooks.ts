@@ -6,9 +6,8 @@ const PROJECT_ROOT = join(__dirname, '..');
 const HOOKS_SRC = join(PROJECT_ROOT, 'hooks', 'src');
 const HOOKS_OUT = join(PROJECT_ROOT, 'hooks');
 
-const entryPoints = readdirSync(HOOKS_SRC)
-  .filter(f => f.startsWith('mindlore-') && f.endsWith('.cjs'))
-  .map(f => join(HOOKS_SRC, f));
+const { getSyncScripts } = require('../hooks/lib/sync-scripts.cjs');
+const entryPoints = getSyncScripts(HOOKS_SRC);
 
 const SCRIPTS_DIR = join(PROJECT_ROOT, 'dist', 'scripts');
 const SYNC_SCRIPTS = existsSync(SCRIPTS_DIR)
