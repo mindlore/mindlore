@@ -53,7 +53,7 @@ async function main() {
     build({
       ...BASE_CONFIG,
       entryPoints,
-      external: ['better-sqlite3', './lib/secure-io.cjs', './lib/mindlore-common.cjs'],
+      external: ['better-sqlite3', './lib/secure-io.cjs', './lib/mindlore-common.cjs', './lib/learnings-loader.cjs'],
       plugins: [distRedirect],
     }),
     ...(scriptEntries.length > 0 ? [build({

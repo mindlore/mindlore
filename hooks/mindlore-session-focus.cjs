@@ -585,7 +585,8 @@ var require_all_migrations = __commonJS({
 // hooks/src/mindlore-session-focus.cjs
 var fs = require("fs");
 var path = require("path");
-var { findMindloreDir, readConfig, openDatabase, hasEpisodesTable, querySupersededChains, formatSupersededChains, hookLog, getProjectName, parseFrontmatter, withTelemetry, withTimeoutDb, listSnapshots, isCorruptionError, recoverCorruptDb, getNominationCounts } = require("./lib/mindlore-common.cjs");
+var { findMindloreDir, readConfig, openDatabase, hasEpisodesTable, querySupersededChains, formatSupersededChains, hookLog, getProjectName, parseFrontmatter, withTelemetry, withTimeoutDb, listSnapshots, isCorruptionError, recoverCorruptDb, getNominationCounts, resolveMindloreHome } = require("./lib/mindlore-common.cjs");
+var { loadLearningsBlock } = require("./lib/learnings-loader.cjs");
 function truncateSection(content, sectionRegex, keepCount, label) {
   const match = content.match(sectionRegex);
   if (!match) return content;
@@ -788,6 +789,16 @@ ${truncateChangedFiles(truncateCommits(deltaContent))}`);
   const outputLenAfterDb = output.reduce((s, o) => s + o.length, 0);
   sourceChars += outputLenAfterDb - outputLenBeforeDb;
   timings.db_total = Date.now() - tDb;
+  try {
+    const mindloreDir = resolveMindloreHome();
+    const project = getProjectName();
+    const learningsBlock = loadLearningsBlock(mindloreDir, project);
+    if (learningsBlock) {
+      output.push(learningsBlock);
+      sourceChars += learningsBlock.length;
+    }
+  } catch (_err) {
+  }
   timings.total = Date.now() - t0;
   hookLog("session-focus", "info", `timings: ${JSON.stringify(timings)}`);
   const budgetConfig = config?.tokenBudget ?? {};

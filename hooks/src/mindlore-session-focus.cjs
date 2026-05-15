@@ -10,7 +10,8 @@
 
 const fs = require('fs');
 const path = require('path');
-const { findMindloreDir, readConfig, openDatabase, hasEpisodesTable, querySupersededChains, formatSupersededChains, hookLog, getProjectName, parseFrontmatter, withTelemetry, withTimeoutDb, listSnapshots, isCorruptionError, recoverCorruptDb, getNominationCounts } = require('./lib/mindlore-common.cjs');
+const { findMindloreDir, readConfig, openDatabase, hasEpisodesTable, querySupersededChains, formatSupersededChains, hookLog, getProjectName, parseFrontmatter, withTelemetry, withTimeoutDb, listSnapshots, isCorruptionError, recoverCorruptDb, getNominationCounts, resolveMindloreHome } = require('./lib/mindlore-common.cjs');
+const { loadLearningsBlock } = require('./lib/learnings-loader.cjs');
 
 function truncateSection(content, sectionRegex, keepCount, label) {
   const match = content.match(sectionRegex);
@@ -227,6 +228,19 @@ function main() {
   const outputLenAfterDb = output.reduce((s, o) => s + o.length, 0);
   sourceChars += (outputLenAfterDb - outputLenBeforeDb);
   timings.db_total = Date.now() - tDb;
+
+  // Inject [Mindlore Learnings] block
+  try {
+    const mindloreDir = resolveMindloreHome();
+    const project = getProjectName();
+    const learningsBlock = loadLearningsBlock(mindloreDir, project);
+    if (learningsBlock) {
+      output.push(learningsBlock);
+      sourceChars += learningsBlock.length;
+    }
+  } catch (_err) {
+    // never block session-start on lessons loader failure
+  }
 
   timings.total = Date.now() - t0;
   hookLog('session-focus', 'info', `timings: ${JSON.stringify(timings)}`);
