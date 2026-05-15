@@ -610,8 +610,11 @@ function getEpisodeStats(db, config, project) {
   try {
     const rawCount = withTimeoutDb(
       db,
-      "SELECT COUNT(*) as cnt FROM episodes WHERE consolidation_status = 'raw' OR consolidation_status IS NULL",
-      [],
+      `SELECT COUNT(*) as cnt FROM episodes
+       WHERE (consolidation_status = 'raw' OR consolidation_status IS NULL)
+         AND kind IN ('learning','discovery','friction','decision','nomination')
+         AND project = ?`,
+      [project],
       { mode: "get" }
     );
     const cnt = rawCount?.cnt ?? 0;

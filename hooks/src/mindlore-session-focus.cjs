@@ -38,8 +38,11 @@ function getEpisodeStats(db, config, project) {
   let consolidationMsg = null;
   try {
     const rawCount = withTimeoutDb(db,
-      "SELECT COUNT(*) as cnt FROM episodes WHERE consolidation_status = 'raw' OR consolidation_status IS NULL",
-      [], { mode: 'get' });
+      `SELECT COUNT(*) as cnt FROM episodes
+       WHERE (consolidation_status = 'raw' OR consolidation_status IS NULL)
+         AND kind IN ('learning','discovery','friction','decision','nomination')
+         AND project = ?`,
+      [project], { mode: 'get' });
     const cnt = rawCount?.cnt ?? 0;
     const consolThreshold = config?.consolidation?.threshold ?? 50;
     if (cnt >= consolThreshold) {
