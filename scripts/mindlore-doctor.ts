@@ -235,7 +235,7 @@ export function checkStalePluginCache(): CheckResult {
     return {
       name: 'Plugin Cache',
       pass: false,
-      message: `Stale plugin cache: ${stale.join(', ')} (latest: ${latest}). Remove: ${stale.map(v => path.join(cacheDir, v)).join(', ')}`,
+      message: `Stale plugin cache: ${stale.join(', ')} (latest: ${latest}). Remove: ${stale.map(v => path.join(cacheDir, v)).join(', ')} — Run: npx mindlore clean-cache`,
     };
   } catch {
     return { name: 'Plugin Cache', pass: true, message: 'Plugin cache check skipped' };

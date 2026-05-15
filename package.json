@@ -4,7 +4,8 @@
   "description": "AI-native knowledge system for Claude Code",
   "type": "commonjs",
   "bin": {
-    "mindlore": "dist/scripts/init.js"
+    "mindlore": "dist/scripts/init.js",
+    "mindlore-clean-cache": "dist/scripts/mindlore-clean-cache.js"
   },
   "scripts": {
     "build": "tsc",
