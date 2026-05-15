@@ -8,6 +8,7 @@ type Database = BetterSqlite3.Database;
 
 import Database_ctor from 'better-sqlite3';
 import fs from 'fs';
+import * as vec from 'sqlite-vec';
 import { DB_BUSY_TIMEOUT_MS } from './constants.js';
 
 /**
@@ -74,7 +75,7 @@ export function withReadonlyDb<T>(
  */
 export function openDatabaseTs(
   dbPath: string,
-  options?: { readonly?: boolean }
+  options?: { readonly?: boolean; loadVec?: boolean }
 ): Database | null {
   try {
     if (!fs.existsSync(dbPath)) return null;
@@ -83,6 +84,9 @@ export function openDatabaseTs(
     if (!readonly) {
       db.pragma('journal_mode = WAL');
       db.pragma(`busy_timeout = ${DB_BUSY_TIMEOUT_MS}`);
+    }
+    if (options?.loadVec) {
+      vec.load(db);
     }
     return db;
   } catch {
