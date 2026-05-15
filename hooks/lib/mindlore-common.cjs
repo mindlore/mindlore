@@ -26,6 +26,10 @@ function globalDir() {
   return path.join(os.homedir(), MINDLORE_DIR);
 }
 
+function resolveMindloreHome() {
+  return globalDir();
+}
+
 // Convenience export — snapshot at load time for simple references.
 const GLOBAL_MINDLORE_DIR = globalDir();
 
@@ -804,6 +808,7 @@ module.exports = {
   MINDLORE_DIR,
   GLOBAL_MINDLORE_DIR,
   globalDir,
+  resolveMindloreHome,
   DB_NAME,
   SKIP_FILES,
   findMindloreDir,
