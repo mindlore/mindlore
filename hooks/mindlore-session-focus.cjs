@@ -672,6 +672,9 @@ ${formatSupersededChains(chains)}`);
   timings.db_stale = Date.now() - tStale;
   try {
     const counts = getNominationCounts(db, project);
+    if (counts.staged > 0) {
+      output.push(`[Mindlore Nomination] ${counts.staged} karar bekliyor \u2014 /mindlore-reflect ile onayla`);
+    }
     if (counts.staged >= (config?.graduation?.reflectThreshold ?? 5)) {
       output.push(`[Mindlore] ${counts.staged} bekleyen nomination var \u2014 \`/mindlore-reflect\` \xE7al\u0131\u015Ft\u0131r`);
     }

@@ -104,6 +104,9 @@ function loadDbContent({ db, baseDir, config, output, timings, latestDeltaConten
   // Auto reflect trigger (Q1) + Graduated lesson count (Q3)
   try {
     const counts = getNominationCounts(db, project);
+    if (counts.staged > 0) {
+      output.push(`[Mindlore Nomination] ${counts.staged} karar bekliyor — /mindlore-reflect ile onayla`);
+    }
     if (counts.staged >= (config?.graduation?.reflectThreshold ?? 5)) {
       output.push(`[Mindlore] ${counts.staged} bekleyen nomination var — \`/mindlore-reflect\` çalıştır`);
     }
