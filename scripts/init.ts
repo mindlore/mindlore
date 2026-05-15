@@ -592,11 +592,34 @@ function main(): void {
   try {
     const indexScript = path.join(packageRoot, 'dist', 'scripts', 'mindlore-fts5-index.js');
     if (fs.existsSync(indexScript)) {
-      execFileSync('node', [indexScript], { cwd: baseDir, stdio: 'pipe', timeout: 30000 });
+      try {
+        const DatabaseTmp: typeof import('better-sqlite3') = require('better-sqlite3');
+        const tmpDb = new DatabaseTmp(path.join(baseDir, DB_NAME));
+        tmpDb.pragma('busy_timeout = 5000');
+        tmpDb.pragma('wal_checkpoint(TRUNCATE)');
+        tmpDb.close();
+      } catch { /* checkpoint best-effort; child has its own busy_timeout */ }
+      execFileSync('node', [indexScript], {
+        cwd: baseDir,
+        stdio: ['ignore', 'pipe', 'pipe'],
+        timeout: 30000,
+        encoding: 'utf8',
+      });
       log('Auto-indexed existing files into FTS5');
     }
-  } catch (_err) {
-    log('WARNING: Auto-index failed — run: npx mindlore index');
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
+    const stderr = (err && typeof err === 'object' && 'stderr' in err) ? String((err as { stderr?: unknown }).stderr ?? '') : '';
+    log(`WARNING: Auto-index failed — ${msg}`);
+    const detail = [
+      `[${new Date().toISOString()}] auto-index error`,
+      `message: ${msg}`,
+      stderr ? `child stderr:\n${stderr}` : null,
+      err instanceof Error && err.stack ? `stack:\n${err.stack}` : null,
+    ].filter(Boolean).join('\n');
+    try {
+      fs.appendFileSync(path.join(baseDir, 'init.log'), detail + '\n');
+    } catch { /* log write should not fail init */ }
   }
 
   // Step 5: Hooks, Skills, Agents — gate on plugin detection
