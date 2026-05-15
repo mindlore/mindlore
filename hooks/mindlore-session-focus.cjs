@@ -5,6 +5,38 @@ var __commonJS = (cb, mod) => function __require() {
   return mod || (0, cb[__getOwnPropNames(cb)[0]])((mod = { exports: {} }).exports, mod), mod.exports;
 };
 
+// hooks/lib/reflect-trigger.cjs
+var require_reflect_trigger = __commonJS({
+  "hooks/lib/reflect-trigger.cjs"(exports2, module2) {
+    "use strict";
+    var REFLECT_THRESHOLD_DAYS = 7;
+    var NUDGE_COOLDOWN_HOURS = 24;
+    function isValidDate(iso) {
+      if (!iso) return false;
+      const d = new Date(iso);
+      return !isNaN(d.getTime());
+    }
+    function shouldNudgeReflect2(lastReflectIso, lastNudgeIso, now = /* @__PURE__ */ new Date()) {
+      let needsReflect;
+      if (!lastReflectIso) {
+        needsReflect = true;
+      } else if (!isValidDate(lastReflectIso)) {
+        return false;
+      } else {
+        const daysSince = (now.getTime() - new Date(lastReflectIso).getTime()) / 864e5;
+        needsReflect = daysSince >= REFLECT_THRESHOLD_DAYS;
+      }
+      if (!needsReflect) return false;
+      if (lastNudgeIso && isValidDate(lastNudgeIso)) {
+        const hoursSinceNudge = (now.getTime() - new Date(lastNudgeIso).getTime()) / 36e5;
+        if (hoursSinceNudge < NUDGE_COOLDOWN_HOURS) return false;
+      }
+      return true;
+    }
+    module2.exports = { shouldNudgeReflect: shouldNudgeReflect2, REFLECT_THRESHOLD_DAYS, NUDGE_COOLDOWN_HOURS };
+  }
+});
+
 // dist/scripts/lib/session-payload.js
 var require_session_payload = __commonJS({
   "dist/scripts/lib/session-payload.js"(exports2) {
@@ -587,6 +619,7 @@ var fs = require("fs");
 var path = require("path");
 var { findMindloreDir, readConfig, openDatabase, hasEpisodesTable, querySupersededChains, formatSupersededChains, hookLog, getProjectName, parseFrontmatter, withTelemetry, withTimeoutDb, listSnapshots, isCorruptionError, recoverCorruptDb, getNominationCounts, resolveMindloreHome } = require("./lib/mindlore-common.cjs");
 var { loadLearningsBlock } = require("./lib/learnings-loader.cjs");
+var { shouldNudgeReflect } = require_reflect_trigger();
 function truncateSection(content, sectionRegex, keepCount, label) {
   const match = content.match(sectionRegex);
   if (!match) return content;
@@ -603,7 +636,7 @@ function truncateChangedFiles(content) {
   return truncateSection(content, /(## Changed Files\n)((?:- [^\n]+\n?)+)/, 10, "dosya");
 }
 function tryOpenDb(dbPath) {
-  return openDatabase(dbPath, { readonly: true });
+  return openDatabase(dbPath, { readonly: false }) || openDatabase(dbPath, { readonly: true });
 }
 function getEpisodeStats(db, config, project) {
   const chains = querySupersededChains(db, { project, days: 7, limit: 5 });
@@ -773,6 +806,24 @@ ${truncateChangedFiles(truncateCommits(deltaContent))}`);
         }
         timings.schema_check = Date.now() - tSchema;
         loadDbContent({ db, baseDir, config, output, timings, latestDeltaContent, sessionId });
+        try {
+          const reflectRow = db.prepare(
+            "SELECT value FROM skill_memory WHERE skill_name = 'mindlore-reflect' AND key = 'last_reflect_date'"
+          ).get();
+          const nudgeRow = db.prepare(
+            "SELECT value FROM skill_memory WHERE skill_name = 'mindlore-reflect' AND key = 'last_nudge_date'"
+          ).get();
+          if (shouldNudgeReflect(reflectRow?.value ?? null, nudgeRow?.value ?? null, /* @__PURE__ */ new Date())) {
+            output.push("[Mindlore] 7+ g\xFCn reflect yap\u0131lmad\u0131 \u2014 `/mindlore-reflect` \xE7al\u0131\u015Ft\u0131r");
+            const nowIso = (/* @__PURE__ */ new Date()).toISOString();
+            db.prepare(`
+              INSERT INTO skill_memory (skill_name, key, value, updated_at)
+              VALUES ('mindlore-reflect', 'last_nudge_date', ?, ?)
+              ON CONFLICT(skill_name, key) DO UPDATE SET value = excluded.value, updated_at = excluded.updated_at
+            `).run(nowIso, nowIso);
+          }
+        } catch (_err) {
+        }
       } catch (err) {
         if (isCorruptionError(err)) {
           recoverCorruptDb(db, dbPath, "session-focus");

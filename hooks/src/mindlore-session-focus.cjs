@@ -12,6 +12,7 @@ const fs = require('fs');
 const path = require('path');
 const { findMindloreDir, readConfig, openDatabase, hasEpisodesTable, querySupersededChains, formatSupersededChains, hookLog, getProjectName, parseFrontmatter, withTelemetry, withTimeoutDb, listSnapshots, isCorruptionError, recoverCorruptDb, getNominationCounts, resolveMindloreHome } = require('./lib/mindlore-common.cjs');
 const { loadLearningsBlock } = require('./lib/learnings-loader.cjs');
+const { shouldNudgeReflect } = require('../lib/reflect-trigger.cjs');
 
 function truncateSection(content, sectionRegex, keepCount, label) {
   const match = content.match(sectionRegex);
@@ -31,7 +32,7 @@ function truncateChangedFiles(content) {
 }
 
 function tryOpenDb(dbPath) {
-  return openDatabase(dbPath, { readonly: true });
+  return openDatabase(dbPath, { readonly: false }) || openDatabase(dbPath, { readonly: true });
 }
 
 function getEpisodeStats(db, config, project) {
@@ -216,6 +217,27 @@ function main() {
         timings.schema_check = Date.now() - tSchema;
 
         loadDbContent({ db, baseDir, config, output, timings, latestDeltaContent, sessionId });
+
+        // Auto-reflect nudge (7-day threshold + 24h cooldown)
+        try {
+          const reflectRow = db.prepare(
+            "SELECT value FROM skill_memory WHERE skill_name = 'mindlore-reflect' AND key = 'last_reflect_date'"
+          ).get();
+          const nudgeRow = db.prepare(
+            "SELECT value FROM skill_memory WHERE skill_name = 'mindlore-reflect' AND key = 'last_nudge_date'"
+          ).get();
+          if (shouldNudgeReflect(reflectRow?.value ?? null, nudgeRow?.value ?? null, new Date())) {
+            output.push('[Mindlore] 7+ gün reflect yapılmadı — `/mindlore-reflect` çalıştır');
+            const nowIso = new Date().toISOString();
+            db.prepare(`
+              INSERT INTO skill_memory (skill_name, key, value, updated_at)
+              VALUES ('mindlore-reflect', 'last_nudge_date', ?, ?)
+              ON CONFLICT(skill_name, key) DO UPDATE SET value = excluded.value, updated_at = excluded.updated_at
+            `).run(nowIso, nowIso);
+          }
+        } catch (_err) {
+          // never block session-start on nudge failure
+        }
       } catch (err) {
         if (isCorruptionError(err)) {
           recoverCorruptDb(db, dbPath, 'session-focus');
