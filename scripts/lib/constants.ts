@@ -160,6 +160,8 @@ export const TYPE_TO_DIR: Record<string, string> = {
  * CC memory path pattern for FileChanged hook matching.
  * Matches: ~/.claude/projects/{name}/memory/{file}.md
  */
+export const CC_PLUGIN_CACHE_DIR = path.join(os.homedir(), '.claude', 'plugins', 'cache');
+
 export const CC_MEMORY_PATH_MARKER = path.join('.claude', 'projects');
 export const CC_MEMORY_DIR = 'memory';
 export const CC_MEMORY_CATEGORY = 'cc-memory';

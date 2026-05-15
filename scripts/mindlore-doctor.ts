@@ -2,8 +2,7 @@
 
 import fs from 'fs';
 import path from 'path';
-import os from 'os';
-import { GLOBAL_MINDLORE_DIR, DB_NAME } from './lib/constants.js';
+import { GLOBAL_MINDLORE_DIR, DB_NAME, CC_PLUGIN_CACHE_DIR } from './lib/constants.js';
 import { errMsg } from './lib/err-msg.js';
 import { readJsonFile } from './lib/safe-parse.js';
 
@@ -219,7 +218,7 @@ export function checkStaleLocalDb(cwd: string): CheckResult {
 }
 
 export function checkStalePluginCache(): CheckResult {
-  const cacheDir = path.join(os.homedir(), '.claude', 'plugins', 'cache', 'mindlore', 'mindlore');
+  const cacheDir = path.join(CC_PLUGIN_CACHE_DIR, 'mindlore', 'mindlore');
   if (!fs.existsSync(cacheDir)) return { name: 'Plugin Cache', pass: true, message: 'No plugin cache found' };
 
   try {
@@ -243,7 +242,7 @@ export function checkStalePluginCache(): CheckResult {
 }
 
 export function checkStaleTempDirs(): CheckResult {
-  const cacheRoot = path.join(os.homedir(), '.claude', 'plugins', 'cache');
+  const cacheRoot = CC_PLUGIN_CACHE_DIR;
   if (!fs.existsSync(cacheRoot)) return { name: 'Stale Temp Dirs', pass: true, message: 'No plugin cache root' };
 
   try {

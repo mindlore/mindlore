@@ -1,8 +1,8 @@
 import fs from 'fs';
 import path from 'path';
-import { homedir } from './constants.js';
+import { CC_PLUGIN_CACHE_DIR } from './constants.js';
 
 export function detectPluginInstalled(): boolean {
-  const pluginCacheDir = path.join(homedir(), '.claude', 'plugins', 'cache', 'mindlore');
+  const pluginCacheDir = path.join(CC_PLUGIN_CACHE_DIR, 'mindlore');
   return fs.existsSync(pluginCacheDir);
 }

@@ -1,11 +1,7 @@
 #!/usr/bin/env node
 import path from 'path';
-import os from 'os';
 import fs from 'fs';
-
-function ccPluginCacheDir(): string {
-  return path.join(os.homedir(), '.claude', 'plugins', 'cache');
-}
+import { CC_PLUGIN_CACHE_DIR } from './lib/constants.js';
 
 function compareSemver(a: string, b: string): number {
   const pa = a.split('.').map(Number);
@@ -18,7 +14,7 @@ function compareSemver(a: string, b: string): number {
 
 function main(): void {
   const dryRun = process.argv.includes('--dry-run');
-  const cache = ccPluginCacheDir();
+  const cache = CC_PLUGIN_CACHE_DIR;
   if (!fs.existsSync(cache)) {
     console.log('No CC plugin cache dir; nothing to clean.');
     return;
