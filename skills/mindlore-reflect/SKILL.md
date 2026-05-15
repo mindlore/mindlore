@@ -91,14 +91,16 @@ Onaylamak istediklerini sec, veya 'skip':
 
 8. **Nomination approval flow:**
    User approves -> `status: staged -> approved` -> write to target:
-   - `learnings` -> `learnings/{topic}.md`
-   - `claude.md` -> project CLAUDE.md'ye kural ekle
-   - `domain:{slug}` -> ilgili domain sayfasina ekle
+   - **`learnings/{topic}.md`** (DEFAULT — selected if user presses Enter / leaves blank)
+   - `claude.md` -> project CLAUDE.md'ye kural ekle (opt-in)
+   - `domain:{slug}` -> ilgili domain sayfasina ekle (opt-in)
 
    Approval SQL:
    ```sql
    UPDATE episodes SET status = 'approved', graduated_at = datetime('now') WHERE id = ?
    ```
+
+   When writing to `learnings/`, also write `project: <currentProject|global>` to the lesson frontmatter (A4 dependency).
 
    User rejects -> `status: staged -> rejected` + rejection reason
 
