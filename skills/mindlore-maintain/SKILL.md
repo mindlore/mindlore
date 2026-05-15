@@ -12,7 +12,7 @@ Resolve `MINDLORE_PKG` (package root) using one of these methods, in order:
 1. If CC injected "Base directory for this skill: /path/to/skills/mindlore-maintain" → `MINDLORE_PKG = {base_directory}/../..`
 2. Fallback: run `node -e "console.log(require('path').join(require('child_process').execSync('npm root -g',{encoding:'utf8'}).trim(),'mindlore')))"`
 
-Use: `node "$MINDLORE_PKG/dist/scripts/..."` for all script commands.
+Use: `node "$MINDLORE_PKG/dist/scripts/lib/skill-runner.js" mindlore-maintain <script> [args...]` for all script commands.
 
 # /mindlore-maintain
 
@@ -97,7 +97,7 @@ KB bakım skill'i. Reflect düşünür, maintain temizler.
 
 1. Deterministic wiki-lint:
    ```bash
-   node "$MINDLORE_PKG/dist/scripts/mindlore-health-check.js" ~/.mindlore 2>/dev/null | grep -A 5 'contradiction'
+   node "$MINDLORE_PKG/dist/scripts/lib/skill-runner.js" mindlore-maintain mindlore-health-check.js ~/.mindlore 2>/dev/null | grep -A 5 'contradiction'
    ```
 
 2. Semantic analiz (opsiyonel, token harcar)

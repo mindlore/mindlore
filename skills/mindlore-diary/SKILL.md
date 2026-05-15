@@ -10,7 +10,7 @@ Resolve `MINDLORE_PKG` (package root) using one of these methods, in order:
 1. If CC injected "Base directory for this skill: /path/to/skills/mindlore-diary" → `MINDLORE_PKG = {base_directory}/../..`
 2. Fallback: run `node -e "console.log(require('path').join(require('child_process').execSync('npm root -g',{encoding:'utf8'}).trim(),'mindlore')))"`
 
-Use: `node "$MINDLORE_PKG/dist/scripts/..."` for all script commands.
+Use: `node "$MINDLORE_PKG/dist/scripts/lib/skill-runner.js" mindlore-diary <script> [args...]` for all script commands.
 
 # /mindlore-diary
 
@@ -27,7 +27,7 @@ Determine target using `getActiveMindloreDir()` logic:
 ## On Start — Read skill_memory
 
 ```bash
-node "$MINDLORE_PKG/dist/scripts/lib/skill-memory.js" get mindlore-diary last_diary_date
+node "$MINDLORE_PKG/dist/scripts/lib/skill-runner.js" mindlore-diary lib/skill-memory.js get mindlore-diary last_diary_date
 ```
 If last_diary_date is today, warn: "Diary already ran today. Continue anyway?"
 
@@ -73,8 +73,8 @@ If last_diary_date is today, warn: "Diary already ran today. Continue anyway?"
 ## On End — Write skill_memory
 
 ```bash
-node "$MINDLORE_PKG/dist/scripts/lib/skill-memory.js" set mindlore-diary last_diary_date "$(date -I)"
-node "$MINDLORE_PKG/dist/scripts/lib/skill-memory.js" set mindlore-diary last_episode_count "{N}"
+node "$MINDLORE_PKG/dist/scripts/lib/skill-runner.js" mindlore-diary lib/skill-memory.js set mindlore-diary last_diary_date "$(date -I)"
+node "$MINDLORE_PKG/dist/scripts/lib/skill-runner.js" mindlore-diary lib/skill-memory.js set mindlore-diary last_episode_count "{N}"
 ```
 
 ## Rules

@@ -15,7 +15,7 @@ Resolve `MINDLORE_PKG` (package root) using one of these methods, in order:
 1. If CC injected "Base directory for this skill: /path/to/skills/mindlore-query" → `MINDLORE_PKG = {base_directory}/../..`
 2. Fallback: run `node -e "console.log(require('path').join(require('child_process').execSync('npm root -g',{encoding:'utf8'}).trim(),'mindlore')))"`
 
-Use: `node "$MINDLORE_PKG/dist/scripts/..."` for all script commands.
+Use: `node "$MINDLORE_PKG/dist/scripts/lib/skill-runner.js" mindlore-query <script> [args...]` for all script commands.
 
 ## Scope
 

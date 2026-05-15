@@ -10,7 +10,7 @@ Resolve `MINDLORE_PKG` (package root) using one of these methods, in order:
 1. If CC injected "Base directory for this skill: /path/to/skills/mindlore-reflect" → `MINDLORE_PKG = {base_directory}/../..`
 2. Fallback: run `node -e "console.log(require('path').join(require('child_process').execSync('npm root -g',{encoding:'utf8'}).trim(),'mindlore')))"`
 
-Use: `node "$MINDLORE_PKG/dist/scripts/..."` for all script commands.
+Use: `node "$MINDLORE_PKG/dist/scripts/lib/skill-runner.js" mindlore-reflect <script> [args...]` for all script commands.
 
 # /mindlore-reflect
 
@@ -25,8 +25,8 @@ Scans both project + global `~/.mindlore/` diary/ for patterns.
 ## On Start — Check pending nominations + skill_memory
 
 ```bash
-node "$MINDLORE_PKG/dist/scripts/lib/skill-memory.js" get mindlore-reflect last_reflect_date
-node "$MINDLORE_PKG/dist/scripts/lib/skill-memory.js" get mindlore-reflect nomination_count
+node "$MINDLORE_PKG/dist/scripts/lib/skill-runner.js" mindlore-reflect lib/skill-memory.js get mindlore-reflect last_reflect_date
+node "$MINDLORE_PKG/dist/scripts/lib/skill-runner.js" mindlore-reflect lib/skill-memory.js get mindlore-reflect nomination_count
 ```
 
 Check pending nominations:
@@ -110,8 +110,8 @@ Onaylamak istediklerini sec, veya 'skip':
 ## On End — Write skill_memory
 
 ```bash
-node "$MINDLORE_PKG/dist/scripts/lib/skill-memory.js" set mindlore-reflect last_reflect_date "$(date -I)"
-node "$MINDLORE_PKG/dist/scripts/lib/skill-memory.js" set mindlore-reflect nomination_count "{staged_count}"
+node "$MINDLORE_PKG/dist/scripts/lib/skill-runner.js" mindlore-reflect lib/skill-memory.js set mindlore-reflect last_reflect_date "$(date -I)"
+node "$MINDLORE_PKG/dist/scripts/lib/skill-runner.js" mindlore-reflect lib/skill-memory.js set mindlore-reflect nomination_count "{staged_count}"
 ```
 
 ## Quick Health Summary (v0.5.3)

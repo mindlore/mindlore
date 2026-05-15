@@ -11,7 +11,7 @@ allowed-tools: [Bash, Read]
 Resolve `MINDLORE_PKG` (package root) using one of these methods, in order:
 1. If CC injected "Base directory for this skill: /path/to/skills/mindlore-health" → `MINDLORE_PKG = {base_directory}/../..`
 2. Fallback: run `node -e "console.log(require('path').join(require('child_process').execSync('npm root -g',{encoding:'utf8'}).trim(),'mindlore')))"`
-Use: `node "$MINDLORE_PKG/dist/scripts/..."` for all script commands.
+Use: `node "$MINDLORE_PKG/dist/scripts/lib/skill-runner.js" mindlore-health <script> [args...]` for all script commands.
 
 # /mindlore-health
 
@@ -33,7 +33,7 @@ User says "health check", "mindlore health", "bilgi sistemi kontrol", "saglik ko
 
 1. Run the health check script:
    ```bash
-   node "$MINDLORE_PKG/dist/scripts/mindlore-health-check.js"
+   node "$MINDLORE_PKG/dist/scripts/lib/skill-runner.js" mindlore-health mindlore-health-check.js
    ```
 
 2. Read the output and provide LLM interpretation:

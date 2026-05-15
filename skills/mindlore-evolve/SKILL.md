@@ -12,7 +12,7 @@ Resolve `MINDLORE_PKG` (package root) using one of these methods, in order:
 1. If CC injected "Base directory for this skill: /path/to/skills/mindlore-evolve" → `MINDLORE_PKG = {base_directory}/../..`
 2. Fallback: run `node -e "console.log(require('path').join(require('child_process').execSync('npm root -g',{encoding:'utf8'}).trim(),'mindlore')))"`
 
-Use: `node "$MINDLORE_PKG/dist/scripts/..."` for all script commands.
+Use: `node "$MINDLORE_PKG/dist/scripts/lib/skill-runner.js" mindlore-evolve <script> [args...]` for all script commands.
 
 # /mindlore-evolve
 
@@ -107,7 +107,7 @@ Apply suggested changes with user approval.
 **Rules:**
 - NEVER make automatic changes — always require user approval
 - Show diff preview before applying
-- After changes, run `node "$MINDLORE_PKG/dist/scripts/mindlore-fts5-index.js"` for FTS5 sync
+- After changes, run `node "$MINDLORE_PKG/dist/scripts/lib/skill-runner.js" mindlore-evolve mindlore-fts5-index.js` for FTS5 sync
 - Log every change to log.md with timestamp
 - The `[mindlore:evolve]` marker in the Agent prompt is required — it triggers the model-router hook to use the cost-optimized model (sonnet by default)
 
