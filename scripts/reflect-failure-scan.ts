@@ -1,24 +1,13 @@
 #!/usr/bin/env node
 import path from 'path';
-import os from 'os';
 import { scanFailures } from './lib/telemetry-scan.js';
 import { openDatabaseTs } from './lib/db-helpers.js';
-
-function mindloreHome(): string {
-  return process.env.MINDLORE_HOME ?? path.join(os.homedir(), '.mindlore');
-}
-
-function resolveProject(): string {
-  if (process.env.MINDLORE_PROJECT) return process.env.MINDLORE_PROJECT;
-  const cwd = process.cwd();
-  const base = cwd.split(/[\\/]/).pop() || 'global';
-  return base.toLowerCase();
-}
+import { DB_NAME, resolveMindloreHome, resolveProject, resolveTelemetryPath } from './lib/constants.js';
 
 function main(): void {
-  const home = mindloreHome();
-  const telemetryPath = path.join(home, 'telemetry.jsonl');
-  const dbPath = path.join(home, 'mindlore.db');
+  const home = resolveMindloreHome();
+  const telemetryPath = resolveTelemetryPath();
+  const dbPath = path.join(home, DB_NAME);
   const failures = scanFailures(telemetryPath);
   if (failures.length === 0) {
     console.log('No skill failures detected.');

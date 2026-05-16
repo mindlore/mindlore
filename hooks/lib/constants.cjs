@@ -3,7 +3,7 @@
 const EPISODE_KINDS = [
   'session', 'decision', 'event', 'preference',
   'learning', 'friction', 'discovery', 'nomination',
-  'session-summary'
+  'session-summary', 'skill_failure'
 ];
 
 function isValidKind(kind) {

@@ -1,25 +1,12 @@
 const fs = require('fs');
 const path = require('path');
+const { parseFrontmatter, hookLog } = require('./mindlore-common.cjs');
 
 const MAX_LESSONS = 10;
 const MAX_LINES_PER_LESSON = 5;
 const TOTAL_CHAR_BUDGET = 6000;
 
-function parseFrontmatter(content) {
-  if (!content.startsWith('---\n')) return { frontmatter: {}, body: content };
-  const end = content.indexOf('\n---\n', 4);
-  if (end === -1) return { frontmatter: {}, body: content };
-  const fmRaw = content.slice(4, end);
-  const body = content.slice(end + 5);
-  const frontmatter = {};
-  for (const line of fmRaw.split('\n')) {
-    const m = line.match(/^([\w-]+):\s*(.+)$/);
-    if (m) frontmatter[m[1]] = m[2].trim();
-  }
-  return { frontmatter, body };
-}
-
-function summarizeLesson(filePath, body, slug, relPath) {
+function summarizeLesson(body, relPath) {
   const lines = body.split('\n');
   const h2Idx = lines.findIndex(l => l.startsWith('## '));
   const start = h2Idx >= 0 ? h2Idx : 0;
@@ -36,33 +23,42 @@ function loadLearningsBlock(mindloreDir, currentProject) {
   const files = fs.readdirSync(learningsDir).filter(f => f.endsWith('.md'));
   if (files.length === 0) return '';
 
-  const candidates = [];
+  const stats = [];
   for (const f of files) {
     const abs = path.join(learningsDir, f);
+    try {
+      const stat = fs.statSync(abs);
+      stats.push({ file: f, abs, mtime: stat.mtimeMs });
+    } catch (err) {
+      hookLog('learnings-loader', 'warn', `stat skipped ${f}: ${err.message}`);
+    }
+  }
+  stats.sort((a, b) => b.mtime - a.mtime);
+
+  const candidates = [];
+  for (const s of stats) {
+    if (candidates.length >= MAX_LESSONS) break;
     let raw;
-    try { raw = fs.readFileSync(abs, 'utf8'); } catch { continue; }
-    const { frontmatter, body } = parseFrontmatter(raw);
-    const project = frontmatter.project || 'global';
+    try { raw = fs.readFileSync(s.abs, 'utf8'); } catch (err) {
+      hookLog('learnings-loader', 'warn', `read skipped ${s.file}: ${err.message}`);
+      continue;
+    }
+    const { meta, body } = parseFrontmatter(raw);
+    const project = meta.project || 'global';
     if (project !== 'global' && project !== currentProject) continue;
-    const stat = fs.statSync(abs);
     candidates.push({
-      file: f,
-      relPath: `.mindlore/learnings/${f}`,
-      mtime: stat.mtimeMs,
+      relPath: `.mindlore/learnings/${s.file}`,
       body,
     });
   }
 
   if (candidates.length === 0) return '';
 
-  candidates.sort((a, b) => b.mtime - a.mtime);
-
   let block = '[Mindlore Learnings]\n';
   let used = block.length;
   let count = 0;
   for (const c of candidates) {
-    if (count >= MAX_LESSONS) break;
-    const piece = summarizeLesson(c.file, c.body, c.file, c.relPath) + '\n\n';
+    const piece = summarizeLesson(c.body, c.relPath) + '\n\n';
     if (used + piece.length > TOTAL_CHAR_BUDGET && count > 0) break;
     block += piece;
     used += piece.length;

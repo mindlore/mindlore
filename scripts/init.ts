@@ -18,7 +18,7 @@ import type { Settings } from './lib/constants.js';
 import { countMindloreHooks } from './lib/hook-helpers.js';
 import { cleanupLegacyHooks } from './lib/settings-cleanup.js';
 import { detectPluginInstalled } from './lib/detect-plugin.js';
-import { dbPragma } from './lib/db-helpers.js';
+import { dbPragma, openDatabaseTs } from './lib/db-helpers.js';
 import { mergeDefaults } from './lib/merge-defaults.js';
 import { parseJsonObject, readJsonFile } from './lib/safe-parse.js';
 import { ensureSchemaTable, runMigrations } from './lib/schema-version.js';
@@ -593,12 +593,20 @@ function main(): void {
     const indexScript = path.join(packageRoot, 'dist', 'scripts', 'mindlore-fts5-index.js');
     if (fs.existsSync(indexScript)) {
       try {
-        const DatabaseTmp: typeof import('better-sqlite3') = require('better-sqlite3');
-        const tmpDb = new DatabaseTmp(path.join(baseDir, DB_NAME));
-        tmpDb.pragma('busy_timeout = 5000');
-        tmpDb.pragma('wal_checkpoint(TRUNCATE)');
-        tmpDb.close();
-      } catch { /* checkpoint best-effort; child has its own busy_timeout */ }
+        const tmpDb = openDatabaseTs(path.join(baseDir, DB_NAME));
+        if (tmpDb) {
+          tmpDb.pragma('wal_checkpoint(TRUNCATE)');
+          tmpDb.close();
+        }
+      } catch (cpErr) {
+        const cpMsg = cpErr instanceof Error ? cpErr.message : String(cpErr);
+        try {
+          fs.appendFileSync(
+            path.join(baseDir, 'init.log'),
+            `[${new Date().toISOString()}] wal_checkpoint failed: ${cpMsg}\n`,
+          );
+        } catch { /* log write should not fail init */ }
+      }
       execFileSync('node', [indexScript], {
         cwd: baseDir,
         stdio: ['ignore', 'pipe', 'pipe'],

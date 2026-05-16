@@ -200,6 +200,36 @@ export function getProjectName(): string {
 }
 
 /**
+ * Project name resolution honoring MINDLORE_PROJECT env override.
+ * Used by skill-runner/telemetry consumers where the project label must
+ * survive subprocess boundaries and tests may want to pin a value.
+ */
+export function resolveProject(): string {
+  if (process.env.MINDLORE_PROJECT) return process.env.MINDLORE_PROJECT;
+  return getProjectName().toLowerCase();
+}
+
+/**
+ * Single-source MINDLORE_HOME resolver — honors env override.
+ * Identical evaluation to GLOBAL_MINDLORE_DIR but as a function so callers
+ * pick up env changes after module load (e.g., tests setting MINDLORE_HOME).
+ */
+export function resolveMindloreHome(): string {
+  return process.env.MINDLORE_HOME ?? path.join(os.homedir(), MINDLORE_DIR);
+}
+
+export const TELEMETRY_FILENAME = 'telemetry.jsonl';
+export const TELEMETRY_OUTPUT_MAX_BYTES = 4000;
+export const TELEMETRY_FILE_ROTATE_BYTES = 10 * 1024 * 1024;
+
+/**
+ * Resolve telemetry.jsonl path — honors MINDLORE_TELEMETRY_PATH for tests.
+ */
+export function resolveTelemetryPath(): string {
+  return process.env.MINDLORE_TELEMETRY_PATH ?? path.join(resolveMindloreHome(), TELEMETRY_FILENAME);
+}
+
+/**
  * Shared log helper — indented console output for init/uninstall scripts.
  */
 export function log(msg: string): void {

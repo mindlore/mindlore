@@ -1,13 +1,13 @@
 #!/usr/bin/env node
 import { spawnSync } from 'child_process';
-import { appendFileSync, existsSync, mkdirSync } from 'fs';
-import { dirname, join, isAbsolute } from 'path';
-import os from 'os';
-
-function telemetryPath(): string {
-  if (process.env.MINDLORE_TELEMETRY_PATH) return process.env.MINDLORE_TELEMETRY_PATH;
-  return join(os.homedir(), '.mindlore', 'telemetry.jsonl');
-}
+import { appendFileSync, existsSync, mkdirSync, renameSync, statSync } from 'fs';
+import { dirname, isAbsolute, join } from 'path';
+import {
+  resolveProject,
+  resolveTelemetryPath,
+  TELEMETRY_FILE_ROTATE_BYTES,
+  TELEMETRY_OUTPUT_MAX_BYTES,
+} from './constants.js';
 
 function resolveScript(arg: string): string {
   if (isAbsolute(arg) && existsSync(arg)) return arg;
@@ -20,14 +20,29 @@ function resolveScript(arg: string): string {
 
 function scriptId(scriptPath: string): string {
   const base = scriptPath.split(/[\\/]/).pop() ?? scriptPath;
-  return base.replace(/\.js$/, '');
+  return base.replace(/\.(js|cjs|mjs|ts)$/, '');
 }
 
-function resolveProject(): string {
-  if (process.env.MINDLORE_PROJECT) return process.env.MINDLORE_PROJECT;
-  const cwd = process.cwd();
-  const base = cwd.split(/[\\/]/).pop() || 'global';
-  return base.toLowerCase();
+function rotateIfNeeded(p: string): void {
+  try {
+    const size = statSync(p).size;
+    if (size >= TELEMETRY_FILE_ROTATE_BYTES) {
+      renameSync(p, `${p}.1`);
+    }
+  } catch { /* file may not exist yet; ENOENT is fine */ }
+}
+
+function writeTelemetry(entry: object): void {
+  try {
+    const p = resolveTelemetryPath();
+    const dir = dirname(p);
+    if (!existsSync(dir)) mkdirSync(dir, { recursive: true });
+    rotateIfNeeded(p);
+    appendFileSync(p, JSON.stringify(entry) + '\n');
+  } catch (err) {
+    // telemetry write failure must not break skill execution; surface once to stderr
+    process.stderr.write(`[skill-runner] telemetry write failed: ${(err as Error).message}\n`);
+  }
 }
 
 function main(): void {
@@ -47,23 +62,15 @@ function main(): void {
   if (result.stdout) process.stdout.write(result.stdout);
   if (result.stderr) process.stderr.write(result.stderr);
   const captured = (result.stderr ?? '') + (result.stdout ?? '');
-  const entry = {
+  writeTelemetry({
     ts: new Date().toISOString(),
     skill,
     script: scriptId(scriptPath),
     duration_ms,
     ok: result.status === 0,
     exit_code: result.status ?? -1,
-    output: captured.slice(-4000),
-  };
-  try {
-    const p = telemetryPath();
-    const dir = dirname(p);
-    if (!existsSync(dir)) mkdirSync(dir, { recursive: true });
-    appendFileSync(p, JSON.stringify(entry) + '\n');
-  } catch {
-    // telemetry write failure should never break skill execution
-  }
+    output: captured.slice(-TELEMETRY_OUTPUT_MAX_BYTES),
+  });
   process.exit(result.status ?? 1);
 }
 
