@@ -1,5 +1,4 @@
-const REFLECT_THRESHOLD_DAYS = 7;
-const NUDGE_COOLDOWN_HOURS = 24;
+const { REFLECT_THRESHOLD_DAYS, NUDGE_COOLDOWN_HOURS } = require('../../dist/scripts/lib/constants.js');
 
 function isValidDate(iso) {
   if (!iso) return false;
