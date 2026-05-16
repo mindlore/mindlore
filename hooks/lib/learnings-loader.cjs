@@ -14,6 +14,19 @@ function summarizeLesson(body, relPath) {
   return slice + rest;
 }
 
+function readProjectField(filePath) {
+  const buf = Buffer.alloc(512);
+  const fd = fs.openSync(filePath, 'r');
+  try {
+    const n = fs.readSync(fd, buf, 0, 512, 0);
+    const head = buf.subarray(0, n).toString('utf8');
+    const m = head.match(/^project:\s*(.+)$/m);
+    return m ? m[1].trim() : undefined;
+  } finally {
+    fs.closeSync(fd);
+  }
+}
+
 function loadLearningsBlock(mindloreDir, currentProject) {
   const learningsDir = path.join(mindloreDir, 'learnings');
   if (!fs.existsSync(learningsDir)) return '';
@@ -35,14 +48,14 @@ function loadLearningsBlock(mindloreDir, currentProject) {
   const candidates = [];
   for (const s of stats) {
     if (candidates.length >= LEARNINGS_MAX_LESSONS) break;
+    const project = readProjectField(s.abs) || 'global';
+    if (project !== 'global' && project !== currentProject) continue;
     let raw;
     try { raw = fs.readFileSync(s.abs, 'utf8'); } catch (err) {
       hookLog('learnings-loader', 'warn', `read skipped ${s.file}: ${err.message}`);
       continue;
     }
-    const { meta, body } = parseFrontmatter(raw);
-    const project = meta.project || 'global';
-    if (project !== 'global' && project !== currentProject) continue;
+    const { body } = parseFrontmatter(raw);
     candidates.push({
       relPath: `.mindlore/learnings/${s.file}`,
       body,
