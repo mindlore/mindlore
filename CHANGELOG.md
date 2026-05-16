@@ -22,6 +22,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Auto-index `database is locked`: parent now closes DB and runs `wal_checkpoint(TRUNCATE)` before spawning indexer; silent catch replaced with `init.log` capture.
 - Episode counter hook: SQL now uses `(consolidation_status = 'raw' OR consolidation_status IS NULL)`; excludes `session`/`session-summary` kinds from "raw episode" count.
 - sqlite-vec extension loaded once per connection (previously per-event).
+- Removed duplicate `[Mindlore Learnings]` block — episode-based path always emitted a placeholder header alongside the new file-based loader; spec L162 required no header when no learnings exist. (commit f969981)
+- `skill-runner` now captures child stdout/stderr into telemetry `output` field — `stdio: 'inherit'` previously streamed but never captured, leaving `telemetry-scan`'s failure regex matching against empty strings; failure detection pipeline was silently dead. Added E2E test to close the integration gap unit tests missed. (commit 4f86818)
+- `telemetry.jsonl` now rotates at 10MB (renamed to `.1`); skill-runner appended unbounded previously, risking long-term growth that `scanFailures`'s whole-file read would have to traverse. (commit 2d74fd2)
 
 ### Changed
 - Reflect skill: `last_reflect_date` updated only on successful completion.
