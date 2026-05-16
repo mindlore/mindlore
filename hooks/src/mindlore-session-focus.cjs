@@ -220,12 +220,12 @@ function main() {
 
         // Auto-reflect nudge (7-day threshold + 24h cooldown)
         try {
-          const reflectRow = db.prepare(
-            "SELECT value FROM skill_memory WHERE skill_name = 'mindlore-reflect' AND key = 'last_reflect_date'"
-          ).get();
-          const nudgeRow = db.prepare(
-            "SELECT value FROM skill_memory WHERE skill_name = 'mindlore-reflect' AND key = 'last_nudge_date'"
-          ).get();
+          const rows = db.prepare(
+            "SELECT key, value FROM skill_memory WHERE skill_name = 'mindlore-reflect' AND key IN ('last_reflect_date', 'last_nudge_date')"
+          ).all();
+          const byKey = Object.fromEntries(rows.map(r => [r.key, r.value]));
+          const reflectRow = byKey['last_reflect_date'] ? { value: byKey['last_reflect_date'] } : undefined;
+          const nudgeRow = byKey['last_nudge_date'] ? { value: byKey['last_nudge_date'] } : undefined;
           if (shouldNudgeReflect(reflectRow?.value ?? null, nudgeRow?.value ?? null, new Date())) {
             output.push('[Mindlore] 7+ gün reflect yapılmadı — `/mindlore-reflect` çalıştır');
             const nowIso = new Date().toISOString();
