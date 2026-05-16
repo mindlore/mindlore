@@ -26,6 +26,7 @@ import { ensureSchemaTable, runMigrations } from './lib/schema-version.js';
 import { INIT_MIGRATIONS } from './lib/all-migrations.js';
 import { safeWriteFile } from './lib/secure-io.js';
 import { errMsg } from './lib/err-msg.js';
+import { runSetupWizard, SetupAnswers } from './lib/setup-wizard.js';
 
 // eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- dynamic CJS require, typed by mindlore-common.d.cts
 const { SQL_FTS_CREATE, ensureEpisodesTable: ensureEpisodesTableCjs } = require(resolveHookCommon(__dirname)) as {
@@ -476,7 +477,21 @@ function ensureConfig(baseDir: string, packageRoot: string): boolean {
 
 // ── Main ───────────────────────────────────────────────────────────────
 
-function main(): void {
+function isInteractive(): boolean {
+  return process.stdout.isTTY === true && process.stdin.isTTY === true && !process.argv.includes('--non-interactive');
+}
+
+async function maybeRunWizard(): Promise<SetupAnswers | null> {
+  if (!isInteractive()) return null;
+  return runSetupWizard({
+    stdin: process.stdin,
+    stdout: process.stdout,
+    defaultMindloreHome: GLOBAL_MINDLORE_DIR,
+    cwd: process.cwd(),
+  });
+}
+
+async function main(): Promise<void> {
   const args = process.argv.slice(2);
   const command = args[0];
 
@@ -487,7 +502,7 @@ function main(): void {
 
   if (command === 'upgrade') {
     process.argv = [...process.argv.slice(0, 2), 'init', '--upgrade'];
-    main();
+    await main();
     return;
   }
 
@@ -547,6 +562,14 @@ function main(): void {
   const mindloreHomeSource = process.env.MINDLORE_HOME ? 'env' : 'default';
 
   const isUpgrade = process.argv.includes('--upgrade');
+
+  let wizardProjectName: string | undefined;
+  if (!isUpgrade) {
+    const wizardAnswers = await maybeRunWizard();
+    if (wizardAnswers) {
+      wizardProjectName = wizardAnswers.projectName;
+    }
+  }
   console.log(`\n  Mindlore — AI-native knowledge system [${isUpgrade ? 'upgrade' : 'global'} (~/.mindlore/)]\n`);
 
   // v0.3.3 Migration: rename existing project .mindlore/ → .mindlore.bak/
@@ -722,6 +745,18 @@ function main(): void {
       : 'config.json already configured',
   );
 
+  if (wizardProjectName) {
+    const configDest = path.join(baseDir, CONFIG_FILE);
+    try {
+      const config = readJsonFile<Record<string, unknown>>(configDest);
+      if (config.project !== wizardProjectName) {
+        config.project = wizardProjectName;
+        safeWriteJson(configDest, config);
+        log(`Set project name: ${wizardProjectName}`);
+      }
+    } catch (_err) { /* ignore config write errors */ }
+  }
+
   // Step 9: Init git repo in ~/.mindlore/ (always global now)
   const gitDir = path.join(baseDir, '.git');
   if (!fs.existsSync(gitDir)) {
@@ -814,4 +849,4 @@ function runDoctor(packageRoot: string): void {
   } catch { /* doctor failure is non-blocking */ }
 }
 
-main();
+void main();
