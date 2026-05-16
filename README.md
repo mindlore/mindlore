@@ -79,6 +79,8 @@ npx mindlore episodes count                 # Episode count per project
 | `/mindlore-evolve` | Schema co-evolution and structural updates |
 | `/mindlore-explore` | Cross-reference discovery between sources |
 | `/mindlore-maintain` | KB maintenance: decay reports, consolidation, contradiction detection |
+| `/mindlore-stats` | Context contribution and cost per session — hook calls, durations, DB stats |
+| `/mindlore-learnings` | Show full content of a learning by slug, or list all learnings |
 
 ## Agents
 
