@@ -58,6 +58,11 @@
       "name": "mindlore-stats",
       "path": "skills/mindlore-stats/SKILL.md",
       "description": "Show context contribution and cost per session — hook calls, durations, DB stats."
+    },
+    {
+      "name": "mindlore-learnings",
+      "path": "skills/mindlore-learnings/SKILL.md",
+      "description": "Show full content of a learning by slug, or list all learnings. Use when the session-focus hook truncates a learning and you need the full text."
     }
   ],
   "agents": [
