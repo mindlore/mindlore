@@ -38,6 +38,14 @@ describe('SearchThrottle', () => {
     expect(throttle.getMaxResults(25)).toBe(0);
   });
 
+  it('honors baseMax under throttle threshold (adaptive expansion)', () => {
+    const throttle = new SearchThrottle(db);
+    expect(throttle.getMaxResults(5, 5)).toBe(5);
+    expect(throttle.getMaxResults(5, 2)).toBe(2);
+    expect(throttle.getMaxResults(15, 5)).toBe(1);
+    expect(throttle.getMaxResults(25, 5)).toBe(0);
+  });
+
   it('tracks per session', () => {
     const throttle = new SearchThrottle(db);
     expect(throttle.incrementCallCount('sess-1')).toBe(1);

@@ -1115,9 +1115,12 @@ var require_search_throttle = __commonJS({
     `).get(sessionId, now, now);
         return row?.call_count ?? 1;
       }
-      getMaxResults(callCount) {
+      // baseMax: caller's adaptive ceiling (e.g. context-aware count from token estimator).
+      // Throttle's role is a safety floor under high call counts; when callCount is low,
+      // honor baseMax fully so adaptive expansion (up to 5) is reachable.
+      getMaxResults(callCount, baseMax = 3) {
         if (callCount <= 10)
-          return 3;
+          return baseMax;
         if (callCount <= 20)
           return 1;
         return 0;
@@ -1410,7 +1413,7 @@ function main() {
         cache = new SearchCacheMod.SearchCache(db, { ttlMs: 3e5 });
         const throttle = new SearchCacheMod.SearchThrottle(db);
         const callCount = throttle.incrementCallCount(sessionId);
-        effectiveMax = Math.min(baseMax, throttle.getMaxResults(callCount));
+        effectiveMax = throttle.getMaxResults(callCount, baseMax);
         if (effectiveMax === 0) {
           hookLog("search", "info", `Throttled (call #${callCount})`);
           db.close();

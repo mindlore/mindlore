@@ -20,8 +20,11 @@ export class SearchThrottle {
     return row?.call_count ?? 1;
   }
 
-  getMaxResults(callCount: number): number {
-    if (callCount <= 10) return 3;
+  // baseMax: caller's adaptive ceiling (e.g. context-aware count from token estimator).
+  // Throttle's role is a safety floor under high call counts; when callCount is low,
+  // honor baseMax fully so adaptive expansion (up to 5) is reachable.
+  getMaxResults(callCount: number, baseMax = 3): number {
+    if (callCount <= 10) return baseMax;
     if (callCount <= 20) return 1;
     return 0;
   }

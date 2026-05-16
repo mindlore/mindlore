@@ -93,10 +93,10 @@ function main() {
         cache = new SearchCacheMod.SearchCache(db, { ttlMs: 300000 });
         const throttle = new SearchCacheMod.SearchThrottle(db);
         const callCount = throttle.incrementCallCount(sessionId);
-        // Throttle returns 3/1/0 (hardcoded cap). Taking min preserves the
-        // reduce-on-high-context value of baseMax; the baseMax=5 upside is
-        // bounded by throttle's 3 until throttle module gains an adaptive cap.
-        effectiveMax = Math.min(baseMax, throttle.getMaxResults(callCount));
+        // Throttle is baseMax-aware: when callCount <= 10 it returns baseMax,
+        // so adaptive expansion (up to 5 in low-context sessions) is honored.
+        // Above 10 calls it clamps to 1, above 20 to 0 (skip).
+        effectiveMax = throttle.getMaxResults(callCount, baseMax);
         if (effectiveMax === 0) {
           hookLog('search', 'info', `Throttled (call #${callCount})`);
           db.close();
