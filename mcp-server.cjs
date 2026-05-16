@@ -12481,12 +12481,12 @@ var require_dist = __commonJS({
         throw new Error(`Unknown format "${name}"`);
       return f;
     };
-    function addFormats(ajv, list, fs10, exportName) {
+    function addFormats(ajv, list, fs9, exportName) {
       var _a3;
       var _b;
       (_a3 = (_b = ajv.opts.code).formats) !== null && _a3 !== void 0 ? _a3 : _b.formats = (0, codegen_1._)`require("ajv-formats/dist/formats").${exportName}`;
       for (const f of list)
-        ajv.addFormat(f, fs10[f]);
+        ajv.addFormat(f, fs9[f]);
     }
     module2.exports = exports2 = formatsPlugin;
     Object.defineProperty(exports2, "__esModule", { value: true });
@@ -18399,7 +18399,7 @@ var Doc = class {
 var version = {
   major: 4,
   minor: 4,
-  patch: 2
+  patch: 3
 };
 
 // node_modules/zod/v4/core/schemas.js
@@ -19998,6 +19998,7 @@ var $ZodFile = /* @__PURE__ */ $constructor("$ZodFile", (inst, def) => {
 });
 var $ZodTransform = /* @__PURE__ */ $constructor("$ZodTransform", (inst, def) => {
   $ZodType.init(inst, def);
+  inst._zod.optin = "optional";
   inst._zod.parse = (payload, ctx) => {
     if (ctx.direction === "backward") {
       throw new $ZodEncodeError(inst.constructor.name);
@@ -20007,6 +20008,7 @@ var $ZodTransform = /* @__PURE__ */ $constructor("$ZodTransform", (inst, def) =>
       const output = _out instanceof Promise ? _out : Promise.resolve(_out);
       return output.then((output2) => {
         payload.value = output2;
+        payload.fallback = true;
         return payload;
       });
     }
@@ -20014,11 +20016,12 @@ var $ZodTransform = /* @__PURE__ */ $constructor("$ZodTransform", (inst, def) =>
       throw new $ZodAsyncError();
     }
     payload.value = _out;
+    payload.fallback = true;
     return payload;
   };
 });
 function handleOptionalResult(result, input) {
-  if (result.issues.length && input === void 0) {
+  if (input === void 0 && (result.issues.length || result.fallback)) {
     return { issues: [], value: void 0 };
   }
   return result;
@@ -20036,10 +20039,11 @@ var $ZodOptional = /* @__PURE__ */ $constructor("$ZodOptional", (inst, def) => {
   });
   inst._zod.parse = (payload, ctx) => {
     if (def.innerType._zod.optin === "optional") {
+      const input = payload.value;
       const result = def.innerType._zod.run(payload, ctx);
       if (result instanceof Promise)
-        return result.then((r) => handleOptionalResult(r, payload.value));
-      return handleOptionalResult(result, payload.value);
+        return result.then((r) => handleOptionalResult(r, input));
+      return handleOptionalResult(result, input);
     }
     if (payload.value === void 0) {
       return payload;
@@ -20155,7 +20159,7 @@ var $ZodSuccess = /* @__PURE__ */ $constructor("$ZodSuccess", (inst, def) => {
 });
 var $ZodCatch = /* @__PURE__ */ $constructor("$ZodCatch", (inst, def) => {
   $ZodType.init(inst, def);
-  defineLazy(inst._zod, "optin", () => def.innerType._zod.optin);
+  inst._zod.optin = "optional";
   defineLazy(inst._zod, "optout", () => def.innerType._zod.optout);
   defineLazy(inst._zod, "values", () => def.innerType._zod.values);
   inst._zod.parse = (payload, ctx) => {
@@ -20175,6 +20179,7 @@ var $ZodCatch = /* @__PURE__ */ $constructor("$ZodCatch", (inst, def) => {
             input: payload.value
           });
           payload.issues = [];
+          payload.fallback = true;
         }
         return payload;
       });
@@ -20189,6 +20194,7 @@ var $ZodCatch = /* @__PURE__ */ $constructor("$ZodCatch", (inst, def) => {
         input: payload.value
       });
       payload.issues = [];
+      payload.fallback = true;
     }
     return payload;
   };
@@ -20234,7 +20240,7 @@ function handlePipeResult(left, next, ctx) {
     left.aborted = true;
     return left;
   }
-  return next._zod.run({ value: left.value, issues: left.issues }, ctx);
+  return next._zod.run({ value: left.value, issues: left.issues, fallback: left.fallback }, ctx);
 }
 var $ZodCodec = /* @__PURE__ */ $constructor("$ZodCodec", (inst, def) => {
   $ZodType.init(inst, def);
@@ -20288,8 +20294,6 @@ function handleCodecTxResult(left, value, nextSchema, ctx) {
 }
 var $ZodPreprocess = /* @__PURE__ */ $constructor("$ZodPreprocess", (inst, def) => {
   $ZodPipe.init(inst, def);
-  defineLazy(inst._zod, "optin", () => def.out._zod.optin);
-  defineLazy(inst._zod, "optout", () => def.out._zod.optout);
 });
 var $ZodReadonly = /* @__PURE__ */ $constructor("$ZodReadonly", (inst, def) => {
   $ZodType.init(inst, def);
@@ -30240,10 +30244,12 @@ var ZodTransform = /* @__PURE__ */ $constructor("ZodTransform", (inst, def) => {
     if (output instanceof Promise) {
       return output.then((output2) => {
         payload.value = output2;
+        payload.fallback = true;
         return payload;
       });
     }
     payload.value = output;
+    payload.fallback = true;
     return payload;
   };
 });
@@ -36555,12 +36561,11 @@ var StdioServerTransport = class {
 };
 
 // scripts/mcp-server.ts
-var import_fs9 = __toESM(require("fs"));
+var import_fs8 = __toESM(require("fs"));
 var import_path9 = __toESM(require("path"));
 
 // scripts/lib/mcp-namespace.ts
 var import_path2 = __toESM(require("path"));
-var import_fs = __toESM(require("fs"));
 var import_os2 = __toESM(require("os"));
 
 // scripts/lib/constants.ts
@@ -36787,33 +36792,31 @@ function fixVersionTokens(query) {
 }
 var RELATION_TYPES = ["cites", "extends", "contradicts", "supersedes"];
 var SYMMETRIC_TYPES = /* @__PURE__ */ new Set(["contradicts"]);
-var RELATION_PRIORITY = {
-  supersedes: 1,
-  contradicts: 2,
-  extends: 3,
-  cites: 4
-};
 var MAX_RELATED_SOURCES = 5;
 var RELATED_OVERFETCH = 10;
-function buildPriorityCase() {
-  return Object.entries(RELATION_PRIORITY).map(([type, priority]) => `WHEN '${type}' THEN ${priority}`).join(" ");
-}
+var PRIORITY_CASE = "WHEN 'supersedes' THEN 1 WHEN 'contradicts' THEN 2 WHEN 'extends' THEN 3 WHEN 'cites' THEN 4";
+var CC_PLUGIN_CACHE_DIR = import_path.default.join(import_os.default.homedir(), ".claude", "plugins", "cache");
 var CC_MEMORY_PATH_MARKER = import_path.default.join(".claude", "projects");
+var TELEMETRY_FILE_ROTATE_BYTES = 10 * 1024 * 1024;
 
 // scripts/lib/mcp-namespace.ts
 function resolveMindloreHome() {
   if (process.env.MINDLORE_HOME) {
     return import_path2.default.resolve(process.env.MINDLORE_HOME);
   }
-  const cwdLocal = import_path2.default.join(process.cwd(), MINDLORE_DIR);
-  if (import_fs.default.existsSync(cwdLocal)) {
-    return cwdLocal;
-  }
   return import_path2.default.join(import_os2.default.homedir(), MINDLORE_DIR);
 }
 
 // scripts/lib/db-helpers.ts
 var import_better_sqlite3 = __toESM(require("better-sqlite3"));
+
+// node_modules/sqlite-vec/index.mjs
+var import_node_process2 = require("node:process");
+var BASE_PACKAGE_NAME = "sqlite-vec";
+var supportedPlatforms = [["darwin", "x64"], ["linux", "x64"], ["darwin", "arm64"], ["win32", "x64"], ["linux", "arm64"]];
+var invalidPlatformErrorMessage = `Unsupported platform for ${BASE_PACKAGE_NAME}, on a ${import_node_process2.platform}-${import_node_process2.arch} machine. Supported platforms are (${supportedPlatforms.map(([p, a]) => `${p}-${a}`).join(",")}). Consult the ${BASE_PACKAGE_NAME} NPM package README for details.`;
+
+// scripts/lib/db-helpers.ts
 function dbGet(db, sql, ...params) {
   const result = db.prepare(sql).get(...params);
   if (result === void 0) return void 0;
@@ -37248,7 +37251,7 @@ function assertSlugExists(db, slug) {
 }
 var symmetricPlaceholders = Array.from(SYMMETRIC_TYPES).map(() => "?").join(",");
 var symmetricValues = [...SYMMETRIC_TYPES];
-var priorityCaseExpr = buildPriorityCase();
+var priorityCaseExpr = PRIORITY_CASE;
 var RELATIONS_SQL = `
   SELECT * FROM (
     SELECT source_b AS source, relation_type, 'outgoing' AS direction
@@ -37323,13 +37326,13 @@ function handleSearch(ctx, input) {
 }
 
 // scripts/lib/tool-adapters/stats-adapter.ts
-var import_fs2 = __toESM(require("fs"));
+var import_fs = __toESM(require("fs"));
 var import_path3 = __toESM(require("path"));
 var COUNTED_DIRS = ["sources", "episodes", "decisions", "learnings"];
 var MODULE_VERSION = (() => {
   try {
     const pkgPath = import_path3.default.join(__dirname, "..", "..", "..", "..", "package.json");
-    const pkg = JSON.parse(import_fs2.default.readFileSync(pkgPath, "utf8"));
+    const pkg = JSON.parse(import_fs.default.readFileSync(pkgPath, "utf8"));
     return pkg.version ?? "0.0.0";
   } catch {
     return "0.0.0";
@@ -37342,7 +37345,7 @@ function formatSize(bytes) {
 }
 function countDir(dirPath) {
   try {
-    return import_fs2.default.readdirSync(dirPath).filter((f) => f.endsWith(".md")).length;
+    return import_fs.default.readdirSync(dirPath).filter((f) => f.endsWith(".md")).length;
   } catch {
     return 0;
   }
@@ -37354,7 +37357,7 @@ function handleStats(ctx) {
   );
   let dbSize = "0 B";
   try {
-    dbSize = formatSize(import_fs2.default.statSync(import_path3.default.join(ctx.baseDir, DB_NAME)).size);
+    dbSize = formatSize(import_fs.default.statSync(import_path3.default.join(ctx.baseDir, DB_NAME)).size);
   } catch {
   }
   let lastIndexed = "never";
@@ -37380,7 +37383,7 @@ function handleStats(ctx) {
 }
 
 // scripts/lib/tool-adapters/recall-adapter.ts
-var import_fs3 = __toESM(require("fs"));
+var import_fs2 = __toESM(require("fs"));
 var import_path4 = __toESM(require("path"));
 var MAX_LIMIT2 = 50;
 var DEFAULT_LIMIT2 = 10;
@@ -37401,14 +37404,14 @@ function parseFrontmatterSimple(content) {
 function readDir(dirPath, type, since, limit) {
   let files;
   try {
-    files = import_fs3.default.readdirSync(dirPath).filter((f) => f.endsWith(".md")).sort().reverse();
+    files = import_fs2.default.readdirSync(dirPath).filter((f) => f.endsWith(".md")).sort().reverse();
   } catch {
     return [];
   }
   const items = [];
   for (const file2 of files) {
     if (items.length >= (limit ?? DEFAULT_LIMIT2)) break;
-    const raw = import_fs3.default.readFileSync(import_path4.default.join(dirPath, file2), "utf8").replace(/\r\n/g, "\n");
+    const raw = import_fs2.default.readFileSync(import_path4.default.join(dirPath, file2), "utf8").replace(/\r\n/g, "\n");
     const { meta: meta3, body } = parseFrontmatterSimple(raw);
     const date5 = meta3.date ?? "";
     if (since && date5 < since) continue;
@@ -37438,25 +37441,25 @@ function handleRecall(ctx, input) {
 }
 
 // scripts/lib/tool-adapters/brief-adapter.ts
-var import_fs4 = __toESM(require("fs"));
+var import_fs3 = __toESM(require("fs"));
 var import_path5 = __toESM(require("path"));
 var MAX_SUMMARY = 2e3;
 function countRecentFiles(dirPath, daysBack) {
-  if (!import_fs4.default.existsSync(dirPath)) return 0;
+  if (!import_fs3.default.existsSync(dirPath)) return 0;
   const cutoff = Date.now() - daysBack * 24 * 60 * 60 * 1e3;
-  return import_fs4.default.readdirSync(dirPath).filter((f) => f.endsWith(".md")).filter((f) => {
+  return import_fs3.default.readdirSync(dirPath).filter((f) => f.endsWith(".md")).filter((f) => {
     try {
-      return import_fs4.default.statSync(import_path5.default.join(dirPath, f)).mtimeMs >= cutoff;
+      return import_fs3.default.statSync(import_path5.default.join(dirPath, f)).mtimeMs >= cutoff;
     } catch {
       return false;
     }
   }).length;
 }
 function getTopSources(dirPath, limit) {
-  if (!import_fs4.default.existsSync(dirPath)) return [];
-  return import_fs4.default.readdirSync(dirPath).filter((f) => f.endsWith(".md")).sort((a, b) => {
+  if (!import_fs3.default.existsSync(dirPath)) return [];
+  return import_fs3.default.readdirSync(dirPath).filter((f) => f.endsWith(".md")).sort((a, b) => {
     try {
-      return import_fs4.default.statSync(import_path5.default.join(dirPath, b)).mtimeMs - import_fs4.default.statSync(import_path5.default.join(dirPath, a)).mtimeMs;
+      return import_fs3.default.statSync(import_path5.default.join(dirPath, b)).mtimeMs - import_fs3.default.statSync(import_path5.default.join(dirPath, a)).mtimeMs;
     } catch {
       return 0;
     }
@@ -37469,7 +37472,7 @@ function handleBrief(ctx, input) {
   const recentDecisions = countRecentFiles(import_path5.default.join(ctx.baseDir, "decisions"), daysBack);
   const recentEpisodes = countRecentFiles(import_path5.default.join(ctx.baseDir, "episodes"), daysBack);
   const topSources = getTopSources(import_path5.default.join(ctx.baseDir, "sources"), 5);
-  const sourcesTotal = import_fs4.default.existsSync(import_path5.default.join(ctx.baseDir, "sources")) ? import_fs4.default.readdirSync(import_path5.default.join(ctx.baseDir, "sources")).filter((f) => f.endsWith(".md")).length : 0;
+  const sourcesTotal = import_fs3.default.existsSync(import_path5.default.join(ctx.baseDir, "sources")) ? import_fs3.default.readdirSync(import_path5.default.join(ctx.baseDir, "sources")).filter((f) => f.endsWith(".md")).length : 0;
   const summary = [
     `Knowledge base: ${sourcesTotal} sources, ${recentDecisions} recent decisions, ${recentEpisodes} recent episodes.`,
     topSources.length > 0 ? `Top sources: ${topSources.join(", ")}.` : ""
@@ -37485,7 +37488,7 @@ function handleBrief(ctx, input) {
 }
 
 // scripts/lib/tool-adapters/ingest-adapter.ts
-var import_fs5 = __toESM(require("fs"));
+var import_fs4 = __toESM(require("fs"));
 var import_path6 = __toESM(require("path"));
 
 // scripts/lib/slugify.ts
@@ -37503,7 +37506,7 @@ function handleIngest(ctx, input) {
   if (input.type === "file") {
     const filePath = import_path6.default.resolve(input.content);
     try {
-      body = import_fs5.default.readFileSync(filePath, "utf8").replace(/\r\n/g, "\n");
+      body = import_fs4.default.readFileSync(filePath, "utf8").replace(/\r\n/g, "\n");
     } catch {
       throw new Error(`File not found: ${filePath}`);
     }
@@ -37531,8 +37534,8 @@ ${body}
 `;
   const outPath = import_path6.default.join(ctx.baseDir, "raw", `${slug}.md`);
   const rawDir = import_path6.default.join(ctx.baseDir, "raw");
-  if (!import_fs5.default.existsSync(rawDir)) import_fs5.default.mkdirSync(rawDir, { recursive: true });
-  import_fs5.default.writeFileSync(outPath, fullContent);
+  if (!import_fs4.default.existsSync(rawDir)) import_fs4.default.mkdirSync(rawDir, { recursive: true });
+  import_fs4.default.writeFileSync(outPath, fullContent);
   const wordCount = body.split(/\s+/).filter(Boolean).length;
   return {
     slug,
@@ -37544,11 +37547,16 @@ ${body}
 }
 
 // scripts/lib/tool-adapters/decide-adapter.ts
-var import_fs6 = __toESM(require("fs"));
+var import_fs5 = __toESM(require("fs"));
 var import_path7 = __toESM(require("path"));
 function handleDecide(ctx, input) {
+  if (input.action === "save") {
+    if (!input.title || !input.rationale) {
+      throw new Error("title and rationale are required for save action");
+    }
+  }
   const decisionsDir = import_path7.default.join(ctx.baseDir, "decisions");
-  if (!import_fs6.default.existsSync(decisionsDir)) import_fs6.default.mkdirSync(decisionsDir, { recursive: true });
+  if (!import_fs5.default.existsSync(decisionsDir)) import_fs5.default.mkdirSync(decisionsDir, { recursive: true });
   if (input.action === "save") {
     const slug = slugify2(input.title);
     if (!slug) throw new Error("Cannot generate slug from title");
@@ -37570,15 +37578,15 @@ function handleDecide(ctx, input) {
     }
     lines.push("");
     const outPath = import_path7.default.join(decisionsDir, `${slug}.md`);
-    import_fs6.default.writeFileSync(outPath, lines.join("\n"));
+    import_fs5.default.writeFileSync(outPath, lines.join("\n"));
     return { slug, path: outPath };
   }
-  const files = import_fs6.default.readdirSync(decisionsDir).filter((f) => f.endsWith(".md")).sort().reverse();
+  const files = import_fs5.default.readdirSync(decisionsDir).filter((f) => f.endsWith(".md")).sort().reverse();
   const limit = Math.min(input.limit ?? 10, 50);
   const decisions = [];
   for (const file2 of files) {
     if (decisions.length >= limit) break;
-    const raw = import_fs6.default.readFileSync(import_path7.default.join(decisionsDir, file2), "utf8").replace(/\r\n/g, "\n");
+    const raw = import_fs5.default.readFileSync(import_path7.default.join(decisionsDir, file2), "utf8").replace(/\r\n/g, "\n");
     const match = raw.match(/^---\n([\s\S]*?)\n---/);
     if (!match) continue;
     const fmBlock = match[1];
@@ -37639,12 +37647,12 @@ function handleRelate(ctx, input) {
 }
 
 // scripts/lib/tool-adapters/get-adapter.ts
-var import_fs7 = __toESM(require("fs"));
+var import_fs6 = __toESM(require("fs"));
 function handleGet(ctx, input) {
   const { path: sourcePath, title } = assertSlugExists(ctx.db, input.source);
   let raw;
   try {
-    raw = import_fs7.default.readFileSync(sourcePath, "utf8").replace(/\r\n/g, "\n");
+    raw = import_fs6.default.readFileSync(sourcePath, "utf8").replace(/\r\n/g, "\n");
   } catch {
     throw new Error(`Source file not found on disk: ${sourcePath}`);
   }
@@ -37677,12 +37685,12 @@ function handleGet(ctx, input) {
 }
 
 // scripts/lib/mcp-telemetry.ts
-var import_fs8 = __toESM(require("fs"));
+var import_fs7 = __toESM(require("fs"));
 var import_path8 = __toESM(require("path"));
 function writeMcpTelemetry(baseDir, entry) {
   try {
     const telemetryPath = import_path8.default.join(baseDir, "telemetry.jsonl");
-    import_fs8.default.appendFileSync(telemetryPath, JSON.stringify(entry) + "\n");
+    import_fs7.default.appendFileSync(telemetryPath, JSON.stringify(entry) + "\n");
   } catch {
   }
 }
@@ -37791,25 +37799,8 @@ function registerAllTools(server, ctx) {
       limit: external_exports.number().min(1).max(50).optional().describe("Max items for list"),
       since: external_exports.string().optional().describe("ISO date filter for list")
     },
-    wrapTool(ctx, TOOL_NAMES.decide, (c, input) => {
-      if (input.action === "save") {
-        if (!input.title || !input.rationale) {
-          throw new Error("title and rationale are required for save action");
-        }
-        return handleDecide(c, {
-          action: "save",
-          title: input.title,
-          rationale: input.rationale,
-          alternatives: input.alternatives,
-          supersedes: input.supersedes
-        });
-      }
-      return handleDecide(c, {
-        action: "list",
-        limit: input.limit,
-        since: input.since
-      });
-    })
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- zod ShapeOutput union cannot narrow to DecideInput discriminant
+    wrapTool(ctx, TOOL_NAMES.decide, (c, input) => handleDecide(c, input))
   );
   server.tool(
     TOOL_NAMES.stats,
@@ -37845,7 +37836,7 @@ function registerAllTools(server, ctx) {
 function resolvePluginRoot() {
   let dir = __dirname;
   for (let i = 0; i < 5; i++) {
-    if (import_fs9.default.existsSync(import_path9.default.join(dir, "node_modules", "better-sqlite3"))) return dir;
+    if (import_fs8.default.existsSync(import_path9.default.join(dir, "node_modules", "better-sqlite3"))) return dir;
     const parent = import_path9.default.dirname(dir);
     if (parent === dir) break;
     dir = parent;
@@ -37855,7 +37846,7 @@ function resolvePluginRoot() {
 function ensureSqliteBinding(root) {
   const modDir = import_path9.default.join(root, "node_modules", "better-sqlite3");
   const bindingPath = import_path9.default.join(modDir, "build", "Release", "better_sqlite3.node");
-  if (import_fs9.default.existsSync(modDir) && !import_fs9.default.existsSync(bindingPath)) {
+  if (import_fs8.default.existsSync(modDir) && !import_fs8.default.existsSync(bindingPath)) {
     process.stderr.write("mindlore-mcp: rebuilding better-sqlite3 native binding...\n");
     try {
       (0, import_child_process.execSync)("npm rebuild better-sqlite3", {
@@ -37877,8 +37868,8 @@ ensureSqliteBinding(pluginRoot);
 var Database = require(import_path9.default.join(pluginRoot, "node_modules", "better-sqlite3"));
 var PACKAGE_VERSION = (() => {
   try {
-    const pkgPath = import_fs9.default.existsSync(import_path9.default.join(__dirname, "package.json")) ? import_path9.default.join(__dirname, "package.json") : import_path9.default.join(__dirname, "..", "package.json");
-    const pkg = JSON.parse(import_fs9.default.readFileSync(pkgPath, "utf8"));
+    const pkgPath = import_fs8.default.existsSync(import_path9.default.join(__dirname, "package.json")) ? import_path9.default.join(__dirname, "package.json") : import_path9.default.join(__dirname, "..", "package.json");
+    const pkg = JSON.parse(import_fs8.default.readFileSync(pkgPath, "utf8"));
     return pkg.version ?? "0.0.0";
   } catch {
     return "0.0.0";
@@ -37886,11 +37877,11 @@ var PACKAGE_VERSION = (() => {
 })();
 async function main() {
   const baseDir = resolveMindloreHome();
-  if (!import_fs9.default.existsSync(baseDir)) {
-    import_fs9.default.mkdirSync(baseDir, { recursive: true });
+  if (!import_fs8.default.existsSync(baseDir)) {
+    import_fs8.default.mkdirSync(baseDir, { recursive: true });
     for (const sub of ["sources", "episodes", "decisions", "diary", "raw", "domains", "analyses", "learnings"]) {
       const dir = import_path9.default.join(baseDir, sub);
-      if (!import_fs9.default.existsSync(dir)) import_fs9.default.mkdirSync(dir, { recursive: true });
+      if (!import_fs8.default.existsSync(dir)) import_fs8.default.mkdirSync(dir, { recursive: true });
     }
   }
   const dbPath = import_path9.default.join(baseDir, DB_NAME);

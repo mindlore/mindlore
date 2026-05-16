@@ -2,7 +2,7 @@
   "manifestVersion": 2,
   "name": "mindlore",
   "description": "AI-native knowledge system for Claude Code. Persistent, searchable, evolving knowledge base with FTS5 and Knowledge Graph.",
-  "version": "0.7.5",
+  "version": "0.7.6",
   "skills": [
     {
       "name": "mindlore-ingest",

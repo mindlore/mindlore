@@ -50,3 +50,10 @@ jobs:
       - name: Health (smoke)
         run: npm run health || true
         continue-on-error: true
+
+      - name: Bundle (prerequisite for plugin smoke)
+        run: npm run bundle
+
+      - name: Plugin install smoke test
+        shell: bash
+        run: bash scripts/smoke-plugin-install.sh

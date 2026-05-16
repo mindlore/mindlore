@@ -7,6 +7,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.7.6] - 2026-05-16
+
+### Fixed
+- **CRITICAL — Plugin install MCP boot failure (`-32000`)**: v0.7.5 CC plugin tarball'ı `node_modules/` shipping etmiyordu. `mcp-server.cjs` bundle (`--external:better-sqlite3`) runtime'da `require('better-sqlite3')` ile `MODULE_NOT_FOUND` veriyordu. Tüm CC plugin kullanıcıları etkileniyordu.
+
+### Added
+- **`start.cjs` — Bootstrap wrapper** (context-mode pattern). MCP server'dan önce çalışır; eksik native dep'leri (better-sqlite3, sqlite-vec, @modelcontextprotocol/sdk, zod) plugin cache dir'inde runtime'da `npm install --no-package-lock --no-save` ile kurar. better-sqlite3 ABI mismatch'i probe + rebuild ile çözer. İlk boot 30-50s (one-time), sonraki boot'lar <100ms (existsSync fast path).
+- **`scripts/smoke-plugin-install.sh`** — publish öncesi gate. `npm pack` → tarball extract (no `npm install`) → `node start.cjs` boot → `Cannot find module|dlopen|invalid ELF` yakala. v0.7.5 shipping bug'ı yakalanamadığı için eklendi.
+- CI `ci.yml` smoke step (3 OS × 3 Node matrix) — her commit'te plugin install yolu test edilir.
+- CI `publish.yml` post-publish verification — fresh `npm install mindlore@<version>` + tarball'da `start.cjs` + `mcp-server.cjs` var mı kontrol.
+- `mindlore-release` skill'ine (global, repo dışı) 5 yeni adım: 1c (plugin smoke gate), 1d (bootstrap wrapper kontrolü), 9 (post-publish verification), 10 (marketplace fresh install doğrulama), 11 (eski versiyon deprecate).
+
+### Changed
+- `.claude-plugin/plugin.json` `mcpServers.mindlore.args` → `start.cjs` (eski: `mcp-server.cjs`). Tüm MCP boot'ları bootstrap wrapper üzerinden geçer.
+- Cross-platform shipping stratejisi: önceki `bundledDependencies` denemesi (yarım çözüm — sqlite-vec optionalDependencies + better-sqlite3 v12 `prebuilds/` shipping etmiyor) iptal edildi; bootstrap pattern ile her platform install-time çözülüyor.
+
+### Roadmap
+- v0.7.6 originally planned as **UX Release + B2 Refactor** → kaydırıldı v0.7.7'ye. KG Upgrade v0.7.8+'a kaydı.
+
 ## [0.7.5] - 2026-05-15
 
 ### Added

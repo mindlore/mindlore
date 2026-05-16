@@ -31,9 +31,34 @@ jobs:
       - name: Test
         run: npm test
 
+      - name: Build + Bundle
+        run: npm run build && npm run bundle
+
+      - name: Plugin install smoke test (bootstrap pattern)
+        run: bash scripts/smoke-plugin-install.sh
+
       - name: Publish to npm
-        run: npm publish --provenance --access public
+        run: npm publish --provenance --access public --ignore-scripts
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+
+      - name: Post-publish fresh install verification
+        run: |
+          TMP=$(mktemp -d)
+          cd $TMP
+          npm init -y >/dev/null
+          VERSION=$(node -e "console.log(require('$GITHUB_WORKSPACE/package.json').version)")
+          # Allow npm registry propagation
+          for i in 1 2 3 4 5; do
+            if npm install mindlore@$VERSION --no-save --no-audit --ignore-scripts 2>&1 | tail -5; then
+              break
+            fi
+            echo "Retry $i — registry propagating..."
+            sleep 10
+          done
+          # Sanity: bootstrap + server present in published tarball
+          test -f node_modules/mindlore/start.cjs || (echo "FAIL: start.cjs missing in published tarball" && exit 1)
+          test -f node_modules/mindlore/mcp-server.cjs || (echo "FAIL: mcp-server.cjs missing in published tarball" && exit 1)
+          echo "==> Post-publish verification: PASS (bootstrap + server present)"
 
       # GitHub Release is created by release.yml (workflow_run after CI passes)

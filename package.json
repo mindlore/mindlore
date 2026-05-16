@@ -80,6 +80,8 @@
     "skills/",
     "templates/",
     "SCHEMA.md",
-    "plugin.json"
+    "plugin.json",
+    "mcp-server.cjs",
+    "start.cjs"
   ]
 }
