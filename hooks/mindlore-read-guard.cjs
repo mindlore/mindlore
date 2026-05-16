@@ -5,6 +5,7 @@
 var fs = require("fs");
 var path = require("path");
 var { findMindloreDir, readHookStdin, getProjectName, hookLog, extractSkeleton, withTelemetrySync } = require("./lib/mindlore-common.cjs");
+var { safeMkdir, safeWriteFile } = require("./lib/secure-io.cjs");
 function main() {
   const baseDir = findMindloreDir();
   if (!baseDir) return;
@@ -15,9 +16,7 @@ function main() {
   if (!resolved.startsWith(cwd)) return;
   if (resolved.startsWith(path.resolve(baseDir))) return;
   const diaryDir = path.join(baseDir, "diary");
-  if (!fs.existsSync(diaryDir)) {
-    fs.mkdirSync(diaryDir, { recursive: true });
-  }
+  safeMkdir(diaryDir);
   const readsPath = path.join(diaryDir, `_session-reads-${getProjectName()}.json`);
   let reads = {};
   if (fs.existsSync(readsPath)) {
@@ -44,7 +43,7 @@ function main() {
     tokens = 0;
     reads[normalizedPath] = { count, tokens: 0, chars: 0 };
   }
-  fs.writeFileSync(readsPath, JSON.stringify(reads, null, 2), "utf8");
+  safeWriteFile(readsPath, JSON.stringify(reads, null, 2));
   const basename = path.basename(filePath);
   const tokenInfo = tokens > 0 ? ` (~${tokens} token)` : "";
   if (count >= 3) {

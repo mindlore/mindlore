@@ -1197,6 +1197,7 @@ var require_search_cache = __commonJS({
 var fs = require("fs");
 var path = require("path");
 var { getAllDbs, openDatabase, extractHeadings, readConfig, hookLog, incrementRecallCount, withTelemetry } = require("./lib/mindlore-common.cjs");
+var { safeMkdir, safeWriteFile } = require("./lib/secure-io.cjs");
 var MAX_RESULTS = 3;
 var MIN_QUERY_WORDS = 3;
 var searchEngineMod;
@@ -1332,7 +1333,7 @@ Dosya: ${relativePath}${tagsStr}${headingStr}`;
     if (outputStr.length > OFFLOAD_THRESHOLD) {
       const baseDir = path.dirname(dbPaths[0]);
       const tmpDir = path.join(baseDir, "tmp");
-      fs.mkdirSync(tmpDir, { recursive: true });
+      safeMkdir(tmpDir);
       try {
         const oneHourAgo = Date.now() - 36e5;
         const files = fs.readdirSync(tmpDir).filter((f) => f.startsWith("search-")).map((f) => ({ name: f, mtime: fs.statSync(path.join(tmpDir, f)).mtimeMs })).sort((a, b) => b.mtime - a.mtime);
@@ -1348,7 +1349,7 @@ Dosya: ${relativePath}${tagsStr}${headingStr}`;
       }
       const fileName = `search-${Date.now()}.md`;
       const filePath = path.join(tmpDir, fileName);
-      fs.writeFileSync(filePath, outputStr, "utf8");
+      safeWriteFile(filePath, outputStr);
       const summary = outputStr.slice(0, 500).replace(/\n/g, " ").trim();
       outputStr = `[Mindlore Search: ${outputStr.length} chars offloaded to ${filePath}]
 Summary: ${summary}...

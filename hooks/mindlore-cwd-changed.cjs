@@ -5,15 +5,14 @@
 var fs = require("fs");
 var path = require("path");
 var { findMindloreDir, globalDir, hookLog, withTelemetry } = require("./lib/mindlore-common.cjs");
+var { safeMkdir, safeWriteFile } = require("./lib/secure-io.cjs");
 function main() {
   const cwd = process.cwd();
   const activeDir = findMindloreDir();
   const scope = !activeDir ? "none" : activeDir.startsWith(globalDir()) ? "global" : "project";
   if (activeDir) {
     const diaryDir = path.join(activeDir, "diary");
-    if (!fs.existsSync(diaryDir)) {
-      fs.mkdirSync(diaryDir, { recursive: true });
-    }
+    safeMkdir(diaryDir);
     const scopePath = path.join(diaryDir, "_scope.json");
     if (fs.existsSync(scopePath)) {
       try {
@@ -22,12 +21,12 @@ function main() {
       } catch (_err) {
       }
     }
-    fs.writeFileSync(scopePath, JSON.stringify({
+    safeWriteFile(scopePath, JSON.stringify({
       scope,
       dir: activeDir,
       cwd,
       timestamp: (/* @__PURE__ */ new Date()).toISOString()
-    }, null, 2), "utf8");
+    }, null, 2));
   }
   if (scope === "none") {
     process.stderr.write(`[Mindlore] Bu projede mindlore kurulu degil. npx mindlore init calistirin.

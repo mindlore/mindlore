@@ -14,6 +14,7 @@
 const fs = require('fs');
 const path = require('path');
 const { findMindloreDir, getProjectName, hookLog, withTelemetry } = require('./lib/mindlore-common.cjs');
+const { safeWriteFile } = require('./lib/secure-io.cjs');
 
 const CODE_EXTS = new Set(['.ts', '.tsx', '.js', '.jsx', '.py', '.rs', '.go', '.java', '.c', '.cpp', '.h', '.css', '.scss', '.sql', '.sh', '.yaml', '.yml', '.json', '.toml', '.xml', '.cjs', '.mjs']);
 const PROSE_EXTS = new Set(['.md', '.txt', '.rst', '.adoc']);
@@ -86,7 +87,7 @@ function main() {
         reads[key] = { count: 1, tokens, chars: charCount };
       }
 
-      fs.writeFileSync(readsPath, JSON.stringify(reads, null, 2), 'utf8');
+      safeWriteFile(readsPath, JSON.stringify(reads, null, 2));
 
       // Output token estimate to Claude via additionalContext
       const basename = path.basename(filePath);

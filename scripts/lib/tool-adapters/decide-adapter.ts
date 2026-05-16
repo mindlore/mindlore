@@ -2,6 +2,7 @@ import fs from 'fs';
 import path from 'path';
 import type { McpContext } from '../mcp-tools.js';
 import { slugify } from '../slugify.js';
+import { safeMkdir, safeWriteFile } from '../secure-io.js';
 
 interface DecideSaveInput {
   action: 'save';
@@ -44,7 +45,7 @@ export function handleDecide(ctx: McpContext, input: DecideInput): DecideOutput 
   }
 
   const decisionsDir = path.join(ctx.baseDir, 'decisions');
-  if (!fs.existsSync(decisionsDir)) fs.mkdirSync(decisionsDir, { recursive: true });
+  safeMkdir(decisionsDir);
 
   if (input.action === 'save') {
     const slug = slugify(input.title);
@@ -69,7 +70,7 @@ export function handleDecide(ctx: McpContext, input: DecideInput): DecideOutput 
     lines.push('');
 
     const outPath = path.join(decisionsDir, `${slug}.md`);
-    fs.writeFileSync(outPath, lines.join('\n'));
+    safeWriteFile(outPath, lines.join('\n'));
     return { slug, path: outPath };
   }
 

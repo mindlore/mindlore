@@ -5,6 +5,7 @@
 var fs = require("fs");
 var path = require("path");
 var { findMindloreDir, openDatabase, hookLog, withTelemetry, listSnapshots } = require("./lib/mindlore-common.cjs");
+var { safeMkdir, safeWriteFile } = require("./lib/secure-io.cjs");
 function collectRecentEpisodes(baseDir) {
   try {
     const dbPath = path.join(baseDir, "mindlore.db");
@@ -93,7 +94,7 @@ function main() {
       `Pre-compact snapshot at ${iso}.`,
       `Working directory: ${process.cwd()}`
     ].join("\n");
-    fs.writeFileSync(episodePath, content, "utf8");
+    safeWriteFile(episodePath, content);
   } catch (_err) {
   }
   const logPath = path.join(baseDir, "log.md");
@@ -119,7 +120,7 @@ function main() {
         "",
         ...sections
       ].join("\n");
-      fs.writeFileSync(path.join(diaryDir, `compaction-snapshot-${ts}.md`), snapshotContent);
+      safeWriteFile(path.join(diaryDir, `compaction-snapshot-${ts}.md`), snapshotContent);
     }
     const snapshots = listSnapshots(diaryDir).filter((f) => f.startsWith("compaction-"));
     while (snapshots.length > 5) {

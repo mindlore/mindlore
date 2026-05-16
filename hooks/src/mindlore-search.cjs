@@ -12,6 +12,7 @@
 const fs = require('fs');
 const path = require('path');
 const { getAllDbs, openDatabase, extractHeadings, readConfig, hookLog, incrementRecallCount, withTelemetry } = require('./lib/mindlore-common.cjs');
+const { safeMkdir, safeWriteFile } = require('./lib/secure-io.cjs');
 
 const MAX_RESULTS = 3;
 const MIN_QUERY_WORDS = 3;
@@ -172,7 +173,7 @@ function main() {
     if (outputStr.length > OFFLOAD_THRESHOLD) {
       const baseDir = path.dirname(dbPaths[0]);
       const tmpDir = path.join(baseDir, 'tmp');
-      fs.mkdirSync(tmpDir, { recursive: true });
+      safeMkdir(tmpDir);
 
       try {
         const oneHourAgo = Date.now() - 3600000;
@@ -188,7 +189,7 @@ function main() {
       } catch { /* cleanup is best-effort */ }
       const fileName = `search-${Date.now()}.md`;
       const filePath = path.join(tmpDir, fileName);
-      fs.writeFileSync(filePath, outputStr, 'utf8');
+      safeWriteFile(filePath, outputStr);
 
       const summary = outputStr.slice(0, 500).replace(/\n/g, ' ').trim();
       outputStr = `[Mindlore Search: ${outputStr.length} chars offloaded to ${filePath}]\n` +
