@@ -31,22 +31,42 @@ try {
   // search-cache not built yet
 }
 
+let TokenEstimatorMod;
+try {
+  TokenEstimatorMod = require('../dist/scripts/lib/transcript-token-estimator.js');
+} catch (_err) {
+  // estimator not built yet
+}
+
 function parseStdin() {
   try {
     const raw = fs.readFileSync(0, 'utf8').trim();
-    if (!raw) return { userMessage: '', sessionId: 'unknown' };
+    if (!raw) return { userMessage: '', sessionId: 'unknown', transcriptPath: undefined };
     const parsed = JSON.parse(raw);
     const userMessage = parsed.prompt || parsed.content || parsed.message || parsed.query || raw;
     const sessionId = parsed.session_id || 'unknown';
-    return { userMessage, sessionId };
+    const transcriptPath = parsed.transcript_path || parsed.transcriptPath;
+    return { userMessage, sessionId, transcriptPath };
   } catch (_err) {
-    return { userMessage: '', sessionId: 'unknown' };
+    return { userMessage: '', sessionId: 'unknown', transcriptPath: undefined };
   }
 }
 
+function getBaseMax(transcriptPath) {
+  if (TokenEstimatorMod && typeof TokenEstimatorMod.adaptiveResultCount === 'function') {
+    try {
+      return TokenEstimatorMod.adaptiveResultCount(transcriptPath);
+    } catch (_err) {
+      // fall through to default
+    }
+  }
+  return MAX_RESULTS;
+}
+
 function main() {
-  const { userMessage, sessionId } = parseStdin();
+  const { userMessage, sessionId, transcriptPath } = parseStdin();
   if (!userMessage || userMessage.length < MIN_QUERY_WORDS) return;
+  const baseMax = getBaseMax(transcriptPath);
   let searchMs = 0;
 
   const dbPaths = getAllDbs();
@@ -68,12 +88,12 @@ function main() {
     try {
       // Cache + throttle
       let cache;
-      let effectiveMax = MAX_RESULTS;
+      let effectiveMax = baseMax;
       if (SearchCacheMod) {
         cache = new SearchCacheMod.SearchCache(db, { ttlMs: 300000 });
         const throttle = new SearchCacheMod.SearchThrottle(db);
         const callCount = throttle.incrementCallCount(sessionId);
-        effectiveMax = throttle.getMaxResults(callCount);
+        effectiveMax = Math.min(baseMax, throttle.getMaxResults(callCount));
         if (effectiveMax === 0) {
           hookLog('search', 'info', `Throttled (call #${callCount})`);
           db.close();
@@ -130,7 +150,7 @@ function main() {
 
   // Sort by score descending, take top N
   unique.sort((a, b) => b.score - a.score);
-  const relevant = unique.slice(0, MAX_RESULTS);
+  const relevant = unique.slice(0, baseMax);
   if (relevant.length === 0) return;
 
   // Token budget from config

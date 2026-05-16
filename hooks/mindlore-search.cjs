@@ -1214,6 +1214,132 @@ var require_search_cache = __commonJS({
   }
 });
 
+// dist/scripts/lib/transcript-token-estimator.js
+var require_transcript_token_estimator = __commonJS({
+  "dist/scripts/lib/transcript-token-estimator.js"(exports2) {
+    "use strict";
+    var __createBinding = exports2 && exports2.__createBinding || (Object.create ? (function(o, m, k, k2) {
+      if (k2 === void 0) k2 = k;
+      var desc = Object.getOwnPropertyDescriptor(m, k);
+      if (!desc || ("get" in desc ? !m.__esModule : desc.writable || desc.configurable)) {
+        desc = { enumerable: true, get: function() {
+          return m[k];
+        } };
+      }
+      Object.defineProperty(o, k2, desc);
+    }) : (function(o, m, k, k2) {
+      if (k2 === void 0) k2 = k;
+      o[k2] = m[k];
+    }));
+    var __setModuleDefault = exports2 && exports2.__setModuleDefault || (Object.create ? (function(o, v) {
+      Object.defineProperty(o, "default", { enumerable: true, value: v });
+    }) : function(o, v) {
+      o["default"] = v;
+    });
+    var __importStar = exports2 && exports2.__importStar || /* @__PURE__ */ (function() {
+      var ownKeys = function(o) {
+        ownKeys = Object.getOwnPropertyNames || function(o2) {
+          var ar = [];
+          for (var k in o2) if (Object.prototype.hasOwnProperty.call(o2, k)) ar[ar.length] = k;
+          return ar;
+        };
+        return ownKeys(o);
+      };
+      return function(mod) {
+        if (mod && mod.__esModule) return mod;
+        var result = {};
+        if (mod != null) {
+          for (var k = ownKeys(mod), i = 0; i < k.length; i++) if (k[i] !== "default") __createBinding(result, mod, k[i]);
+        }
+        __setModuleDefault(result, mod);
+        return result;
+      };
+    })();
+    Object.defineProperty(exports2, "__esModule", { value: true });
+    exports2.estimateContextTokens = estimateContextTokens;
+    exports2.getContextWindow = getContextWindow;
+    exports2.resultCountFromContext = resultCountFromContext;
+    exports2.adaptiveResultCount = adaptiveResultCount;
+    var fs2 = __importStar(require("fs"));
+    var CHAR_PER_TOKEN = 4;
+    var DEFAULT_TAIL_LINES = 500;
+    var DEFAULT_CONTEXT_WINDOW = 2e5;
+    var cache = /* @__PURE__ */ new Map();
+    function estimateContextTokens(transcriptPath, opts = {}) {
+      const tail = opts.tailLines ?? DEFAULT_TAIL_LINES;
+      let fd;
+      try {
+        const st = fs2.statSync(transcriptPath);
+        const cached = cache.get(transcriptPath);
+        if (cached && cached.mtime === st.mtimeMs)
+          return cached.tokens;
+        const readSize = Math.min(st.size, tail * 500);
+        if (readSize === 0) {
+          cache.set(transcriptPath, { mtime: st.mtimeMs, tokens: 0 });
+          return 0;
+        }
+        fd = fs2.openSync(transcriptPath, "r");
+        const buf = Buffer.alloc(readSize);
+        fs2.readSync(fd, buf, 0, readSize, st.size - readSize);
+        const text = buf.toString("utf8");
+        let chars = 0;
+        for (const line of text.split("\n")) {
+          if (!line)
+            continue;
+          try {
+            const obj = JSON.parse(line);
+            const content = obj?.content;
+            if (typeof content === "string") {
+              chars += content.length;
+            } else if (content != null) {
+              chars += JSON.stringify(content).length;
+            }
+          } catch {
+          }
+        }
+        const tokens = Math.floor(chars / CHAR_PER_TOKEN);
+        cache.set(transcriptPath, { mtime: st.mtimeMs, tokens });
+        return tokens;
+      } catch {
+        return 0;
+      } finally {
+        if (fd !== void 0) {
+          try {
+            fs2.closeSync(fd);
+          } catch {
+          }
+        }
+      }
+    }
+    function getContextWindow() {
+      const env = process.env.CLAUDE_CONTEXT_WINDOW;
+      if (env) {
+        const n = parseInt(env, 10);
+        if (!isNaN(n) && n > 0)
+          return n;
+      }
+      return DEFAULT_CONTEXT_WINDOW;
+    }
+    function resultCountFromContext(pct) {
+      if (pct < 0.5)
+        return 5;
+      if (pct < 0.75)
+        return 3;
+      if (pct < 0.9)
+        return 2;
+      return 1;
+    }
+    function adaptiveResultCount(transcriptPath) {
+      if (!transcriptPath)
+        return 3;
+      const tokens = estimateContextTokens(transcriptPath);
+      if (tokens === 0)
+        return 3;
+      return resultCountFromContext(tokens / getContextWindow());
+    }
+  }
+});
+
 // hooks/src/mindlore-search.cjs
 var fs = require("fs");
 var path = require("path");
@@ -1231,21 +1357,37 @@ try {
   SearchCacheMod = require_search_cache();
 } catch (_err) {
 }
+var TokenEstimatorMod;
+try {
+  TokenEstimatorMod = require_transcript_token_estimator();
+} catch (_err) {
+}
 function parseStdin() {
   try {
     const raw = fs.readFileSync(0, "utf8").trim();
-    if (!raw) return { userMessage: "", sessionId: "unknown" };
+    if (!raw) return { userMessage: "", sessionId: "unknown", transcriptPath: void 0 };
     const parsed = JSON.parse(raw);
     const userMessage = parsed.prompt || parsed.content || parsed.message || parsed.query || raw;
     const sessionId = parsed.session_id || "unknown";
-    return { userMessage, sessionId };
+    const transcriptPath = parsed.transcript_path || parsed.transcriptPath;
+    return { userMessage, sessionId, transcriptPath };
   } catch (_err) {
-    return { userMessage: "", sessionId: "unknown" };
+    return { userMessage: "", sessionId: "unknown", transcriptPath: void 0 };
   }
 }
+function getBaseMax(transcriptPath) {
+  if (TokenEstimatorMod && typeof TokenEstimatorMod.adaptiveResultCount === "function") {
+    try {
+      return TokenEstimatorMod.adaptiveResultCount(transcriptPath);
+    } catch (_err) {
+    }
+  }
+  return MAX_RESULTS;
+}
 function main() {
-  const { userMessage, sessionId } = parseStdin();
+  const { userMessage, sessionId, transcriptPath } = parseStdin();
   if (!userMessage || userMessage.length < MIN_QUERY_WORDS) return;
+  const baseMax = getBaseMax(transcriptPath);
   let searchMs = 0;
   const dbPaths = getAllDbs();
   if (dbPaths.length === 0) return;
@@ -1262,12 +1404,12 @@ function main() {
     if (!db) continue;
     try {
       let cache;
-      let effectiveMax = MAX_RESULTS;
+      let effectiveMax = baseMax;
       if (SearchCacheMod) {
         cache = new SearchCacheMod.SearchCache(db, { ttlMs: 3e5 });
         const throttle = new SearchCacheMod.SearchThrottle(db);
         const callCount = throttle.incrementCallCount(sessionId);
-        effectiveMax = throttle.getMaxResults(callCount);
+        effectiveMax = Math.min(baseMax, throttle.getMaxResults(callCount));
         if (effectiveMax === 0) {
           hookLog("search", "info", `Throttled (call #${callCount})`);
           db.close();
@@ -1316,7 +1458,7 @@ function main() {
     }
   }
   unique.sort((a, b) => b.score - a.score);
-  const relevant = unique.slice(0, MAX_RESULTS);
+  const relevant = unique.slice(0, baseMax);
   if (relevant.length === 0) return;
   const budget = config && config.tokenBudget || {};
   const perResultChars = (budget.perResult || 500) * 4;
