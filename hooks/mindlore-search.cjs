@@ -1263,6 +1263,7 @@ var require_transcript_token_estimator = __commonJS({
     var fs2 = __importStar(require("fs"));
     var CHAR_PER_TOKEN = 4;
     var DEFAULT_TAIL_LINES = 500;
+    var AVG_BYTES_PER_TRANSCRIPT_LINE = 500;
     var DEFAULT_CONTEXT_WINDOW = 2e5;
     var cache = /* @__PURE__ */ new Map();
     function estimateContextTokens(transcriptPath, opts = {}) {
@@ -1273,15 +1274,15 @@ var require_transcript_token_estimator = __commonJS({
         const cached = cache.get(transcriptPath);
         if (cached && cached.mtime === st.mtimeMs)
           return cached.tokens;
-        const readSize = Math.min(st.size, tail * 500);
+        const readSize = Math.min(st.size, tail * AVG_BYTES_PER_TRANSCRIPT_LINE);
         if (readSize === 0) {
           cache.set(transcriptPath, { mtime: st.mtimeMs, tokens: 0 });
           return 0;
         }
         fd = fs2.openSync(transcriptPath, "r");
-        const buf = Buffer.alloc(readSize);
-        fs2.readSync(fd, buf, 0, readSize, st.size - readSize);
-        const text = buf.toString("utf8");
+        const buf = Buffer.allocUnsafe(readSize);
+        const bytesRead = fs2.readSync(fd, buf, 0, readSize, st.size - readSize);
+        const text = buf.toString("utf8", 0, bytesRead);
         let chars = 0;
         for (const line of text.split("\n")) {
           if (!line)
@@ -1291,7 +1292,7 @@ var require_transcript_token_estimator = __commonJS({
             const content = obj?.content;
             if (typeof content === "string") {
               chars += content.length;
-            } else if (content != null) {
+            } else if (content !== null && content !== void 0) {
               chars += JSON.stringify(content).length;
             }
           } catch {
@@ -1376,7 +1377,7 @@ function parseStdin() {
   }
 }
 function getBaseMax(transcriptPath) {
-  if (TokenEstimatorMod && typeof TokenEstimatorMod.adaptiveResultCount === "function") {
+  if (TokenEstimatorMod) {
     try {
       return TokenEstimatorMod.adaptiveResultCount(transcriptPath);
     } catch (_err) {

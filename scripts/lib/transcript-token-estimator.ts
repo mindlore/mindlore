@@ -2,8 +2,12 @@ import * as fs from 'fs';
 
 const CHAR_PER_TOKEN = 4;
 const DEFAULT_TAIL_LINES = 500;
+const AVG_BYTES_PER_TRANSCRIPT_LINE = 500;
 const DEFAULT_CONTEXT_WINDOW = 200_000;
 
+// Hook spawns fresh node per UserPromptSubmit, so this Map is effectively
+// per-invocation in production. The cache only matters when the module is
+// loaded long-running (jest workers, tests).
 const cache = new Map<string, { mtime: number; tokens: number }>();
 
 export interface EstimateOptions {
@@ -21,15 +25,15 @@ export function estimateContextTokens(
     const cached = cache.get(transcriptPath);
     if (cached && cached.mtime === st.mtimeMs) return cached.tokens;
 
-    const readSize = Math.min(st.size, tail * 500);
+    const readSize = Math.min(st.size, tail * AVG_BYTES_PER_TRANSCRIPT_LINE);
     if (readSize === 0) {
       cache.set(transcriptPath, { mtime: st.mtimeMs, tokens: 0 });
       return 0;
     }
     fd = fs.openSync(transcriptPath, 'r');
-    const buf = Buffer.alloc(readSize);
-    fs.readSync(fd, buf, 0, readSize, st.size - readSize);
-    const text = buf.toString('utf8');
+    const buf = Buffer.allocUnsafe(readSize);
+    const bytesRead = fs.readSync(fd, buf, 0, readSize, st.size - readSize);
+    const text = buf.toString('utf8', 0, bytesRead);
 
     let chars = 0;
     for (const line of text.split('\n')) {

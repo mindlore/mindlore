@@ -53,7 +53,7 @@ function parseStdin() {
 }
 
 function getBaseMax(transcriptPath) {
-  if (TokenEstimatorMod && typeof TokenEstimatorMod.adaptiveResultCount === 'function') {
+  if (TokenEstimatorMod) {
     try {
       return TokenEstimatorMod.adaptiveResultCount(transcriptPath);
     } catch (_err) {
@@ -93,6 +93,9 @@ function main() {
         cache = new SearchCacheMod.SearchCache(db, { ttlMs: 300000 });
         const throttle = new SearchCacheMod.SearchThrottle(db);
         const callCount = throttle.incrementCallCount(sessionId);
+        // Throttle returns 3/1/0 (hardcoded cap). Taking min preserves the
+        // reduce-on-high-context value of baseMax; the baseMax=5 upside is
+        // bounded by throttle's 3 until throttle module gains an adaptive cap.
         effectiveMax = Math.min(baseMax, throttle.getMaxResults(callCount));
         if (effectiveMax === 0) {
           hookLog('search', 'info', `Throttled (call #${callCount})`);

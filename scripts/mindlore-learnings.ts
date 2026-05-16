@@ -1,6 +1,7 @@
 import * as fs from 'fs';
 import * as path from 'path';
 import { resolveMindloreHome } from './lib/constants.js';
+import { errMsg } from './lib/err-msg.js';
 
 function levenshtein(a: string, b: string): number {
   const m = a.length, n = b.length;
@@ -46,11 +47,7 @@ function main(): void {
   const baseDir = resolveMindloreHome();
   if (cmd === 'show' && slug) {
     try { process.stdout.write(showLearning(baseDir, slug)); }
-    catch (err) {
-      const msg = err instanceof Error ? err.message : String(err);
-      process.stderr.write(`${msg}\n`);
-      process.exit(1);
-    }
+    catch (err) { process.stderr.write(`${errMsg(err)}\n`); process.exit(1); }
   } else if (cmd === 'list') {
     for (const { slug, firstLine } of listLearnings(baseDir)) {
       process.stdout.write(`${slug}: ${firstLine}\n`);
