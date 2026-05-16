@@ -30,7 +30,8 @@ export async function cleanCacheVersion(rootDir: string, dryRun = false): Promis
       await fsp.rm(versionPath, { recursive: true, force: true });
       cleaned.push(version);
     } catch (err) {
-      const code = (err as NodeJS.ErrnoException).code;
+      const e = err instanceof Error ? err : undefined;
+      const code = e && 'code' in e && typeof e.code === 'string' ? e.code : undefined;
       if (code === 'EPERM' || code === 'EBUSY') {
         process.stderr.write(`[clean-cache] skipped ${version}: locked file (${code}). Close Claude Code and retry.\n`);
         skipped.push(version);

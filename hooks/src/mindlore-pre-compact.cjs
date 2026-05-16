@@ -12,7 +12,7 @@
 const fs = require('fs');
 const path = require('path');
 const { findMindloreDir, openDatabase, hookLog, withTelemetry, listSnapshots } = require('./lib/mindlore-common.cjs');
-const { safeMkdir, safeWriteFile } = require('./lib/secure-io.cjs');
+const { safeWriteFile } = require('./lib/secure-io.cjs');
 
 function collectRecentEpisodes(baseDir) {
   try {

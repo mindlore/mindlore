@@ -4,7 +4,7 @@ import { runReadGuard } from '../scripts/lib/read-guard-core';
 describe('read-guard performance', () => {
   it('completes within 30ms budget for cached path', () => {
     const input = { filePath: '/tmp/test-read.txt', basename: 'test-read.txt' };
-    const reads: Record<string, any> = {};
+    const reads: Record<string, { count?: number; tokens?: number; chars?: number } | number> = {};
     runReadGuard(input, reads);
     const start = Date.now();
     runReadGuard(input, reads);
@@ -14,7 +14,7 @@ describe('read-guard performance', () => {
 
   it('blocks on 3rd read', () => {
     const input = { filePath: '/tmp/test-read.txt', basename: 'test-read.txt' };
-    const reads: Record<string, any> = {};
+    const reads: Record<string, { count?: number; tokens?: number; chars?: number } | number> = {};
     runReadGuard(input, reads);
     runReadGuard(input, reads);
     const decision = runReadGuard(input, reads);
@@ -23,7 +23,7 @@ describe('read-guard performance', () => {
 
   it('warns on 2nd read', () => {
     const input = { filePath: '/tmp/test-read.txt', basename: 'test-read.txt' };
-    const reads: Record<string, any> = {};
+    const reads: Record<string, { count?: number; tokens?: number; chars?: number } | number> = {};
     runReadGuard(input, reads);
     const decision = runReadGuard(input, reads);
     expect(decision.additionalContext).toContain('2. kez okunuyor');

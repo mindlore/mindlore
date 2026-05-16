@@ -5,7 +5,7 @@
 var fs = require("fs");
 var path = require("path");
 var { findMindloreDir, openDatabase, hookLog, withTelemetry, listSnapshots } = require("./lib/mindlore-common.cjs");
-var { safeMkdir, safeWriteFile } = require("./lib/secure-io.cjs");
+var { safeWriteFile } = require("./lib/secure-io.cjs");
 function collectRecentEpisodes(baseDir) {
   try {
     const dbPath = path.join(baseDir, "mindlore.db");
