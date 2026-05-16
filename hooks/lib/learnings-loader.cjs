@@ -1,17 +1,14 @@
 const fs = require('fs');
 const path = require('path');
 const { parseFrontmatter, hookLog } = require('./mindlore-common.cjs');
-
-const MAX_LESSONS = 10;
-const MAX_LINES_PER_LESSON = 5;
-const TOTAL_CHAR_BUDGET = 6000;
+const { LEARNINGS_MAX_LESSONS, LEARNINGS_MAX_LINES_PER_LESSON, LEARNINGS_TOTAL_CHAR_BUDGET } = require('../../dist/scripts/lib/constants.js');
 
 function summarizeLesson(body, relPath) {
   const lines = body.split('\n');
   const h2Idx = lines.findIndex(l => l.startsWith('## '));
   const start = h2Idx >= 0 ? h2Idx : 0;
-  const slice = lines.slice(start, start + MAX_LINES_PER_LESSON).join('\n');
-  const rest = lines.slice(start + MAX_LINES_PER_LESSON).length > 0
+  const slice = lines.slice(start, start + LEARNINGS_MAX_LINES_PER_LESSON).join('\n');
+  const rest = lines.slice(start + LEARNINGS_MAX_LINES_PER_LESSON).length > 0
     ? `\n… (full: ${relPath})`
     : '';
   return slice + rest;
@@ -37,7 +34,7 @@ function loadLearningsBlock(mindloreDir, currentProject) {
 
   const candidates = [];
   for (const s of stats) {
-    if (candidates.length >= MAX_LESSONS) break;
+    if (candidates.length >= LEARNINGS_MAX_LESSONS) break;
     let raw;
     try { raw = fs.readFileSync(s.abs, 'utf8'); } catch (err) {
       hookLog('learnings-loader', 'warn', `read skipped ${s.file}: ${err.message}`);
@@ -59,7 +56,7 @@ function loadLearningsBlock(mindloreDir, currentProject) {
   let count = 0;
   for (const c of candidates) {
     const piece = summarizeLesson(c.body, c.relPath) + '\n\n';
-    if (used + piece.length > TOTAL_CHAR_BUDGET && count > 0) break;
+    if (used + piece.length > LEARNINGS_TOTAL_CHAR_BUDGET && count > 0) break;
     block += piece;
     used += piece.length;
     count++;

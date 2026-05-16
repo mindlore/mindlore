@@ -296,3 +296,7 @@ export const DEFAULT_TOKEN_BUDGET = {
 export const DECAY_HALF_LIFE_DAYS = 30;
 export const STALE_THRESHOLD = 0.3;
 export const CONSOLIDATION_THRESHOLD = 50;
+
+export const LEARNINGS_MAX_LESSONS = 10;
+export const LEARNINGS_MAX_LINES_PER_LESSON = 5;
+export const LEARNINGS_TOTAL_CHAR_BUDGET = 6000;
