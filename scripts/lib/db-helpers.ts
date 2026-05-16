@@ -72,6 +72,12 @@ export function withReadonlyDb<T>(
 
 /**
  * Open a database with existence check. Returns null if file missing or error.
+ *
+ * @param dbPath - Absolute path to .db file.
+ * @param options.readonly - Open in readonly mode.
+ * @param options.loadVec - Default `true`. Load sqlite-vec extension. Set `false`
+ *                       only for tests/utilities that don't need vector queries
+ *                       (avoids loading the optional native binary).
  */
 export function openDatabaseTs(
   dbPath: string,
