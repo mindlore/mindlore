@@ -46,7 +46,7 @@ if [ ! -d "dist" ]; then
 fi
 
 TMP_DIR=$(mktemp -d)
-trap "rm -rf $TMP_DIR" EXIT
+trap "sleep 1; rm -rf $TMP_DIR 2>/dev/null || true" EXIT
 
 echo "==> 1) npm pack -> tarball"
 TARBALL=$(npm pack --silent --pack-destination "$TMP_DIR" 2>&1 | tail -1)
