@@ -1162,11 +1162,17 @@ function main() {
   let sourceChars = 0;
   const tIndex = Date.now();
   const indexPath = path.join(baseDir, "INDEX.md");
-  if (fs.existsSync(indexPath)) {
-    const content = fs.readFileSync(indexPath, "utf8").trim();
-    sourceChars += content.length;
+  let indexContent;
+  try {
+    indexContent = fs.readFileSync(indexPath, "utf8").trim();
+  } catch (err) {
+    if (err.code !== "ENOENT") throw err;
+    indexContent = null;
+  }
+  if (indexContent !== null) {
+    sourceChars += indexContent.length;
     output.push(`[Mindlore INDEX]
-${content}`);
+${indexContent}`);
   }
   timings.index_read = Date.now() - tIndex;
   const tDiary = Date.now();
@@ -1200,15 +1206,20 @@ ${truncateChangedFiles(truncateCommits(deltaContent))}`);
   const tVersion = Date.now();
   const versionPath = path.join(baseDir, ".version");
   const pkgVersionPath = path.join(baseDir, ".pkg-version");
+  let installed;
   try {
-    if (fs.existsSync(versionPath) && fs.existsSync(pkgVersionPath)) {
-      const installed = fs.readFileSync(versionPath, "utf8").trim();
-      const pkgVersion = fs.readFileSync(pkgVersionPath, "utf8").trim();
-      if (pkgVersion && pkgVersion !== installed) {
-        output.push(`[Mindlore: Guncelleme mevcut (${installed} \u2192 ${pkgVersion}). \`npx mindlore init\` calistirin.]`);
-      }
-    }
-  } catch (_err) {
+    installed = fs.readFileSync(versionPath, "utf8").trim();
+  } catch (err) {
+    if (err.code !== "ENOENT") throw err;
+  }
+  let pkgVersion;
+  try {
+    pkgVersion = fs.readFileSync(pkgVersionPath, "utf8").trim();
+  } catch (err) {
+    if (err.code !== "ENOENT") throw err;
+  }
+  if (installed !== void 0 && pkgVersion !== void 0 && pkgVersion !== installed) {
+    output.push(`[Mindlore: Guncelleme mevcut (${installed} \u2192 ${pkgVersion}). \`npx mindlore init\` calistirin.]`);
   }
   timings.version_check = Date.now() - tVersion;
   const tDb = Date.now();

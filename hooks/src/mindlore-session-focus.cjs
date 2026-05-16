@@ -138,10 +138,16 @@ function main() {
   // Inject INDEX.md
   const tIndex = Date.now();
   const indexPath = path.join(baseDir, 'INDEX.md');
-  if (fs.existsSync(indexPath)) {
-    const content = fs.readFileSync(indexPath, 'utf8').trim();
-    sourceChars += content.length;
-    output.push(`[Mindlore INDEX]\n${content}`);
+  let indexContent;
+  try {
+    indexContent = fs.readFileSync(indexPath, 'utf8').trim();
+  } catch (err) {
+    if (err.code !== 'ENOENT') throw err;
+    indexContent = null;
+  }
+  if (indexContent !== null) {
+    sourceChars += indexContent.length;
+    output.push(`[Mindlore INDEX]\n${indexContent}`);
   }
   timings.index_read = Date.now() - tIndex;
 
@@ -181,15 +187,13 @@ function main() {
   // Both are flat strings written by init — no JSON parse needed on session start
   const versionPath = path.join(baseDir, '.version');
   const pkgVersionPath = path.join(baseDir, '.pkg-version');
-  try {
-    if (fs.existsSync(versionPath) && fs.existsSync(pkgVersionPath)) {
-      const installed = fs.readFileSync(versionPath, 'utf8').trim();
-      const pkgVersion = fs.readFileSync(pkgVersionPath, 'utf8').trim();
-      if (pkgVersion && pkgVersion !== installed) {
-        output.push(`[Mindlore: Guncelleme mevcut (${installed} → ${pkgVersion}). \`npx mindlore init\` calistirin.]`);
-      }
-    }
-  } catch (_err) { /* skip */ }
+  let installed;
+  try { installed = fs.readFileSync(versionPath, 'utf8').trim(); } catch (err) { if (err.code !== 'ENOENT') throw err; }
+  let pkgVersion;
+  try { pkgVersion = fs.readFileSync(pkgVersionPath, 'utf8').trim(); } catch (err) { if (err.code !== 'ENOENT') throw err; }
+  if (installed !== undefined && pkgVersion !== undefined && pkgVersion !== installed) {
+    output.push(`[Mindlore: Guncelleme mevcut (${installed} → ${pkgVersion}). \`npx mindlore init\` calistirin.]`);
+  }
   timings.version_check = Date.now() - tVersion;
 
   // v0.5.4: Consolidated session payload (replaces scattered episodes/activity/alerts injection)
