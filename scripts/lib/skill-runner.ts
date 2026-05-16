@@ -41,9 +41,12 @@ function main(): void {
   const start = Date.now();
   const result = spawnSync('node', [scriptPath, ...args], {
     env: { ...process.env, MINDLORE_INVOKING_SKILL: skill, MINDLORE_PROJECT: project },
-    stdio: 'inherit',
+    encoding: 'utf-8',
   });
   const duration_ms = Date.now() - start;
+  if (result.stdout) process.stdout.write(result.stdout);
+  if (result.stderr) process.stderr.write(result.stderr);
+  const captured = (result.stderr ?? '') + (result.stdout ?? '');
   const entry = {
     ts: new Date().toISOString(),
     skill,
@@ -51,6 +54,7 @@ function main(): void {
     duration_ms,
     ok: result.status === 0,
     exit_code: result.status ?? -1,
+    output: captured.slice(-4000),
   };
   try {
     const p = telemetryPath();
