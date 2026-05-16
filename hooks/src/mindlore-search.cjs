@@ -82,6 +82,10 @@ function main() {
   const synonyms = (config && config.synonyms) ? config.synonyms : {};
 
   const allResults = [];
+  // Track tightest throttle cap across DBs — applied to the final result slice
+  // so cache hits (which return previously-stored arrays) still respect throttle
+  // state in subsequent calls of the same session.
+  let sessionEffectiveMax = baseMax;
   for (const dbPath of dbPaths) {
     const db = openDatabase(dbPath);
     if (!db) continue;
@@ -97,6 +101,7 @@ function main() {
         // so adaptive expansion (up to 5 in low-context sessions) is honored.
         // Above 10 calls it clamps to 1, above 20 to 0 (skip).
         effectiveMax = throttle.getMaxResults(callCount, baseMax);
+        if (effectiveMax < sessionEffectiveMax) sessionEffectiveMax = effectiveMax;
         if (effectiveMax === 0) {
           hookLog('search', 'info', `Throttled (call #${callCount})`);
           db.close();
@@ -105,7 +110,7 @@ function main() {
         const cached = cache.get(userMessage);
         if (cached) {
           const baseDir = path.dirname(dbPath);
-          for (const r of cached) allResults.push({ ...r, baseDir });
+          for (const r of cached.slice(0, effectiveMax)) allResults.push({ ...r, baseDir });
           db.close();
           continue;
         }
@@ -153,7 +158,7 @@ function main() {
 
   // Sort by score descending, take top N
   unique.sort((a, b) => b.score - a.score);
-  const relevant = unique.slice(0, baseMax);
+  const relevant = unique.slice(0, sessionEffectiveMax);
   if (relevant.length === 0) return;
 
   // Token budget from config

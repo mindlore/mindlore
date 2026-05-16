@@ -1403,6 +1403,7 @@ function main() {
   const config = readConfig(path.dirname(dbPaths[0]));
   const synonyms = config && config.synonyms ? config.synonyms : {};
   const allResults = [];
+  let sessionEffectiveMax = baseMax;
   for (const dbPath of dbPaths) {
     const db = openDatabase(dbPath);
     if (!db) continue;
@@ -1414,6 +1415,7 @@ function main() {
         const throttle = new SearchCacheMod.SearchThrottle(db);
         const callCount = throttle.incrementCallCount(sessionId);
         effectiveMax = throttle.getMaxResults(callCount, baseMax);
+        if (effectiveMax < sessionEffectiveMax) sessionEffectiveMax = effectiveMax;
         if (effectiveMax === 0) {
           hookLog("search", "info", `Throttled (call #${callCount})`);
           db.close();
@@ -1422,7 +1424,7 @@ function main() {
         const cached = cache.get(userMessage);
         if (cached) {
           const baseDir2 = path.dirname(dbPath);
-          for (const r of cached) allResults.push({ ...r, baseDir: baseDir2 });
+          for (const r of cached.slice(0, effectiveMax)) allResults.push({ ...r, baseDir: baseDir2 });
           db.close();
           continue;
         }
@@ -1462,7 +1464,7 @@ function main() {
     }
   }
   unique.sort((a, b) => b.score - a.score);
-  const relevant = unique.slice(0, baseMax);
+  const relevant = unique.slice(0, sessionEffectiveMax);
   if (relevant.length === 0) return;
   const budget = config && config.tokenBudget || {};
   const perResultChars = (budget.perResult || 500) * 4;
