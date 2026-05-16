@@ -12,6 +12,31 @@ function compareSemver(a: string, b: string): number {
   return 0;
 }
 
+export function cleanCacheVersion(rootDir: string): { cleaned: string[]; skipped: string[] } {
+  const cleaned: string[] = [];
+  const skipped: string[] = [];
+  const versions = fs.readdirSync(rootDir).filter(v => /^\d+\.\d+\.\d+/.test(v));
+  versions.sort(compareSemver);
+  const latest = versions[versions.length - 1];
+  for (const version of versions) {
+    if (version === latest) continue;
+    const versionPath = path.join(rootDir, version);
+    try {
+      fs.rmSync(versionPath, { recursive: true, force: true });
+      cleaned.push(version);
+    } catch (err) {
+      const code = (err as NodeJS.ErrnoException).code;
+      if (code === 'EPERM' || code === 'EBUSY') {
+        process.stderr.write(`[clean-cache] skipped ${version}: locked file (${code}). Close Claude Code and retry.\n`);
+        skipped.push(version);
+        continue;
+      }
+      throw err;
+    }
+  }
+  return { cleaned, skipped };
+}
+
 function main(): void {
   const dryRun = process.argv.includes('--dry-run');
   const cache = CC_PLUGIN_CACHE_DIR;
@@ -24,15 +49,10 @@ function main(): void {
   const removedTemp: string[] = [];
 
   if (fs.existsSync(mindloreVersionsDir)) {
-    const versions = fs.readdirSync(mindloreVersionsDir).filter(v => /^\d+\.\d+\.\d+/.test(v));
-    versions.sort(compareSemver);
-    const latest = versions[versions.length - 1];
-    for (const v of versions) {
-      if (v === latest) continue;
-      const d = path.join(mindloreVersionsDir, v);
-      console.log(`${dryRun ? 'WOULD REMOVE' : 'REMOVING'}: ${d}`);
-      if (!dryRun) fs.rmSync(d, { recursive: true, force: true });
-      removedVersions.push(v);
+    const result = cleanCacheVersion(mindloreVersionsDir);
+    removedVersions.push(...result.cleaned);
+    if (result.skipped.length > 0) {
+      process.stderr.write(`cleaned: ${result.cleaned.length} versions, skipped: ${result.skipped.length} (close CC and retry)\n`);
     }
   }
 
@@ -51,4 +71,4 @@ function main(): void {
   console.log(`Done. Removed ${removedVersions.length} stale versions, ${removedTemp.length} stale temp dirs.`);
 }
 
-main();
+if (require.main === module) main();
