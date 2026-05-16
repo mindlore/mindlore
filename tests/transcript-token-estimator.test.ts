@@ -73,4 +73,33 @@ describe('transcript-token-estimator', () => {
     process.env.CLAUDE_CONTEXT_WINDOW = '1000000';
     expect(adaptiveResultCount(tmpFile)).toBe(5);
   });
+
+  it('parses real CC transcript schema (message.content as string)', () => {
+    const ccFile = path.join(tmpDir, 'cc-string.jsonl');
+    const lines = Array(50)
+      .fill('')
+      .map(() => JSON.stringify({ type: 'user', message: { content: 'b'.repeat(200) } }));
+    fs.writeFileSync(ccFile, lines.join('\n'));
+    const tokens = estimateContextTokens(ccFile);
+    expect(tokens).toBeGreaterThan(2000);
+  });
+
+  it('parses real CC transcript schema (message.content as content-blocks array)', () => {
+    const ccFile = path.join(tmpDir, 'cc-blocks.jsonl');
+    const lines = Array(50)
+      .fill('')
+      .map(() => JSON.stringify({
+        type: 'assistant',
+        message: { content: [{ type: 'text', text: 'c'.repeat(200) }] },
+      }));
+    fs.writeFileSync(ccFile, lines.join('\n'));
+    const tokens = estimateContextTokens(ccFile);
+    expect(tokens).toBeGreaterThan(2000);
+  });
+
+  it('returns 0 for line with no recognizable content fields', () => {
+    const oddFile = path.join(tmpDir, 'odd.jsonl');
+    fs.writeFileSync(oddFile, JSON.stringify({ type: 'meta', timestamp: 'x' }) + '\n');
+    expect(estimateContextTokens(oddFile)).toBe(0);
+  });
 });

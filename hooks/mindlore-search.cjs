@@ -1266,9 +1266,44 @@ var require_transcript_token_estimator = __commonJS({
     var fs2 = __importStar(require("fs"));
     var CHAR_PER_TOKEN = 4;
     var DEFAULT_TAIL_LINES = 500;
-    var AVG_BYTES_PER_TRANSCRIPT_LINE = 500;
+    var AVG_BYTES_PER_TRANSCRIPT_LINE = 1500;
     var DEFAULT_CONTEXT_WINDOW = 2e5;
     var cache = /* @__PURE__ */ new Map();
+    function isRecord(x) {
+      return x !== null && typeof x === "object" && !Array.isArray(x);
+    }
+    function countContentChars(obj) {
+      if (!isRecord(obj))
+        return 0;
+      const candidates = [];
+      if (isRecord(obj.message))
+        candidates.push(obj.message.content);
+      candidates.push(obj.content);
+      for (const content of candidates) {
+        if (content === null || content === void 0)
+          continue;
+        if (typeof content === "string")
+          return content.length;
+        if (Array.isArray(content)) {
+          let sum = 0;
+          for (const block of content) {
+            if (typeof block === "string") {
+              sum += block.length;
+            } else if (isRecord(block)) {
+              if (typeof block.text === "string")
+                sum += block.text.length;
+              else if (typeof block.content === "string")
+                sum += block.content.length;
+              else
+                sum += JSON.stringify(block).length;
+            }
+          }
+          return sum;
+        }
+        return JSON.stringify(content).length;
+      }
+      return 0;
+    }
     function estimateContextTokens(transcriptPath, opts = {}) {
       const tail = opts.tailLines ?? DEFAULT_TAIL_LINES;
       let fd;
@@ -1292,12 +1327,7 @@ var require_transcript_token_estimator = __commonJS({
             continue;
           try {
             const obj = JSON.parse(line);
-            const content = obj?.content;
-            if (typeof content === "string") {
-              chars += content.length;
-            } else if (content !== null && content !== void 0) {
-              chars += JSON.stringify(content).length;
-            }
+            chars += countContentChars(obj);
           } catch {
           }
         }
