@@ -27,4 +27,4 @@ Lists all learnings with the first line of each.
 ## Implementation
 
 Source: `scripts/mindlore-learnings.ts`
-Entry: `node dist/scripts/mindlore-learnings.js <command> [args]`
+Use: `node "$MINDLORE_PKG/dist/scripts/lib/skill-runner.js" mindlore-learnings mindlore-learnings.js <command> [args]`

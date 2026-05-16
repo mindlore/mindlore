@@ -46,7 +46,11 @@ function main(): void {
   const baseDir = resolveMindloreHome();
   if (cmd === 'show' && slug) {
     try { process.stdout.write(showLearning(baseDir, slug)); }
-    catch (err) { process.stderr.write(`${(err as Error).message}\n`); process.exit(1); }
+    catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      process.stderr.write(`${msg}\n`);
+      process.exit(1);
+    }
   } else if (cmd === 'list') {
     for (const { slug, firstLine } of listLearnings(baseDir)) {
       process.stdout.write(`${slug}: ${firstLine}\n`);
