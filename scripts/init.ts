@@ -543,7 +543,8 @@ function main(): void {
   const packageRoot = resolvePackageRoot();
   // Resolution order: MINDLORE_HOME env var > ~/.mindlore/ (global default).
   // Project-local .mindlore/ was removed in v0.3.3 and is migrated to .mindlore.bak/ below.
-  const baseDir = GLOBAL_MINDLORE_DIR;
+  const baseDir = process.env.MINDLORE_HOME ?? GLOBAL_MINDLORE_DIR;
+  const mindloreHomeSource = process.env.MINDLORE_HOME ? 'env' : 'default';
 
   const isUpgrade = process.argv.includes('--upgrade');
   console.log(`\n  Mindlore — AI-native knowledge system [${isUpgrade ? 'upgrade' : 'global'} (~/.mindlore/)]\n`);
@@ -791,6 +792,11 @@ function main(): void {
 
   // Step 12: Auto-doctor (v0.6.1)
   runDoctor(packageRoot);
+
+  process.stdout.write(`\n  Mindlore home: ${baseDir} (source: ${mindloreHomeSource})\n`);
+  if (mindloreHomeSource === 'default') {
+    process.stdout.write('  To override, set MINDLORE_HOME env var.\n');
+  }
 
   console.log('\n  Done! Start with: /mindlore-ingest\n');
 }

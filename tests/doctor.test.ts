@@ -105,6 +105,26 @@ describe('mindlore-doctor', () => {
     });
   });
 
+  describe('MINDLORE_HOME display', () => {
+    it('shows source=env when MINDLORE_HOME env is set', () => {
+      const customHome = path.join(os.tmpdir(), 'custom-mindlore');
+      process.env.MINDLORE_HOME = customHome;
+      const { getMindloreHomeInfo } = require('../dist/scripts/mindlore-doctor.js');
+      const info = getMindloreHomeInfo();
+      expect(info.baseDir).toBe(customHome);
+      expect(info.source).toBe('env');
+      delete process.env.MINDLORE_HOME;
+    });
+
+    it('shows source=default when env unset', () => {
+      delete process.env.MINDLORE_HOME;
+      const { getMindloreHomeInfo } = require('../dist/scripts/mindlore-doctor.js');
+      const info = getMindloreHomeInfo();
+      expect(info.baseDir).toBe(path.join(os.homedir(), '.mindlore'));
+      expect(info.source).toBe('default');
+    });
+  });
+
   describe('plugin cache regression', () => {
     it('hook resolves bundled scripts from plugin cache __dirname', () => {
       // Simulate plugin cache directory structure
