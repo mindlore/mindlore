@@ -25,7 +25,10 @@ const distRedirect: Plugin = {
         return { path: `./lib/${basename}.cjs`, external: true };
       }
       const resolved = resolve(args.resolveDir, args.path);
-      const fromRoot = resolve(PROJECT_ROOT, 'dist', resolved.split(/dist[/\\]/).pop()!);
+      const parts = resolved.split(/dist[/\\]/);
+      const rel = parts.length > 1 ? parts.pop() : undefined;
+      if (!rel) throw new Error('expected resolved path to contain dist/');
+      const fromRoot = resolve(PROJECT_ROOT, 'dist', rel);
       return { path: fromRoot };
     });
   },

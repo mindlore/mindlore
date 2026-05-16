@@ -42,7 +42,6 @@ function ensureSqliteBinding(root: string): void {
 const pluginRoot = resolvePluginRoot();
 ensureSqliteBinding(pluginRoot);
 
-// eslint-disable-next-line @typescript-eslint/no-require-imports, @typescript-eslint/no-var-requires -- absolute path required for plugin cache resolution
 const Database: typeof import('better-sqlite3') = require(path.join(pluginRoot, 'node_modules', 'better-sqlite3'));
 
 const PACKAGE_VERSION = (() => {
