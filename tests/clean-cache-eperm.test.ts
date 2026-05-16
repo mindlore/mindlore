@@ -8,14 +8,17 @@ jest.mock('fs', () => {
   let callCount = 0;
   return {
     ...actual,
-    rmSync: (p: string, opts?: object) => {
-      callCount++;
-      if (callCount === 2) {
-        const err: NodeJS.ErrnoException = new Error('EPERM');
-        err.code = 'EPERM';
-        throw err;
-      }
-      return actual.rmSync(p, opts);
+    promises: {
+      ...actual.promises,
+      rm: async (p: string, opts?: object) => {
+        callCount++;
+        if (callCount === 2) {
+          const err: NodeJS.ErrnoException = new Error('EPERM');
+          err.code = 'EPERM';
+          throw err;
+        }
+        return actual.promises.rm(p, opts);
+      },
     },
   };
 });
@@ -23,12 +26,12 @@ jest.mock('fs', () => {
 import { cleanCacheVersion } from '../scripts/mindlore-clean-cache';
 
 describe('clean-cache EPERM resilience', () => {
-  it('skips locked version and continues to next without crashing', () => {
+  it('skips locked version and continues to next without crashing', async () => {
     const tmpRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'mlc-'));
     fs.mkdirSync(path.join(tmpRoot, '0.7.3'));
     fs.mkdirSync(path.join(tmpRoot, '0.7.4'));
     fs.mkdirSync(path.join(tmpRoot, '0.7.5'));
-    const result = cleanCacheVersion(tmpRoot);
+    const result = await cleanCacheVersion(tmpRoot);
     expect(result.skipped).toContain('0.7.4');
     expect(result.cleaned).toContain('0.7.3');
     expect(fs.existsSync(path.join(tmpRoot, '0.7.3'))).toBe(false);
