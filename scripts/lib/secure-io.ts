@@ -19,3 +19,6 @@ export function safeWriteFile(filePath: string, data: string): void {
 export function safeWriteJson(filePath: string, obj: unknown): void {
   safeWriteFile(filePath, JSON.stringify(obj, null, 2) + '\n');
 }
+
+// Aliases matching plan convention (secure* naming)
+export { safeMkdir as secureMkdir, safeWriteFile as secureWriteFile, safeWriteJson as secureWriteJson };

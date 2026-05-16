@@ -18,12 +18,13 @@ import type { Settings } from './lib/constants.js';
 import { countMindloreHooks } from './lib/hook-helpers.js';
 import { cleanupLegacyHooks } from './lib/settings-cleanup.js';
 import { detectPluginInstalled } from './lib/detect-plugin.js';
+import { safeMkdir, safeWriteJson } from './lib/secure-io.js';
 import { dbPragma, openDatabaseTs } from './lib/db-helpers.js';
 import { mergeDefaults } from './lib/merge-defaults.js';
 import { parseJsonObject, readJsonFile } from './lib/safe-parse.js';
 import { ensureSchemaTable, runMigrations } from './lib/schema-version.js';
 import { INIT_MIGRATIONS } from './lib/all-migrations.js';
-import { safeMkdir, safeWriteFile, safeWriteJson } from './lib/secure-io.js';
+import { safeWriteFile } from './lib/secure-io.js';
 import { errMsg } from './lib/err-msg.js';
 
 // eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- dynamic CJS require, typed by mindlore-common.d.cts
@@ -121,7 +122,7 @@ function mergeHooks(packageRoot: string, existingPlugin?: PluginManifest): { add
     if (!fs.existsSync(backupPath)) {
       fs.copyFileSync(settingsPath, backupPath);
     }
-    fs.writeFileSync(settingsPath, JSON.stringify(settings, null, 2), 'utf8');
+    safeWriteJson(settingsPath, settings);
   }
 
   // npx-only path: countMindloreHooks checks settings.json hooks array
@@ -243,7 +244,7 @@ function copyTemplates(baseDir: string, packageRoot: string): number {
   const srcExtractionDir = path.join(packageRoot, 'templates', 'extraction');
   const destExtractionDir = path.join(baseDir, 'templates', 'extraction');
   if (fs.existsSync(srcExtractionDir)) {
-    fs.mkdirSync(destExtractionDir, { recursive: true });
+    safeMkdir(destExtractionDir);
     for (const file of fs.readdirSync(srcExtractionDir)) {
       const destPath = path.join(destExtractionDir, file);
       if (!fs.existsSync(destPath)) {
@@ -380,11 +381,7 @@ function addSchemaToProjectDocs(): boolean {
   const schemaPath = path.join(GLOBAL_MINDLORE_DIR, 'SCHEMA.md');
   if (!settings.projectDocFiles.includes(schemaPath)) {
     settings.projectDocFiles.push(schemaPath);
-    fs.writeFileSync(
-      projectSettingsPath,
-      JSON.stringify(settings, null, 2),
-      'utf8',
-    );
+    safeWriteJson(projectSettingsPath, settings);
     return true;
   }
   return false;

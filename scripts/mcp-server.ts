@@ -9,6 +9,7 @@ import { resolveMindloreHome } from './lib/mcp-namespace.js';
 import { MCP_BUSY_TIMEOUT_MS, DB_NAME } from './lib/constants.js';
 import { registerAllTools } from './lib/mcp-tools.js';
 import { errMsg } from './lib/err-msg.js';
+import { safeMkdir } from './lib/secure-io.js';
 
 function resolvePluginRoot(): string {
   let dir = __dirname;
@@ -62,11 +63,11 @@ async function main(): Promise<void> {
 
   // Auto-init: ensure .mindlore/ exists
   if (!fs.existsSync(baseDir)) {
-    fs.mkdirSync(baseDir, { recursive: true });
+    safeMkdir(baseDir);
     // Minimal init — full init.ts is heavyweight, just ensure dirs + DB
     for (const sub of ['sources', 'episodes', 'decisions', 'diary', 'raw', 'domains', 'analyses', 'learnings']) {
       const dir = path.join(baseDir, sub);
-      if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
+      if (!fs.existsSync(dir)) safeMkdir(dir);
     }
   }
 
