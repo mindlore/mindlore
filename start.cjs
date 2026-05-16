@@ -85,7 +85,7 @@ function installMissing(packages) {
   try {
     execSync(
       `${NPM} install ${packages.join(' ')} --no-package-lock --no-save --silent`,
-      { cwd: __dirname_, stdio: 'pipe', timeout: 180000, shell: true }
+      { cwd: __dirname_, stdio: 'pipe', timeout: 600000, shell: true }
     );
     log('install complete');
     return true;
