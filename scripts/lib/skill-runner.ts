@@ -41,7 +41,8 @@ function writeTelemetry(entry: object): void {
     appendFileSync(p, JSON.stringify(entry) + '\n');
   } catch (err) {
     // telemetry write failure must not break skill execution; surface once to stderr
-    process.stderr.write(`[skill-runner] telemetry write failed: ${(err as Error).message}\n`);
+    const msg = err instanceof Error ? err.message : String(err);
+    process.stderr.write(`[skill-runner] telemetry write failed: ${msg}\n`);
   }
 }
 
