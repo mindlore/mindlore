@@ -7,6 +7,45 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.7.7] - 2026-05-17
+
+UX Release + Cleanup Batch. 36 commits, 143 test suites / 929 tests.
+
+### Added
+- **U1 — Setup wizard (`npx mindlore init`)**: Interactive native readline prompt for `MINDLORE_HOME` and project name. TTY-aware (skips in non-interactive env).
+- **U2 — Adaptive search result count**: `mindlore-search` hook auto-sizes result count from `CLAUDE_CONTEXT_WINDOW` token estimate (1M context → expanded results).
+- **U3 — `MINDLORE_HOME` source visibility**: `npx mindlore doctor` shows where MINDLORE_HOME is set (env / config / default) + post-init message.
+- **U4 — Type-aware extraction templates**: Dedicated extraction templates for `github-repo` and `cc-session` source types.
+- **U5 — Reflect nudge polish**: Imperative tone + count-aware messaging ("324 diary entry birikti — `/mindlore-log reflect` çalıştır").
+- **U6 — `/mindlore-learnings` skill**: New skill (show + list) for browsing project learnings. Registered in `plugin.json`.
+
+### Changed
+- **S-Q1 — `SearchThrottle` baseMax-aware**: Throttle adapts to base max from context window estimate, unlocks U2 expansion.
+- **C7 — `SearchCache` split**: Cache + Throttle separated (SRP).
+- **V4 — `secure-io` adoption (30 callsites)**: 3 batches across init, mcp-server, lib, hooks, backup, obsidian, cleanup, quality, uninstall.
+- **Q1–Q3 — Constants extraction**: `learnings-loader` constants, reflect-trigger constants, `CACHE_STALE_AGE_MS` → `constants.ts`.
+- **Tests refactor**: Unified `createTestDbWithFullSchema` / `createTestDbAtVersion` into `createTestDbUnified`.
+
+### Fixed
+- **U2 — CC transcript schema parser**: Real Claude Code transcript uses `message.content` (array of content blocks); parser updated.
+- **Search throttle cap**: Apply session throttle cap to cached results and final slice.
+- **M4 — Health check schema rules**: Allow raw nesting + optional slug + skip templates dir.
+- **Lint cleanup**: Post-cleanup lint errors + bundled hooks re-built.
+- **Clean-cache Windows EPERM/EBUSY**: Per-version try/catch.
+- **Smoke test Windows**: Best-effort cleanup with sleep for MCP file lock; MAX_WAIT bumped 180s→600s for Windows Node 20.
+- **Publish retry**: Extracted to testable script with `set -o pipefail`.
+- **Start.cjs npm install timeout**: 180s → 600s for Windows Node 20.
+
+### Performance
+- **M1 — Read-guard hot path**: Extracted to meet 30ms budget.
+- **E1 — Learnings-loader partial-read**: 512B partial-read for project field.
+- **E2 — `skill_memory` combined query**: Multiple selects → single `IN` query.
+- **E3 — `clean-cache` parallel rm**: `Promise.all`.
+- **E4 — TOCTOU fix**: Replace `existsSync + readFileSync` with `try/catch ENOENT`.
+
+### Docs
+- **Q4** — Document `openDatabaseTs` `loadVec` default.
+
 ## [0.7.6] - 2026-05-16
 
 ### Fixed
