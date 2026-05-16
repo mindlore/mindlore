@@ -71,7 +71,7 @@ var require_constants = __commonJS({
       return mod && mod.__esModule ? mod : { "default": mod };
     };
     Object.defineProperty(exports2, "__esModule", { value: true });
-    exports2.CONSOLIDATION_THRESHOLD = exports2.STALE_THRESHOLD = exports2.DECAY_HALF_LIFE_DAYS = exports2.DEFAULT_TOKEN_BUDGET = exports2.TELEMETRY_FILE_ROTATE_BYTES = exports2.TELEMETRY_OUTPUT_MAX_BYTES = exports2.TELEMETRY_FILENAME = exports2.CC_MEMORY_BOOST = exports2.CC_SUBAGENT_CATEGORY = exports2.CC_SESSION_CATEGORY = exports2.CC_MEMORY_CATEGORY = exports2.CC_MEMORY_DIR = exports2.CC_MEMORY_PATH_MARKER = exports2.CC_PLUGIN_CACHE_DIR = exports2.TYPE_TO_DIR = exports2.PRIORITY_CASE = exports2.RELATED_OVERFETCH = exports2.MAX_RELATED_SOURCES = exports2.RELATION_PRIORITY = exports2.SYMMETRIC_TYPES = exports2.RELATION_TYPES = exports2.QUALITY_HEURISTICS = exports2.QUALITY_VALUES = exports2.FRONTMATTER_TYPES = exports2.FTS5_COLUMNS = exports2.STOP_WORDS = exports2.TURKISH_WORD_RE = exports2.STOP_WORDS_MIN_LENGTH = exports2.SESSION_CATEGORIES = exports2.CATEGORIES = exports2.SCHEMA_VERSION = exports2.DEFAULT_MODELS = exports2.CONFIG_FILE = exports2.MCP_BUSY_TIMEOUT_MS = exports2.DB_BUSY_TIMEOUT_MS = exports2.SKIP_FILES = exports2.DIRECTORIES = exports2.DB_NAME = exports2.GLOBAL_MINDLORE_DIR = exports2.MINDLORE_DIR = exports2.KNOWN_HOOK_EVENTS = void 0;
+    exports2.CACHE_STALE_AGE_MS = exports2.NUDGE_COOLDOWN_HOURS = exports2.REFLECT_THRESHOLD_DAYS = exports2.LEARNINGS_TOTAL_CHAR_BUDGET = exports2.LEARNINGS_MAX_LINES_PER_LESSON = exports2.LEARNINGS_MAX_LESSONS = exports2.CONSOLIDATION_THRESHOLD = exports2.STALE_THRESHOLD = exports2.DECAY_HALF_LIFE_DAYS = exports2.DEFAULT_TOKEN_BUDGET = exports2.TELEMETRY_FILE_ROTATE_BYTES = exports2.TELEMETRY_OUTPUT_MAX_BYTES = exports2.TELEMETRY_FILENAME = exports2.CC_MEMORY_BOOST = exports2.CC_SUBAGENT_CATEGORY = exports2.CC_SESSION_CATEGORY = exports2.CC_MEMORY_CATEGORY = exports2.CC_MEMORY_DIR = exports2.CC_MEMORY_PATH_MARKER = exports2.CC_PLUGIN_CACHE_DIR = exports2.SLUG_OPTIONAL_TYPES = exports2.NESTED_DIR_TYPES = exports2.TYPE_TO_DIR = exports2.PRIORITY_CASE = exports2.RELATED_OVERFETCH = exports2.MAX_RELATED_SOURCES = exports2.RELATION_PRIORITY = exports2.SYMMETRIC_TYPES = exports2.RELATION_TYPES = exports2.QUALITY_HEURISTICS = exports2.QUALITY_VALUES = exports2.FRONTMATTER_TYPES = exports2.FTS5_COLUMNS = exports2.STOP_WORDS = exports2.TURKISH_WORD_RE = exports2.STOP_WORDS_MIN_LENGTH = exports2.SESSION_CATEGORIES = exports2.CATEGORIES = exports2.SCHEMA_VERSION = exports2.DEFAULT_MODELS = exports2.CONFIG_FILE = exports2.MCP_BUSY_TIMEOUT_MS = exports2.DB_BUSY_TIMEOUT_MS = exports2.SKIP_FILES = exports2.DIRECTORIES = exports2.DB_NAME = exports2.GLOBAL_MINDLORE_DIR = exports2.MINDLORE_DIR = exports2.KNOWN_HOOK_EVENTS = void 0;
     exports2.isKnownHookEvent = isKnownHookEvent;
     exports2.isSessionCategory = isSessionCategory;
     exports2.fixVersionTokens = fixVersionTokens;
@@ -392,6 +392,8 @@ var require_constants = __commonJS({
       reference: "memory",
       note: "memory"
     };
+    exports2.NESTED_DIR_TYPES = /* @__PURE__ */ new Set(["raw"]);
+    exports2.SLUG_OPTIONAL_TYPES = /* @__PURE__ */ new Set(["raw", "compaction-snapshot"]);
     exports2.CC_PLUGIN_CACHE_DIR = path_1.default.join(os_1.default.homedir(), ".claude", "plugins", "cache");
     exports2.CC_MEMORY_PATH_MARKER = path_1.default.join(".claude", "projects");
     exports2.CC_MEMORY_DIR = "memory";
@@ -463,6 +465,12 @@ var require_constants = __commonJS({
     exports2.DECAY_HALF_LIFE_DAYS = 30;
     exports2.STALE_THRESHOLD = 0.3;
     exports2.CONSOLIDATION_THRESHOLD = 50;
+    exports2.LEARNINGS_MAX_LESSONS = 10;
+    exports2.LEARNINGS_MAX_LINES_PER_LESSON = 5;
+    exports2.LEARNINGS_TOTAL_CHAR_BUDGET = 6e3;
+    exports2.REFLECT_THRESHOLD_DAYS = 7;
+    exports2.NUDGE_COOLDOWN_HOURS = 24;
+    exports2.CACHE_STALE_AGE_MS = 24 * 3600 * 1e3;
   }
 });
 
@@ -1086,6 +1094,42 @@ var require_search_engine = __commonJS({
   }
 });
 
+// dist/scripts/lib/search-throttle.js
+var require_search_throttle = __commonJS({
+  "dist/scripts/lib/search-throttle.js"(exports2) {
+    "use strict";
+    Object.defineProperty(exports2, "__esModule", { value: true });
+    exports2.SearchThrottle = void 0;
+    var SearchThrottle = class {
+      db;
+      constructor(db) {
+        this.db = db;
+      }
+      incrementCallCount(sessionId) {
+        const now = (/* @__PURE__ */ new Date()).toISOString();
+        const row = this.db.prepare(`
+      INSERT INTO search_throttle (session_id, call_count, last_call)
+      VALUES (?, 1, ?)
+      ON CONFLICT(session_id) DO UPDATE SET call_count = call_count + 1, last_call = ?
+      RETURNING call_count
+    `).get(sessionId, now, now);
+        return row?.call_count ?? 1;
+      }
+      // baseMax: caller's adaptive ceiling (e.g. context-aware count from token estimator).
+      // Throttle's role is a safety floor under high call counts; when callCount is low,
+      // honor baseMax fully so adaptive expansion (up to 5) is reachable.
+      getMaxResults(callCount, baseMax = 3) {
+        if (callCount <= 10)
+          return baseMax;
+        if (callCount <= 20)
+          return 1;
+        return 0;
+      }
+    };
+    exports2.SearchThrottle = SearchThrottle;
+  }
+});
+
 // dist/scripts/lib/search-cache.js
 var require_search_cache = __commonJS({
   "dist/scripts/lib/search-cache.js"(exports2) {
@@ -1166,30 +1210,167 @@ var require_search_cache = __commonJS({
       }
     };
     exports2.SearchCache = SearchCache;
-    var SearchThrottle = class {
-      db;
-      constructor(db) {
-        this.db = db;
+    var search_throttle_js_1 = require_search_throttle();
+    Object.defineProperty(exports2, "SearchThrottle", { enumerable: true, get: function() {
+      return search_throttle_js_1.SearchThrottle;
+    } });
+  }
+});
+
+// dist/scripts/lib/transcript-token-estimator.js
+var require_transcript_token_estimator = __commonJS({
+  "dist/scripts/lib/transcript-token-estimator.js"(exports2) {
+    "use strict";
+    var __createBinding = exports2 && exports2.__createBinding || (Object.create ? (function(o, m, k, k2) {
+      if (k2 === void 0) k2 = k;
+      var desc = Object.getOwnPropertyDescriptor(m, k);
+      if (!desc || ("get" in desc ? !m.__esModule : desc.writable || desc.configurable)) {
+        desc = { enumerable: true, get: function() {
+          return m[k];
+        } };
       }
-      incrementCallCount(sessionId) {
-        const now = (/* @__PURE__ */ new Date()).toISOString();
-        const row = this.db.prepare(`
-      INSERT INTO search_throttle (session_id, call_count, last_call)
-      VALUES (?, 1, ?)
-      ON CONFLICT(session_id) DO UPDATE SET call_count = call_count + 1, last_call = ?
-      RETURNING call_count
-    `).get(sessionId, now, now);
-        return row?.call_count ?? 1;
-      }
-      getMaxResults(callCount) {
-        if (callCount <= 10)
-          return 3;
-        if (callCount <= 20)
-          return 1;
+      Object.defineProperty(o, k2, desc);
+    }) : (function(o, m, k, k2) {
+      if (k2 === void 0) k2 = k;
+      o[k2] = m[k];
+    }));
+    var __setModuleDefault = exports2 && exports2.__setModuleDefault || (Object.create ? (function(o, v) {
+      Object.defineProperty(o, "default", { enumerable: true, value: v });
+    }) : function(o, v) {
+      o["default"] = v;
+    });
+    var __importStar = exports2 && exports2.__importStar || /* @__PURE__ */ (function() {
+      var ownKeys = function(o) {
+        ownKeys = Object.getOwnPropertyNames || function(o2) {
+          var ar = [];
+          for (var k in o2) if (Object.prototype.hasOwnProperty.call(o2, k)) ar[ar.length] = k;
+          return ar;
+        };
+        return ownKeys(o);
+      };
+      return function(mod) {
+        if (mod && mod.__esModule) return mod;
+        var result = {};
+        if (mod != null) {
+          for (var k = ownKeys(mod), i = 0; i < k.length; i++) if (k[i] !== "default") __createBinding(result, mod, k[i]);
+        }
+        __setModuleDefault(result, mod);
+        return result;
+      };
+    })();
+    Object.defineProperty(exports2, "__esModule", { value: true });
+    exports2.estimateContextTokens = estimateContextTokens;
+    exports2.getContextWindow = getContextWindow;
+    exports2.resultCountFromContext = resultCountFromContext;
+    exports2.adaptiveResultCount = adaptiveResultCount;
+    var fs2 = __importStar(require("fs"));
+    var CHAR_PER_TOKEN = 4;
+    var DEFAULT_TAIL_LINES = 500;
+    var AVG_BYTES_PER_TRANSCRIPT_LINE = 1500;
+    var DEFAULT_CONTEXT_WINDOW = 2e5;
+    var cache = /* @__PURE__ */ new Map();
+    function isRecord(x) {
+      return x !== null && typeof x === "object" && !Array.isArray(x);
+    }
+    function countContentChars(obj) {
+      if (!isRecord(obj))
         return 0;
+      const candidates = [];
+      if (isRecord(obj.message))
+        candidates.push(obj.message.content);
+      candidates.push(obj.content);
+      for (const content of candidates) {
+        if (content === null || content === void 0)
+          continue;
+        if (typeof content === "string")
+          return content.length;
+        if (Array.isArray(content)) {
+          let sum = 0;
+          for (const block of content) {
+            if (typeof block === "string") {
+              sum += block.length;
+            } else if (isRecord(block)) {
+              if (typeof block.text === "string")
+                sum += block.text.length;
+              else if (typeof block.content === "string")
+                sum += block.content.length;
+              else
+                sum += JSON.stringify(block).length;
+            }
+          }
+          return sum;
+        }
+        return JSON.stringify(content).length;
       }
-    };
-    exports2.SearchThrottle = SearchThrottle;
+      return 0;
+    }
+    function estimateContextTokens(transcriptPath, opts = {}) {
+      const tail = opts.tailLines ?? DEFAULT_TAIL_LINES;
+      let fd;
+      try {
+        const st = fs2.statSync(transcriptPath);
+        const cached = cache.get(transcriptPath);
+        if (cached && cached.mtime === st.mtimeMs)
+          return cached.tokens;
+        const readSize = Math.min(st.size, tail * AVG_BYTES_PER_TRANSCRIPT_LINE);
+        if (readSize === 0) {
+          cache.set(transcriptPath, { mtime: st.mtimeMs, tokens: 0 });
+          return 0;
+        }
+        fd = fs2.openSync(transcriptPath, "r");
+        const buf = Buffer.allocUnsafe(readSize);
+        const bytesRead = fs2.readSync(fd, buf, 0, readSize, st.size - readSize);
+        const text = buf.toString("utf8", 0, bytesRead);
+        let chars = 0;
+        for (const line of text.split("\n")) {
+          if (!line)
+            continue;
+          try {
+            const obj = JSON.parse(line);
+            chars += countContentChars(obj);
+          } catch {
+          }
+        }
+        const tokens = Math.floor(chars / CHAR_PER_TOKEN);
+        cache.set(transcriptPath, { mtime: st.mtimeMs, tokens });
+        return tokens;
+      } catch {
+        return 0;
+      } finally {
+        if (fd !== void 0) {
+          try {
+            fs2.closeSync(fd);
+          } catch {
+          }
+        }
+      }
+    }
+    function getContextWindow() {
+      const env = process.env.CLAUDE_CONTEXT_WINDOW;
+      if (env) {
+        const n = parseInt(env, 10);
+        if (!isNaN(n) && n > 0)
+          return n;
+      }
+      return DEFAULT_CONTEXT_WINDOW;
+    }
+    function resultCountFromContext(pct) {
+      if (pct < 0.5)
+        return 5;
+      if (pct < 0.75)
+        return 3;
+      if (pct < 0.9)
+        return 2;
+      return 1;
+    }
+    function adaptiveResultCount(transcriptPath) {
+      if (!transcriptPath)
+        return 3;
+      const tokens = estimateContextTokens(transcriptPath);
+      if (tokens === 0)
+        return 3;
+      return resultCountFromContext(tokens / getContextWindow());
+    }
   }
 });
 
@@ -1197,6 +1378,7 @@ var require_search_cache = __commonJS({
 var fs = require("fs");
 var path = require("path");
 var { getAllDbs, openDatabase, extractHeadings, readConfig, hookLog, incrementRecallCount, withTelemetry } = require("./lib/mindlore-common.cjs");
+var { safeMkdir, safeWriteFile } = require("./lib/secure-io.cjs");
 var MAX_RESULTS = 3;
 var MIN_QUERY_WORDS = 3;
 var searchEngineMod;
@@ -1209,21 +1391,37 @@ try {
   SearchCacheMod = require_search_cache();
 } catch (_err) {
 }
+var TokenEstimatorMod;
+try {
+  TokenEstimatorMod = require_transcript_token_estimator();
+} catch (_err) {
+}
 function parseStdin() {
   try {
     const raw = fs.readFileSync(0, "utf8").trim();
-    if (!raw) return { userMessage: "", sessionId: "unknown" };
+    if (!raw) return { userMessage: "", sessionId: "unknown", transcriptPath: void 0 };
     const parsed = JSON.parse(raw);
     const userMessage = parsed.prompt || parsed.content || parsed.message || parsed.query || raw;
     const sessionId = parsed.session_id || "unknown";
-    return { userMessage, sessionId };
+    const transcriptPath = parsed.transcript_path || parsed.transcriptPath;
+    return { userMessage, sessionId, transcriptPath };
   } catch (_err) {
-    return { userMessage: "", sessionId: "unknown" };
+    return { userMessage: "", sessionId: "unknown", transcriptPath: void 0 };
   }
 }
+function getBaseMax(transcriptPath) {
+  if (TokenEstimatorMod) {
+    try {
+      return TokenEstimatorMod.adaptiveResultCount(transcriptPath);
+    } catch (_err) {
+    }
+  }
+  return MAX_RESULTS;
+}
 function main() {
-  const { userMessage, sessionId } = parseStdin();
+  const { userMessage, sessionId, transcriptPath } = parseStdin();
   if (!userMessage || userMessage.length < MIN_QUERY_WORDS) return;
+  const baseMax = getBaseMax(transcriptPath);
   let searchMs = 0;
   const dbPaths = getAllDbs();
   if (dbPaths.length === 0) return;
@@ -1235,17 +1433,19 @@ function main() {
   const config = readConfig(path.dirname(dbPaths[0]));
   const synonyms = config && config.synonyms ? config.synonyms : {};
   const allResults = [];
+  let sessionEffectiveMax = baseMax;
   for (const dbPath of dbPaths) {
     const db = openDatabase(dbPath);
     if (!db) continue;
     try {
       let cache;
-      let effectiveMax = MAX_RESULTS;
+      let effectiveMax = baseMax;
       if (SearchCacheMod) {
         cache = new SearchCacheMod.SearchCache(db, { ttlMs: 3e5 });
         const throttle = new SearchCacheMod.SearchThrottle(db);
         const callCount = throttle.incrementCallCount(sessionId);
-        effectiveMax = throttle.getMaxResults(callCount);
+        effectiveMax = throttle.getMaxResults(callCount, baseMax);
+        if (effectiveMax < sessionEffectiveMax) sessionEffectiveMax = effectiveMax;
         if (effectiveMax === 0) {
           hookLog("search", "info", `Throttled (call #${callCount})`);
           db.close();
@@ -1254,7 +1454,7 @@ function main() {
         const cached = cache.get(userMessage);
         if (cached) {
           const baseDir2 = path.dirname(dbPath);
-          for (const r of cached) allResults.push({ ...r, baseDir: baseDir2 });
+          for (const r of cached.slice(0, effectiveMax)) allResults.push({ ...r, baseDir: baseDir2 });
           db.close();
           continue;
         }
@@ -1294,7 +1494,7 @@ function main() {
     }
   }
   unique.sort((a, b) => b.score - a.score);
-  const relevant = unique.slice(0, MAX_RESULTS);
+  const relevant = unique.slice(0, sessionEffectiveMax);
   if (relevant.length === 0) return;
   const budget = config && config.tokenBudget || {};
   const perResultChars = (budget.perResult || 500) * 4;
@@ -1332,7 +1532,7 @@ Dosya: ${relativePath}${tagsStr}${headingStr}`;
     if (outputStr.length > OFFLOAD_THRESHOLD) {
       const baseDir = path.dirname(dbPaths[0]);
       const tmpDir = path.join(baseDir, "tmp");
-      fs.mkdirSync(tmpDir, { recursive: true });
+      safeMkdir(tmpDir);
       try {
         const oneHourAgo = Date.now() - 36e5;
         const files = fs.readdirSync(tmpDir).filter((f) => f.startsWith("search-")).map((f) => ({ name: f, mtime: fs.statSync(path.join(tmpDir, f)).mtimeMs })).sort((a, b) => b.mtime - a.mtime);
@@ -1348,7 +1548,7 @@ Dosya: ${relativePath}${tagsStr}${headingStr}`;
       }
       const fileName = `search-${Date.now()}.md`;
       const filePath = path.join(tmpDir, fileName);
-      fs.writeFileSync(filePath, outputStr, "utf8");
+      safeWriteFile(filePath, outputStr);
       const summary = outputStr.slice(0, 500).replace(/\n/g, " ").trim();
       outputStr = `[Mindlore Search: ${outputStr.length} chars offloaded to ${filePath}]
 Summary: ${summary}...

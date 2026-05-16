@@ -12,6 +12,7 @@
  */
 
 import fs from 'fs';
+import { safeWriteFile } from './lib/secure-io.js';
 import path from 'path';
 import { execSync, execFileSync } from 'child_process';
 import { GLOBAL_MINDLORE_DIR, log } from './lib/constants.js';
@@ -42,7 +43,7 @@ function backupInit(): void {
 
   // Create .gitignore
   const gitignorePath = path.join(BASE_DIR, '.gitignore');
-  fs.writeFileSync(gitignorePath, GITIGNORE_CONTENT, 'utf8');
+  safeWriteFile(gitignorePath, GITIGNORE_CONTENT);
   log('Created .gitignore');
 
   // Init git if needed
@@ -267,7 +268,7 @@ function backupGithub(): void {
     execSync('git init', { cwd: BASE_DIR, stdio: 'pipe', timeout: 10000 });
     log('Initialized git repo');
   }
-  fs.writeFileSync(path.join(BASE_DIR, '.gitignore'), GITIGNORE_CONTENT, 'utf8');
+  safeWriteFile(path.join(BASE_DIR, '.gitignore'), GITIGNORE_CONTENT);
   log('Updated .gitignore');
 
   // Set remote

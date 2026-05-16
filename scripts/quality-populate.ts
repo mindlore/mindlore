@@ -13,6 +13,7 @@ import fs from 'fs';
 import path from 'path';
 import { GLOBAL_MINDLORE_DIR, DB_NAME, QUALITY_HEURISTICS, isContentFile, log, resolveHookCommon } from './lib/constants.js';
 import type { QualityValue } from './lib/constants.js';
+import { safeWriteFile } from './lib/secure-io.js';
 
 interface HookCommon {
   parseFrontmatter: (content: string) => { meta: Record<string, unknown>; body: string };
@@ -74,7 +75,7 @@ function main(): void {
 
     const quality = resolveQuality(meta);
     const newContent = updateFrontmatter(content, meta, quality);
-    fs.writeFileSync(filePath, newContent, 'utf8');
+    safeWriteFile(filePath, newContent);
 
     // Update FTS5
     if (getRowid && updateQuality) {

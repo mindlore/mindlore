@@ -12,6 +12,7 @@
 const fs = require('fs');
 const path = require('path');
 const { getAllDbs, openDatabase, extractHeadings, readConfig, hookLog, incrementRecallCount, withTelemetry } = require('./lib/mindlore-common.cjs');
+const { safeMkdir, safeWriteFile } = require('./lib/secure-io.cjs');
 
 const MAX_RESULTS = 3;
 const MIN_QUERY_WORDS = 3;
@@ -30,22 +31,42 @@ try {
   // search-cache not built yet
 }
 
+let TokenEstimatorMod;
+try {
+  TokenEstimatorMod = require('../dist/scripts/lib/transcript-token-estimator.js');
+} catch (_err) {
+  // estimator not built yet
+}
+
 function parseStdin() {
   try {
     const raw = fs.readFileSync(0, 'utf8').trim();
-    if (!raw) return { userMessage: '', sessionId: 'unknown' };
+    if (!raw) return { userMessage: '', sessionId: 'unknown', transcriptPath: undefined };
     const parsed = JSON.parse(raw);
     const userMessage = parsed.prompt || parsed.content || parsed.message || parsed.query || raw;
     const sessionId = parsed.session_id || 'unknown';
-    return { userMessage, sessionId };
+    const transcriptPath = parsed.transcript_path || parsed.transcriptPath;
+    return { userMessage, sessionId, transcriptPath };
   } catch (_err) {
-    return { userMessage: '', sessionId: 'unknown' };
+    return { userMessage: '', sessionId: 'unknown', transcriptPath: undefined };
   }
 }
 
+function getBaseMax(transcriptPath) {
+  if (TokenEstimatorMod) {
+    try {
+      return TokenEstimatorMod.adaptiveResultCount(transcriptPath);
+    } catch (_err) {
+      // fall through to default
+    }
+  }
+  return MAX_RESULTS;
+}
+
 function main() {
-  const { userMessage, sessionId } = parseStdin();
+  const { userMessage, sessionId, transcriptPath } = parseStdin();
   if (!userMessage || userMessage.length < MIN_QUERY_WORDS) return;
+  const baseMax = getBaseMax(transcriptPath);
   let searchMs = 0;
 
   const dbPaths = getAllDbs();
@@ -61,18 +82,26 @@ function main() {
   const synonyms = (config && config.synonyms) ? config.synonyms : {};
 
   const allResults = [];
+  // Track tightest throttle cap across DBs — applied to the final result slice
+  // so cache hits (which return previously-stored arrays) still respect throttle
+  // state in subsequent calls of the same session.
+  let sessionEffectiveMax = baseMax;
   for (const dbPath of dbPaths) {
     const db = openDatabase(dbPath);
     if (!db) continue;
     try {
       // Cache + throttle
       let cache;
-      let effectiveMax = MAX_RESULTS;
+      let effectiveMax = baseMax;
       if (SearchCacheMod) {
         cache = new SearchCacheMod.SearchCache(db, { ttlMs: 300000 });
         const throttle = new SearchCacheMod.SearchThrottle(db);
         const callCount = throttle.incrementCallCount(sessionId);
-        effectiveMax = throttle.getMaxResults(callCount);
+        // Throttle is baseMax-aware: when callCount <= 10 it returns baseMax,
+        // so adaptive expansion (up to 5 in low-context sessions) is honored.
+        // Above 10 calls it clamps to 1, above 20 to 0 (skip).
+        effectiveMax = throttle.getMaxResults(callCount, baseMax);
+        if (effectiveMax < sessionEffectiveMax) sessionEffectiveMax = effectiveMax;
         if (effectiveMax === 0) {
           hookLog('search', 'info', `Throttled (call #${callCount})`);
           db.close();
@@ -81,7 +110,7 @@ function main() {
         const cached = cache.get(userMessage);
         if (cached) {
           const baseDir = path.dirname(dbPath);
-          for (const r of cached) allResults.push({ ...r, baseDir });
+          for (const r of cached.slice(0, effectiveMax)) allResults.push({ ...r, baseDir });
           db.close();
           continue;
         }
@@ -129,7 +158,7 @@ function main() {
 
   // Sort by score descending, take top N
   unique.sort((a, b) => b.score - a.score);
-  const relevant = unique.slice(0, MAX_RESULTS);
+  const relevant = unique.slice(0, sessionEffectiveMax);
   if (relevant.length === 0) return;
 
   // Token budget from config
@@ -172,7 +201,7 @@ function main() {
     if (outputStr.length > OFFLOAD_THRESHOLD) {
       const baseDir = path.dirname(dbPaths[0]);
       const tmpDir = path.join(baseDir, 'tmp');
-      fs.mkdirSync(tmpDir, { recursive: true });
+      safeMkdir(tmpDir);
 
       try {
         const oneHourAgo = Date.now() - 3600000;
@@ -188,7 +217,7 @@ function main() {
       } catch { /* cleanup is best-effort */ }
       const fileName = `search-${Date.now()}.md`;
       const filePath = path.join(tmpDir, fileName);
-      fs.writeFileSync(filePath, outputStr, 'utf8');
+      safeWriteFile(filePath, outputStr);
 
       const summary = outputStr.slice(0, 500).replace(/\n/g, ' ').trim();
       outputStr = `[Mindlore Search: ${outputStr.length} chars offloaded to ${filePath}]\n` +

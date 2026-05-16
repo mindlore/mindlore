@@ -59,22 +59,24 @@ const ALL_MIGRATIONS = [
   ...V068_MIGRATIONS, ...V072_MIGRATIONS,
 ];
 
-export function createTestDbAtVersion(dbPath: string, maxVersion: number): Database.Database {
+export interface CreateTestDbOpts { seed?: boolean; maxVersion?: number }
+
+export function createTestDbUnified(dbPath: string, opts: CreateTestDbOpts = {}): Database.Database {
   const db = createTestDb(dbPath);
   ensureEpisodesTableCjs(db);
   ensureSchemaTable(db);
-  const filtered = ALL_MIGRATIONS.filter(m => m.version <= maxVersion);
-  runMigrations(db, filtered);
+  if (opts.seed) {
+    runMigrations(db, ALL_MIGRATIONS);
+  } else if (opts.maxVersion !== undefined) {
+    const maxVersion = opts.maxVersion;
+    const filtered = ALL_MIGRATIONS.filter(m => m.version <= maxVersion);
+    runMigrations(db, filtered);
+  }
   return db;
 }
 
-export function createTestDbWithFullSchema(dbPath: string): Database.Database {
-  const db = createTestDb(dbPath);
-  ensureEpisodesTableCjs(db);
-  ensureSchemaTable(db);
-  runMigrations(db, ALL_MIGRATIONS);
-  return db;
-}
+export const createTestDbAtVersion = (dbPath: string, maxVersion: number): Database.Database => createTestDbUnified(dbPath, { maxVersion });
+export const createTestDbWithFullSchema = (dbPath: string): Database.Database => createTestDbUnified(dbPath, { seed: true });
 
 export interface FtsEntry {
   [key: string]: string | null | undefined;

@@ -1,4 +1,4 @@
-const { shouldNudgeReflect } = require('../hooks/lib/reflect-trigger.cjs');
+const { shouldNudgeReflect, buildNudgeMessage } = require('../hooks/lib/reflect-trigger.cjs');
 
 const now = new Date('2026-05-15T12:00:00Z');
 const daysAgo = (n: number) => new Date(now.getTime() - n * 86400000).toISOString();
@@ -34,4 +34,12 @@ test('returns false for invalid reflect date string', () => {
 
 test('handles invalid nudge date gracefully (ignored, falls through to reflect check)', () => {
   expect(shouldNudgeReflect(daysAgo(8), 'invalid', now)).toBe(true);
+});
+
+test('buildNudgeMessage includes days, episodes, diary, and command', () => {
+  const msg = buildNudgeMessage({ daysSince: 9, episodeCount: 42, diaryCount: 15 });
+  expect(msg).toContain('9 gün');
+  expect(msg).toContain('42');
+  expect(msg).toContain('15');
+  expect(msg).toContain('/mindlore-reflect');
 });

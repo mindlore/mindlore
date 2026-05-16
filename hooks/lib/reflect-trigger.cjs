@@ -1,5 +1,4 @@
-const REFLECT_THRESHOLD_DAYS = 7;
-const NUDGE_COOLDOWN_HOURS = 24;
+const { REFLECT_THRESHOLD_DAYS, NUDGE_COOLDOWN_HOURS } = require('../../dist/scripts/lib/constants.js');
 
 function isValidDate(iso) {
   if (!iso) return false;
@@ -26,4 +25,8 @@ function shouldNudgeReflect(lastReflectIso, lastNudgeIso, now = new Date()) {
   return true;
 }
 
-module.exports = { shouldNudgeReflect, REFLECT_THRESHOLD_DAYS, NUDGE_COOLDOWN_HOURS };
+function buildNudgeMessage(params) {
+  return `[Mindlore] Son reflect'inden ${params.daysSince} gün geçti. ${params.episodeCount} episode + ${params.diaryCount} diary birikti — \`/mindlore-reflect\` ile pattern özetle.`;
+}
+
+module.exports = { shouldNudgeReflect, buildNudgeMessage, REFLECT_THRESHOLD_DAYS, NUDGE_COOLDOWN_HOURS };

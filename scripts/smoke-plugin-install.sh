@@ -46,7 +46,7 @@ if [ ! -d "dist" ]; then
 fi
 
 TMP_DIR=$(mktemp -d)
-trap "rm -rf $TMP_DIR" EXIT
+trap "sleep 1; rm -rf $TMP_DIR 2>/dev/null || true" EXIT
 
 echo "==> 1) npm pack -> tarball"
 TARBALL=$(npm pack --silent --pack-destination "$TMP_DIR" 2>&1 | tail -1)
@@ -73,7 +73,7 @@ if [ -d "node_modules/better-sqlite3" ]; then
   echo "          With bootstrap pattern this is OK but unnecessary."
 fi
 
-echo "==> 3) Boot start.cjs (180s timeout for first-boot npm install)"
+echo "==> 3) Boot start.cjs (600s timeout for first-boot npm install)"
 STDERR_LOG="$TMP_DIR/stderr.log"
 # Empty stdin so server doesn't hang on JSON-RPC
 ( echo "" | node start.cjs ) 2>"$STDERR_LOG" >/dev/null &
@@ -81,7 +81,7 @@ PID=$!
 
 # Wait up to 180s for either: (a) clean boot, (b) error in stderr
 WAITED=0
-MAX_WAIT=180
+MAX_WAIT=600
 BOOTSTRAP_DONE=0
 while [ $WAITED -lt $MAX_WAIT ]; do
   # Check if process died

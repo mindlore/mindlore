@@ -5,6 +5,7 @@
 var fs = require("fs");
 var path = require("path");
 var { findMindloreDir, getProjectName, hookLog, withTelemetry } = require("./lib/mindlore-common.cjs");
+var { safeWriteFile } = require("./lib/secure-io.cjs");
 var CODE_EXTS = /* @__PURE__ */ new Set([".ts", ".tsx", ".js", ".jsx", ".py", ".rs", ".go", ".java", ".c", ".cpp", ".h", ".css", ".scss", ".sql", ".sh", ".yaml", ".yml", ".json", ".toml", ".xml", ".cjs", ".mjs"]);
 var PROSE_EXTS = /* @__PURE__ */ new Set([".md", ".txt", ".rst", ".adoc"]);
 function estimateTokens(charCount, ext) {
@@ -63,7 +64,7 @@ function main() {
       } else {
         reads[key] = { count: 1, tokens, chars: charCount };
       }
-      fs.writeFileSync(readsPath, JSON.stringify(reads, null, 2), "utf8");
+      safeWriteFile(readsPath, JSON.stringify(reads, null, 2));
       const basename = path.basename(filePath);
       process.stdout.write(JSON.stringify({
         hookSpecificOutput: {

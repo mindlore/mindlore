@@ -1,16 +1,447 @@
 #!/usr/bin/env node
 "use strict";
+var __create = Object.create;
+var __defProp = Object.defineProperty;
+var __getOwnPropDesc = Object.getOwnPropertyDescriptor;
 var __getOwnPropNames = Object.getOwnPropertyNames;
+var __getProtoOf = Object.getPrototypeOf;
+var __hasOwnProp = Object.prototype.hasOwnProperty;
 var __commonJS = (cb, mod) => function __require() {
   return mod || (0, cb[__getOwnPropNames(cb)[0]])((mod = { exports: {} }).exports, mod), mod.exports;
 };
+var __copyProps = (to, from, except, desc) => {
+  if (from && typeof from === "object" || typeof from === "function") {
+    for (let key of __getOwnPropNames(from))
+      if (!__hasOwnProp.call(to, key) && key !== except)
+        __defProp(to, key, { get: () => from[key], enumerable: !(desc = __getOwnPropDesc(from, key)) || desc.enumerable });
+  }
+  return to;
+};
+var __toESM = (mod, isNodeMode, target) => (target = mod != null ? __create(__getProtoOf(mod)) : {}, __copyProps(
+  // If the importer is in node compatibility mode or this is not an ESM
+  // file that has been converted to a CommonJS file using a Babel-
+  // compatible transform (i.e. "__esModule" has not been set), then set
+  // "default" to the CommonJS "module.exports" for node compatibility.
+  isNodeMode || !mod || !mod.__esModule ? __defProp(target, "default", { value: mod, enumerable: true }) : target,
+  mod
+));
+
+// dist/scripts/lib/constants.js
+var require_constants = __commonJS({
+  "dist/scripts/lib/constants.js"(exports2) {
+    "use strict";
+    var __importDefault = exports2 && exports2.__importDefault || function(mod) {
+      return mod && mod.__esModule ? mod : { "default": mod };
+    };
+    Object.defineProperty(exports2, "__esModule", { value: true });
+    exports2.CACHE_STALE_AGE_MS = exports2.NUDGE_COOLDOWN_HOURS = exports2.REFLECT_THRESHOLD_DAYS = exports2.LEARNINGS_TOTAL_CHAR_BUDGET = exports2.LEARNINGS_MAX_LINES_PER_LESSON = exports2.LEARNINGS_MAX_LESSONS = exports2.CONSOLIDATION_THRESHOLD = exports2.STALE_THRESHOLD = exports2.DECAY_HALF_LIFE_DAYS = exports2.DEFAULT_TOKEN_BUDGET = exports2.TELEMETRY_FILE_ROTATE_BYTES = exports2.TELEMETRY_OUTPUT_MAX_BYTES = exports2.TELEMETRY_FILENAME = exports2.CC_MEMORY_BOOST = exports2.CC_SUBAGENT_CATEGORY = exports2.CC_SESSION_CATEGORY = exports2.CC_MEMORY_CATEGORY = exports2.CC_MEMORY_DIR = exports2.CC_MEMORY_PATH_MARKER = exports2.CC_PLUGIN_CACHE_DIR = exports2.SLUG_OPTIONAL_TYPES = exports2.NESTED_DIR_TYPES = exports2.TYPE_TO_DIR = exports2.PRIORITY_CASE = exports2.RELATED_OVERFETCH = exports2.MAX_RELATED_SOURCES = exports2.RELATION_PRIORITY = exports2.SYMMETRIC_TYPES = exports2.RELATION_TYPES = exports2.QUALITY_HEURISTICS = exports2.QUALITY_VALUES = exports2.FRONTMATTER_TYPES = exports2.FTS5_COLUMNS = exports2.STOP_WORDS = exports2.TURKISH_WORD_RE = exports2.STOP_WORDS_MIN_LENGTH = exports2.SESSION_CATEGORIES = exports2.CATEGORIES = exports2.SCHEMA_VERSION = exports2.DEFAULT_MODELS = exports2.CONFIG_FILE = exports2.MCP_BUSY_TIMEOUT_MS = exports2.DB_BUSY_TIMEOUT_MS = exports2.SKIP_FILES = exports2.DIRECTORIES = exports2.DB_NAME = exports2.GLOBAL_MINDLORE_DIR = exports2.MINDLORE_DIR = exports2.KNOWN_HOOK_EVENTS = void 0;
+    exports2.isKnownHookEvent = isKnownHookEvent;
+    exports2.isSessionCategory = isSessionCategory;
+    exports2.fixVersionTokens = fixVersionTokens;
+    exports2.homedir = homedir;
+    exports2.getActiveMindloreDir = getActiveMindloreDir;
+    exports2.getAllDbs = getAllDbs;
+    exports2.getProjectName = getProjectName2;
+    exports2.resolveProject = resolveProject;
+    exports2.resolveMindloreHome = resolveMindloreHome2;
+    exports2.resolveTelemetryPath = resolveTelemetryPath;
+    exports2.log = log;
+    exports2.isContentFile = isContentFile;
+    exports2.resolveHookCommon = resolveHookCommon;
+    exports2.hasYoutubeTranscript = hasYoutubeTranscript;
+    var os_1 = __importDefault(require("os"));
+    var fs_1 = __importDefault(require("fs"));
+    var path_1 = __importDefault(require("path"));
+    exports2.KNOWN_HOOK_EVENTS = [
+      "SessionStart",
+      "SessionEnd",
+      "UserPromptSubmit",
+      "FileChanged",
+      "PreToolUse",
+      "PostToolUse",
+      "PreCompact",
+      "PostCompact",
+      "CwdChanged"
+    ];
+    function isKnownHookEvent(s) {
+      return exports2.KNOWN_HOOK_EVENTS.includes(s);
+    }
+    exports2.MINDLORE_DIR = ".mindlore";
+    exports2.GLOBAL_MINDLORE_DIR = process.env.MINDLORE_HOME ?? path_1.default.join(os_1.default.homedir(), exports2.MINDLORE_DIR);
+    exports2.DB_NAME = "mindlore.db";
+    exports2.DIRECTORIES = [
+      "raw",
+      "sources",
+      "domains",
+      "analyses",
+      "insights",
+      "connections",
+      "learnings",
+      "diary",
+      "decisions",
+      "logs",
+      "memory"
+    ];
+    exports2.SKIP_FILES = /* @__PURE__ */ new Set(["INDEX.md", "SCHEMA.md", "log.md"]);
+    exports2.DB_BUSY_TIMEOUT_MS = 2e3;
+    exports2.MCP_BUSY_TIMEOUT_MS = 5e3;
+    exports2.CONFIG_FILE = "config.json";
+    exports2.DEFAULT_MODELS = {
+      ingest: "haiku",
+      evolve: "sonnet",
+      explore: "sonnet",
+      default: "haiku"
+    };
+    exports2.SCHEMA_VERSION = 1;
+    exports2.CATEGORIES = ["sources", "analyses", "domains", "episodes", "decisions", "raw", "sessions", "cc_memory", "cc-session", "cc-subagent", "diary", "insights", "connections", "learnings", "memory"];
+    exports2.SESSION_CATEGORIES = ["cc-subagent", "cc-session"];
+    function isSessionCategory(category) {
+      return exports2.SESSION_CATEGORIES.includes(category);
+    }
+    exports2.STOP_WORDS_MIN_LENGTH = 2;
+    exports2.TURKISH_WORD_RE = /[^\w\sçğıöşüÇĞİÖŞÜ-]/g;
+    exports2.STOP_WORDS = /* @__PURE__ */ new Set([
+      // English
+      "the",
+      "a",
+      "an",
+      "is",
+      "are",
+      "was",
+      "were",
+      "be",
+      "been",
+      "being",
+      "have",
+      "has",
+      "had",
+      "do",
+      "does",
+      "did",
+      "will",
+      "would",
+      "could",
+      "should",
+      "may",
+      "might",
+      "can",
+      "shall",
+      "to",
+      "of",
+      "in",
+      "for",
+      "on",
+      "with",
+      "at",
+      "by",
+      "from",
+      "as",
+      "into",
+      "through",
+      "during",
+      "it",
+      "its",
+      "this",
+      "that",
+      "these",
+      "those",
+      "what",
+      "which",
+      "who",
+      "whom",
+      "how",
+      "when",
+      "where",
+      "why",
+      "not",
+      "no",
+      "nor",
+      "so",
+      "if",
+      "or",
+      "but",
+      "all",
+      "each",
+      "every",
+      "both",
+      "few",
+      "more",
+      "most",
+      "other",
+      "some",
+      "such",
+      "only",
+      "own",
+      "same",
+      "than",
+      "and",
+      "about",
+      "between",
+      "after",
+      "before",
+      "above",
+      "below",
+      "up",
+      "down",
+      "out",
+      "very",
+      "just",
+      "also",
+      "now",
+      "then",
+      "here",
+      "there",
+      "too",
+      "yet",
+      "my",
+      "your",
+      "his",
+      "her",
+      "our",
+      "their",
+      "me",
+      "him",
+      "us",
+      "them",
+      "i",
+      "you",
+      "he",
+      "she",
+      "we",
+      "they",
+      // Turkish
+      "bir",
+      "bu",
+      "su",
+      "ne",
+      "nas\u0131l",
+      "neden",
+      "var",
+      "yok",
+      "mi",
+      "mu",
+      "m\u0131",
+      "ile",
+      "i\xE7in",
+      "de",
+      "da",
+      "ve",
+      "veya",
+      "ama",
+      "ise",
+      "hem",
+      "bakal\u0131m",
+      "gel",
+      "git",
+      "yap",
+      "et",
+      "al",
+      "ver",
+      "evet",
+      "hay\u0131r",
+      "tamam",
+      "ok",
+      "oldu",
+      "olur",
+      "dur",
+      "\u015Fimdi",
+      "sonra",
+      "\xF6nce",
+      "hemen",
+      "biraz",
+      "lan",
+      "ya",
+      "ki",
+      "abi",
+      "hadi",
+      "hey",
+      "selam",
+      "olarak",
+      "olan",
+      "gibi",
+      "kadar",
+      "daha",
+      "\xE7ok",
+      "en",
+      "bunu",
+      "buna",
+      "i\xE7inde",
+      "\xFCzerinde",
+      "aras\u0131nda",
+      "sonucu",
+      "taraf\u0131ndan",
+      "zaten",
+      "gayet",
+      "acaba",
+      "nedir",
+      "midir",
+      "mudur",
+      // Generic technical
+      "hook",
+      "file",
+      "dosya",
+      "kullan",
+      "ekle",
+      "yaz",
+      "oku",
+      "\xE7al\u0131\u015Ft\u0131r",
+      "kontrol",
+      "test",
+      "check",
+      "run",
+      "add",
+      "update",
+      "config",
+      "setup",
+      "install",
+      "start",
+      "stop",
+      "create",
+      "delete",
+      "remove",
+      "set",
+      "get",
+      "list",
+      "show",
+      "view",
+      "open",
+      "close",
+      "save",
+      "load"
+    ]);
+    var VERSION_RE = /v(\d+)\.(\d+)(?:\.(\d+))?/g;
+    function fixVersionTokens(query) {
+      return query.replace(VERSION_RE, (_m, a, b, c) => c ? `"v${a} ${b} ${c}"` : `"v${a} ${b}"`);
+    }
+    exports2.FTS5_COLUMNS = ["path", "slug", "description", "type", "category", "title", "content", "tags", "quality", "date_captured", "project"];
+    exports2.FRONTMATTER_TYPES = ["raw", "source", "domain", "analysis", "diary", "decision", "insight", "connection", "learning", "feedback", "user", "project", "reference", "note"];
+    exports2.QUALITY_VALUES = ["high", "medium", "low"];
+    exports2.QUALITY_HEURISTICS = {
+      "github-repo": "high",
+      "docs": "high",
+      "blog": "medium",
+      "video": "medium",
+      "x-thread": "medium",
+      "text-paste": "low",
+      "snippet": "low",
+      "forum": "low",
+      "cc-session": "low",
+      "cc-subagent": "low"
+    };
+    exports2.RELATION_TYPES = ["cites", "extends", "contradicts", "supersedes"];
+    exports2.SYMMETRIC_TYPES = /* @__PURE__ */ new Set(["contradicts"]);
+    exports2.RELATION_PRIORITY = {
+      supersedes: 1,
+      contradicts: 2,
+      extends: 3,
+      cites: 4
+    };
+    exports2.MAX_RELATED_SOURCES = 5;
+    exports2.RELATED_OVERFETCH = 10;
+    exports2.PRIORITY_CASE = "WHEN 'supersedes' THEN 1 WHEN 'contradicts' THEN 2 WHEN 'extends' THEN 3 WHEN 'cites' THEN 4";
+    exports2.TYPE_TO_DIR = {
+      raw: "raw",
+      source: "sources",
+      domain: "domains",
+      analysis: "analyses",
+      insight: "insights",
+      connection: "connections",
+      learning: "learnings",
+      decision: "decisions",
+      diary: "diary",
+      feedback: "memory",
+      user: "memory",
+      project: "memory",
+      reference: "memory",
+      note: "memory"
+    };
+    exports2.NESTED_DIR_TYPES = /* @__PURE__ */ new Set(["raw"]);
+    exports2.SLUG_OPTIONAL_TYPES = /* @__PURE__ */ new Set(["raw", "compaction-snapshot"]);
+    exports2.CC_PLUGIN_CACHE_DIR = path_1.default.join(os_1.default.homedir(), ".claude", "plugins", "cache");
+    exports2.CC_MEMORY_PATH_MARKER = path_1.default.join(".claude", "projects");
+    exports2.CC_MEMORY_DIR = "memory";
+    exports2.CC_MEMORY_CATEGORY = "cc-memory";
+    exports2.CC_SESSION_CATEGORY = "cc-session";
+    exports2.CC_SUBAGENT_CATEGORY = "cc-subagent";
+    exports2.CC_MEMORY_BOOST = 1.2;
+    function homedir() {
+      return os_1.default.homedir();
+    }
+    function getActiveMindloreDir() {
+      return exports2.GLOBAL_MINDLORE_DIR;
+    }
+    function getAllDbs() {
+      const dbPath = path_1.default.join(exports2.GLOBAL_MINDLORE_DIR, exports2.DB_NAME);
+      if (fs_1.default.existsSync(dbPath))
+        return [dbPath];
+      return [];
+    }
+    function getProjectName2() {
+      return path_1.default.basename(process.cwd());
+    }
+    function resolveProject() {
+      if (process.env.MINDLORE_PROJECT)
+        return process.env.MINDLORE_PROJECT;
+      return getProjectName2().toLowerCase();
+    }
+    function resolveMindloreHome2() {
+      return process.env.MINDLORE_HOME ?? path_1.default.join(os_1.default.homedir(), exports2.MINDLORE_DIR);
+    }
+    exports2.TELEMETRY_FILENAME = "telemetry.jsonl";
+    exports2.TELEMETRY_OUTPUT_MAX_BYTES = 4e3;
+    exports2.TELEMETRY_FILE_ROTATE_BYTES = 10 * 1024 * 1024;
+    function resolveTelemetryPath() {
+      return process.env.MINDLORE_TELEMETRY_PATH ?? path_1.default.join(resolveMindloreHome2(), exports2.TELEMETRY_FILENAME);
+    }
+    function log(msg) {
+      console.log(`  ${msg}`);
+    }
+    function isContentFile(filePath) {
+      return !exports2.SKIP_FILES.has(path_1.default.basename(filePath));
+    }
+    function resolveHookCommon(callerDir) {
+      let dir = callerDir;
+      for (let i = 0; i < 5; i++) {
+        const target = path_1.default.join(dir, "hooks", "lib", "mindlore-common.cjs");
+        if (fs_1.default.existsSync(target))
+          return target;
+        const parent = path_1.default.dirname(dir);
+        if (parent === dir)
+          break;
+        dir = parent;
+      }
+      return path_1.default.resolve(callerDir, "..", "..", "hooks", "lib", "mindlore-common.cjs");
+    }
+    function hasYoutubeTranscript() {
+      try {
+        require.resolve("youtube-transcript");
+        return true;
+      } catch (_err) {
+        return false;
+      }
+    }
+    exports2.DEFAULT_TOKEN_BUDGET = {
+      sessionInject: 2e3,
+      searchResults: 1500,
+      perResult: 500
+    };
+    exports2.DECAY_HALF_LIFE_DAYS = 30;
+    exports2.STALE_THRESHOLD = 0.3;
+    exports2.CONSOLIDATION_THRESHOLD = 50;
+    exports2.LEARNINGS_MAX_LESSONS = 10;
+    exports2.LEARNINGS_MAX_LINES_PER_LESSON = 5;
+    exports2.LEARNINGS_TOTAL_CHAR_BUDGET = 6e3;
+    exports2.REFLECT_THRESHOLD_DAYS = 7;
+    exports2.NUDGE_COOLDOWN_HOURS = 24;
+    exports2.CACHE_STALE_AGE_MS = 24 * 3600 * 1e3;
+  }
+});
 
 // hooks/lib/reflect-trigger.cjs
 var require_reflect_trigger = __commonJS({
   "hooks/lib/reflect-trigger.cjs"(exports2, module2) {
     "use strict";
-    var REFLECT_THRESHOLD_DAYS = 7;
-    var NUDGE_COOLDOWN_HOURS = 24;
+    var { REFLECT_THRESHOLD_DAYS, NUDGE_COOLDOWN_HOURS } = require_constants();
     function isValidDate(iso) {
       if (!iso) return false;
       const d = new Date(iso);
@@ -33,7 +464,10 @@ var require_reflect_trigger = __commonJS({
       }
       return true;
     }
-    module2.exports = { shouldNudgeReflect: shouldNudgeReflect2, REFLECT_THRESHOLD_DAYS, NUDGE_COOLDOWN_HOURS };
+    function buildNudgeMessage2(params) {
+      return `[Mindlore] Son reflect'inden ${params.daysSince} g\xFCn ge\xE7ti. ${params.episodeCount} episode + ${params.diaryCount} diary birikti \u2014 \`/mindlore-reflect\` ile pattern \xF6zetle.`;
+    }
+    module2.exports = { shouldNudgeReflect: shouldNudgeReflect2, buildNudgeMessage: buildNudgeMessage2, REFLECT_THRESHOLD_DAYS, NUDGE_COOLDOWN_HOURS };
   }
 });
 
@@ -617,7 +1051,7 @@ var fs = require("fs");
 var path = require("path");
 var { findMindloreDir, readConfig, openDatabase, hasEpisodesTable, querySupersededChains, formatSupersededChains, hookLog, getProjectName, parseFrontmatter, withTelemetry, withTimeoutDb, listSnapshots, isCorruptionError, recoverCorruptDb, getNominationCounts, resolveMindloreHome } = require("./lib/mindlore-common.cjs");
 var { loadLearningsBlock } = require("./lib/learnings-loader.cjs");
-var { shouldNudgeReflect } = require_reflect_trigger();
+var { shouldNudgeReflect, buildNudgeMessage } = require_reflect_trigger();
 function truncateSection(content, sectionRegex, keepCount, label) {
   const match = content.match(sectionRegex);
   if (!match) return content;
@@ -733,11 +1167,17 @@ function main() {
   let sourceChars = 0;
   const tIndex = Date.now();
   const indexPath = path.join(baseDir, "INDEX.md");
-  if (fs.existsSync(indexPath)) {
-    const content = fs.readFileSync(indexPath, "utf8").trim();
-    sourceChars += content.length;
+  let indexContent;
+  try {
+    indexContent = fs.readFileSync(indexPath, "utf8").trim();
+  } catch (err) {
+    if (err.code !== "ENOENT") throw err;
+    indexContent = null;
+  }
+  if (indexContent !== null) {
+    sourceChars += indexContent.length;
     output.push(`[Mindlore INDEX]
-${content}`);
+${indexContent}`);
   }
   timings.index_read = Date.now() - tIndex;
   const tDiary = Date.now();
@@ -771,15 +1211,20 @@ ${truncateChangedFiles(truncateCommits(deltaContent))}`);
   const tVersion = Date.now();
   const versionPath = path.join(baseDir, ".version");
   const pkgVersionPath = path.join(baseDir, ".pkg-version");
+  let installed;
   try {
-    if (fs.existsSync(versionPath) && fs.existsSync(pkgVersionPath)) {
-      const installed = fs.readFileSync(versionPath, "utf8").trim();
-      const pkgVersion = fs.readFileSync(pkgVersionPath, "utf8").trim();
-      if (pkgVersion && pkgVersion !== installed) {
-        output.push(`[Mindlore: Guncelleme mevcut (${installed} \u2192 ${pkgVersion}). \`npx mindlore init\` calistirin.]`);
-      }
-    }
-  } catch (_err) {
+    installed = fs.readFileSync(versionPath, "utf8").trim();
+  } catch (err) {
+    if (err.code !== "ENOENT") throw err;
+  }
+  let pkgVersion;
+  try {
+    pkgVersion = fs.readFileSync(pkgVersionPath, "utf8").trim();
+  } catch (err) {
+    if (err.code !== "ENOENT") throw err;
+  }
+  if (installed !== void 0 && pkgVersion !== void 0 && pkgVersion !== installed) {
+    output.push(`[Mindlore: Guncelleme mevcut (${installed} \u2192 ${pkgVersion}). \`npx mindlore init\` calistirin.]`);
   }
   timings.version_check = Date.now() - tVersion;
   const tDb = Date.now();
@@ -805,14 +1250,18 @@ ${truncateChangedFiles(truncateCommits(deltaContent))}`);
         timings.schema_check = Date.now() - tSchema;
         loadDbContent({ db, baseDir, config, output, timings, latestDeltaContent, sessionId });
         try {
-          const reflectRow = db.prepare(
-            "SELECT value FROM skill_memory WHERE skill_name = 'mindlore-reflect' AND key = 'last_reflect_date'"
-          ).get();
-          const nudgeRow = db.prepare(
-            "SELECT value FROM skill_memory WHERE skill_name = 'mindlore-reflect' AND key = 'last_nudge_date'"
-          ).get();
+          const rows = db.prepare(
+            "SELECT key, value FROM skill_memory WHERE skill_name = 'mindlore-reflect' AND key IN ('last_reflect_date', 'last_nudge_date')"
+          ).all();
+          const byKey = Object.fromEntries(rows.map((r) => [r.key, r.value]));
+          const reflectRow = byKey["last_reflect_date"] ? { value: byKey["last_reflect_date"] } : void 0;
+          const nudgeRow = byKey["last_nudge_date"] ? { value: byKey["last_nudge_date"] } : void 0;
           if (shouldNudgeReflect(reflectRow?.value ?? null, nudgeRow?.value ?? null, /* @__PURE__ */ new Date())) {
-            output.push("[Mindlore] 7+ g\xFCn reflect yap\u0131lmad\u0131 \u2014 `/mindlore-reflect` \xE7al\u0131\u015Ft\u0131r");
+            const daysSince = reflectRow?.value ? Math.floor((Date.now() - new Date(reflectRow.value).getTime()) / 864e5) : 999;
+            const episodeCount = hasEpisodesTable(db) ? db.prepare("SELECT count(*) AS c FROM episodes").get()?.c ?? 0 : 0;
+            const diaryDirPath = path.join(baseDir, "diary");
+            const diaryCount = fs.existsSync(diaryDirPath) ? fs.readdirSync(diaryDirPath).length : 0;
+            output.push(buildNudgeMessage({ daysSince, episodeCount, diaryCount }));
             const nowIso = (/* @__PURE__ */ new Date()).toISOString();
             db.prepare(`
               INSERT INTO skill_memory (skill_name, key, value, updated_at)

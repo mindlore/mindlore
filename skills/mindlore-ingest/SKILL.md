@@ -193,3 +193,24 @@ Optional: run full health check for structural integrity:
 ```bash
 node "$MINDLORE_PKG/dist/scripts/lib/skill-runner.js" mindlore-ingest mindlore-health-check.js
 ```
+
+## Type-Aware Extraction Templates
+
+The default extraction template produces generic summary + tags. For specific source types, use the matching template below.
+
+### github-repo
+Required fields in the source summary:
+- **Tech Stack:** languages, frameworks, key dependencies
+- **Key Features:** 3-5 main features the README emphasizes
+- **Setup:** install/run commands
+- **License:** SPDX identifier
+
+### cc-session
+Required fields:
+- **Decisions:** numbered list of architectural/scope decisions made
+- **Patterns:** recurring techniques, idioms, or anti-patterns observed
+- **Actionable Items:** TODO / follow-up tasks named in the transcript
+- **Open Questions:** unresolved items called out at session end
+
+### Other types (docs, blog, video, x-thread, text-paste, snippet, forum, cc-subagent)
+Use the existing generic template (summary + tags + quality + related links).

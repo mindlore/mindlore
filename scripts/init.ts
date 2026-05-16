@@ -18,13 +18,15 @@ import type { Settings } from './lib/constants.js';
 import { countMindloreHooks } from './lib/hook-helpers.js';
 import { cleanupLegacyHooks } from './lib/settings-cleanup.js';
 import { detectPluginInstalled } from './lib/detect-plugin.js';
+import { safeMkdir, safeWriteJson } from './lib/secure-io.js';
 import { dbPragma, openDatabaseTs } from './lib/db-helpers.js';
 import { mergeDefaults } from './lib/merge-defaults.js';
 import { parseJsonObject, readJsonFile } from './lib/safe-parse.js';
 import { ensureSchemaTable, runMigrations } from './lib/schema-version.js';
 import { INIT_MIGRATIONS } from './lib/all-migrations.js';
-import { safeMkdir, safeWriteFile, safeWriteJson } from './lib/secure-io.js';
+import { safeWriteFile } from './lib/secure-io.js';
 import { errMsg } from './lib/err-msg.js';
+import { runSetupWizard, SetupAnswers } from './lib/setup-wizard.js';
 
 // eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- dynamic CJS require, typed by mindlore-common.d.cts
 const { SQL_FTS_CREATE, ensureEpisodesTable: ensureEpisodesTableCjs } = require(resolveHookCommon(__dirname)) as {
@@ -121,7 +123,7 @@ function mergeHooks(packageRoot: string, existingPlugin?: PluginManifest): { add
     if (!fs.existsSync(backupPath)) {
       fs.copyFileSync(settingsPath, backupPath);
     }
-    fs.writeFileSync(settingsPath, JSON.stringify(settings, null, 2), 'utf8');
+    safeWriteJson(settingsPath, settings);
   }
 
   // npx-only path: countMindloreHooks checks settings.json hooks array
@@ -243,7 +245,7 @@ function copyTemplates(baseDir: string, packageRoot: string): number {
   const srcExtractionDir = path.join(packageRoot, 'templates', 'extraction');
   const destExtractionDir = path.join(baseDir, 'templates', 'extraction');
   if (fs.existsSync(srcExtractionDir)) {
-    fs.mkdirSync(destExtractionDir, { recursive: true });
+    safeMkdir(destExtractionDir);
     for (const file of fs.readdirSync(srcExtractionDir)) {
       const destPath = path.join(destExtractionDir, file);
       if (!fs.existsSync(destPath)) {
@@ -380,11 +382,7 @@ function addSchemaToProjectDocs(): boolean {
   const schemaPath = path.join(GLOBAL_MINDLORE_DIR, 'SCHEMA.md');
   if (!settings.projectDocFiles.includes(schemaPath)) {
     settings.projectDocFiles.push(schemaPath);
-    fs.writeFileSync(
-      projectSettingsPath,
-      JSON.stringify(settings, null, 2),
-      'utf8',
-    );
+    safeWriteJson(projectSettingsPath, settings);
     return true;
   }
   return false;
@@ -479,7 +477,21 @@ function ensureConfig(baseDir: string, packageRoot: string): boolean {
 
 // ── Main ───────────────────────────────────────────────────────────────
 
-function main(): void {
+function isInteractive(): boolean {
+  return process.stdout.isTTY === true && process.stdin.isTTY === true && !process.argv.includes('--non-interactive');
+}
+
+async function maybeRunWizard(): Promise<SetupAnswers | null> {
+  if (!isInteractive()) return null;
+  return runSetupWizard({
+    stdin: process.stdin,
+    stdout: process.stdout,
+    defaultMindloreHome: GLOBAL_MINDLORE_DIR,
+    cwd: process.cwd(),
+  });
+}
+
+async function main(): Promise<void> {
   const args = process.argv.slice(2);
   const command = args[0];
 
@@ -490,7 +502,7 @@ function main(): void {
 
   if (command === 'upgrade') {
     process.argv = [...process.argv.slice(0, 2), 'init', '--upgrade'];
-    main();
+    await main();
     return;
   }
 
@@ -546,9 +558,18 @@ function main(): void {
   const packageRoot = resolvePackageRoot();
   // Resolution order: MINDLORE_HOME env var > ~/.mindlore/ (global default).
   // Project-local .mindlore/ was removed in v0.3.3 and is migrated to .mindlore.bak/ below.
-  const baseDir = GLOBAL_MINDLORE_DIR;
+  const baseDir = process.env.MINDLORE_HOME ?? GLOBAL_MINDLORE_DIR;
+  const mindloreHomeSource = process.env.MINDLORE_HOME ? 'env' : 'default';
 
   const isUpgrade = process.argv.includes('--upgrade');
+
+  let wizardProjectName: string | undefined;
+  if (!isUpgrade) {
+    const wizardAnswers = await maybeRunWizard();
+    if (wizardAnswers) {
+      wizardProjectName = wizardAnswers.projectName;
+    }
+  }
   console.log(`\n  Mindlore — AI-native knowledge system [${isUpgrade ? 'upgrade' : 'global'} (~/.mindlore/)]\n`);
 
   // v0.3.3 Migration: rename existing project .mindlore/ → .mindlore.bak/
@@ -724,6 +745,18 @@ function main(): void {
       : 'config.json already configured',
   );
 
+  if (wizardProjectName) {
+    const configDest = path.join(baseDir, CONFIG_FILE);
+    try {
+      const config = readJsonFile<Record<string, unknown>>(configDest);
+      if (config.project !== wizardProjectName) {
+        config.project = wizardProjectName;
+        safeWriteJson(configDest, config);
+        log(`Set project name: ${wizardProjectName}`);
+      }
+    } catch (_err) { /* ignore config write errors */ }
+  }
+
   // Step 9: Init git repo in ~/.mindlore/ (always global now)
   const gitDir = path.join(baseDir, '.git');
   if (!fs.existsSync(gitDir)) {
@@ -795,6 +828,11 @@ function main(): void {
   // Step 12: Auto-doctor (v0.6.1)
   runDoctor(packageRoot);
 
+  process.stdout.write(`\n  Mindlore home: ${baseDir} (source: ${mindloreHomeSource})\n`);
+  if (mindloreHomeSource === 'default') {
+    process.stdout.write('  To override, set MINDLORE_HOME env var.\n');
+  }
+
   console.log('\n  Done! Start with: /mindlore-ingest\n');
 }
 
@@ -811,4 +849,4 @@ function runDoctor(packageRoot: string): void {
   } catch { /* doctor failure is non-blocking */ }
 }
 
-main();
+void main();

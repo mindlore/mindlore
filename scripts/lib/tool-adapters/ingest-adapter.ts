@@ -2,6 +2,7 @@ import fs from 'fs';
 import path from 'path';
 import type { McpContext } from '../mcp-tools.js';
 import { slugify } from '../slugify.js';
+import { safeMkdir, safeWriteFile } from '../secure-io.js';
 
 interface IngestInput {
   type: 'text' | 'file';
@@ -55,8 +56,8 @@ export function handleIngest(ctx: McpContext, input: IngestInput): IngestOutput 
   const outPath = path.join(ctx.baseDir, 'raw', `${slug}.md`);
 
   const rawDir = path.join(ctx.baseDir, 'raw');
-  if (!fs.existsSync(rawDir)) fs.mkdirSync(rawDir, { recursive: true });
-  fs.writeFileSync(outPath, fullContent);
+  safeMkdir(rawDir);
+  safeWriteFile(outPath, fullContent);
 
   const wordCount = body.split(/\s+/).filter(Boolean).length;
 

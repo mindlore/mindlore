@@ -156,6 +156,9 @@ export const TYPE_TO_DIR: Record<string, string> = {
   note: 'memory',
 };
 
+export const NESTED_DIR_TYPES = new Set(['raw']);
+export const SLUG_OPTIONAL_TYPES = new Set(['raw', 'compaction-snapshot']);
+
 /**
  * CC memory path pattern for FileChanged hook matching.
  * Matches: ~/.claude/projects/{name}/memory/{file}.md
@@ -296,3 +299,12 @@ export const DEFAULT_TOKEN_BUDGET = {
 export const DECAY_HALF_LIFE_DAYS = 30;
 export const STALE_THRESHOLD = 0.3;
 export const CONSOLIDATION_THRESHOLD = 50;
+
+export const LEARNINGS_MAX_LESSONS = 10;
+export const LEARNINGS_MAX_LINES_PER_LESSON = 5;
+export const LEARNINGS_TOTAL_CHAR_BUDGET = 6000;
+
+export const REFLECT_THRESHOLD_DAYS = 7;
+export const NUDGE_COOLDOWN_HOURS = 24;
+
+export const CACHE_STALE_AGE_MS = 24 * 3600 * 1000;  // 24 hours

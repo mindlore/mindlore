@@ -16,6 +16,7 @@
 const fs = require('fs');
 const path = require('path');
 const { findMindloreDir, globalDir, hookLog, withTelemetry } = require('./lib/mindlore-common.cjs');
+const { safeMkdir, safeWriteFile } = require('./lib/secure-io.cjs');
 
 function main() {
   const cwd = process.cwd();
@@ -24,9 +25,7 @@ function main() {
 
   if (activeDir) {
     const diaryDir = path.join(activeDir, 'diary');
-    if (!fs.existsSync(diaryDir)) {
-      fs.mkdirSync(diaryDir, { recursive: true });
-    }
+    safeMkdir(diaryDir);
 
     // Dirty-check: skip write if scope hasn't changed
     const scopePath = path.join(diaryDir, '_scope.json');
@@ -39,12 +38,12 @@ function main() {
       }
     }
 
-    fs.writeFileSync(scopePath, JSON.stringify({
+    safeWriteFile(scopePath, JSON.stringify({
       scope,
       dir: activeDir,
       cwd,
       timestamp: new Date().toISOString(),
-    }, null, 2), 'utf8');
+    }, null, 2));
   }
 
   if (scope === 'none') {

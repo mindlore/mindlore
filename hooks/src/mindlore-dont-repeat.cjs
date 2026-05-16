@@ -19,6 +19,7 @@ const fs = require('fs');
 const path = require('path');
 const os = require('os');
 const { findMindloreDir, getProjectName, hookLog, withTelemetrySync } = require('./lib/mindlore-common.cjs');
+const { safeWriteFile } = require('./lib/secure-io.cjs');
 
 /**
  * File-persisted pattern cache — survives across process invocations.
@@ -41,7 +42,7 @@ function readCache(cachePath) {
 function writeCache(cachePath, cache) {
   if (!cachePath || !cacheDirty) return;
   try {
-    fs.writeFileSync(cachePath, JSON.stringify(cache), 'utf8');
+    safeWriteFile(cachePath, JSON.stringify(cache));
   } catch (_err) { /* write failure is non-fatal */ }
 }
 

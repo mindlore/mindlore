@@ -12,7 +12,7 @@ const fs = require('fs');
 const path = require('path');
 const { findMindloreDir, readConfig, openDatabase, hasEpisodesTable, querySupersededChains, formatSupersededChains, hookLog, getProjectName, parseFrontmatter, withTelemetry, withTimeoutDb, listSnapshots, isCorruptionError, recoverCorruptDb, getNominationCounts, resolveMindloreHome } = require('./lib/mindlore-common.cjs');
 const { loadLearningsBlock } = require('./lib/learnings-loader.cjs');
-const { shouldNudgeReflect } = require('../lib/reflect-trigger.cjs');
+const { shouldNudgeReflect, buildNudgeMessage } = require('../lib/reflect-trigger.cjs');
 
 function truncateSection(content, sectionRegex, keepCount, label) {
   const match = content.match(sectionRegex);
@@ -138,10 +138,16 @@ function main() {
   // Inject INDEX.md
   const tIndex = Date.now();
   const indexPath = path.join(baseDir, 'INDEX.md');
-  if (fs.existsSync(indexPath)) {
-    const content = fs.readFileSync(indexPath, 'utf8').trim();
-    sourceChars += content.length;
-    output.push(`[Mindlore INDEX]\n${content}`);
+  let indexContent;
+  try {
+    indexContent = fs.readFileSync(indexPath, 'utf8').trim();
+  } catch (err) {
+    if (err.code !== 'ENOENT') throw err;
+    indexContent = null;
+  }
+  if (indexContent !== null) {
+    sourceChars += indexContent.length;
+    output.push(`[Mindlore INDEX]\n${indexContent}`);
   }
   timings.index_read = Date.now() - tIndex;
 
@@ -181,15 +187,13 @@ function main() {
   // Both are flat strings written by init — no JSON parse needed on session start
   const versionPath = path.join(baseDir, '.version');
   const pkgVersionPath = path.join(baseDir, '.pkg-version');
-  try {
-    if (fs.existsSync(versionPath) && fs.existsSync(pkgVersionPath)) {
-      const installed = fs.readFileSync(versionPath, 'utf8').trim();
-      const pkgVersion = fs.readFileSync(pkgVersionPath, 'utf8').trim();
-      if (pkgVersion && pkgVersion !== installed) {
-        output.push(`[Mindlore: Guncelleme mevcut (${installed} → ${pkgVersion}). \`npx mindlore init\` calistirin.]`);
-      }
-    }
-  } catch (_err) { /* skip */ }
+  let installed;
+  try { installed = fs.readFileSync(versionPath, 'utf8').trim(); } catch (err) { if (err.code !== 'ENOENT') throw err; }
+  let pkgVersion;
+  try { pkgVersion = fs.readFileSync(pkgVersionPath, 'utf8').trim(); } catch (err) { if (err.code !== 'ENOENT') throw err; }
+  if (installed !== undefined && pkgVersion !== undefined && pkgVersion !== installed) {
+    output.push(`[Mindlore: Guncelleme mevcut (${installed} → ${pkgVersion}). \`npx mindlore init\` calistirin.]`);
+  }
   timings.version_check = Date.now() - tVersion;
 
   // v0.5.4: Consolidated session payload (replaces scattered episodes/activity/alerts injection)
@@ -220,14 +224,18 @@ function main() {
 
         // Auto-reflect nudge (7-day threshold + 24h cooldown)
         try {
-          const reflectRow = db.prepare(
-            "SELECT value FROM skill_memory WHERE skill_name = 'mindlore-reflect' AND key = 'last_reflect_date'"
-          ).get();
-          const nudgeRow = db.prepare(
-            "SELECT value FROM skill_memory WHERE skill_name = 'mindlore-reflect' AND key = 'last_nudge_date'"
-          ).get();
+          const rows = db.prepare(
+            "SELECT key, value FROM skill_memory WHERE skill_name = 'mindlore-reflect' AND key IN ('last_reflect_date', 'last_nudge_date')"
+          ).all();
+          const byKey = Object.fromEntries(rows.map(r => [r.key, r.value]));
+          const reflectRow = byKey['last_reflect_date'] ? { value: byKey['last_reflect_date'] } : undefined;
+          const nudgeRow = byKey['last_nudge_date'] ? { value: byKey['last_nudge_date'] } : undefined;
           if (shouldNudgeReflect(reflectRow?.value ?? null, nudgeRow?.value ?? null, new Date())) {
-            output.push('[Mindlore] 7+ gün reflect yapılmadı — `/mindlore-reflect` çalıştır');
+            const daysSince = reflectRow?.value ? Math.floor((Date.now() - new Date(reflectRow.value).getTime()) / 86400000) : 999;
+            const episodeCount = hasEpisodesTable(db) ? db.prepare("SELECT count(*) AS c FROM episodes").get()?.c ?? 0 : 0;
+            const diaryDirPath = path.join(baseDir, 'diary');
+            const diaryCount = fs.existsSync(diaryDirPath) ? fs.readdirSync(diaryDirPath).length : 0;
+            output.push(buildNudgeMessage({ daysSince, episodeCount, diaryCount }));
             const nowIso = new Date().toISOString();
             db.prepare(`
               INSERT INTO skill_memory (skill_name, key, value, updated_at)

@@ -34,7 +34,7 @@ var require_constants = __commonJS({
       return mod && mod.__esModule ? mod : { "default": mod };
     };
     Object.defineProperty(exports2, "__esModule", { value: true });
-    exports2.CONSOLIDATION_THRESHOLD = exports2.STALE_THRESHOLD = exports2.DECAY_HALF_LIFE_DAYS = exports2.DEFAULT_TOKEN_BUDGET = exports2.TELEMETRY_FILE_ROTATE_BYTES = exports2.TELEMETRY_OUTPUT_MAX_BYTES = exports2.TELEMETRY_FILENAME = exports2.CC_MEMORY_BOOST = exports2.CC_SUBAGENT_CATEGORY = exports2.CC_SESSION_CATEGORY = exports2.CC_MEMORY_CATEGORY = exports2.CC_MEMORY_DIR = exports2.CC_MEMORY_PATH_MARKER = exports2.CC_PLUGIN_CACHE_DIR = exports2.TYPE_TO_DIR = exports2.PRIORITY_CASE = exports2.RELATED_OVERFETCH = exports2.MAX_RELATED_SOURCES = exports2.RELATION_PRIORITY = exports2.SYMMETRIC_TYPES = exports2.RELATION_TYPES = exports2.QUALITY_HEURISTICS = exports2.QUALITY_VALUES = exports2.FRONTMATTER_TYPES = exports2.FTS5_COLUMNS = exports2.STOP_WORDS = exports2.TURKISH_WORD_RE = exports2.STOP_WORDS_MIN_LENGTH = exports2.SESSION_CATEGORIES = exports2.CATEGORIES = exports2.SCHEMA_VERSION = exports2.DEFAULT_MODELS = exports2.CONFIG_FILE = exports2.MCP_BUSY_TIMEOUT_MS = exports2.DB_BUSY_TIMEOUT_MS = exports2.SKIP_FILES = exports2.DIRECTORIES = exports2.DB_NAME = exports2.GLOBAL_MINDLORE_DIR = exports2.MINDLORE_DIR = exports2.KNOWN_HOOK_EVENTS = void 0;
+    exports2.CACHE_STALE_AGE_MS = exports2.NUDGE_COOLDOWN_HOURS = exports2.REFLECT_THRESHOLD_DAYS = exports2.LEARNINGS_TOTAL_CHAR_BUDGET = exports2.LEARNINGS_MAX_LINES_PER_LESSON = exports2.LEARNINGS_MAX_LESSONS = exports2.CONSOLIDATION_THRESHOLD = exports2.STALE_THRESHOLD = exports2.DECAY_HALF_LIFE_DAYS = exports2.DEFAULT_TOKEN_BUDGET = exports2.TELEMETRY_FILE_ROTATE_BYTES = exports2.TELEMETRY_OUTPUT_MAX_BYTES = exports2.TELEMETRY_FILENAME = exports2.CC_MEMORY_BOOST = exports2.CC_SUBAGENT_CATEGORY = exports2.CC_SESSION_CATEGORY = exports2.CC_MEMORY_CATEGORY = exports2.CC_MEMORY_DIR = exports2.CC_MEMORY_PATH_MARKER = exports2.CC_PLUGIN_CACHE_DIR = exports2.SLUG_OPTIONAL_TYPES = exports2.NESTED_DIR_TYPES = exports2.TYPE_TO_DIR = exports2.PRIORITY_CASE = exports2.RELATED_OVERFETCH = exports2.MAX_RELATED_SOURCES = exports2.RELATION_PRIORITY = exports2.SYMMETRIC_TYPES = exports2.RELATION_TYPES = exports2.QUALITY_HEURISTICS = exports2.QUALITY_VALUES = exports2.FRONTMATTER_TYPES = exports2.FTS5_COLUMNS = exports2.STOP_WORDS = exports2.TURKISH_WORD_RE = exports2.STOP_WORDS_MIN_LENGTH = exports2.SESSION_CATEGORIES = exports2.CATEGORIES = exports2.SCHEMA_VERSION = exports2.DEFAULT_MODELS = exports2.CONFIG_FILE = exports2.MCP_BUSY_TIMEOUT_MS = exports2.DB_BUSY_TIMEOUT_MS = exports2.SKIP_FILES = exports2.DIRECTORIES = exports2.DB_NAME = exports2.GLOBAL_MINDLORE_DIR = exports2.MINDLORE_DIR = exports2.KNOWN_HOOK_EVENTS = void 0;
     exports2.isKnownHookEvent = isKnownHookEvent;
     exports2.isSessionCategory = isSessionCategory;
     exports2.fixVersionTokens = fixVersionTokens;
@@ -355,6 +355,8 @@ var require_constants = __commonJS({
       reference: "memory",
       note: "memory"
     };
+    exports2.NESTED_DIR_TYPES = /* @__PURE__ */ new Set(["raw"]);
+    exports2.SLUG_OPTIONAL_TYPES = /* @__PURE__ */ new Set(["raw", "compaction-snapshot"]);
     exports2.CC_PLUGIN_CACHE_DIR = path_12.default.join(os_12.default.homedir(), ".claude", "plugins", "cache");
     exports2.CC_MEMORY_PATH_MARKER = path_12.default.join(".claude", "projects");
     exports2.CC_MEMORY_DIR = "memory";
@@ -426,6 +428,12 @@ var require_constants = __commonJS({
     exports2.DECAY_HALF_LIFE_DAYS = 30;
     exports2.STALE_THRESHOLD = 0.3;
     exports2.CONSOLIDATION_THRESHOLD = 50;
+    exports2.LEARNINGS_MAX_LESSONS = 10;
+    exports2.LEARNINGS_MAX_LINES_PER_LESSON = 5;
+    exports2.LEARNINGS_TOTAL_CHAR_BUDGET = 6e3;
+    exports2.REFLECT_THRESHOLD_DAYS = 7;
+    exports2.NUDGE_COOLDOWN_HOURS = 24;
+    exports2.CACHE_STALE_AGE_MS = 24 * 3600 * 1e3;
   }
 });
 

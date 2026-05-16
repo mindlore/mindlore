@@ -257,8 +257,16 @@ export function checkStaleTempDirs(): CheckResult {
   }
 }
 
+export function getMindloreHomeInfo(): { baseDir: string; source: string } {
+  const envValue = process.env.MINDLORE_HOME;
+  const baseDir = envValue ?? GLOBAL_MINDLORE_DIR;
+  const source = envValue ? 'env' : 'default';
+  return { baseDir, source };
+}
+
 function main(): void {
-  const baseDir = process.env.MINDLORE_HOME ?? GLOBAL_MINDLORE_DIR;
+  const { baseDir, source } = getMindloreHomeInfo();
+  process.stdout.write(`Mindlore home: ${baseDir} (source: ${source})\n`);
 
   const checks = [
     checkNodeVersion(),

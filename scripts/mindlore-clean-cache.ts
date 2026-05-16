@@ -1,7 +1,8 @@
 #!/usr/bin/env node
 import path from 'path';
 import fs from 'fs';
-import { CC_PLUGIN_CACHE_DIR } from './lib/constants.js';
+import { promises as fsp } from 'fs';
+import { CC_PLUGIN_CACHE_DIR, CACHE_STALE_AGE_MS } from './lib/constants.js';
 
 function compareSemver(a: string, b: string): number {
   const pa = a.split('.').map(Number);
@@ -12,7 +13,37 @@ function compareSemver(a: string, b: string): number {
   return 0;
 }
 
-function main(): void {
+export async function cleanCacheVersion(rootDir: string, dryRun = false): Promise<{ cleaned: string[]; skipped: string[] }> {
+  const cleaned: string[] = [];
+  const skipped: string[] = [];
+  const versions = fs.readdirSync(rootDir).filter(v => /^\d+\.\d+\.\d+/.test(v));
+  versions.sort(compareSemver);
+  const latest = versions[versions.length - 1];
+  await Promise.all(versions.map(async (version) => {
+    if (version === latest) return;
+    const versionPath = path.join(rootDir, version);
+    if (dryRun) {
+      cleaned.push(version);
+      return;
+    }
+    try {
+      await fsp.rm(versionPath, { recursive: true, force: true });
+      cleaned.push(version);
+    } catch (err) {
+      const e = err instanceof Error ? err : undefined;
+      const code = e && 'code' in e && typeof e.code === 'string' ? e.code : undefined;
+      if (code === 'EPERM' || code === 'EBUSY') {
+        process.stderr.write(`[clean-cache] skipped ${version}: locked file (${code}). Close Claude Code and retry.\n`);
+        skipped.push(version);
+        return;
+      }
+      throw err;
+    }
+  }));
+  return { cleaned, skipped };
+}
+
+async function main(): Promise<void> {
   const dryRun = process.argv.includes('--dry-run');
   const cache = CC_PLUGIN_CACHE_DIR;
   if (!fs.existsSync(cache)) {
@@ -24,31 +55,26 @@ function main(): void {
   const removedTemp: string[] = [];
 
   if (fs.existsSync(mindloreVersionsDir)) {
-    const versions = fs.readdirSync(mindloreVersionsDir).filter(v => /^\d+\.\d+\.\d+/.test(v));
-    versions.sort(compareSemver);
-    const latest = versions[versions.length - 1];
-    for (const v of versions) {
-      if (v === latest) continue;
-      const d = path.join(mindloreVersionsDir, v);
-      console.log(`${dryRun ? 'WOULD REMOVE' : 'REMOVING'}: ${d}`);
-      if (!dryRun) fs.rmSync(d, { recursive: true, force: true });
-      removedVersions.push(v);
+    const result = await cleanCacheVersion(mindloreVersionsDir, dryRun);
+    removedVersions.push(...result.cleaned);
+    if (result.skipped.length > 0) {
+      process.stderr.write(`cleaned: ${result.cleaned.length} versions, skipped: ${result.skipped.length} (close CC and retry)\n`);
     }
   }
 
-  const cutoff = Date.now() - 24 * 3600 * 1000;
-  for (const entry of fs.readdirSync(cache)) {
-    if (!entry.startsWith('temp_npm_')) continue;
+  const cutoff = Date.now() - CACHE_STALE_AGE_MS;
+  await Promise.all(fs.readdirSync(cache).map(async (entry) => {
+    if (!entry.startsWith('temp_npm_')) return;
     const p = path.join(cache, entry);
     let stat;
-    try { stat = fs.statSync(p); } catch { continue; }
-    if (stat.mtimeMs > cutoff) continue;
+    try { stat = fs.statSync(p); } catch { return; }
+    if (stat.mtimeMs > cutoff) return;
     console.log(`${dryRun ? 'WOULD REMOVE' : 'REMOVING'}: ${p}`);
-    if (!dryRun) fs.rmSync(p, { recursive: true, force: true });
+    if (!dryRun) await fsp.rm(p, { recursive: true, force: true });
     removedTemp.push(entry);
-  }
+  }));
 
   console.log(`Done. Removed ${removedVersions.length} stale versions, ${removedTemp.length} stale temp dirs.`);
 }
 
-main();
+if (require.main === module) main();

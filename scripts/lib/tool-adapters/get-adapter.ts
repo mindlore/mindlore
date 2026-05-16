@@ -46,10 +46,16 @@ export function handleGet(ctx: McpContext, input: GetInput): GetOutput {
 
     if (match) {
       result.content = match.content;
-      result.section = match.heading!.replace(/^#+\s*/, '');
+      const heading = match.heading;
+      if (!heading) throw new Error('expected match.heading to exist');
+      result.section = heading.replace(/^#+\s*/, '');
     } else {
       result.content = '';
-      const sections = chunks.filter(c => c.heading).map(c => c.heading!.replace(/^#+\s*/, ''));
+      const sections = chunks.filter(c => c.heading).map(c => {
+        const heading = c.heading;
+        if (!heading) throw new Error('expected c.heading to exist');
+        return heading.replace(/^#+\s*/, '');
+      });
       if (sections.length > 0) result.available_sections = sections;
     }
   }

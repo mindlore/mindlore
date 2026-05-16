@@ -6,7 +6,7 @@ var fs = require("fs");
 var path = require("path");
 var os = require("os");
 var { execFileSync, spawn } = require("child_process");
-var { safeWriteFile, safeWriteJson } = require("./lib/secure-io.cjs");
+var { safeMkdir, safeWriteFile, safeWriteJson } = require("./lib/secure-io.cjs");
 var { findMindloreDir, globalDir, getProjectName, openDatabase, ensureEpisodesTable, hasEpisodesTable, insertBareEpisode, insertFtsRow, hookLog, SHARED_EXPORT_DIRS, resolveWin32Bin, withTelemetry, getUnpromotedRawFiles, cleanupExpiredInjectLog } = require("./lib/mindlore-common.cjs");
 var EXPORT_DIRS = SHARED_EXPORT_DIRS;
 if (process.argv.includes("--worker")) {
@@ -118,9 +118,7 @@ function main() {
   const baseDir = findMindloreDir();
   if (!baseDir) return;
   const diaryDir = path.join(baseDir, "diary");
-  if (!fs.existsSync(diaryDir)) {
-    fs.mkdirSync(diaryDir, { recursive: true });
-  }
+  safeMkdir(diaryDir);
   const now = /* @__PURE__ */ new Date();
   const dateStr = formatDate(now);
   const deltaPath = path.join(diaryDir, `delta-${dateStr}.md`);
@@ -248,7 +246,7 @@ function writeBareEpisode(baseDir, project, commits, changedFiles, reads) {
 }
 function writeEpisodeFile(baseDir, project, commits, changedFiles, reads) {
   const projDir = path.join(baseDir, "diary", project || "unknown");
-  if (!fs.existsSync(projDir)) fs.mkdirSync(projDir, { recursive: true });
+  safeMkdir(projDir);
   const now = process.env.MINDLORE_EPISODE_TS ? new Date(process.env.MINDLORE_EPISODE_TS) : /* @__PURE__ */ new Date();
   const ts = formatDate(now);
   const filePath = path.join(projDir, `episode-${ts}.md`);
@@ -312,14 +310,14 @@ function exportMdFile(srcPath, destPath, convertFn) {
   }
   let content = fs.readFileSync(srcPath, "utf8");
   content = convertFn(content);
-  fs.writeFileSync(destPath, content, "utf8");
+  safeWriteFile(destPath, content);
   return true;
 }
 function syncObsidian(baseDir) {
   try {
     let walkAndExport = function(srcDir, destDir) {
       if (!fs.existsSync(srcDir)) return;
-      fs.mkdirSync(destDir, { recursive: true });
+      safeMkdir(destDir);
       for (const entry of fs.readdirSync(srcDir, { withFileTypes: true })) {
         if (entry.name.startsWith("_") || entry.name.startsWith(".")) continue;
         const srcPath = path.join(srcDir, entry.name);
@@ -347,7 +345,7 @@ function syncObsidian(baseDir) {
     for (const rootFile of ["INDEX.md", "log.md"]) {
       const srcPath = path.join(baseDir, rootFile);
       if (!fs.existsSync(srcPath)) continue;
-      fs.mkdirSync(destBase, { recursive: true });
+      safeMkdir(destBase);
       if (exportMdFile(srcPath, path.join(destBase, rootFile), convertFn)) exported++;
     }
     hookLog("session-end", "info", `obsidian exported=${exported}, dirs=${EXPORT_DIRS.length}, vault=${vaultPath}`);

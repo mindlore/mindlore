@@ -1,20 +1,30 @@
 const fs = require('fs');
 const path = require('path');
 const { parseFrontmatter, hookLog } = require('./mindlore-common.cjs');
-
-const MAX_LESSONS = 10;
-const MAX_LINES_PER_LESSON = 5;
-const TOTAL_CHAR_BUDGET = 6000;
+const { LEARNINGS_MAX_LESSONS, LEARNINGS_MAX_LINES_PER_LESSON, LEARNINGS_TOTAL_CHAR_BUDGET } = require('../../dist/scripts/lib/constants.js');
 
 function summarizeLesson(body, relPath) {
   const lines = body.split('\n');
   const h2Idx = lines.findIndex(l => l.startsWith('## '));
   const start = h2Idx >= 0 ? h2Idx : 0;
-  const slice = lines.slice(start, start + MAX_LINES_PER_LESSON).join('\n');
-  const rest = lines.slice(start + MAX_LINES_PER_LESSON).length > 0
+  const slice = lines.slice(start, start + LEARNINGS_MAX_LINES_PER_LESSON).join('\n');
+  const rest = lines.slice(start + LEARNINGS_MAX_LINES_PER_LESSON).length > 0
     ? `\n… (full: ${relPath})`
     : '';
   return slice + rest;
+}
+
+function readProjectField(filePath) {
+  const buf = Buffer.alloc(512);
+  const fd = fs.openSync(filePath, 'r');
+  try {
+    const n = fs.readSync(fd, buf, 0, 512, 0);
+    const head = buf.subarray(0, n).toString('utf8');
+    const m = head.match(/^project:\s*(.+)$/m);
+    return m ? m[1].trim() : undefined;
+  } finally {
+    fs.closeSync(fd);
+  }
 }
 
 function loadLearningsBlock(mindloreDir, currentProject) {
@@ -37,15 +47,15 @@ function loadLearningsBlock(mindloreDir, currentProject) {
 
   const candidates = [];
   for (const s of stats) {
-    if (candidates.length >= MAX_LESSONS) break;
+    if (candidates.length >= LEARNINGS_MAX_LESSONS) break;
+    const project = readProjectField(s.abs) || 'global';
+    if (project !== 'global' && project !== currentProject) continue;
     let raw;
     try { raw = fs.readFileSync(s.abs, 'utf8'); } catch (err) {
       hookLog('learnings-loader', 'warn', `read skipped ${s.file}: ${err.message}`);
       continue;
     }
-    const { meta, body } = parseFrontmatter(raw);
-    const project = meta.project || 'global';
-    if (project !== 'global' && project !== currentProject) continue;
+    const { body } = parseFrontmatter(raw);
     candidates.push({
       relPath: `.mindlore/learnings/${s.file}`,
       body,
@@ -59,7 +69,7 @@ function loadLearningsBlock(mindloreDir, currentProject) {
   let count = 0;
   for (const c of candidates) {
     const piece = summarizeLesson(c.body, c.relPath) + '\n\n';
-    if (used + piece.length > TOTAL_CHAR_BUDGET && count > 0) break;
+    if (used + piece.length > LEARNINGS_TOTAL_CHAR_BUDGET && count > 0) break;
     block += piece;
     used += piece.length;
     count++;

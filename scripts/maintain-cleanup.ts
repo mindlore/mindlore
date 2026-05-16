@@ -4,6 +4,7 @@ import fs from 'fs';
 import path from 'path';
 import { GLOBAL_MINDLORE_DIR, DB_NAME, resolveHookCommon } from './lib/constants.js';
 import { errMsg } from './lib/err-msg.js';
+import { safeWriteFile } from './lib/secure-io.js';
 
 // eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- dynamic CJS require, typed by mindlore-common.d.cts
 const common = require(resolveHookCommon(__dirname)) as {
@@ -50,7 +51,7 @@ export async function runCleanup(opts: CleanupOptions = {}): Promise<CleanupRepo
 
       if (!dryRun) {
         const newContent = content.replace(/\n---/, `\nproject: ${project}\n---`);
-        fs.writeFileSync(file, newContent, 'utf8');
+        safeWriteFile(file, newContent);
       }
       report.backfilled.push(file);
     } catch (err) {

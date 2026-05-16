@@ -2,6 +2,7 @@ import fs from 'fs';
 import type { Settings, HookEntry } from './constants.js';
 import { parseJsonObject } from './safe-parse.js';
 import { unwrapHookEntries } from './hook-helpers.js';
+import { safeWriteJson } from './secure-io.js';
 
 export interface CleanupResult {
   removed: number;
@@ -63,7 +64,7 @@ export function cleanupLegacyHooks(settingsPath: string): CleanupResult {
     backupCreated = true;
   }
 
-  fs.writeFileSync(settingsPath, JSON.stringify(settings, null, 2), 'utf8');
+  safeWriteJson(settingsPath, settings);
 
   return { removed, backupCreated };
 }

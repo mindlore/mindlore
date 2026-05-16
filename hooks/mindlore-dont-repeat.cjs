@@ -6,6 +6,7 @@ var fs = require("fs");
 var path = require("path");
 var os = require("os");
 var { findMindloreDir, getProjectName, hookLog, withTelemetrySync } = require("./lib/mindlore-common.cjs");
+var { safeWriteFile } = require("./lib/secure-io.cjs");
 var cacheDirty = false;
 function readCache(cachePath) {
   if (!cachePath) return {};
@@ -18,7 +19,7 @@ function readCache(cachePath) {
 function writeCache(cachePath, cache) {
   if (!cachePath || !cacheDirty) return;
   try {
-    fs.writeFileSync(cachePath, JSON.stringify(cache), "utf8");
+    safeWriteFile(cachePath, JSON.stringify(cache));
   } catch (_err) {
   }
 }
