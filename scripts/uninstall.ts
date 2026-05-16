@@ -13,6 +13,7 @@ import fs from 'fs';
 import path from 'path';
 import { homedir, log, GLOBAL_MINDLORE_DIR } from './lib/constants.js';
 import type { Settings } from './lib/constants.js';
+import { safeWriteJson } from './lib/secure-io.js';
 import { cleanupLegacyHooks } from './lib/settings-cleanup.js';
 import { readJsonFile } from './lib/safe-parse.js';
 
@@ -86,11 +87,7 @@ function removeFromProjectDocs(): boolean {
   );
 
   if (settings.projectDocFiles.length < before) {
-    fs.writeFileSync(
-      projectSettingsPath,
-      JSON.stringify(settings, null, 2),
-      'utf8',
-    );
+    safeWriteJson(projectSettingsPath, settings);
     return true;
   }
   return false;

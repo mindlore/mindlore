@@ -13,6 +13,7 @@ import fs from 'fs';
 import os from 'os';
 import path from 'path';
 import { GLOBAL_MINDLORE_DIR, log } from './lib/constants.js';
+import { safeMkdir, safeWriteFile, safeWriteJson } from './lib/secure-io.js';
 import { readJsonFile } from './lib/safe-parse.js';
 import { validatePath } from './lib/input-validation.js';
 import {
@@ -56,7 +57,7 @@ function saveObsidianConfig(obsidian: ObsidianConfig): void {
     config = {};
   }
   config.obsidian = obsidian;
-  fs.writeFileSync(configPath, JSON.stringify(config, null, 2) + '\n', 'utf8');
+  safeWriteJson(configPath, config);
 }
 
 function parseArgs(args: string[]): Record<string, string | boolean> {
@@ -104,12 +105,12 @@ function obsidianExport(vaultPath: string, force: boolean): void {
       continue;
     }
 
-    fs.mkdirSync(destDir, { recursive: true });
+    safeMkdir(destDir);
 
     let content = fs.readFileSync(file.absolute, 'utf8');
     content = convertToWikilinks(content);
 
-    fs.writeFileSync(destPath, content, 'utf8');
+    safeWriteFile(destPath, content);
     exported++;
   }
 
@@ -148,7 +149,7 @@ function obsidianImport(vaultPath: string, folder?: string): void {
   }
 
   const rawDir = path.join(GLOBAL_MINDLORE_DIR, 'raw');
-  fs.mkdirSync(rawDir, { recursive: true });
+  safeMkdir(rawDir);
 
   let imported = 0;
 
@@ -167,7 +168,7 @@ function obsidianImport(vaultPath: string, folder?: string): void {
       content = `---\nslug: ${slug}\ntype: raw\nsource: obsidian-vault\ndate_captured: ${new Date().toISOString().slice(0, 10)}\n---\n\n${content}`;
     }
 
-    fs.writeFileSync(destPath, content, 'utf8');
+    safeWriteFile(destPath, content);
     imported++;
   }
 
