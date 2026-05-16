@@ -207,13 +207,13 @@ describe('episode stale filter', () => {
 
     migEnv.db.prepare(
       `INSERT INTO episodes (id, kind, scope, project, summary, status, source, created_at)
-       VALUES ('ep-r', 'learning', 'project', 'mindlore', 'Recent learning', 'active', 'reflect', ?)`,
+       VALUES ('ep-r', 'friction', 'project', 'mindlore', 'Recent friction', 'active', 'reflect', ?)`,
     ).run(recentDate);
 
     const payload = buildSessionPayload({ db: migEnv.db, baseDir: migEnv.tmpDir, project: 'mindlore' });
-    const learningsSection = payload.sections.find(s => s.label === 'Learnings');
-    expect(learningsSection).toBeDefined();
-    expect(learningsSection!.content).toContain('Recent learning');
+    const frictionSection = payload.sections.find(s => s.label === 'Friction');
+    expect(frictionSection).toBeDefined();
+    expect(frictionSection!.content).toContain('Recent friction');
   });
 });
 
@@ -254,7 +254,7 @@ describe('episode inject dedup', () => {
 
     migEnv.db.prepare(
       `INSERT INTO episodes (id, kind, scope, project, summary, status, source, created_at)
-       VALUES ('ep-d2', 'learning', 'project', 'mindlore', 'New learning to log', 'active', 'reflect', ?)`,
+       VALUES ('ep-d2', 'friction', 'project', 'mindlore', 'New friction to log', 'active', 'reflect', ?)`,
     ).run(recentDate);
 
     buildSessionPayload({ db: migEnv.db, baseDir: migEnv.tmpDir, project: 'mindlore', tokenBudget: 2000, sessionId: 'session-xyz' });

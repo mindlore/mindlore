@@ -68,7 +68,7 @@ function checkStaleContent(db) {
 
 function loadDbContent({ db, baseDir, config, output, timings, latestDeltaContent, sessionId }) {
   const project = path.basename(process.cwd());
-  // Session payload: Session summary, Decisions, Friction, Learnings
+  // Session payload: Session summary, Decisions, Friction (Learnings via file-based loadLearningsBlock)
   const tPayload = Date.now();
   try {
     const { buildSessionPayload } = require('../dist/scripts/lib/session-payload.js');

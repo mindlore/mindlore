@@ -53,19 +53,17 @@ afterEach(() => {
 });
 
 describe('buildSessionPayload', () => {
-  test('produces 4 sections for a full DB', () => {
+  test('produces 3 sections for a full DB (Learnings now via file-based loader)', () => {
     writeDelta('delta-2026-04-19.md', '# Session\n- Did X\n- Did Y');
     insertEpisode('decision', 'Use TypeScript for all scripts');
     insertEpisode('friction', 'CI pipeline is slow');
-    insertEpisode('learning', 'Always build before test');
 
     const payload = buildSessionPayload({ db, baseDir, project: PROJECT });
 
-    expect(payload.sections).toHaveLength(4);
+    expect(payload.sections).toHaveLength(3);
     expect(payload.sections[0]!.label).toBe('Session');
     expect(payload.sections[1]!.label).toBe('Decisions');
     expect(payload.sections[2]!.label).toBe('Friction');
-    expect(payload.sections[3]!.label).toBe('Learnings');
     expect(payload.totalTokens).toBeGreaterThan(0);
     expect(payload.contentHash).toMatch(/^[0-9a-f]{8}$/);
   });
@@ -74,20 +72,18 @@ describe('buildSessionPayload', () => {
     writeDelta('delta-2026-04-19.md', '# Session\n- Short');
     insertEpisode('decision', 'Short decision');
     insertEpisode('friction', 'Short friction');
-    insertEpisode('learning', 'Short learning');
 
     const payload = buildSessionPayload({ db, baseDir, project: PROJECT, tokenBudget: 20 });
 
-    expect(payload.sections.length).toBeLessThan(4);
+    expect(payload.sections.length).toBeLessThan(3);
     expect(payload.sections[0]!.label).toBe('Session');
     expect(payload.totalTokens).toBeLessThanOrEqual(20);
   });
 
-  test('trim order: Learnings dropped first, then Friction, then Decisions', () => {
+  test('trim order: Friction dropped first, then Decisions', () => {
     writeDelta('delta-2026-04-19.md', '# Session\n- Work');
     insertEpisode('decision', 'Dec');
     insertEpisode('friction', 'Fric');
-    insertEpisode('learning', 'Learn');
 
     const full = buildSessionPayload({ db, baseDir, project: PROJECT, tokenBudget: 99999 });
     const sessionTokens = full.sections[0]!.tokens;
@@ -102,11 +98,10 @@ describe('buildSessionPayload', () => {
   test('handles empty DB gracefully', () => {
     const payload = buildSessionPayload({ db, baseDir, project: PROJECT });
 
-    expect(payload.sections).toHaveLength(4);
+    expect(payload.sections).toHaveLength(3);
     expect(payload.sections[0]!.content).toContain('No previous session data');
     expect(payload.sections[1]!.content).toContain('No recent decisions');
     expect(payload.sections[2]!.content).toContain('No active friction');
-    expect(payload.sections[3]!.content).toContain('No recent learnings');
   });
 
   test('handles missing diary directory', () => {
@@ -116,7 +111,7 @@ describe('buildSessionPayload', () => {
 
     expect(payload.sections[0]!.label).toBe('Session');
     expect(payload.sections[0]!.content).toContain('No previous session data');
-    expect(payload.sections).toHaveLength(4);
+    expect(payload.sections).toHaveLength(3);
   });
 
   test('token estimation is reasonable', () => {
@@ -153,7 +148,6 @@ describe('buildSessionPayload', () => {
     writeDelta('delta-2026-04-19.md', '# Session\n- Important context');
     insertEpisode('decision', 'Dec');
     insertEpisode('friction', 'Fric');
-    insertEpisode('learning', 'Learn');
 
     const payload = buildSessionPayload({ db, baseDir, project: PROJECT, tokenBudget: 1 });
 

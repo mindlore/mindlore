@@ -62,7 +62,7 @@ var require_session_payload = __commonJS({
       const dedupClause = sessionId ? "AND rowid NOT IN (SELECT episode_id FROM episode_inject_log WHERE session_id = ?)" : "";
       const query = `SELECT rowid, kind, summary, created_at FROM episodes
      WHERE status = 'active' AND project = ?
-       AND kind IN ('decision', 'friction', 'learning')
+       AND kind IN ('decision', 'friction')
        AND created_at >= ?
        ${dedupClause}
      ORDER BY kind, created_at DESC`;
@@ -78,18 +78,17 @@ var require_session_payload = __commonJS({
           }
         })();
       }
-      const grouped = { decision: [], friction: [], learning: [] };
+      const grouped = { decision: [], friction: [] };
       for (const row of rows) {
         const kind = row.kind;
-        if (kind === "decision" || kind === "friction" || kind === "learning") {
+        if (kind === "decision" || kind === "friction") {
           grouped[kind].push(row);
         }
       }
       const fmt = (items, limit) => items.slice(0, limit).map((r) => `- ${r.summary} (${r.created_at.slice(0, 10)})`).join("\n");
       return {
         decisions: grouped.decision.length > 0 ? fmt(grouped.decision, 5) : "No recent decisions.",
-        friction: grouped.friction.length > 0 ? fmt(grouped.friction, 3) : "No active friction points.",
-        learnings: grouped.learning.length > 0 ? fmt(grouped.learning, 5) : "No recent learnings."
+        friction: grouped.friction.length > 0 ? fmt(grouped.friction, 3) : "No active friction points."
       };
     }
     function buildSessionPayload(opts) {
@@ -100,7 +99,6 @@ var require_session_payload = __commonJS({
       const episodes = buildEpisodeSections(db, project, sessionId);
       sections.push({ label: "Decisions", content: episodes.decisions, tokens: estimateTokens(episodes.decisions) });
       sections.push({ label: "Friction", content: episodes.friction, tokens: estimateTokens(episodes.friction) });
-      sections.push({ label: "Learnings", content: episodes.learnings, tokens: estimateTokens(episodes.learnings) });
       try {
         const summaries = db.prepare(`SELECT session_summary, created_at FROM episodes
        WHERE kind = 'session-summary' AND project = ? AND session_summary IS NOT NULL

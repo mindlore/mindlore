@@ -26,6 +26,43 @@ var __toESM = (mod, isNodeMode, target) => (target = mod != null ? __create(__ge
   mod
 ));
 
+// node_modules/sqlite-vec/index.cjs
+var require_sqlite_vec = __commonJS({
+  "node_modules/sqlite-vec/index.cjs"(exports2, module2) {
+    var { arch, platform } = require("node:process");
+    var BASE_PACKAGE_NAME = "sqlite-vec";
+    var ENTRYPOINT_BASE_NAME = "vec0";
+    var supportedPlatforms = [["darwin", "x64"], ["linux", "x64"], ["darwin", "arm64"], ["win32", "x64"], ["linux", "arm64"]];
+    var invalidPlatformErrorMessage = `Unsupported platform for ${BASE_PACKAGE_NAME}, on a ${platform}-${arch} machine. Supported platforms are (${supportedPlatforms.map(([p, a]) => `${p}-${a}`).join(",")}). Consult the ${BASE_PACKAGE_NAME} NPM package README for details.`;
+    function validPlatform(platform2, arch2) {
+      return supportedPlatforms.find(([p, a]) => platform2 === p && arch2 === a) !== void 0;
+    }
+    function extensionSuffix(platform2) {
+      if (platform2 === "win32") return "dll";
+      if (platform2 === "darwin") return "dylib";
+      return "so";
+    }
+    function platformPackageName(platform2, arch2) {
+      const os = platform2 === "win32" ? "windows" : platform2;
+      return `${BASE_PACKAGE_NAME}-${os}-${arch2}`;
+    }
+    function getLoadablePath() {
+      if (!validPlatform(platform, arch)) {
+        throw new Error(
+          invalidPlatformErrorMessage
+        );
+      }
+      const packageName = platformPackageName(platform, arch);
+      const loadablePath = require.resolve(packageName + "/" + ENTRYPOINT_BASE_NAME + "." + extensionSuffix(platform));
+      return loadablePath;
+    }
+    function load(db) {
+      db.loadExtension(getLoadablePath());
+    }
+    module2.exports = { getLoadablePath, load };
+  }
+});
+
 // dist/scripts/lib/constants.js
 var require_constants = __commonJS({
   "dist/scripts/lib/constants.js"(exports2) {
@@ -34,7 +71,7 @@ var require_constants = __commonJS({
       return mod && mod.__esModule ? mod : { "default": mod };
     };
     Object.defineProperty(exports2, "__esModule", { value: true });
-    exports2.CONSOLIDATION_THRESHOLD = exports2.STALE_THRESHOLD = exports2.DECAY_HALF_LIFE_DAYS = exports2.DEFAULT_TOKEN_BUDGET = exports2.CC_MEMORY_BOOST = exports2.CC_SUBAGENT_CATEGORY = exports2.CC_SESSION_CATEGORY = exports2.CC_MEMORY_CATEGORY = exports2.CC_MEMORY_DIR = exports2.CC_MEMORY_PATH_MARKER = exports2.TYPE_TO_DIR = exports2.PRIORITY_CASE = exports2.RELATED_OVERFETCH = exports2.MAX_RELATED_SOURCES = exports2.RELATION_PRIORITY = exports2.SYMMETRIC_TYPES = exports2.RELATION_TYPES = exports2.QUALITY_HEURISTICS = exports2.QUALITY_VALUES = exports2.FRONTMATTER_TYPES = exports2.FTS5_COLUMNS = exports2.STOP_WORDS = exports2.TURKISH_WORD_RE = exports2.STOP_WORDS_MIN_LENGTH = exports2.SESSION_CATEGORIES = exports2.CATEGORIES = exports2.SCHEMA_VERSION = exports2.DEFAULT_MODELS = exports2.CONFIG_FILE = exports2.MCP_BUSY_TIMEOUT_MS = exports2.DB_BUSY_TIMEOUT_MS = exports2.SKIP_FILES = exports2.DIRECTORIES = exports2.DB_NAME = exports2.GLOBAL_MINDLORE_DIR = exports2.MINDLORE_DIR = exports2.KNOWN_HOOK_EVENTS = void 0;
+    exports2.CONSOLIDATION_THRESHOLD = exports2.STALE_THRESHOLD = exports2.DECAY_HALF_LIFE_DAYS = exports2.DEFAULT_TOKEN_BUDGET = exports2.CC_MEMORY_BOOST = exports2.CC_SUBAGENT_CATEGORY = exports2.CC_SESSION_CATEGORY = exports2.CC_MEMORY_CATEGORY = exports2.CC_MEMORY_DIR = exports2.CC_MEMORY_PATH_MARKER = exports2.CC_PLUGIN_CACHE_DIR = exports2.TYPE_TO_DIR = exports2.PRIORITY_CASE = exports2.RELATED_OVERFETCH = exports2.MAX_RELATED_SOURCES = exports2.RELATION_PRIORITY = exports2.SYMMETRIC_TYPES = exports2.RELATION_TYPES = exports2.QUALITY_HEURISTICS = exports2.QUALITY_VALUES = exports2.FRONTMATTER_TYPES = exports2.FTS5_COLUMNS = exports2.STOP_WORDS = exports2.TURKISH_WORD_RE = exports2.STOP_WORDS_MIN_LENGTH = exports2.SESSION_CATEGORIES = exports2.CATEGORIES = exports2.SCHEMA_VERSION = exports2.DEFAULT_MODELS = exports2.CONFIG_FILE = exports2.MCP_BUSY_TIMEOUT_MS = exports2.DB_BUSY_TIMEOUT_MS = exports2.SKIP_FILES = exports2.DIRECTORIES = exports2.DB_NAME = exports2.GLOBAL_MINDLORE_DIR = exports2.MINDLORE_DIR = exports2.KNOWN_HOOK_EVENTS = void 0;
     exports2.isKnownHookEvent = isKnownHookEvent;
     exports2.isSessionCategory = isSessionCategory;
     exports2.fixVersionTokens = fixVersionTokens;
@@ -352,6 +389,7 @@ var require_constants = __commonJS({
       reference: "memory",
       note: "memory"
     };
+    exports2.CC_PLUGIN_CACHE_DIR = path_1.default.join(os_1.default.homedir(), ".claude", "plugins", "cache");
     exports2.CC_MEMORY_PATH_MARKER = path_1.default.join(".claude", "projects");
     exports2.CC_MEMORY_DIR = "memory";
     exports2.CC_MEMORY_CATEGORY = "cc-memory";
@@ -415,6 +453,43 @@ var require_constants = __commonJS({
 var require_db_helpers = __commonJS({
   "dist/scripts/lib/db-helpers.js"(exports2) {
     "use strict";
+    var __createBinding = exports2 && exports2.__createBinding || (Object.create ? (function(o, m, k, k2) {
+      if (k2 === void 0) k2 = k;
+      var desc = Object.getOwnPropertyDescriptor(m, k);
+      if (!desc || ("get" in desc ? !m.__esModule : desc.writable || desc.configurable)) {
+        desc = { enumerable: true, get: function() {
+          return m[k];
+        } };
+      }
+      Object.defineProperty(o, k2, desc);
+    }) : (function(o, m, k, k2) {
+      if (k2 === void 0) k2 = k;
+      o[k2] = m[k];
+    }));
+    var __setModuleDefault = exports2 && exports2.__setModuleDefault || (Object.create ? (function(o, v) {
+      Object.defineProperty(o, "default", { enumerable: true, value: v });
+    }) : function(o, v) {
+      o["default"] = v;
+    });
+    var __importStar = exports2 && exports2.__importStar || /* @__PURE__ */ (function() {
+      var ownKeys = function(o) {
+        ownKeys = Object.getOwnPropertyNames || function(o2) {
+          var ar = [];
+          for (var k in o2) if (Object.prototype.hasOwnProperty.call(o2, k)) ar[ar.length] = k;
+          return ar;
+        };
+        return ownKeys(o);
+      };
+      return function(mod) {
+        if (mod && mod.__esModule) return mod;
+        var result = {};
+        if (mod != null) {
+          for (var k = ownKeys(mod), i = 0; i < k.length; i++) if (k[i] !== "default") __createBinding(result, mod, k[i]);
+        }
+        __setModuleDefault(result, mod);
+        return result;
+      };
+    })();
     var __importDefault = exports2 && exports2.__importDefault || function(mod) {
       return mod && mod.__esModule ? mod : { "default": mod };
     };
@@ -426,6 +501,7 @@ var require_db_helpers = __commonJS({
     exports2.openDatabaseTs = openDatabaseTs;
     var better_sqlite3_1 = __importDefault(require("better-sqlite3"));
     var fs_1 = __importDefault(require("fs"));
+    var vec = __importStar(require_sqlite_vec());
     var constants_js_1 = require_constants();
     function dbGet(db, sql, ...params) {
       const result = db.prepare(sql).get(...params);
@@ -464,6 +540,9 @@ var require_db_helpers = __commonJS({
         if (!readonly) {
           db.pragma("journal_mode = WAL");
           db.pragma(`busy_timeout = ${constants_js_1.DB_BUSY_TIMEOUT_MS}`);
+        }
+        if (options?.loadVec) {
+          vec.load(db);
         }
         return db;
       } catch {

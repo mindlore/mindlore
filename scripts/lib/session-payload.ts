@@ -38,7 +38,7 @@ function buildSessionSummary(_baseDir: string, latestDeltaContent?: string): str
   return lines.slice(0, 10).join('\n') || 'No previous session data.';
 }
 
-function buildEpisodeSections(db: Database.Database, project: string, sessionId?: string): { decisions: string; friction: string; learnings: string } {
+function buildEpisodeSections(db: Database.Database, project: string, sessionId?: string): { decisions: string; friction: string } {
   const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString();
 
   const dedupClause = sessionId
@@ -46,7 +46,7 @@ function buildEpisodeSections(db: Database.Database, project: string, sessionId?
     : '';
   const query = `SELECT rowid, kind, summary, created_at FROM episodes
      WHERE status = 'active' AND project = ?
-       AND kind IN ('decision', 'friction', 'learning')
+       AND kind IN ('decision', 'friction')
        AND created_at >= ?
        ${dedupClause}
      ORDER BY kind, created_at DESC`;
@@ -68,10 +68,10 @@ function buildEpisodeSections(db: Database.Database, project: string, sessionId?
     })();
   }
 
-  const grouped = { decision: [] as EpisodeRow[], friction: [] as EpisodeRow[], learning: [] as EpisodeRow[] };
+  const grouped = { decision: [] as EpisodeRow[], friction: [] as EpisodeRow[] };
   for (const row of rows) {
     const kind = row.kind;
-    if (kind === 'decision' || kind === 'friction' || kind === 'learning') {
+    if (kind === 'decision' || kind === 'friction') {
       grouped[kind].push(row);
     }
   }
@@ -82,7 +82,6 @@ function buildEpisodeSections(db: Database.Database, project: string, sessionId?
   return {
     decisions: grouped.decision.length > 0 ? fmt(grouped.decision, 5) : 'No recent decisions.',
     friction: grouped.friction.length > 0 ? fmt(grouped.friction, 3) : 'No active friction points.',
-    learnings: grouped.learning.length > 0 ? fmt(grouped.learning, 5) : 'No recent learnings.',
   };
 }
 
@@ -105,7 +104,6 @@ export function buildSessionPayload(opts: BuildSessionPayloadOptions): SessionPa
   const episodes = buildEpisodeSections(db, project, sessionId);
   sections.push({ label: 'Decisions', content: episodes.decisions, tokens: estimateTokens(episodes.decisions) });
   sections.push({ label: 'Friction', content: episodes.friction, tokens: estimateTokens(episodes.friction) });
-  sections.push({ label: 'Learnings', content: episodes.learnings, tokens: estimateTokens(episodes.learnings) });
 
   // Session summaries from recent sessions (#9)
   try {
