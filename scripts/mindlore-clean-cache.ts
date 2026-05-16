@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 import path from 'path';
 import fs from 'fs';
-import { CC_PLUGIN_CACHE_DIR } from './lib/constants.js';
+import { CC_PLUGIN_CACHE_DIR, CACHE_STALE_AGE_MS } from './lib/constants.js';
 
 function compareSemver(a: string, b: string): number {
   const pa = a.split('.').map(Number);
@@ -12,7 +12,7 @@ function compareSemver(a: string, b: string): number {
   return 0;
 }
 
-export function cleanCacheVersion(rootDir: string): { cleaned: string[]; skipped: string[] } {
+export function cleanCacheVersion(rootDir: string, dryRun = false): { cleaned: string[]; skipped: string[] } {
   const cleaned: string[] = [];
   const skipped: string[] = [];
   const versions = fs.readdirSync(rootDir).filter(v => /^\d+\.\d+\.\d+/.test(v));
@@ -21,6 +21,10 @@ export function cleanCacheVersion(rootDir: string): { cleaned: string[]; skipped
   for (const version of versions) {
     if (version === latest) continue;
     const versionPath = path.join(rootDir, version);
+    if (dryRun) {
+      cleaned.push(version);
+      continue;
+    }
     try {
       fs.rmSync(versionPath, { recursive: true, force: true });
       cleaned.push(version);
@@ -49,14 +53,14 @@ function main(): void {
   const removedTemp: string[] = [];
 
   if (fs.existsSync(mindloreVersionsDir)) {
-    const result = cleanCacheVersion(mindloreVersionsDir);
+    const result = cleanCacheVersion(mindloreVersionsDir, dryRun);
     removedVersions.push(...result.cleaned);
     if (result.skipped.length > 0) {
       process.stderr.write(`cleaned: ${result.cleaned.length} versions, skipped: ${result.skipped.length} (close CC and retry)\n`);
     }
   }
 
-  const cutoff = Date.now() - 24 * 3600 * 1000;
+  const cutoff = Date.now() - CACHE_STALE_AGE_MS;
   for (const entry of fs.readdirSync(cache)) {
     if (!entry.startsWith('temp_npm_')) continue;
     const p = path.join(cache, entry);

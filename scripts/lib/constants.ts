@@ -303,3 +303,5 @@ export const LEARNINGS_TOTAL_CHAR_BUDGET = 6000;
 
 export const REFLECT_THRESHOLD_DAYS = 7;
 export const NUDGE_COOLDOWN_HOURS = 24;
+
+export const CACHE_STALE_AGE_MS = 24 * 3600 * 1000;  // 24 hours
