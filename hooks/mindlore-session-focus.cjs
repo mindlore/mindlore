@@ -464,7 +464,10 @@ var require_reflect_trigger = __commonJS({
       }
       return true;
     }
-    module2.exports = { shouldNudgeReflect: shouldNudgeReflect2, REFLECT_THRESHOLD_DAYS, NUDGE_COOLDOWN_HOURS };
+    function buildNudgeMessage2(params) {
+      return `[Mindlore] Son reflect'inden ${params.daysSince} g\xFCn ge\xE7ti. ${params.episodeCount} episode + ${params.diaryCount} diary birikti \u2014 \`/mindlore-reflect\` ile pattern \xF6zetle.`;
+    }
+    module2.exports = { shouldNudgeReflect: shouldNudgeReflect2, buildNudgeMessage: buildNudgeMessage2, REFLECT_THRESHOLD_DAYS, NUDGE_COOLDOWN_HOURS };
   }
 });
 
@@ -1048,7 +1051,7 @@ var fs = require("fs");
 var path = require("path");
 var { findMindloreDir, readConfig, openDatabase, hasEpisodesTable, querySupersededChains, formatSupersededChains, hookLog, getProjectName, parseFrontmatter, withTelemetry, withTimeoutDb, listSnapshots, isCorruptionError, recoverCorruptDb, getNominationCounts, resolveMindloreHome } = require("./lib/mindlore-common.cjs");
 var { loadLearningsBlock } = require("./lib/learnings-loader.cjs");
-var { shouldNudgeReflect } = require_reflect_trigger();
+var { shouldNudgeReflect, buildNudgeMessage } = require_reflect_trigger();
 function truncateSection(content, sectionRegex, keepCount, label) {
   const match = content.match(sectionRegex);
   if (!match) return content;
@@ -1254,7 +1257,11 @@ ${truncateChangedFiles(truncateCommits(deltaContent))}`);
           const reflectRow = byKey["last_reflect_date"] ? { value: byKey["last_reflect_date"] } : void 0;
           const nudgeRow = byKey["last_nudge_date"] ? { value: byKey["last_nudge_date"] } : void 0;
           if (shouldNudgeReflect(reflectRow?.value ?? null, nudgeRow?.value ?? null, /* @__PURE__ */ new Date())) {
-            output.push("[Mindlore] 7+ g\xFCn reflect yap\u0131lmad\u0131 \u2014 `/mindlore-reflect` \xE7al\u0131\u015Ft\u0131r");
+            const daysSince = reflectRow?.value ? Math.floor((Date.now() - new Date(reflectRow.value).getTime()) / 864e5) : 999;
+            const episodeCount = hasEpisodesTable(db) ? db.prepare("SELECT count(*) AS c FROM episodes").get()?.c ?? 0 : 0;
+            const diaryDirPath = path.join(baseDir, "diary");
+            const diaryCount = fs.existsSync(diaryDirPath) ? fs.readdirSync(diaryDirPath).length : 0;
+            output.push(buildNudgeMessage({ daysSince, episodeCount, diaryCount }));
             const nowIso = (/* @__PURE__ */ new Date()).toISOString();
             db.prepare(`
               INSERT INTO skill_memory (skill_name, key, value, updated_at)

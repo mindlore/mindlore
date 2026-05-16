@@ -40,17 +40,17 @@ function runHook(): { stdout: string } {
 
 test('session-focus injects nudge when 7+ days passed and no recent nudge', () => {
   setupDb(8, null);
-  expect(runHook().stdout).toContain('7+ gün reflect yapılmadı');
+  expect(runHook().stdout).toContain('Son reflect');
 });
 
 test('session-focus suppresses nudge during 24h cooldown', () => {
   setupDb(8, 2);
-  expect(runHook().stdout).not.toContain('7+ gün reflect yapılmadı');
+  expect(runHook().stdout).not.toContain('Son reflect');
 });
 
 test('session-focus no nudge when reflect was recent (5 days)', () => {
   setupDb(5, null);
-  expect(runHook().stdout).not.toContain('7+ gün reflect yapılmadı');
+  expect(runHook().stdout).not.toContain('Son reflect');
 });
 
 test('session-focus writes last_nudge_date after injecting nudge', () => {

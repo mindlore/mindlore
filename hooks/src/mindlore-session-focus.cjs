@@ -12,7 +12,7 @@ const fs = require('fs');
 const path = require('path');
 const { findMindloreDir, readConfig, openDatabase, hasEpisodesTable, querySupersededChains, formatSupersededChains, hookLog, getProjectName, parseFrontmatter, withTelemetry, withTimeoutDb, listSnapshots, isCorruptionError, recoverCorruptDb, getNominationCounts, resolveMindloreHome } = require('./lib/mindlore-common.cjs');
 const { loadLearningsBlock } = require('./lib/learnings-loader.cjs');
-const { shouldNudgeReflect } = require('../lib/reflect-trigger.cjs');
+const { shouldNudgeReflect, buildNudgeMessage } = require('../lib/reflect-trigger.cjs');
 
 function truncateSection(content, sectionRegex, keepCount, label) {
   const match = content.match(sectionRegex);
@@ -231,7 +231,11 @@ function main() {
           const reflectRow = byKey['last_reflect_date'] ? { value: byKey['last_reflect_date'] } : undefined;
           const nudgeRow = byKey['last_nudge_date'] ? { value: byKey['last_nudge_date'] } : undefined;
           if (shouldNudgeReflect(reflectRow?.value ?? null, nudgeRow?.value ?? null, new Date())) {
-            output.push('[Mindlore] 7+ gün reflect yapılmadı — `/mindlore-reflect` çalıştır');
+            const daysSince = reflectRow?.value ? Math.floor((Date.now() - new Date(reflectRow.value).getTime()) / 86400000) : 999;
+            const episodeCount = hasEpisodesTable(db) ? db.prepare("SELECT count(*) AS c FROM episodes").get()?.c ?? 0 : 0;
+            const diaryDirPath = path.join(baseDir, 'diary');
+            const diaryCount = fs.existsSync(diaryDirPath) ? fs.readdirSync(diaryDirPath).length : 0;
+            output.push(buildNudgeMessage({ daysSince, episodeCount, diaryCount }));
             const nowIso = new Date().toISOString();
             db.prepare(`
               INSERT INTO skill_memory (skill_name, key, value, updated_at)

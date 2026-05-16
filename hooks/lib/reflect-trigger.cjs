@@ -25,4 +25,8 @@ function shouldNudgeReflect(lastReflectIso, lastNudgeIso, now = new Date()) {
   return true;
 }
 
-module.exports = { shouldNudgeReflect, REFLECT_THRESHOLD_DAYS, NUDGE_COOLDOWN_HOURS };
+function buildNudgeMessage(params) {
+  return `[Mindlore] Son reflect'inden ${params.daysSince} gün geçti. ${params.episodeCount} episode + ${params.diaryCount} diary birikti — \`/mindlore-reflect\` ile pattern özetle.`;
+}
+
+module.exports = { shouldNudgeReflect, buildNudgeMessage, REFLECT_THRESHOLD_DAYS, NUDGE_COOLDOWN_HOURS };
