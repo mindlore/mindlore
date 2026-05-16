@@ -10,7 +10,7 @@
 
 import fs from 'fs';
 import path from 'path';
-import { DIRECTORIES, TYPE_TO_DIR, DB_NAME, GLOBAL_MINDLORE_DIR, resolveHookCommon, isContentFile, CC_MEMORY_CATEGORY } from './lib/constants.js';
+import { DIRECTORIES, TYPE_TO_DIR, NESTED_DIR_TYPES, SLUG_OPTIONAL_TYPES, DB_NAME, GLOBAL_MINDLORE_DIR, resolveHookCommon, isContentFile, CC_MEMORY_CATEGORY } from './lib/constants.js';
 import { dbGet, dbAll, withReadonlyDb } from './lib/db-helpers.js';
 import { detectContradictions } from './lib/contradiction.js';
 import { listUnpromoted } from './lib/triage.js';
@@ -256,6 +256,8 @@ class HealthChecker {
         // CC memory files have no frontmatter — skip validation
         const relDir = path.basename(path.dirname(file));
         if (relDir === 'memory') continue;
+        const relFromBase = path.relative(this.baseDir, file);
+        if (relFromBase.startsWith('templates' + path.sep)) continue;
 
         const content = fs.readFileSync(file, 'utf8').replace(/\r\n/g, '\n');
         const fm = parseFrontmatter(content);
@@ -266,7 +268,7 @@ class HealthChecker {
           continue;
         }
 
-        if (!fm.slug) missingSlug++;
+        if (!fm.slug && fm.type && !SLUG_OPTIONAL_TYPES.has(fm.type)) missingSlug++;
         if (!fm.type) {
           missingType++;
           continue;
@@ -274,9 +276,14 @@ class HealthChecker {
 
         const expectedDir = TYPE_TO_DIR[fm.type];
         if (expectedDir) {
-          const parentDir = path.basename(path.dirname(file));
-          if (parentDir !== expectedDir && !(TYPE_TO_DIR[fm.type] === 'memory' && parentDir === 'raw')) {
-            wrongDir++;
+          if (NESTED_DIR_TYPES.has(fm.type)) {
+            const relFromBase = path.relative(this.baseDir, file);
+            if (!relFromBase.startsWith(expectedDir + path.sep)) wrongDir++;
+          } else {
+            const parentDir = path.basename(path.dirname(file));
+            if (parentDir !== expectedDir && !(expectedDir === 'memory' && parentDir === 'raw')) {
+              wrongDir++;
+            }
           }
         }
       }
@@ -485,6 +492,58 @@ class HealthChecker {
 
     return this.failed === 0;
   }
+}
+
+export interface FrontmatterValidationResult {
+  missingSlug: number;
+  missingType: number;
+  wrongDir: number;
+  totalFiles: number;
+}
+
+export function validateFrontmatter(baseDir: string): FrontmatterValidationResult {
+  const mdFiles = getAllMdFiles(baseDir).filter(isContentFile);
+
+  let missingSlug = 0;
+  let missingType = 0;
+  let wrongDir = 0;
+
+  for (const file of mdFiles) {
+    const relDir = path.basename(path.dirname(file));
+    if (relDir === 'memory') continue;
+    const relFromBase = path.relative(baseDir, file);
+    if (relFromBase.startsWith('templates' + path.sep)) continue;
+
+    const content = fs.readFileSync(file, 'utf8').replace(/\r\n/g, '\n');
+    const fm = parseFrontmatter(content);
+
+    if (!fm) {
+      missingSlug++;
+      missingType++;
+      continue;
+    }
+
+    if (!fm.slug && fm.type && !SLUG_OPTIONAL_TYPES.has(fm.type)) missingSlug++;
+    if (!fm.type) {
+      missingType++;
+      continue;
+    }
+
+    const expectedDir = TYPE_TO_DIR[fm.type];
+    if (expectedDir) {
+      if (NESTED_DIR_TYPES.has(fm.type)) {
+        const relFromBase = path.relative(baseDir, file);
+        if (!relFromBase.startsWith(expectedDir + path.sep)) wrongDir++;
+      } else {
+        const parentDir = path.basename(path.dirname(file));
+        if (parentDir !== expectedDir && !(expectedDir === 'memory' && parentDir === 'raw')) {
+          wrongDir++;
+        }
+      }
+    }
+  }
+
+  return { missingSlug, missingType, wrongDir, totalFiles: mdFiles.length };
 }
 
 // ── Main ───────────────────────────────────────────────────────────────

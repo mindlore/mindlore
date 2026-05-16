@@ -156,6 +156,9 @@ export const TYPE_TO_DIR: Record<string, string> = {
   note: 'memory',
 };
 
+export const NESTED_DIR_TYPES = new Set(['raw']);
+export const SLUG_OPTIONAL_TYPES = new Set(['raw', 'compaction-snapshot']);
+
 /**
  * CC memory path pattern for FileChanged hook matching.
  * Matches: ~/.claude/projects/{name}/memory/{file}.md
