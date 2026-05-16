@@ -468,11 +468,8 @@ var require_secure_io = __commonJS({
     };
     Object.defineProperty(exports2, "__esModule", { value: true });
     exports2.safeMkdir = safeMkdir;
-    exports2.secureMkdir = safeMkdir;
     exports2.safeWriteFile = safeWriteFile;
-    exports2.secureWriteFile = safeWriteFile;
     exports2.safeWriteJson = safeWriteJson;
-    exports2.secureWriteJson = safeWriteJson;
     var fs_12 = __importDefault2(require("fs"));
     function safeMkdir(dirPath) {
       fs_12.default.mkdirSync(dirPath, { recursive: true, mode: 448 });
