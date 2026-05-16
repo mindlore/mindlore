@@ -2,13 +2,12 @@ import fs from 'fs';
 import os from 'os';
 import path from 'path';
 import Database from 'better-sqlite3';
-import { SearchCache, SearchThrottle } from '../scripts/lib/search-cache.js';
-import { SQL_SEARCH_CACHE_CREATE, SQL_SEARCH_THROTTLE_CREATE } from '../scripts/lib/migrations-v063.js';
+import { SearchCache } from '../scripts/lib/search-cache.js';
+import { SQL_SEARCH_CACHE_CREATE } from '../scripts/lib/migrations-v063.js';
 import type { SearchResult } from '../scripts/lib/search-engine.js';
 
 function setupCacheTables(db: Database.Database): void {
   db.exec(SQL_SEARCH_CACHE_CREATE);
-  db.exec(SQL_SEARCH_THROTTLE_CREATE);
 }
 
 describe('TTL Cache', () => {
@@ -102,43 +101,4 @@ describe('SearchCache hit rate', () => {
   });
 });
 
-describe('Progressive Throttling', () => {
-  let db: Database.Database;
-  let tmpDir: string;
 
-  beforeEach(() => {
-    tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'mindlore-throttle-'));
-    db = new Database(path.join(tmpDir, 'test.db'));
-    db.pragma('journal_mode = WAL');
-    setupCacheTables(db);
-  });
-
-  afterEach(() => {
-    db.close();
-    fs.rmSync(tmpDir, { recursive: true, force: true });
-  });
-
-  test('returns 3 results for calls 1-10', () => {
-    const throttle = new SearchThrottle(db);
-    expect(throttle.getMaxResults(1)).toBe(3);
-    expect(throttle.getMaxResults(10)).toBe(3);
-  });
-
-  test('returns 1 result for calls 11-20', () => {
-    const throttle = new SearchThrottle(db);
-    expect(throttle.getMaxResults(11)).toBe(1);
-    expect(throttle.getMaxResults(20)).toBe(1);
-  });
-
-  test('returns 0 for calls 21+', () => {
-    const throttle = new SearchThrottle(db);
-    expect(throttle.getMaxResults(21)).toBe(0);
-  });
-
-  test('incrementCallCount tracks per session', () => {
-    const throttle = new SearchThrottle(db);
-    expect(throttle.incrementCallCount('sess-1')).toBe(1);
-    expect(throttle.incrementCallCount('sess-1')).toBe(2);
-    expect(throttle.incrementCallCount('sess-2')).toBe(1);
-  });
-});
