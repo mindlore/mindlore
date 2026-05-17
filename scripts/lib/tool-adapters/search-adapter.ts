@@ -2,6 +2,7 @@ import { search, extractKeywords } from '../search-engine.js';
 import { extractSmartSnippet } from '../smart-snippet.js';
 import type { McpContext } from '../mcp-tools.js';
 import { MAX_RELATED_SOURCES } from '../constants.js';
+import { errMsg } from '../err-msg.js';
 import { getRelationsForSlugs, type RelatedSource as BaseRelatedSource } from '../relation-helpers.js';
 
 interface SearchInput {
@@ -85,7 +86,7 @@ export function handleSearch(ctx: McpContext, input: SearchInput): SearchOutput 
   try {
     related = getRelatedForSlugs(ctx, slugList, resultSlugs);
   } catch (err) {
-    const msg = err instanceof Error ? err.message : '';
+    const msg = errMsg(err);
     if (!msg.includes('no such table')) throw err;
   }
 

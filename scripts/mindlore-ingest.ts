@@ -16,6 +16,9 @@ function findRepoRoot(start: string): string {
   return start;
 }
 const TEMPLATE_ROOT = path.join(findRepoRoot(__dirname), 'templates', 'source-types');
+const FETCH_MAX_BYTES = 10 * 1024 * 1024;   // 10MB URL fetch cap
+const INGEST_MAX_BYTES = 50 * 1024 * 1024;  // 50MB ingest source cap
+const TEMPLATE_CACHE = new Map<string, string>();
 
 async function fetchUrl(url: string): Promise<string> {
   const parsed = new URL(url);
@@ -29,10 +32,9 @@ async function fetchUrl(url: string): Promise<string> {
     const res = await fetch(url, { signal: controller.signal, redirect: 'follow' });
     if (!res.ok) throw new Error(`HTTP ${res.status} for ${url}`);
     const contentLength = Number(res.headers.get('content-length') ?? '0');
-    const MAX_BYTES = 10 * 1024 * 1024;
-    if (contentLength > MAX_BYTES) throw new Error(`URL exceeds 10MB cap: ${contentLength} bytes`);
+    if (contentLength > FETCH_MAX_BYTES) throw new Error(`URL exceeds ${FETCH_MAX_BYTES} byte cap: ${contentLength} bytes`);
     const text = await res.text();
-    if (text.length > MAX_BYTES) throw new Error(`URL body exceeds 10MB cap after read`);
+    if (text.length > FETCH_MAX_BYTES) throw new Error(`URL exceeds ${FETCH_MAX_BYTES} byte cap after read`);
     return text;
   } finally {
     clearTimeout(timeout);
@@ -40,7 +42,11 @@ async function fetchUrl(url: string): Promise<string> {
 }
 
 function renderTemplate(templatePath: string, vars: Record<string, unknown>): string {
-  const tpl = fs.readFileSync(templatePath, 'utf8');
+  let tpl = TEMPLATE_CACHE.get(templatePath);
+  if (tpl === undefined) {
+    tpl = fs.readFileSync(templatePath, 'utf8');
+    TEMPLATE_CACHE.set(templatePath, tpl);
+  }
   return tpl.replace(/{{(\w+)}}/g, (_, key) => String(vars[key] ?? ''));
 }
 
@@ -66,10 +72,9 @@ async function ingest(input: string, type: string): Promise<{ slug: string; rend
       return { slug, rendered };
     }
     case 'pdf': {
-      const MAX_INGEST_BYTES = 50 * 1024 * 1024;
       const pdfStat = fs.statSync(input);
-      if (pdfStat.size > MAX_INGEST_BYTES) {
-        throw new Error(`File too large: ${pdfStat.size} bytes (max ${MAX_INGEST_BYTES})`);
+      if (pdfStat.size > INGEST_MAX_BYTES) {
+        throw new Error(`File too large: ${pdfStat.size} bytes (max ${INGEST_MAX_BYTES})`);
       }
       const buf = fs.readFileSync(input);
       const ext = await extractPdf(buf);
@@ -83,10 +88,9 @@ async function ingest(input: string, type: string): Promise<{ slug: string; rend
       return { slug, rendered };
     }
     case 'file': {
-      const MAX_INGEST_BYTES = 50 * 1024 * 1024;
       const fileStat = fs.statSync(input);
-      if (fileStat.size > MAX_INGEST_BYTES) {
-        throw new Error(`File too large: ${fileStat.size} bytes (max ${MAX_INGEST_BYTES})`);
+      if (fileStat.size > INGEST_MAX_BYTES) {
+        throw new Error(`File too large: ${fileStat.size} bytes (max ${INGEST_MAX_BYTES})`);
       }
       const content = fs.readFileSync(input, 'utf8');
       const ext = extractFile(input, content);

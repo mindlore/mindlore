@@ -15,29 +15,47 @@ export function assertSlugExists(db: Database, slug: string): SourceRow {
   return row;
 }
 
+// Fix #2: Stringly-typed direction — type alias + named constants
+export type RelationDirection = 'outgoing' | 'incoming';
+const DIRECTION_OUTGOING: RelationDirection = 'outgoing';
+const DIRECTION_INCOMING: RelationDirection = 'incoming';
+
 export interface RelatedSource {
   source: string;
   relation_type: string;
-  direction: 'outgoing' | 'incoming';
+  direction: RelationDirection;
 }
 
-const RELATIONS_SQL = `
-  SELECT source_b AS source, relation_type, 'outgoing' AS direction
-  FROM mindlore_relations
-  WHERE source_a = ?
+// Fix #1: DRY placeholder builder
+const sqlPlaceholders = (n: number): string => Array(n).fill('?').join(',');
+
+// Fix #3+4: Single UNION ALL query used by both batch and single-slug functions.
+// ORDER BY must wrap UNION ALL in a subquery — SQLite cannot sort UNION by expression directly.
+const buildRelationsUnionSql = (n: number): string => `
+  SELECT * FROM (
+    SELECT source_a AS query_slug, source_b AS source, relation_type, '${DIRECTION_OUTGOING}' AS direction
+    FROM mindlore_relations
+    WHERE source_a IN (${sqlPlaceholders(n)})
+    UNION ALL
+    SELECT source_b AS query_slug, source_a AS source, relation_type, '${DIRECTION_INCOMING}' AS direction
+    FROM mindlore_relations
+    WHERE source_b IN (${sqlPlaceholders(n)})
+  )
   ORDER BY CASE relation_type ${PRIORITY_CASE} END
-  LIMIT ?
 `;
-
-export function getRelationsForSlug(db: Database, slug: string, limit = RELATED_OVERFETCH): RelatedSource[] {
-  return dbAll<RelatedSource>(db, RELATIONS_SQL, slug, limit);
-}
 
 interface BatchRelationRow {
   query_slug: string;
   source: string;
   relation_type: string;
-  direction: string;
+  direction: RelationDirection;
+}
+
+// Fix #4: Single-slug delegates to batch — single source of truth
+export function getRelationsForSlug(db: Database, slug: string, limit = RELATED_OVERFETCH): RelatedSource[] {
+  const batchResult = getRelationsForSlugs(db, [slug]);
+  const rels = batchResult.get(slug) ?? [];
+  return rels.slice(0, limit);
 }
 
 export function getRecallCountsForSlugs(
@@ -45,7 +63,8 @@ export function getRecallCountsForSlugs(
   slugs: string[]
 ): Map<string, number> {
   if (slugs.length === 0) return new Map();
-  const placeholders = slugs.map(() => '?').join(',');
+  // Fix #1: use shared sqlPlaceholders helper
+  const placeholders = sqlPlaceholders(slugs.length);
   // eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- better-sqlite3 .all() returns unknown[]
   const rows = db.prepare(`
     SELECT f.slug, h.recall_count
@@ -62,23 +81,10 @@ export function getRecallCountsForSlugs(
 
 export function getRelationsForSlugs(db: Database, slugs: string[]): Map<string, RelatedSource[]> {
   if (slugs.length === 0) return new Map();
-  const placeholders = slugs.map(() => '?').join(',');
 
-  const outgoing = dbAll<BatchRelationRow>(db, `
-    SELECT source_a AS query_slug, source_b AS source, relation_type, 'outgoing' AS direction
-    FROM mindlore_relations
-    WHERE source_a IN (${placeholders})
-    ORDER BY CASE relation_type ${PRIORITY_CASE} END
-  `, ...slugs);
+  // Fix #3: Single UNION ALL query — halves DB round-trips
+  const rows = dbAll<BatchRelationRow>(db, buildRelationsUnionSql(slugs.length), ...slugs, ...slugs);
 
-  const incoming = dbAll<BatchRelationRow>(db, `
-    SELECT source_b AS query_slug, source_a AS source, relation_type, 'incoming' AS direction
-    FROM mindlore_relations
-    WHERE source_b IN (${placeholders})
-    ORDER BY CASE relation_type ${PRIORITY_CASE} END
-  `, ...slugs);
-
-  // Shared dedup map across all slugs in this query call
   interface SeenEntry { owner: string; rel: RelatedSource }
   const seen = new Map<string, SeenEntry>();
   const isSymmetric = (type: string): boolean => (SYMMETRIC_TYPES as Set<string>).has(type);
@@ -90,21 +96,12 @@ export function getRelationsForSlugs(db: Database, slugs: string[]): Map<string,
     return `${slug}|${related}|${type}`;
   };
 
-  for (const row of outgoing) {
+  for (const row of rows) {
     const key = dedupKey(row.query_slug, row.source, row.relation_type);
     if (!seen.has(key)) {
       seen.set(key, {
         owner: row.query_slug,
-        rel: { source: row.source, relation_type: row.relation_type, direction: 'outgoing' },
-      });
-    }
-  }
-  for (const row of incoming) {
-    const key = dedupKey(row.query_slug, row.source, row.relation_type);
-    if (!seen.has(key)) {
-      seen.set(key, {
-        owner: row.query_slug,
-        rel: { source: row.source, relation_type: row.relation_type, direction: 'incoming' },
+        rel: { source: row.source, relation_type: row.relation_type, direction: row.direction },
       });
     }
   }

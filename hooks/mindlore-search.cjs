@@ -718,20 +718,30 @@ var require_relation_helpers = __commonJS({
         throw new Error(`Source slug "${slug}" not found in knowledge base`);
       return row;
     }
-    var RELATIONS_SQL = `
-  SELECT source_b AS source, relation_type, 'outgoing' AS direction
-  FROM mindlore_relations
-  WHERE source_a = ?
+    var DIRECTION_OUTGOING = "outgoing";
+    var DIRECTION_INCOMING = "incoming";
+    var sqlPlaceholders = (n) => Array(n).fill("?").join(",");
+    var buildRelationsUnionSql = (n) => `
+  SELECT * FROM (
+    SELECT source_a AS query_slug, source_b AS source, relation_type, '${DIRECTION_OUTGOING}' AS direction
+    FROM mindlore_relations
+    WHERE source_a IN (${sqlPlaceholders(n)})
+    UNION ALL
+    SELECT source_b AS query_slug, source_a AS source, relation_type, '${DIRECTION_INCOMING}' AS direction
+    FROM mindlore_relations
+    WHERE source_b IN (${sqlPlaceholders(n)})
+  )
   ORDER BY CASE relation_type ${constants_js_1.PRIORITY_CASE} END
-  LIMIT ?
 `;
     function getRelationsForSlug(db, slug, limit = constants_js_1.RELATED_OVERFETCH) {
-      return (0, db_helpers_js_1.dbAll)(db, RELATIONS_SQL, slug, limit);
+      const batchResult = getRelationsForSlugs(db, [slug]);
+      const rels = batchResult.get(slug) ?? [];
+      return rels.slice(0, limit);
     }
     function getRecallCountsForSlugs(db, slugs) {
       if (slugs.length === 0)
         return /* @__PURE__ */ new Map();
-      const placeholders = slugs.map(() => "?").join(",");
+      const placeholders = sqlPlaceholders(slugs.length);
       const rows = db.prepare(`
     SELECT f.slug, h.recall_count
     FROM file_hashes h
@@ -747,19 +757,7 @@ var require_relation_helpers = __commonJS({
     function getRelationsForSlugs(db, slugs) {
       if (slugs.length === 0)
         return /* @__PURE__ */ new Map();
-      const placeholders = slugs.map(() => "?").join(",");
-      const outgoing = (0, db_helpers_js_1.dbAll)(db, `
-    SELECT source_a AS query_slug, source_b AS source, relation_type, 'outgoing' AS direction
-    FROM mindlore_relations
-    WHERE source_a IN (${placeholders})
-    ORDER BY CASE relation_type ${constants_js_1.PRIORITY_CASE} END
-  `, ...slugs);
-      const incoming = (0, db_helpers_js_1.dbAll)(db, `
-    SELECT source_b AS query_slug, source_a AS source, relation_type, 'incoming' AS direction
-    FROM mindlore_relations
-    WHERE source_b IN (${placeholders})
-    ORDER BY CASE relation_type ${constants_js_1.PRIORITY_CASE} END
-  `, ...slugs);
+      const rows = (0, db_helpers_js_1.dbAll)(db, buildRelationsUnionSql(slugs.length), ...slugs, ...slugs);
       const seen = /* @__PURE__ */ new Map();
       const isSymmetric = (type) => constants_js_1.SYMMETRIC_TYPES.has(type);
       const dedupKey = (slug, related, type) => {
@@ -769,21 +767,12 @@ var require_relation_helpers = __commonJS({
         }
         return `${slug}|${related}|${type}`;
       };
-      for (const row of outgoing) {
+      for (const row of rows) {
         const key = dedupKey(row.query_slug, row.source, row.relation_type);
         if (!seen.has(key)) {
           seen.set(key, {
             owner: row.query_slug,
-            rel: { source: row.source, relation_type: row.relation_type, direction: "outgoing" }
-          });
-        }
-      }
-      for (const row of incoming) {
-        const key = dedupKey(row.query_slug, row.source, row.relation_type);
-        if (!seen.has(key)) {
-          seen.set(key, {
-            owner: row.query_slug,
-            rel: { source: row.source, relation_type: row.relation_type, direction: "incoming" }
+            rel: { source: row.source, relation_type: row.relation_type, direction: row.direction }
           });
         }
       }

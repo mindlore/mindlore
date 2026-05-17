@@ -6,6 +6,7 @@ import * as fs from 'fs';
 import * as path from 'path';
 import * as os from 'os';
 import { slugify } from './lib/slugify';
+import { parseFlatFrontmatter } from './lib/frontmatter';
 
 const DIR_TO_TYPE: Record<string, string> = {
   raw: 'raw',
@@ -39,19 +40,6 @@ export interface MigrateResult {
   samples: string[];
 }
 
-// WARNING: flat string-only parser — no nested structures, no multiline, no unquoted colons.
-function parseFrontmatter(content: string): { fm: Record<string, string>; body: string } | null {
-  if (!content.startsWith('---\n')) return null;
-  const end = content.indexOf('\n---', 4);
-  if (end < 0) return null;
-  const raw = content.slice(4, end);
-  const fm: Record<string, string> = {};
-  for (const line of raw.split('\n')) {
-    const m = line.match(/^([a-zA-Z0-9_]+):\s*(.*)$/);
-    const key = m?.[1]; if (m && key !== undefined) fm[key] = (m[2] ?? '').trim().replace(/^['"]|['"]$/g, '');
-  }
-  return { fm, body: content.slice(end + 4) };
-}
 
 function serializeFrontmatter(fm: Record<string, string>, body: string): string {
   const lines = ['---'];
@@ -91,12 +79,12 @@ export async function migrateFrontmatter(opts: MigrateOptions): Promise<MigrateR
   function processFile(filePath: string, topDir: string): void {
     try {
       const content = fs.readFileSync(filePath, 'utf8');
-      const parsed = parseFrontmatter(content);
+      const parsed = parseFlatFrontmatter(content);
       if (!parsed) {
         result.skipped++;
         return;
       }
-      const { fm, body } = parsed;
+      const { meta: fm, body } = parsed;
       let changed = false;
       const base = path.basename(filePath, '.md');
 
@@ -139,8 +127,14 @@ export async function migrateFrontmatter(opts: MigrateOptions): Promise<MigrateR
   }
 
   function walk(dir: string, topDir: string): void {
-    if (!fs.existsSync(dir)) return;
-    for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
+    let entries;
+    try {
+      entries = fs.readdirSync(dir, { withFileTypes: true });
+    } catch (err: unknown) {
+      if (err instanceof Error && (err as NodeJS.ErrnoException).code === 'ENOENT') return;
+      throw err;
+    }
+    for (const entry of entries) {
       if (entry.isSymbolicLink()) continue;
       const p = path.join(dir, entry.name);
       if (entry.isDirectory()) walk(p, topDir);

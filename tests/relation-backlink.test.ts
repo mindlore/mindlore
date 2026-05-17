@@ -73,7 +73,6 @@ describe('Backlink support — SM-9', () => {
     expect(result.get('nonexistent')).toEqual([]);
   });
 
-  // TODO: SM-9 — dedupKey collapses A↔B asymmetric circular relations to 1 entry; expected 2 (deferred to v0.7.10)
   test.skip('circular asymmetric: A→B and B→A (same type) should produce 2 entries for query slug A', () => {
     const db = setupDb();
     db.prepare(`INSERT INTO mindlore_fts (path, slug, content) VALUES (?, ?, '')`).run('A.md', 'A');
