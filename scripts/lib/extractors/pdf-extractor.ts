@@ -1,4 +1,5 @@
 import pdfParse from 'pdf-parse';
+import { errMsg } from '../err-msg.js';
 
 export interface PdfExtraction {
   title: string;
@@ -13,7 +14,7 @@ export async function extractPdf(buffer: Buffer): Promise<PdfExtraction> {
   try {
     data = await pdfParse(buffer);
   } catch (err) {
-    throw new Error(`PDF parse failed: ${(err as Error).message}`);
+    throw new Error(`PDF parse failed: ${errMsg(err)}`);
   }
   return {
     title: data.info?.Title ?? 'Untitled PDF',

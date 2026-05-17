@@ -125,7 +125,7 @@ export async function migrateFrontmatter(opts: MigrateOptions): Promise<MigrateR
     } catch (err) {
       result.errors++;
       if (result.errorMessages.length < 10) {
-        result.errorMessages.push(`${filePath}: ${(err as Error).message}`);
+        result.errorMessages.push(`${filePath}: ${err instanceof Error ? err.message : String(err)}`);
       }
     }
   }
