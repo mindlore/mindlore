@@ -40,6 +40,25 @@ interface BatchRelationRow {
   direction: string;
 }
 
+export function getRecallCountsForSlugs(
+  db: Database,
+  slugs: string[]
+): Map<string, number> {
+  if (slugs.length === 0) return new Map();
+  const placeholders = slugs.map(() => '?').join(',');
+  const rows = db.prepare(`
+    SELECT f.slug, h.recall_count
+    FROM file_hashes h
+    JOIN mindlore_fts f ON f.path = h.path
+    WHERE f.slug IN (${placeholders}) AND h.recall_count > 0
+  `).all(...slugs) as Array<{ slug: string; recall_count: number }>;
+  const result = new Map<string, number>();
+  for (const row of rows) {
+    result.set(row.slug, row.recall_count);
+  }
+  return result;
+}
+
 export function getRelationsForSlugs(db: Database, slugs: string[]): Map<string, RelatedSource[]> {
   const result = new Map<string, RelatedSource[]>();
   if (slugs.length === 0) return result;
