@@ -25,8 +25,12 @@ export function cleanCacheVersions(versions: string[]): CleanCacheResult {
     try {
       fs.rmSync(versionDir, { recursive: true, force: true });
       cleaned.push(versionDir);
-    } catch (err: any) {
-      skipped.push({ version: versionDir, reason: err.code ?? 'UNKNOWN' });
+    } catch (err) {
+      const code = err instanceof Error && 'code' in err && typeof (err as Error & { code?: unknown }).code === 'string'
+        // eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- guarded by typeof check above
+        ? (err as Error & { code: string }).code
+        : 'UNKNOWN';
+      skipped.push({ version: versionDir, reason: code });
     }
   }
   return { cleaned, skipped };

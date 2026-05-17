@@ -48,6 +48,7 @@ describe('INIT_MIGRATIONS — fresh install gap fix (RT-1)', () => {
     for (const mig of INIT_MIGRATIONS) {
       mig.up(db);
     }
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- better-sqlite3 .all() returns unknown, narrowing to expected row shape
     const cols = db.prepare(`PRAGMA table_info(file_hashes)`).all() as Array<{name: string}>;
     const colNames = cols.map(c => c.name);
     expect(colNames).toContain('recall_count');

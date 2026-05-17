@@ -5,7 +5,7 @@ import * as os from 'os';
 const mockRmSync = jest.fn();
 
 jest.mock('fs', () => ({
-  ...(jest.requireActual('fs') as any),
+  ...(jest.requireActual('fs') as Record<string, unknown>),
   rmSync: mockRmSync,
 }));
 
@@ -27,7 +27,7 @@ describe('clean-cache EPERM handling (B4-a)', () => {
     fs.writeFileSync(path.join(v1, 'native.node'), 'fake binary');
 
     // Mock rmSync: throw EPERM for v1, succeed for v2
-    mockRmSync.mockImplementation((p: any) => {
+    mockRmSync.mockImplementation((p) => {
       if (p === v1) {
         const err: NodeJS.ErrnoException = new Error('EPERM');
         err.code = 'EPERM';
