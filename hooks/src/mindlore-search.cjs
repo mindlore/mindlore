@@ -107,7 +107,9 @@ function main() {
           db.close();
           continue;
         }
+        const cacheT0 = Date.now();
         const cached = cache.get(userMessage);
+        searchMs += Date.now() - cacheT0;
         if (cached) {
           const baseDir = path.dirname(dbPath);
           const sliced = cached.slice(0, effectiveMax);
