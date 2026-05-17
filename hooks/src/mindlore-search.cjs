@@ -102,8 +102,10 @@ function main() {
         // Above 10 calls it clamps to 1, above 20 to 0 (skip).
         effectiveMax = throttle.getMaxResults(callCount, baseMax);
         if (effectiveMax < sessionEffectiveMax) sessionEffectiveMax = effectiveMax;
+        if (effectiveMax < baseMax) {
+          hookLog('search', 'info', `Throttled (call #${callCount}, effectiveMax=${effectiveMax}, baseMax=${baseMax})`);
+        }
         if (effectiveMax === 0) {
-          hookLog('search', 'info', `Throttled (call #${callCount})`);
           db.close();
           continue;
         }
