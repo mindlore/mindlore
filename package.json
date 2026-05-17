@@ -8,7 +8,7 @@
     "mindlore-clean-cache": "dist/scripts/mindlore-clean-cache.js"
   },
   "scripts": {
-    "build": "tsc && npm run bundle:hooks",
+    "build": "tsc && npm run bundle:hooks && npm run bundle:ingest",
     "prebuild": "node -e \"require('fs').rmSync('dist',{recursive:true,force:true})\"",
     "test": "jest --config jest.config.cjs",
     "lint": "eslint -c eslint.config.cjs scripts/ hooks/ tests/",
@@ -28,7 +28,8 @@
     "migrate:frontmatter": "node dist/scripts/mindlore-frontmatter-migrate.js",
     "bundle:hooks": "npx tsx scripts/bundle-hooks.ts",
     "bundle:mcp": "npx esbuild scripts/mcp-server.ts --bundle --platform=node --target=node20 --format=cjs --outfile=mcp-server.cjs --external:better-sqlite3",
-    "bundle": "npm run bundle:hooks && npm run bundle:mcp",
+    "bundle:ingest": "npx esbuild scripts/mindlore-ingest.ts --bundle --platform=node --target=node20 --format=cjs --outfile=dist/scripts/mindlore-ingest.js --external:better-sqlite3",
+    "bundle": "npm run bundle:hooks && npm run bundle:mcp && npm run bundle:ingest",
     "postinstall": "npm run build && npm rebuild better-sqlite3"
   },
   "keywords": [

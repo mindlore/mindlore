@@ -1,4 +1,4 @@
-import pdfParse from 'pdf-parse';
+import pdfParse from 'pdf-parse/lib/pdf-parse.js';
 import { errMsg } from '../err-msg.js';
 
 export interface PdfExtraction {
