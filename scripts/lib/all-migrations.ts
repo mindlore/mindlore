@@ -33,6 +33,11 @@ export const FTS_DB_MIGRATIONS: Migration[] = ALL_MIGRATIONS.filter(m => !EPISOD
 
 // Init/upgrade migrations — episodes tablosu olan DB (init.ts)
 export const INIT_MIGRATIONS: Migration[] = [
+  ...V050_MIGRATIONS,
+  ...V051_MIGRATIONS,
+  ...V052_MIGRATIONS,
+  ...V053_MIGRATIONS,
+  ...V061_MIGRATIONS,
   ...V062_MIGRATIONS,
   ...V063_MIGRATIONS,
   ...V066_MIGRATIONS,
