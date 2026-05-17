@@ -554,6 +554,7 @@ var __importDefault = exports && exports.__importDefault || function(mod) {
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.DECISION_KEYWORDS = void 0;
 exports.discoverSessionFiles = discoverSessionFiles;
+exports.buildSessionMarkdown = buildSessionMarkdown;
 exports.convertJsonlToMd = convertJsonlToMd;
 exports.extractSessionSummary = extractSessionSummary;
 exports.syncSessions = syncSessions;
@@ -650,31 +651,20 @@ function extractSessionMeta(lines) {
   }
   return { date, branch, cwd, startTime };
 }
-function convertJsonlToMd(jsonlPath, projectName) {
-  const raw = fs_1.default.readFileSync(jsonlPath, "utf8").replace(/\r\n/g, "\n");
-  const lines = raw.trim().split("\n");
-  const meta = extractSessionMeta(lines);
+function buildSessionMarkdown(messages, meta, projectName, shortId, isSubagent, sessionId = shortId) {
   const slug = projectSlug(projectName);
-  const sessionId = path_1.default.basename(jsonlPath, ".jsonl");
-  const isSubagent = sessionId.startsWith("agent-");
   const mdParts = [];
   let userCount = 0;
   let assistantCount = 0;
-  for (const line of lines) {
-    let obj;
-    try {
-      obj = JSON.parse(line);
-    } catch {
-      continue;
-    }
+  for (const obj of messages) {
     if (obj.type === "user" || obj.type === "assistant") {
-      const content = obj.message?.content;
+      const msgContent = obj.message?.content;
       const role = obj.type === "user" ? "User" : "Assistant";
       const texts = [];
-      if (typeof content === "string" && content.trim()) {
-        texts.push(content.trim());
-      } else if (Array.isArray(content)) {
-        for (const block of content) {
+      if (typeof msgContent === "string" && msgContent.trim()) {
+        texts.push(msgContent.trim());
+      } else if (Array.isArray(msgContent)) {
+        for (const block of msgContent) {
           if (block.type === "text" && block.text?.trim()) {
             texts.push(block.text.trim());
           }
@@ -696,6 +686,7 @@ ${cleaned}
   const frontmatter = [
     "---",
     `type: raw`,
+    `slug: session-${meta.date}-${shortId}`,
     `project: ${slug}`,
     `session_id: ${sessionId}`,
     `date: ${meta.date}`,
@@ -710,6 +701,23 @@ ${cleaned}
   ].filter(Boolean).join("\n");
   const md = frontmatter + mdParts.join("\n");
   return { md, date: meta.date, userCount, assistantCount, isSubagent };
+}
+function convertJsonlToMd(jsonlPath, projectName) {
+  const raw = fs_1.default.readFileSync(jsonlPath, "utf8").replace(/\r\n/g, "\n");
+  const lines = raw.trim().split("\n");
+  const meta = extractSessionMeta(lines);
+  const sessionId = path_1.default.basename(jsonlPath, ".jsonl");
+  const isSubagent = sessionId.startsWith("agent-");
+  const shortId = sessionShortId(sessionId);
+  const parsedMessages = [];
+  for (const line of lines) {
+    try {
+      parsedMessages.push(JSON.parse(line));
+    } catch {
+      continue;
+    }
+  }
+  return buildSessionMarkdown(parsedMessages, meta, projectName, shortId, isSubagent, sessionId);
 }
 exports.DECISION_KEYWORDS = [
   "karar:",
