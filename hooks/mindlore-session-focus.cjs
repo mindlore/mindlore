@@ -1003,6 +1003,30 @@ var require_migrations_v072 = __commonJS({
   }
 });
 
+// dist/scripts/lib/migrations-v078.js
+var require_migrations_v078 = __commonJS({
+  "dist/scripts/lib/migrations-v078.js"(exports2) {
+    "use strict";
+    Object.defineProperty(exports2, "__esModule", { value: true });
+    exports2.V078_MIGRATIONS = void 0;
+    exports2.V078_MIGRATIONS = [
+      {
+        version: 21,
+        name: "symmetric_relations_backfill",
+        up: (db) => {
+          db.exec(`
+        INSERT OR IGNORE INTO mindlore_relations (source_a, source_b, relation_type, created_at)
+        SELECT source_b, source_a, relation_type, created_at
+        FROM mindlore_relations
+        WHERE relation_type IN ('contradicts')
+          AND source_a != source_b
+      `);
+        }
+      }
+    ];
+  }
+});
+
 // dist/scripts/lib/all-migrations.js
 var require_all_migrations = __commonJS({
   "dist/scripts/lib/all-migrations.js"(exports2) {
@@ -1019,6 +1043,7 @@ var require_all_migrations = __commonJS({
     var migrations_v067_js_1 = require_migrations_v067();
     var migrations_v068_js_1 = require_migrations_v068();
     var migrations_v072_js_1 = require_migrations_v072();
+    var migrations_v078_js_1 = require_migrations_v078();
     exports2.ALL_MIGRATIONS = [
       ...migrations_js_1.V050_MIGRATIONS,
       ...migrations_js_1.V051_MIGRATIONS,
@@ -1030,7 +1055,8 @@ var require_all_migrations = __commonJS({
       ...migrations_v066_js_1.V066_MIGRATIONS,
       ...migrations_v067_js_1.V067_MIGRATIONS,
       ...migrations_v068_js_1.V068_MIGRATIONS,
-      ...migrations_v072_js_1.V072_MIGRATIONS
+      ...migrations_v072_js_1.V072_MIGRATIONS,
+      ...migrations_v078_js_1.V078_MIGRATIONS
     ];
     var EPISODES_DEPENDENT = /* @__PURE__ */ new Set([9, 14, 15, 16, 17, 18]);
     exports2.FTS_DB_MIGRATIONS = exports2.ALL_MIGRATIONS.filter((m) => !EPISODES_DEPENDENT.has(m.version));
@@ -1040,7 +1066,8 @@ var require_all_migrations = __commonJS({
       ...migrations_v066_js_1.V066_MIGRATIONS,
       ...migrations_v067_js_1.V067_MIGRATIONS,
       ...migrations_v068_js_1.V068_MIGRATIONS,
-      ...migrations_v072_js_1.V072_MIGRATIONS
+      ...migrations_v072_js_1.V072_MIGRATIONS,
+      ...migrations_v078_js_1.V078_MIGRATIONS
     ];
     exports2.EXPECTED_SCHEMA_VERSION = Math.max(...exports2.ALL_MIGRATIONS.map((m) => m.version));
   }
