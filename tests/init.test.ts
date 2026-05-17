@@ -66,13 +66,23 @@ describe('mindlore init', () => {
 
     const db = new Database(dbPath, { readonly: true });
 
-    const result = dbGet<{ cnt: number }>(db, 'SELECT count(*) as cnt FROM mindlore_fts');
-    expect(result?.cnt).toBe(0);
+    let ftsCnt: number;
+    let hashCnt: number;
+    try {
+      const result = dbGet<{ cnt: number }>(db, 'SELECT count(*) as cnt FROM mindlore_fts');
+      ftsCnt = result?.cnt ?? -1;
 
-    const hashResult = dbGet<{ cnt: number }>(db, 'SELECT count(*) as cnt FROM file_hashes');
-    expect(hashResult?.cnt).toBe(0);
+      const hashResult = dbGet<{ cnt: number }>(db, 'SELECT count(*) as cnt FROM file_hashes');
+      hashCnt = hashResult?.cnt ?? -1;
+    } finally {
+      db.close();
+    }
 
-    db.close();
+    // Init copies templates and auto-indexes them — both tables should have entries.
+    // The invariant: every indexed file appears in both mindlore_fts and file_hashes.
+    expect(ftsCnt).toBeGreaterThan(0);
+    expect(hashCnt).toBeGreaterThan(0);
+    expect(ftsCnt).toBe(hashCnt);
   });
 
   test('should be idempotent — running twice preserves existing data', () => {
