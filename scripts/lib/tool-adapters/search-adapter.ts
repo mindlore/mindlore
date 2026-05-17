@@ -2,7 +2,7 @@ import { search, extractKeywords } from '../search-engine.js';
 import { extractSmartSnippet } from '../smart-snippet.js';
 import type { McpContext } from '../mcp-tools.js';
 import { MAX_RELATED_SOURCES } from '../constants.js';
-import { getRelationsForSlug, type RelatedSource as BaseRelatedSource } from '../relation-helpers.js';
+import { getRelationsForSlugs, type RelatedSource as BaseRelatedSource } from '../relation-helpers.js';
 
 interface SearchInput {
   query: string;
@@ -36,10 +36,9 @@ const MAX_SNIPPET_LEN = 500;
 function getRelatedForSlugs(ctx: McpContext, slugs: string[], excludeSlugs: Set<string>): RelatedSource[] {
   if (slugs.length === 0) return [];
 
+  const batch = getRelationsForSlugs(ctx.db, slugs);
   const all: RelatedSource[] = [];
-
-  for (const slug of slugs) {
-    const rows = getRelationsForSlug(ctx.db, slug);
+  for (const [slug, rows] of batch.entries()) {
     for (const row of rows) {
       if (!excludeSlugs.has(row.source)) {
         all.push({ ...row, via: slug });
