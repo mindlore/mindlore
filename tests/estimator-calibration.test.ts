@@ -7,10 +7,7 @@ describe('Estimator real-shape calibration (RT-2)', () => {
   const fixturePath = path.join(__dirname, 'fixtures/real-cc-transcript.jsonl');
 
   test('real transcript estimates within ±20% of expected tokens (direct count, fixture < TAIL_BYTES)', () => {
-    if (!fs.existsSync(fixturePath)) {
-      console.warn('Fixture missing — RT-2 calibration skipped');
-      return;
-    }
+    expect(fs.existsSync(fixturePath)).toBe(true);
     const fileSize = fs.statSync(fixturePath).size;
     const tokens = estimateTokens(fixturePath);
     // Expected ratio: ~0.25 tokens/byte → 5MB = 1.25M tokens
@@ -22,7 +19,7 @@ describe('Estimator real-shape calibration (RT-2)', () => {
   });
 
   test('memory usage stays under 100MB during estimation', () => {
-    if (!fs.existsSync(fixturePath)) return;
+    expect(fs.existsSync(fixturePath)).toBe(true);
     const before = process.memoryUsage().heapUsed;
     estimateTokens(fixturePath);
     const after = process.memoryUsage().heapUsed;
