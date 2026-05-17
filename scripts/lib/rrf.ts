@@ -19,11 +19,6 @@ export interface RankedResult {
   content?: string;
 }
 
-export interface RRFOptions {
-  k?: number;
-  dedupByPath?: boolean;
-}
-
 export interface RRFInput {
   porter: RankedResult[];
   trigram: RankedResult[];
