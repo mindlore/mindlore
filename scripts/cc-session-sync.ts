@@ -171,6 +171,7 @@ export function buildSessionMarkdown(
   projectName: string,
   shortId: string,
   isSubagent: boolean,
+  sessionId: string = shortId,
 ): SessionConversion {
   const slug = projectSlug(projectName);
   const mdParts: string[] = [];
@@ -207,6 +208,7 @@ export function buildSessionMarkdown(
     `type: raw`,
     `slug: session-${meta.date}-${shortId}`,
     `project: ${slug}`,
+    `session_id: ${sessionId}`,
     `date: ${meta.date}`,
     meta.startTime ? `start_time: ${meta.startTime}` : null,
     meta.branch ? `branch: ${meta.branch}` : null,
@@ -241,7 +243,7 @@ export function convertJsonlToMd(jsonlPath: string, projectName: string): Sessio
     }
   }
 
-  return buildSessionMarkdown(parsedMessages, meta, projectName, shortId, isSubagent);
+  return buildSessionMarkdown(parsedMessages, meta, projectName, shortId, isSubagent, sessionId);
 }
 
 // ── Session Summary ──────────────────────────────────────────────────
