@@ -61,7 +61,7 @@ describe('Frontmatter migration (B4-b Part B)', () => {
     await migrateFrontmatter({ apply: true, backupDir: backupRoot, reindex: false });
     const backups = fs.readdirSync(backupRoot);
     expect(backups.length).toBeGreaterThan(0);
-    const firstBackup = backups[0] as string;
+    const firstBackup = backups[0]!;
     expect(fs.existsSync(path.join(backupRoot, firstBackup, 'raw', 'test.md'))).toBe(true);
   });
 });

@@ -73,7 +73,7 @@ async function main(): Promise<void> {
   const args = process.argv.slice(2);
   const input = args[0];
   const typeFlag = args.indexOf('--type');
-  const type = typeFlag >= 0 ? args[typeFlag + 1]! : detectType(input ?? '');
+  const type = typeFlag >= 0 ? (args[typeFlag + 1] ?? '') : detectType(input ?? '');
 
   if (!input) {
     console.error('Usage: node mindlore-ingest.js <input> [--type <type>]');

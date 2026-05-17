@@ -10,6 +10,7 @@ export const V079_MIGRATIONS: Migration[] = [
       // 1. Add slug column
       db.exec(`ALTER TABLE file_hashes ADD COLUMN slug TEXT`);
       // 2. Backfill existing rows
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- better-sqlite3 .all() returns unknown[]
       const rows = db.prepare(`SELECT rowid, path FROM file_hashes WHERE slug IS NULL`).all() as Array<{rowid: number, path: string}>;
       const update = db.prepare(`UPDATE file_hashes SET slug = ? WHERE rowid = ?`);
       const tx = db.transaction((batch: typeof rows) => {

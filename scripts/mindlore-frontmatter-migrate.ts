@@ -41,7 +41,7 @@ function parseFrontmatter(content: string): { fm: Record<string, string>; body: 
   const fm: Record<string, string> = {};
   for (const line of raw.split('\n')) {
     const m = line.match(/^([a-zA-Z0-9_]+):\s*(.*)$/);
-    if (m) fm[m[1] as string] = (m[2] ?? '').trim().replace(/^['"]|['"]$/g, '');
+    const key = m?.[1]; if (m && key !== undefined) fm[key] = (m[2] ?? '').trim().replace(/^['"]|['"]$/g, '');
   }
   return { fm, body: content.slice(end + 4) };
 }
@@ -146,7 +146,6 @@ export async function migrateFrontmatter(opts: MigrateOptions): Promise<MigrateR
   if (opts.apply && result.written > 0 && opts.reindex !== false) {
     console.log('Triggering FTS5 re-index...');
     try {
-      // eslint-disable-next-line @typescript-eslint/no-require-imports
       require('child_process').execSync('npm run index', { stdio: 'inherit', cwd: process.cwd() });
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : String(err);

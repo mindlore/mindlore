@@ -41,9 +41,11 @@ describe('Migration v22 — file_hashes.slug column (SM-7)', () => {
     setupBaseTables(db);
     for (const mig of ALL_MIGRATIONS) mig.up(db);
 
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- better-sqlite3 .all() returns unknown[]
     const cols = db.prepare(`PRAGMA table_info(file_hashes)`).all() as Array<{name: string}>;
     expect(cols.map(c => c.name)).toContain('slug');
 
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- better-sqlite3 .all() returns unknown[]
     const indexes = db.prepare(`PRAGMA index_list(file_hashes)`).all() as Array<{name: string}>;
     expect(indexes.map(i => i.name)).toContain('idx_file_hashes_slug');
   });
@@ -62,6 +64,7 @@ describe('Migration v22 — file_hashes.slug column (SM-7)', () => {
     expect(v22).toBeDefined();
     v22!.up(db);
 
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- better-sqlite3 .get() returns unknown
     const row = db.prepare(`SELECT slug FROM file_hashes WHERE path = ?`).get(
       'raw/sessions/test-2026-05-17.md'
     ) as {slug: string};

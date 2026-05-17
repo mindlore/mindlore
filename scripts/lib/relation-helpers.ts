@@ -46,6 +46,7 @@ export function getRecallCountsForSlugs(
 ): Map<string, number> {
   if (slugs.length === 0) return new Map();
   const placeholders = slugs.map(() => '?').join(',');
+  // eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- better-sqlite3 .all() returns unknown[]
   const rows = db.prepare(`
     SELECT f.slug, h.recall_count
     FROM file_hashes h
