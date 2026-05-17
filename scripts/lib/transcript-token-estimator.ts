@@ -1,11 +1,7 @@
 import * as fs from 'fs';
 
 const CHAR_PER_TOKEN = 4;
-const DEFAULT_TAIL_LINES = 500;
-// Real CC JSONL lines carry heavy metadata (parentUuid, sessionId, gitBranch, etc.)
-// in addition to message content. Empirical avg ≈ 1500 bytes/line. Underestimating
-// this causes the tail read to cover fewer lines than DEFAULT_TAIL_LINES suggests.
-const AVG_BYTES_PER_TRANSCRIPT_LINE = 1500;
+const TAIL_BYTES = 2_000_000;
 const DEFAULT_CONTEXT_WINDOW = 200_000;
 
 // Hook spawns fresh node per UserPromptSubmit, so this Map is effectively
@@ -52,16 +48,15 @@ function countContentChars(obj: unknown): number {
 
 export function estimateContextTokens(
   transcriptPath: string,
-  opts: EstimateOptions = {},
+  _opts: EstimateOptions = {},
 ): number {
-  const tail = opts.tailLines ?? DEFAULT_TAIL_LINES;
   let fd: number | undefined;
   try {
     const st = fs.statSync(transcriptPath);
     const cached = cache.get(transcriptPath);
     if (cached && cached.mtime === st.mtimeMs) return cached.tokens;
 
-    const readSize = Math.min(st.size, tail * AVG_BYTES_PER_TRANSCRIPT_LINE);
+    const readSize = Math.min(st.size, TAIL_BYTES);
     if (readSize === 0) {
       cache.set(transcriptPath, { mtime: st.mtimeMs, tokens: 0 });
       return 0;
