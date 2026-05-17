@@ -29,6 +29,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **B4-c:** v0.7.9 net lint regression resolved (0 errors target)
 - **RT-2:** Real CC transcript estimator calibration fixture (1.2MB, ±20% tolerance)
 - **`@types/pdf-parse`** moved from dependencies → devDependencies
+- **Bundle pipeline:** Added `bundle:ingest` to build chain. `dist/scripts/mindlore-ingest.js` ships with cheerio + pdf-parse inlined for marketplace consumers (no `npm install` required at extract time). Also fixes `pdf-parse` import to use subpath `pdf-parse/lib/pdf-parse.js` to avoid test-harness crash when bundled.
 
 ### Deferred to v0.7.10 (follow-up backlog)
 - URL extractor MD-escape for XSS-safe rendering
