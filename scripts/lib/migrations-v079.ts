@@ -2,6 +2,7 @@ import type { Migration } from './schema-version.js';
 import { slugify } from './slugify.js';
 import * as path from 'path';
 
+// Forward-only migration: down step intentionally omitted (system does not support rollback)
 export const V079_MIGRATIONS: Migration[] = [
   {
     version: 22,
