@@ -1,7 +1,24 @@
+import type BetterSqlite3 from 'better-sqlite3';
 import type { McpContext } from '../mcp-tools.js';
 import { RELATION_TYPES, SYMMETRIC_TYPES, type RelationType } from '../constants.js';
 import { dbAll } from '../db-helpers.js';
 import { assertSlugExists } from '../relation-helpers.js';
+
+function runSymmetricAware(
+  db: BetterSqlite3.Database,
+  stmt: BetterSqlite3.Statement,
+  a: string,
+  b: string,
+  type: RelationType,
+): number {
+  const isSymmetric = SYMMETRIC_TYPES.has(type) && a !== b;
+  const txn = db.transaction(() => {
+    const r1 = stmt.run(a, b, type);
+    const r2 = isSymmetric ? stmt.run(b, a, type) : { changes: 0 };
+    return r1.changes + r2.changes;
+  });
+  return txn();
+}
 
 export interface RelateInput {
   action: 'add' | 'remove' | 'list';
@@ -31,20 +48,10 @@ export function handleRelate(ctx: McpContext, input: RelateInput): RelateResult 
     assertSlugExists(ctx.db, input.source_a);
     assertSlugExists(ctx.db, input.source_b);
 
-    const isSymmetric = SYMMETRIC_TYPES.has(input.relation_type);
     const insertStmt = ctx.db.prepare(
       'INSERT OR IGNORE INTO mindlore_relations (source_a, source_b, relation_type) VALUES (?, ?, ?)'
     );
-
-    const txn = ctx.db.transaction(() => {
-      const r1 = insertStmt.run(input.source_a, input.source_b, input.relation_type);
-      let r2: { changes: number } = { changes: 0 };
-      if (isSymmetric && input.source_a !== input.source_b) {
-        r2 = insertStmt.run(input.source_b, input.source_a, input.relation_type);
-      }
-      return { totalChanges: r1.changes + r2.changes };
-    });
-    const { totalChanges } = txn();
+    const totalChanges = runSymmetricAware(ctx.db, insertStmt, input.source_a, input.source_b, input.relation_type);
 
     return {
       created: totalChanges > 0,
@@ -59,20 +66,10 @@ export function handleRelate(ctx: McpContext, input: RelateInput): RelateResult 
     }
     validateRelationType(input.relation_type);
 
-    const isSymmetric = SYMMETRIC_TYPES.has(input.relation_type);
     const deleteStmt = ctx.db.prepare(
       'DELETE FROM mindlore_relations WHERE source_a = ? AND source_b = ? AND relation_type = ?'
     );
-
-    const txn = ctx.db.transaction(() => {
-      const r1 = deleteStmt.run(input.source_a, input.source_b, input.relation_type);
-      let r2: { changes: number } = { changes: 0 };
-      if (isSymmetric && input.source_a !== input.source_b) {
-        r2 = deleteStmt.run(input.source_b, input.source_a, input.relation_type);
-      }
-      return { totalChanges: r1.changes + r2.changes };
-    });
-    const { totalChanges } = txn();
+    const totalChanges = runSymmetricAware(ctx.db, deleteStmt, input.source_a, input.source_b, input.relation_type);
 
     return { removed: totalChanges > 0 };
   }

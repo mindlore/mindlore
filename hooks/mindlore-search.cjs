@@ -628,11 +628,15 @@ var require_rrf = __commonJS({
           }
         }
       }
+      let maxRecallBoost = 0;
+      let maxRelationBoost = 0;
+      let boostedCount = 0;
       if (recallMap || relGraph) {
         const candidateSlugs = new Set(scores.keys());
         for (const [slug, item] of scores.entries()) {
           const recallCount = recallMap?.get(slug) ?? 0;
           const accessBoost = Math.min(1, Math.log2(recallCount + 1) / 5);
+          const recallContribution = 0.3 * accessBoost;
           let relationProximity = 0;
           const neighbors = relGraph?.get(slug);
           if (neighbors && neighbors.size > 0) {
@@ -643,7 +647,14 @@ var require_rrf = __commonJS({
             }
             relationProximity = Math.min(1, intersectionCount / 3);
           }
-          item.score += 0.3 * accessBoost + 0.15 * relationProximity;
+          const relationContribution = 0.15 * relationProximity;
+          item.score += recallContribution + relationContribution;
+          if (recallContribution > maxRecallBoost)
+            maxRecallBoost = recallContribution;
+          if (relationContribution > maxRelationBoost)
+            maxRelationBoost = relationContribution;
+          if (recallContribution > 0 || neighbors && neighbors.size > 0)
+            boostedCount++;
         }
       }
       let results = Array.from(scores.values()).sort((a, b) => b.score - a.score);
@@ -658,29 +669,6 @@ var require_rrf = __commonJS({
       }
       try {
         const { writeTelemetry } = require("./telemetry-bridge.cjs");
-        let maxRecallBoost = 0;
-        let maxRelationBoost = 0;
-        let boostedCount = 0;
-        if (recallMap || relGraph) {
-          for (const r of results) {
-            const rc = recallMap?.get(r.slug) ?? 0;
-            const ab = Math.min(1, Math.log2(rc + 1) / 5) * 0.3;
-            if (ab > maxRecallBoost)
-              maxRecallBoost = ab;
-            const neighbors = relGraph?.get(r.slug);
-            if (neighbors) {
-              let inter = 0;
-              for (const n of neighbors)
-                if (scores.has(n))
-                  inter++;
-              const rp = Math.min(1, inter / 3) * 0.15;
-              if (rp > maxRelationBoost)
-                maxRelationBoost = rp;
-            }
-            if (ab > 0 || neighbors && neighbors.size > 0)
-              boostedCount++;
-          }
-        }
         writeTelemetry({
           ts: (/* @__PURE__ */ new Date()).toISOString(),
           event: "rrf",
