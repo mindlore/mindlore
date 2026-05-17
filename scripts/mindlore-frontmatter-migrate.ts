@@ -1,3 +1,7 @@
+// NOTE: Frontmatter parser assumes flat-string-only schema (no nested arrays/objects,
+// no multiline scalars, no embedded colons within unquoted values). Mindlore's
+// canonical frontmatter conforms to this. If you have custom frontmatter with
+// nested structures, run with --dry-run first and inspect output.
 import * as fs from 'fs';
 import * as path from 'path';
 import * as os from 'os';
@@ -23,6 +27,7 @@ export interface MigrateOptions {
   backupDir: string;
   home?: string;
   reindex?: boolean;
+  fixTypeMismatch?: boolean;
 }
 
 export interface MigrateResult {
@@ -34,6 +39,7 @@ export interface MigrateResult {
   samples: string[];
 }
 
+// WARNING: flat string-only parser — no nested structures, no multiline, no unquoted colons.
 function parseFrontmatter(content: string): { fm: Record<string, string>; body: string } | null {
   if (!content.startsWith('---\n')) return null;
   const end = content.indexOf('\n---', 4);
@@ -106,9 +112,11 @@ export async function migrateFrontmatter(opts: MigrateOptions): Promise<MigrateR
 
       const expectedType = DIR_TO_TYPE[topDir];
       if (expectedType && fm.type && fm.type !== expectedType) {
-        fm.type = expectedType;
         result.byCategory.typeDirMismatch++;
-        changed = true;
+        if (opts.fixTypeMismatch) {
+          fm.type = expectedType;
+          changed = true;
+        }
       }
 
       if (changed) {
@@ -147,8 +155,15 @@ export async function migrateFrontmatter(opts: MigrateOptions): Promise<MigrateR
   console.log(`Frontmatter migration ${opts.apply ? 'APPLIED' : 'DRY-RUN'}`);
   console.log(`  missingSlug:       ${result.byCategory.missingSlug}`);
   console.log(`  invalidSlugFormat: ${result.byCategory.invalidSlugFormat}`);
-  console.log(`  typeDirMismatch:   ${result.byCategory.typeDirMismatch}`);
+  if (opts.fixTypeMismatch) {
+    console.log(`  typeDirMismatch:   ${result.byCategory.typeDirMismatch}`);
+  } else {
+    console.log(`  typeDirMismatch:   ${result.byCategory.typeDirMismatch} (use --fix-type-mismatch to rewrite)`);
+  }
   console.log(`  written: ${result.written}, skipped: ${result.skipped}, errors: ${result.errors}`);
+  if (!opts.apply) {
+    console.log('Note: parser assumes flat string-only frontmatter. Verify with --dry-run before --apply.');
+  }
 
   if (opts.apply && result.written > 0 && opts.reindex !== false) {
     console.log('Triggering FTS5 re-index...');
@@ -165,8 +180,9 @@ export async function migrateFrontmatter(opts: MigrateOptions): Promise<MigrateR
 
 if (require.main === module) {
   const apply = process.argv.includes('--apply');
+  const fixTypeMismatch = process.argv.includes('--fix-type-mismatch');
   const backupDir = path.join(os.homedir(), '.mindlore-backup');
-  migrateFrontmatter({ apply, backupDir, reindex: true }).then(r => {
+  migrateFrontmatter({ apply, backupDir, reindex: true, fixTypeMismatch }).then(r => {
     process.exit(r.errors > 0 ? 1 : 0);
   });
 }

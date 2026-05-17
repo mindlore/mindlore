@@ -38,12 +38,21 @@ describe('Frontmatter migration (B4-b Part B)', () => {
     expect(fixed).toMatch(/^slug: bad-slug-name$/m);
   });
 
-  test('typeDirMismatch: fixes type field to match dir', async () => {
+  test('typeDirMismatch: fixes type field when --fix-type-mismatch is set', async () => {
     const file = path.join(tmpHome, 'learnings', 'lesson.md');
     fs.writeFileSync(file, `---\nslug: lesson\ntype: source\n---\n\nContent`);
-    await migrateFrontmatter({ apply: true, backupDir: path.join(tmpHome, '.backup'), reindex: false });
+    await migrateFrontmatter({ apply: true, backupDir: path.join(tmpHome, '.backup'), reindex: false, fixTypeMismatch: true });
     const fixed = fs.readFileSync(file, 'utf8');
     expect(fixed).toMatch(/^type: lesson$/m);
+  });
+
+  test('typeDirMismatch: detected but NOT rewritten when fixTypeMismatch is false (default)', async () => {
+    const file = path.join(tmpHome, 'learnings', 'lesson.md');
+    const original = `---\nslug: lesson\ntype: source\n---\n\nContent`;
+    fs.writeFileSync(file, original);
+    const result = await migrateFrontmatter({ apply: true, backupDir: path.join(tmpHome, '.backup'), reindex: false });
+    expect(result.byCategory.typeDirMismatch).toBe(1);
+    expect(fs.readFileSync(file, 'utf8')).toBe(original);
   });
 
   test('dry-run does not modify files', async () => {
