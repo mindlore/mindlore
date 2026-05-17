@@ -31,11 +31,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **`@types/pdf-parse`** moved from dependencies → devDependencies
 - **Bundle pipeline:** Added `bundle:ingest` to build chain. `dist/scripts/mindlore-ingest.js` ships with cheerio + pdf-parse inlined for marketplace consumers (no `npm install` required at extract time). Also fixes `pdf-parse` import to use subpath `pdf-parse/lib/pdf-parse.js` to avoid test-harness crash when bundled.
 
+### Quality (/simplify pass — post-merge)
+- **relation-helpers:** UNION ALL consolidation (2 queries → 1 in per-prompt hot path), `sqlPlaceholders` helper, `RelationDirection` type + `DIRECTION_OUTGOING/INCOMING` constants, single-slug `getRelationsForSlug` delegates to batch
+- **`scripts/lib/frontmatter.ts`** (new): shared `parseFlatFrontmatter` — kills 2 duplicates (recall-adapter + migrate script)
+- **mindlore-ingest:** module-level `FETCH_MAX_BYTES`/`INGEST_MAX_BYTES` (3 sites hoisted), unified size-exceeded error message, `TEMPLATE_CACHE` Map
+- **frontmatter-migrate:** TOCTOU fix (drop `existsSync`, try/catch ENOENT with **duck-type check** for Jest VM realm boundary — `err instanceof Error` returns false in jest vm for native fs errors, see jestjs/jest#2549)
+- **search-adapter:** inline `err.message` ternary → `errMsg()` helper (fixes silent-swallow of non-Error throws)
+
 ### Deferred to v0.7.10 (follow-up backlog)
 - URL extractor MD-escape for XSS-safe rendering
 - url-extractor `new URL()` error wrap
 - clean-cache two-function inconsistency consolidation
 - relation-helpers asymmetric-reverse warning log
+- CQ-10: `fetchUrl` shared lib extraction
+- CQ-11: `buildSessionMarkdown` options-object refactor
+- CQ-12: recall + relations single query consolidation
+- CQ-13: cheerio lite parse for URL extractor
+- CQ-14: streaming URL fetch with size cap
 
 ### Removed (from roadmap)
 - **AR (Adaptive Reflect)** — LLM provider dependency, parked with Revisit Trigger
