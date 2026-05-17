@@ -15,7 +15,7 @@ function setupDb(): Database.Database {
 }
 
 describe('getRelationsForSlugs — batch query', () => {
-  test('5 slug → single SQL execution, slug-grouped results', () => {
+  test('5 slug → 2 SQL executions (outgoing+incoming), slug-grouped results with backlinks', () => {
     const db = setupDb();
     db.prepare(`INSERT INTO mindlore_relations (source_a,source_b,relation_type) VALUES ('a','b','cites'),('a','c','extends'),('c','d','cites'),('e','a','supersedes')`).run();
 
@@ -25,18 +25,27 @@ describe('getRelationsForSlugs — batch query', () => {
 
     const result = getRelationsForSlugs(db, ['a','b','c','d','e']);
 
-    expect(prepareCalls).toBeLessThanOrEqual(1);
+    // outgoing query + incoming query = 2 prepare calls
+    expect(prepareCalls).toBeLessThanOrEqual(2);
+    // a: outgoing to b and c, plus incoming from e
     expect(result.get('a')).toEqual(expect.arrayContaining([
       { source: 'b', relation_type: 'cites', direction: 'outgoing' },
       { source: 'c', relation_type: 'extends', direction: 'outgoing' },
+      { source: 'e', relation_type: 'supersedes', direction: 'incoming' },
     ]));
-    expect(result.get('c')).toEqual([
+    // c: outgoing to d, plus incoming from a
+    expect(result.get('c')).toEqual(expect.arrayContaining([
       { source: 'd', relation_type: 'cites', direction: 'outgoing' },
-    ]);
+      { source: 'a', relation_type: 'extends', direction: 'incoming' },
+    ]));
+    // e: outgoing to a only (nobody points to e)
     expect(result.get('e')).toEqual([
       { source: 'a', relation_type: 'supersedes', direction: 'outgoing' },
     ]);
-    expect(result.get('b')).toEqual([]);
+    // b: incoming from a only
+    expect(result.get('b')).toEqual([
+      { source: 'a', relation_type: 'cites', direction: 'incoming' },
+    ]);
   });
 
   test('empty slug list → empty map', () => {
