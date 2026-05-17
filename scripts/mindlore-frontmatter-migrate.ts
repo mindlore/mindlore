@@ -29,6 +29,7 @@ export interface MigrateResult {
   written: number;
   skipped: number;
   errors: number;
+  errorMessages: string[];
   byCategory: { missingSlug: number; invalidSlugFormat: number; typeDirMismatch: number };
   samples: string[];
 }
@@ -71,6 +72,7 @@ export async function migrateFrontmatter(opts: MigrateOptions): Promise<MigrateR
     written: 0,
     skipped: 0,
     errors: 0,
+    errorMessages: [],
     byCategory: { missingSlug: 0, invalidSlugFormat: 0, typeDirMismatch: 0 },
     samples: [],
   };
@@ -111,25 +113,30 @@ export async function migrateFrontmatter(opts: MigrateOptions): Promise<MigrateR
 
       if (changed) {
         if (opts.apply) {
-          fs.writeFileSync(filePath, serializeFrontmatter(fm, body));
+          const tmpPath = filePath + '.tmp';
+          fs.writeFileSync(tmpPath, serializeFrontmatter(fm, body));
+          fs.renameSync(tmpPath, filePath);
         }
         result.written++;
         if (result.samples.length < 5) result.samples.push(filePath);
       } else {
         result.skipped++;
       }
-    } catch {
+    } catch (err) {
       result.errors++;
+      if (result.errorMessages.length < 10) {
+        result.errorMessages.push(`${filePath}: ${(err as Error).message}`);
+      }
     }
   }
 
   function walk(dir: string, topDir: string): void {
     if (!fs.existsSync(dir)) return;
-    for (const f of fs.readdirSync(dir)) {
-      const p = path.join(dir, f);
-      const st = fs.statSync(p);
-      if (st.isDirectory()) walk(p, topDir);
-      else if (f.endsWith('.md')) processFile(p, topDir);
+    for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
+      if (entry.isSymbolicLink()) continue;
+      const p = path.join(dir, entry.name);
+      if (entry.isDirectory()) walk(p, topDir);
+      else if (entry.name.endsWith('.md')) processFile(p, topDir);
     }
   }
 
