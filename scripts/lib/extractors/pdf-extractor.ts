@@ -9,7 +9,12 @@ export interface PdfExtraction {
 }
 
 export async function extractPdf(buffer: Buffer): Promise<PdfExtraction> {
-  const data = await pdfParse(buffer);
+  let data: Awaited<ReturnType<typeof pdfParse>>;
+  try {
+    data = await pdfParse(buffer);
+  } catch (err) {
+    throw new Error(`PDF parse failed: ${(err as Error).message}`);
+  }
   return {
     title: data.info?.Title ?? 'Untitled PDF',
     author: data.info?.Author ?? 'Unknown',
