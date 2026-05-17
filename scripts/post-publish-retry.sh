@@ -8,7 +8,11 @@ MAX_ATTEMPTS="${MAX_ATTEMPTS:-5}"
 SLEEP_BETWEEN="${SLEEP_BETWEEN:-10}"
 
 for attempt in $(seq 1 "$MAX_ATTEMPTS"); do
-  if bash -c "$CMD" > "$OUT_LOG" 2>&1; then
+  # `-o pipefail` is REQUIRED here: callers pass piped commands like
+  # `npm install ... | tail -5`. Without pipefail, the inner pipeline's exit
+  # code is `tail`'s (always 0), masking npm failures (e.g. ETARGET during
+  # registry propagation lag) and tricking the retry loop into early success.
+  if bash -o pipefail -c "$CMD" > "$OUT_LOG" 2>&1; then
     echo "post-publish-retry: success on attempt $attempt"
     tail -5 "$OUT_LOG"
     exit 0
