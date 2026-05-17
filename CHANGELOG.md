@@ -7,8 +7,38 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-### Known Issues (v0.7.8)
+## [0.7.8] - 2026-05-17
+
+Relations Quality + Multi-Signal Ranking. 14 commits, 149 test suites / 950 tests.
+
+### Added
+- **Multi-Signal RRF ranking** — search results now incorporate `recall_count` (α=0.3 additive boost) and relation proximity (β=0.15, candidate-set intersection cap 3). Frequently-recalled documents rise to the top.
+- **R1 — Telemetry bridge** — shared CJS↔TS I/O module (`scripts/lib/telemetry-bridge.cjs`) used by both hooks and skill-runner. Single source of truth for `.mindlore/telemetry.jsonl`.
+- **S-IT — Integration test suite** — `tests/search-throttle-integration.test.ts` covers 22-call throttle + cache + recall accumulation end-to-end.
+
+### Fixed
+- **#1 — Symmetric relations bugfix** — `contradicts` now writes both directions (A→B and B→A) and reads simplify accordingly. Reverse-backfill migration v21 normalizes existing data.
+- **#6 — N+1 batch query** — `getRelationsForSlugs` collapses 5 per-slug SQL calls into 1 batched query.
+- **S-Q11 — Cache hit recall_count increment** — repeated queries previously didn't count toward `recall_count`. Recall Shield accuracy restored.
+- **S-Q12 — Cache hit searchMs telemetry** — cache lookup duration now included in `searchMs` for accurate telemetry.
+- **S-Q13 — Throttle log observability** — log now fires on every throttle reduce, not only on full skip.
+- **S-Q14 — Estimator TAIL_BYTES 750KB → 2MB** — large transcript token estimation now reads 2.5× more tail data.
+- **Bundle pipeline gap** — `npm run build` now chains `bundle:hooks`. Previously, editing `hooks/src/` required a separate `npm run bundle:hooks` step that was easy to forget.
+
+### Changed
+- `computeRRF` accepts optional `recallMap` and `relationGraph` parameters (additive boost, no breaking changes to existing callers).
+- `mindlore-search.cjs` cache-hit branch wraps `incrementRecallCount` calls in a single transaction.
+- `simplify` pass: rrf double-iteration merged into the scoring loop; `runSymmetricAware` helper extracted in `relate-adapter.ts`.
+
+### Migration
+- Schema version 20 → 21 (`migrations-v078.ts`: `symmetric_relations_backfill`). Idempotent `INSERT OR IGNORE` — existing `contradicts` rows get a reverse row. UNIQUE constraint on `(source_a, source_b, relation_type)` verified.
+
+### Known Issues
 - **Fresh installs:** Run `npm run index` (or `npx mindlore index`) once after install to enable Multi-Signal RRF recall ranking. INIT_MIGRATIONS currently skips V050–V061, so `file_hashes.recall_count` column is created via the indexer pass. Existing users are not affected. Fix tracked for v0.7.9.
+
+### Parked
+- **AR (Real LLM-driven background reflect)** — provider abstraction + API key fallback required. Tracked for v0.7.9+.
+- **KG Entity Extraction** — LLM provider required.
 
 ## [0.7.7] - 2026-05-17
 
