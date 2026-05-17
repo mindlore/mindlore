@@ -1,11 +1,11 @@
 import type BetterSqlite3 from 'better-sqlite3';
 type Database = BetterSqlite3.Database;
 import { searchPorter, searchTrigram, computeRRF } from './rrf.js';
+import { getRecallCountsForSlugs } from './relation-helpers.js';
 import { correctQuery } from './fuzzy.js';
 import { rerankByProximity } from './proximity.js';
 import { extractSmartSnippet } from './smart-snippet.js';
 import { getRelationsForSlugs } from './relation-helpers.js';
-import { dbAll } from './db-helpers.js';
 import { fixVersionTokens, STOP_WORDS, STOP_WORDS_MIN_LENGTH, TURKISH_WORD_RE, Category } from './constants.js';
 
 export interface SearchOptions {
@@ -111,19 +111,7 @@ export function search(db: Database, query: string, options: SearchOptions): Sea
     let recallMap: Map<string, number> | undefined;
     let relationGraph: Map<string, Set<string>> | undefined;
     try {
-      recallMap = new Map<string, number>();
-      if (candidateSlugs.length > 0) {
-        const placeholders = candidateSlugs.map(() => '?').join(',');
-        const rows = dbAll<{ slug: string; recall_count: number }>(db, `
-          SELECT f.slug, h.recall_count
-          FROM file_hashes h
-          JOIN mindlore_fts f ON f.path = h.path
-          WHERE f.slug IN (${placeholders})
-        `, ...candidateSlugs);
-        for (const r of rows) {
-          recallMap.set(r.slug, r.recall_count ?? 0);
-        }
-      }
+      recallMap = getRecallCountsForSlugs(db, candidateSlugs);
 
       const relationsBySlug = getRelationsForSlugs(db, candidateSlugs);
       relationGraph = new Map<string, Set<string>>();
@@ -141,7 +129,7 @@ export function search(db: Database, query: string, options: SearchOptions): Sea
       relationGraph = undefined;
     }
 
-    return computeRRF(porterResults, trigramResults, recallMap, relationGraph, { dedupByPath: true });
+    return computeRRF({ porter: porterResults, trigram: trigramResults, recallMap, relationGraph, dedupByPath: true });
   }
 
   let fused = fusedSearch(queryStr);

@@ -604,18 +604,9 @@ var require_rrf = __commonJS({
       return query.replace(/["*(){}[\]^~:-]/g, " ").replace(/\s+/g, " ").trim();
     }
     var BM25_RANK_EXPR = "bm25(mindlore_fts, 1, 1, 1, 5.0, 1, 1) as bm";
-    function computeRRF(porterResults, trigramResults, recallMapOrOptions, relationGraph, options) {
-      let recallMap;
-      let relGraph;
-      let opts;
-      if (recallMapOrOptions instanceof Map) {
-        recallMap = recallMapOrOptions;
-        relGraph = relationGraph;
-        opts = options ?? {};
-      } else {
-        opts = recallMapOrOptions ?? {};
-      }
-      const k = opts.k ?? 60;
+    function computeRRF(input) {
+      const { porter: porterResults, trigram: trigramResults, recallMap, relationGraph: relGraph, k: kOpt, dedupByPath, alpha = 0.3, beta = 0.15, cap = 3 } = input;
+      const k = kOpt ?? 60;
       const scores = /* @__PURE__ */ new Map();
       for (const list of [porterResults, trigramResults]) {
         for (const r of list) {
@@ -636,7 +627,7 @@ var require_rrf = __commonJS({
         for (const [slug, item] of scores.entries()) {
           const recallCount = recallMap?.get(slug) ?? 0;
           const accessBoost = Math.min(1, Math.log2(recallCount + 1) / 5);
-          const recallContribution = 0.3 * accessBoost;
+          const recallContribution = alpha * accessBoost;
           let relationProximity = 0;
           const neighbors = relGraph?.get(slug);
           if (neighbors && neighbors.size > 0) {
@@ -645,9 +636,9 @@ var require_rrf = __commonJS({
               if (candidateSlugs.has(n))
                 intersectionCount++;
             }
-            relationProximity = Math.min(1, intersectionCount / 3);
+            relationProximity = Math.min(1, intersectionCount / cap);
           }
-          const relationContribution = 0.15 * relationProximity;
+          const relationContribution = beta * relationProximity;
           item.score += recallContribution + relationContribution;
           if (recallContribution > maxRecallBoost)
             maxRecallBoost = recallContribution;
@@ -658,7 +649,7 @@ var require_rrf = __commonJS({
         }
       }
       let results = Array.from(scores.values()).sort((a, b) => b.score - a.score);
-      if (opts.dedupByPath) {
+      if (dedupByPath) {
         const seen = /* @__PURE__ */ new Set();
         results = results.filter((r) => {
           if (seen.has(r.path))
@@ -706,6 +697,94 @@ var require_rrf = __commonJS({
         }
         return [];
       }
+    }
+  }
+});
+
+// dist/scripts/lib/relation-helpers.js
+var require_relation_helpers = __commonJS({
+  "dist/scripts/lib/relation-helpers.js"(exports2) {
+    "use strict";
+    Object.defineProperty(exports2, "__esModule", { value: true });
+    exports2.assertSlugExists = assertSlugExists;
+    exports2.getRelationsForSlug = getRelationsForSlug;
+    exports2.getRecallCountsForSlugs = getRecallCountsForSlugs;
+    exports2.getRelationsForSlugs = getRelationsForSlugs;
+    var constants_js_1 = require_constants();
+    var db_helpers_js_1 = require_db_helpers();
+    function assertSlugExists(db, slug) {
+      const row = (0, db_helpers_js_1.dbGet)(db, "SELECT path, title FROM mindlore_fts WHERE slug = ? LIMIT 1", slug);
+      if (!row)
+        throw new Error(`Source slug "${slug}" not found in knowledge base`);
+      return row;
+    }
+    var DIRECTION_OUTGOING = "outgoing";
+    var DIRECTION_INCOMING = "incoming";
+    var sqlPlaceholders = (n) => Array(n).fill("?").join(",");
+    var buildRelationsUnionSql = (n) => `
+  SELECT * FROM (
+    SELECT source_a AS query_slug, source_b AS source, relation_type, '${DIRECTION_OUTGOING}' AS direction
+    FROM mindlore_relations
+    WHERE source_a IN (${sqlPlaceholders(n)})
+    UNION ALL
+    SELECT source_b AS query_slug, source_a AS source, relation_type, '${DIRECTION_INCOMING}' AS direction
+    FROM mindlore_relations
+    WHERE source_b IN (${sqlPlaceholders(n)})
+  )
+  ORDER BY CASE relation_type ${constants_js_1.PRIORITY_CASE} END
+`;
+    function getRelationsForSlug(db, slug, limit = constants_js_1.RELATED_OVERFETCH) {
+      const batchResult = getRelationsForSlugs(db, [slug]);
+      const rels = batchResult.get(slug) ?? [];
+      return rels.slice(0, limit);
+    }
+    function getRecallCountsForSlugs(db, slugs) {
+      if (slugs.length === 0)
+        return /* @__PURE__ */ new Map();
+      const placeholders = sqlPlaceholders(slugs.length);
+      const rows = db.prepare(`
+    SELECT f.slug, h.recall_count
+    FROM file_hashes h
+    JOIN mindlore_fts f ON f.path = h.path
+    WHERE f.slug IN (${placeholders}) AND h.recall_count > 0
+  `).all(...slugs);
+      const result = /* @__PURE__ */ new Map();
+      for (const row of rows) {
+        result.set(row.slug, row.recall_count);
+      }
+      return result;
+    }
+    function getRelationsForSlugs(db, slugs) {
+      if (slugs.length === 0)
+        return /* @__PURE__ */ new Map();
+      const rows = (0, db_helpers_js_1.dbAll)(db, buildRelationsUnionSql(slugs.length), ...slugs, ...slugs);
+      const seen = /* @__PURE__ */ new Map();
+      const isSymmetric = (type) => constants_js_1.SYMMETRIC_TYPES.has(type);
+      const dedupKey = (slug, related, type) => {
+        if (isSymmetric(type)) {
+          const [a, b] = [slug, related].sort();
+          return `${a}|${b}|${type}`;
+        }
+        return `${slug}|${related}|${type}`;
+      };
+      for (const row of rows) {
+        const key = dedupKey(row.query_slug, row.source, row.relation_type);
+        if (!seen.has(key)) {
+          seen.set(key, {
+            owner: row.query_slug,
+            rel: { source: row.source, relation_type: row.relation_type, direction: row.direction }
+          });
+        }
+      }
+      const result = /* @__PURE__ */ new Map();
+      for (const s of slugs)
+        result.set(s, []);
+      for (const entry of seen.values()) {
+        const bucket = result.get(entry.owner);
+        if (bucket)
+          bucket.push(entry.rel);
+      }
+      return result;
     }
   }
 });
@@ -1039,56 +1118,6 @@ var require_smart_snippet = __commonJS({
   }
 });
 
-// dist/scripts/lib/relation-helpers.js
-var require_relation_helpers = __commonJS({
-  "dist/scripts/lib/relation-helpers.js"(exports2) {
-    "use strict";
-    Object.defineProperty(exports2, "__esModule", { value: true });
-    exports2.assertSlugExists = assertSlugExists;
-    exports2.getRelationsForSlug = getRelationsForSlug;
-    exports2.getRelationsForSlugs = getRelationsForSlugs;
-    var constants_js_1 = require_constants();
-    var db_helpers_js_1 = require_db_helpers();
-    function assertSlugExists(db, slug) {
-      const row = (0, db_helpers_js_1.dbGet)(db, "SELECT path, title FROM mindlore_fts WHERE slug = ? LIMIT 1", slug);
-      if (!row)
-        throw new Error(`Source slug "${slug}" not found in knowledge base`);
-      return row;
-    }
-    var RELATIONS_SQL = `
-  SELECT source_b AS source, relation_type, 'outgoing' AS direction
-  FROM mindlore_relations
-  WHERE source_a = ?
-  ORDER BY CASE relation_type ${constants_js_1.PRIORITY_CASE} END
-  LIMIT ?
-`;
-    function getRelationsForSlug(db, slug, limit = constants_js_1.RELATED_OVERFETCH) {
-      return (0, db_helpers_js_1.dbAll)(db, RELATIONS_SQL, slug, limit);
-    }
-    function getRelationsForSlugs(db, slugs) {
-      const result = /* @__PURE__ */ new Map();
-      if (slugs.length === 0)
-        return result;
-      for (const s of slugs)
-        result.set(s, []);
-      const placeholders = slugs.map(() => "?").join(",");
-      const sql = `
-    SELECT source_a AS query_slug, source_b AS source, relation_type, 'outgoing' AS direction
-    FROM mindlore_relations
-    WHERE source_a IN (${placeholders})
-    ORDER BY CASE relation_type ${constants_js_1.PRIORITY_CASE} END
-  `;
-      const rows = (0, db_helpers_js_1.dbAll)(db, sql, ...slugs);
-      for (const row of rows) {
-        const bucket = result.get(row.query_slug);
-        if (bucket)
-          bucket.push({ source: row.source, relation_type: row.relation_type, direction: "outgoing" });
-      }
-      return result;
-    }
-  }
-});
-
 // dist/scripts/lib/search-engine.js
 var require_search_engine = __commonJS({
   "dist/scripts/lib/search-engine.js"(exports2) {
@@ -1097,11 +1126,11 @@ var require_search_engine = __commonJS({
     exports2.extractKeywords = extractKeywords;
     exports2.search = search;
     var rrf_js_1 = require_rrf();
+    var relation_helpers_js_1 = require_relation_helpers();
     var fuzzy_js_1 = require_fuzzy();
     var proximity_js_1 = require_proximity();
     var smart_snippet_js_1 = require_smart_snippet();
-    var relation_helpers_js_1 = require_relation_helpers();
-    var db_helpers_js_1 = require_db_helpers();
+    var relation_helpers_js_2 = require_relation_helpers();
     var constants_js_1 = require_constants();
     function extractKeywords(text, maxKeywords) {
       const keywords = text.replace(constants_js_1.TURKISH_WORD_RE, " ").split(/\s+/).filter((w) => w.length >= constants_js_1.STOP_WORDS_MIN_LENGTH && !constants_js_1.STOP_WORDS.has(w.toLowerCase())).map((w) => w.toLowerCase());
@@ -1169,20 +1198,8 @@ var require_search_engine = __commonJS({
         let recallMap;
         let relationGraph;
         try {
-          recallMap = /* @__PURE__ */ new Map();
-          if (candidateSlugs.length > 0) {
-            const placeholders = candidateSlugs.map(() => "?").join(",");
-            const rows = (0, db_helpers_js_1.dbAll)(db, `
-          SELECT f.slug, h.recall_count
-          FROM file_hashes h
-          JOIN mindlore_fts f ON f.path = h.path
-          WHERE f.slug IN (${placeholders})
-        `, ...candidateSlugs);
-            for (const r of rows) {
-              recallMap.set(r.slug, r.recall_count ?? 0);
-            }
-          }
-          const relationsBySlug = (0, relation_helpers_js_1.getRelationsForSlugs)(db, candidateSlugs);
+          recallMap = (0, relation_helpers_js_1.getRecallCountsForSlugs)(db, candidateSlugs);
+          const relationsBySlug = (0, relation_helpers_js_2.getRelationsForSlugs)(db, candidateSlugs);
           relationGraph = /* @__PURE__ */ new Map();
           const candidateSet = new Set(candidateSlugs);
           for (const [slug, rels] of relationsBySlug.entries()) {
@@ -1197,7 +1214,7 @@ var require_search_engine = __commonJS({
           recallMap = void 0;
           relationGraph = void 0;
         }
-        return (0, rrf_js_1.computeRRF)(porterResults, trigramResults, recallMap, relationGraph, { dedupByPath: true });
+        return (0, rrf_js_1.computeRRF)({ porter: porterResults, trigram: trigramResults, recallMap, relationGraph, dedupByPath: true });
       }
       let fused = fusedSearch(queryStr);
       if (fused.length === 0) {

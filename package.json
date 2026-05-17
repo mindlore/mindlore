@@ -1,6 +1,6 @@
 {
   "name": "mindlore",
-  "version": "0.7.8",
+  "version": "0.7.9",
   "description": "AI-native knowledge system for Claude Code",
   "type": "commonjs",
   "bin": {
@@ -8,7 +8,7 @@
     "mindlore-clean-cache": "dist/scripts/mindlore-clean-cache.js"
   },
   "scripts": {
-    "build": "tsc && npm run bundle:hooks",
+    "build": "tsc && npm run bundle:hooks && npm run bundle:ingest",
     "prebuild": "node -e \"require('fs').rmSync('dist',{recursive:true,force:true})\"",
     "test": "jest --config jest.config.cjs",
     "lint": "eslint -c eslint.config.cjs scripts/ hooks/ tests/",
@@ -25,9 +25,11 @@
     "doctor": "node dist/scripts/mindlore-doctor.js",
     "audit": "npm audit --audit-level=moderate",
     "validate-manifest": "node dist/scripts/validate-manifest-cli.js",
+    "migrate:frontmatter": "node dist/scripts/mindlore-frontmatter-migrate.js",
     "bundle:hooks": "npx tsx scripts/bundle-hooks.ts",
     "bundle:mcp": "npx esbuild scripts/mcp-server.ts --bundle --platform=node --target=node20 --format=cjs --outfile=mcp-server.cjs --external:better-sqlite3",
-    "bundle": "npm run bundle:hooks && npm run bundle:mcp",
+    "bundle:ingest": "npx esbuild scripts/mindlore-ingest.ts --bundle --platform=node --target=node20 --format=cjs --outfile=dist/scripts/mindlore-ingest.js --external:better-sqlite3",
+    "bundle": "npm run bundle:hooks && npm run bundle:mcp && npm run bundle:ingest",
     "postinstall": "npm run build && npm rebuild better-sqlite3"
   },
   "keywords": [
@@ -56,6 +58,8 @@
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.29.0",
     "better-sqlite3": "^12.9.0",
+    "cheerio": "^1.2.0",
+    "pdf-parse": "^1.1.4",
     "sqlite-vec": "^0.1.9",
     "zod": "^4.3.6"
   },
@@ -63,6 +67,7 @@
     "@types/better-sqlite3": "^7.6.13",
     "@types/jest": "^30.0.0",
     "@types/node": "^25.6.0",
+    "@types/pdf-parse": "^1.1.5",
     "@typescript-eslint/eslint-plugin": "^8.59.0",
     "@typescript-eslint/parser": "^8.58.1",
     "esbuild": "^0.28.0",

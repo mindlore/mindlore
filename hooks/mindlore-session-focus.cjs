@@ -1027,6 +1027,85 @@ var require_migrations_v078 = __commonJS({
   }
 });
 
+// dist/scripts/lib/slugify.js
+var require_slugify = __commonJS({
+  "dist/scripts/lib/slugify.js"(exports2) {
+    "use strict";
+    Object.defineProperty(exports2, "__esModule", { value: true });
+    exports2.slugify = slugify;
+    function slugify(text) {
+      return text.toLowerCase().replace(/[^a-z0-9\s-]/g, "").replace(/\s+/g, "-").replace(/-+/g, "-").slice(0, 60).replace(/^-|-$/g, "");
+    }
+  }
+});
+
+// dist/scripts/lib/migrations-v079.js
+var require_migrations_v079 = __commonJS({
+  "dist/scripts/lib/migrations-v079.js"(exports2) {
+    "use strict";
+    var __createBinding = exports2 && exports2.__createBinding || (Object.create ? (function(o, m, k, k2) {
+      if (k2 === void 0) k2 = k;
+      var desc = Object.getOwnPropertyDescriptor(m, k);
+      if (!desc || ("get" in desc ? !m.__esModule : desc.writable || desc.configurable)) {
+        desc = { enumerable: true, get: function() {
+          return m[k];
+        } };
+      }
+      Object.defineProperty(o, k2, desc);
+    }) : (function(o, m, k, k2) {
+      if (k2 === void 0) k2 = k;
+      o[k2] = m[k];
+    }));
+    var __setModuleDefault = exports2 && exports2.__setModuleDefault || (Object.create ? (function(o, v) {
+      Object.defineProperty(o, "default", { enumerable: true, value: v });
+    }) : function(o, v) {
+      o["default"] = v;
+    });
+    var __importStar = exports2 && exports2.__importStar || /* @__PURE__ */ (function() {
+      var ownKeys = function(o) {
+        ownKeys = Object.getOwnPropertyNames || function(o2) {
+          var ar = [];
+          for (var k in o2) if (Object.prototype.hasOwnProperty.call(o2, k)) ar[ar.length] = k;
+          return ar;
+        };
+        return ownKeys(o);
+      };
+      return function(mod) {
+        if (mod && mod.__esModule) return mod;
+        var result = {};
+        if (mod != null) {
+          for (var k = ownKeys(mod), i = 0; i < k.length; i++) if (k[i] !== "default") __createBinding(result, mod, k[i]);
+        }
+        __setModuleDefault(result, mod);
+        return result;
+      };
+    })();
+    Object.defineProperty(exports2, "__esModule", { value: true });
+    exports2.V079_MIGRATIONS = void 0;
+    var slugify_js_1 = require_slugify();
+    var path2 = __importStar(require("path"));
+    exports2.V079_MIGRATIONS = [
+      {
+        version: 22,
+        name: "file_hashes_add_slug",
+        up: (db) => {
+          db.exec(`ALTER TABLE file_hashes ADD COLUMN slug TEXT`);
+          const rows = db.prepare(`SELECT rowid, path FROM file_hashes WHERE slug IS NULL`).all();
+          const update = db.prepare(`UPDATE file_hashes SET slug = ? WHERE rowid = ?`);
+          const tx = db.transaction((batch) => {
+            for (const row of batch) {
+              const base = path2.basename(row.path, ".md");
+              update.run((0, slugify_js_1.slugify)(base), row.rowid);
+            }
+          });
+          tx(rows);
+          db.exec(`CREATE INDEX IF NOT EXISTS idx_file_hashes_slug ON file_hashes(slug)`);
+        }
+      }
+    ];
+  }
+});
+
 // dist/scripts/lib/all-migrations.js
 var require_all_migrations = __commonJS({
   "dist/scripts/lib/all-migrations.js"(exports2) {
@@ -1044,6 +1123,7 @@ var require_all_migrations = __commonJS({
     var migrations_v068_js_1 = require_migrations_v068();
     var migrations_v072_js_1 = require_migrations_v072();
     var migrations_v078_js_1 = require_migrations_v078();
+    var migrations_v079_js_1 = require_migrations_v079();
     exports2.ALL_MIGRATIONS = [
       ...migrations_js_1.V050_MIGRATIONS,
       ...migrations_js_1.V051_MIGRATIONS,
@@ -1056,18 +1136,25 @@ var require_all_migrations = __commonJS({
       ...migrations_v067_js_1.V067_MIGRATIONS,
       ...migrations_v068_js_1.V068_MIGRATIONS,
       ...migrations_v072_js_1.V072_MIGRATIONS,
-      ...migrations_v078_js_1.V078_MIGRATIONS
+      ...migrations_v078_js_1.V078_MIGRATIONS,
+      ...migrations_v079_js_1.V079_MIGRATIONS
     ];
     var EPISODES_DEPENDENT = /* @__PURE__ */ new Set([9, 14, 15, 16, 17, 18]);
     exports2.FTS_DB_MIGRATIONS = exports2.ALL_MIGRATIONS.filter((m) => !EPISODES_DEPENDENT.has(m.version));
     exports2.INIT_MIGRATIONS = [
+      ...migrations_js_1.V050_MIGRATIONS,
+      ...migrations_js_1.V051_MIGRATIONS,
+      ...migrations_v052_js_1.V052_MIGRATIONS,
+      ...migrations_v053_js_1.V053_MIGRATIONS,
+      ...migrations_v061_js_1.V061_MIGRATIONS,
       ...migrations_v062_js_1.V062_MIGRATIONS,
       ...migrations_v063_js_1.V063_MIGRATIONS,
       ...migrations_v066_js_1.V066_MIGRATIONS,
       ...migrations_v067_js_1.V067_MIGRATIONS,
       ...migrations_v068_js_1.V068_MIGRATIONS,
       ...migrations_v072_js_1.V072_MIGRATIONS,
-      ...migrations_v078_js_1.V078_MIGRATIONS
+      ...migrations_v078_js_1.V078_MIGRATIONS,
+      ...migrations_v079_js_1.V079_MIGRATIONS
     ];
     exports2.EXPECTED_SCHEMA_VERSION = Math.max(...exports2.ALL_MIGRATIONS.map((m) => m.version));
   }

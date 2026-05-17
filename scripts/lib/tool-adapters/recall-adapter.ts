@@ -1,6 +1,7 @@
 import fs from 'fs';
 import path from 'path';
 import type { McpContext } from '../mcp-tools.js';
+import { parseFlatFrontmatter } from '../frontmatter.js';
 
 interface RecallInput {
   type: 'decisions' | 'episodes' | 'learnings' | 'all';
@@ -25,20 +26,6 @@ const MAX_LIMIT = 50;
 const DEFAULT_LIMIT = 10;
 const MAX_SNIPPET = 500;
 
-function parseFrontmatterSimple(content: string): { meta: Record<string, string>; body: string } {
-  const match = content.match(/^---\n([\s\S]*?)\n---\n([\s\S]*)$/);
-  if (!match) return { meta: {}, body: content };
-  const fmBlock = match[1];
-  const bodyBlock = match[2];
-  if (fmBlock === undefined || bodyBlock === undefined) return { meta: {}, body: content };
-  const meta: Record<string, string> = {};
-  for (const line of fmBlock.split('\n')) {
-    const idx = line.indexOf(':');
-    if (idx > 0) meta[line.slice(0, idx).trim()] = line.slice(idx + 1).trim();
-  }
-  return { meta, body: bodyBlock };
-}
-
 function readDir(dirPath: string, type: string, since?: string, limit?: number): RecallItem[] {
   let files: string[];
   try {
@@ -48,7 +35,9 @@ function readDir(dirPath: string, type: string, since?: string, limit?: number):
   for (const file of files) {
     if (items.length >= (limit ?? DEFAULT_LIMIT)) break;
     const raw = fs.readFileSync(path.join(dirPath, file), 'utf8').replace(/\r\n/g, '\n');
-    const { meta, body } = parseFrontmatterSimple(raw);
+    const parsed = parseFlatFrontmatter(raw);
+    const meta = parsed?.meta ?? {};
+    const body = parsed?.body ?? raw;
     const date = meta.date ?? '';
     if (since && date < since) continue;
     const tagsRaw = meta.tags ?? '';

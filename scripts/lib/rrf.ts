@@ -19,9 +19,16 @@ export interface RankedResult {
   content?: string;
 }
 
-export interface RRFOptions {
+export interface RRFInput {
+  porter: RankedResult[];
+  trigram: RankedResult[];
+  recallMap?: Map<string, number>;
+  relationGraph?: Map<string, Set<string>>;
   k?: number;
   dedupByPath?: boolean;
+  alpha?: number;
+  beta?: number;
+  cap?: number;
 }
 
 export interface SearchQueryOptions {
@@ -41,26 +48,20 @@ interface FtsSearchParams {
 
 const BM25_RANK_EXPR = 'bm25(mindlore_fts, 1, 1, 1, 5.0, 1, 1) as bm';
 
-export function computeRRF(
-  porterResults: RankedResult[],
-  trigramResults: RankedResult[],
-  recallMapOrOptions?: Map<string, number> | RRFOptions,
-  relationGraph?: Map<string, Set<string>>,
-  options?: RRFOptions,
-): RankedResult[] {
-  let recallMap: Map<string, number> | undefined;
-  let relGraph: Map<string, Set<string>> | undefined;
-  let opts: RRFOptions;
+export function computeRRF(input: RRFInput): RankedResult[] {
+  const {
+    porter: porterResults,
+    trigram: trigramResults,
+    recallMap,
+    relationGraph: relGraph,
+    k: kOpt,
+    dedupByPath,
+    alpha = 0.3,
+    beta = 0.15,
+    cap = 3,
+  } = input;
 
-  if (recallMapOrOptions instanceof Map) {
-    recallMap = recallMapOrOptions;
-    relGraph = relationGraph;
-    opts = options ?? {};
-  } else {
-    opts = recallMapOrOptions ?? {};
-  }
-
-  const k = opts.k ?? 60;
+  const k = kOpt ?? 60;
   const scores = new Map<string, RankedResult>();
 
   for (const list of [porterResults, trigramResults]) {
@@ -83,7 +84,7 @@ export function computeRRF(
     for (const [slug, item] of scores.entries()) {
       const recallCount = recallMap?.get(slug) ?? 0;
       const accessBoost = Math.min(1.0, Math.log2(recallCount + 1) / 5);
-      const recallContribution = 0.3 * accessBoost;
+      const recallContribution = alpha * accessBoost;
       let relationProximity = 0;
       const neighbors = relGraph?.get(slug);
       if (neighbors && neighbors.size > 0) {
@@ -91,9 +92,9 @@ export function computeRRF(
         for (const n of neighbors) {
           if (candidateSlugs.has(n)) intersectionCount++;
         }
-        relationProximity = Math.min(1.0, intersectionCount / 3);
+        relationProximity = Math.min(1.0, intersectionCount / cap);
       }
-      const relationContribution = 0.15 * relationProximity;
+      const relationContribution = beta * relationProximity;
       item.score += recallContribution + relationContribution;
       if (recallContribution > maxRecallBoost) maxRecallBoost = recallContribution;
       if (relationContribution > maxRelationBoost) maxRelationBoost = relationContribution;
@@ -103,7 +104,7 @@ export function computeRRF(
 
   let results = Array.from(scores.values()).sort((a, b) => b.score - a.score);
 
-  if (opts.dedupByPath) {
+  if (dedupByPath) {
     const seen = new Set<string>();
     results = results.filter(r => {
       if (seen.has(r.path)) return false;

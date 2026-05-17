@@ -42,7 +42,7 @@ describe('computeRRF', () => {
       { slug: 'doc-b', rank: 1, path: '/b', score: 0 },
       { slug: 'doc-c', rank: 2, path: '/c', score: 0 },
     ];
-    const fused = computeRRF(porter, trigram);
+    const fused = computeRRF({ porter, trigram });
     expect(fused[0]!.slug).toBe('doc-b');
     expect(fused.length).toBe(3);
   });
@@ -50,7 +50,7 @@ describe('computeRRF', () => {
   test('RRF score formula: 1/(K+rank)', () => {
     const porter: RankedResult[] = [{ slug: 'x', rank: 1, path: '/x', score: 0 }];
     const trigram: RankedResult[] = [{ slug: 'x', rank: 1, path: '/x', score: 0 }];
-    const fused = computeRRF(porter, trigram, { k: 60 });
+    const fused = computeRRF({ porter, trigram, k: 60 });
     expect(fused[0]!.score).toBeCloseTo(2 / 61, 4);
   });
 
@@ -60,13 +60,13 @@ describe('computeRRF', () => {
       { slug: 'doc--chunk-3', rank: 3, path: '/doc.md', score: 0 },
     ];
     const trigram: RankedResult[] = [];
-    const fused = computeRRF(porter, trigram, { dedupByPath: true });
+    const fused = computeRRF({ porter, trigram, dedupByPath: true });
     expect(fused.length).toBe(1);
     expect(fused[0]!.slug).toBe('doc--chunk-0');
   });
 
   test('empty inputs return empty', () => {
-    expect(computeRRF([], [])).toEqual([]);
+    expect(computeRRF({ porter: [], trigram: [] })).toEqual([]);
   });
 });
 

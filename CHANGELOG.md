@@ -7,6 +7,44 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.7.9] - 2026-05-17
+
+### Fixed
+- **RT-1:** Fresh install INIT_MIGRATIONS gap — V050-V061 now included, `file_hashes.recall_count` column present on fresh install
+- **B4-a:** clean-cache EPERM Windows bug — per-version try/catch + skip-on-error summary
+- **B4-b Part A:** `cc-session-sync.ts` now writes `slug:` field in raw cc-session frontmatter (root cause of 4456 missing slug)
+- **Init test alignment:** `tests/init.test.ts` updated to new schema (V050-V061 + v22 slug column)
+
+### Added
+- **SM-9:** Backlink support (`incoming` direction) for asymmetric relations; symmetric dedup via normalized sorted-pair key
+- **SM-7:** `file_hashes.slug` column + index (migration v22, forward-only)
+- **F-ext:** URL + PDF + File type-aware extractors (cheerio + pdf-parse) and 3 corresponding templates
+- **B4-b Part B:** Generic frontmatter migration script (`scripts/mindlore-frontmatter-migrate.ts`) with `--dry-run`, `--apply`, `--fix-type-mismatch` opt-in flag, atomic write, symlink guard, backup
+- **Security hardening (ingest):** fetchUrl SSRF guard + 30s timeout + 10MB cap; PDF/file 50MB cap; template path repo-root walk-up
+- **Perf baseline test:** `tests/perf-sm9-backlink.test.ts` (1000 slugs < 100ms)
+
+### Changed
+- **SM-1:** `computeRRF` API refactored to options-object signature with explicit defaults (alpha=0.3, beta=0.15, cap=3, k=60)
+- **SM-5:** search-engine recall JOIN extracted to `getRecallCountsForSlugs` helper
+- **B4-c:** v0.7.9 net lint regression resolved (0 errors target)
+- **RT-2:** Real CC transcript estimator calibration fixture (1.2MB, ±20% tolerance)
+- **`@types/pdf-parse`** moved from dependencies → devDependencies
+- **Bundle pipeline:** Added `bundle:ingest` to build chain. `dist/scripts/mindlore-ingest.js` ships with cheerio + pdf-parse inlined for marketplace consumers (no `npm install` required at extract time). Also fixes `pdf-parse` import to use subpath `pdf-parse/lib/pdf-parse.js` to avoid test-harness crash when bundled.
+
+### Deferred to v0.7.10 (follow-up backlog)
+- URL extractor MD-escape for XSS-safe rendering
+- url-extractor `new URL()` error wrap
+- clean-cache two-function inconsistency consolidation
+- relation-helpers asymmetric-reverse warning log
+
+### Removed (from roadmap)
+- **AR (Adaptive Reflect)** — LLM provider dependency, parked with Revisit Trigger
+- **KG Model B + Entity Extraction** — LLM dependency, parked
+
+### Skipped (intentional, manual)
+- Phase 7 maintenance (orphan reindex, episode consolidation) — `.mindlore/` mutations, user-discretion
+- Phase 8.5 push/tag/publish — user-controlled
+
 ## [0.7.8] - 2026-05-17
 
 Relations Quality + Multi-Signal Ranking. 14 commits, 149 test suites / 950 tests.

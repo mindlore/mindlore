@@ -13,6 +13,29 @@ function compareSemver(a: string, b: string): number {
   return 0;
 }
 
+export interface CleanCacheResult {
+  cleaned: string[];
+  skipped: Array<{ version: string; reason: string }>;
+}
+
+export function cleanCacheVersions(versions: string[]): CleanCacheResult {
+  const cleaned: string[] = [];
+  const skipped: Array<{ version: string; reason: string }> = [];
+  for (const versionDir of versions) {
+    try {
+      fs.rmSync(versionDir, { recursive: true, force: true });
+      cleaned.push(versionDir);
+    } catch (err) {
+      const code = err instanceof Error && 'code' in err && typeof (err as Error & { code?: unknown }).code === 'string'
+        // eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- guarded by typeof check above
+        ? (err as Error & { code: string }).code
+        : 'UNKNOWN';
+      skipped.push({ version: versionDir, reason: code });
+    }
+  }
+  return { cleaned, skipped };
+}
+
 export async function cleanCacheVersion(rootDir: string, dryRun = false): Promise<{ cleaned: string[]; skipped: string[] }> {
   const cleaned: string[] = [];
   const skipped: string[] = [];

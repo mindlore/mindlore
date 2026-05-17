@@ -22,7 +22,7 @@ for (const n of sizes) {
 
   const start = performance.now();
   for (let i = 0; i < iterations; i++) {
-    computeRRF(porter, trigram, { dedupByPath: true });
+    computeRRF({ porter, trigram, dedupByPath: true });
   }
   const elapsed = performance.now() - start;
   const perOp = elapsed / iterations;

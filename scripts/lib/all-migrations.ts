@@ -10,6 +10,7 @@ import { V067_MIGRATIONS } from './migrations-v067.js';
 import { V068_MIGRATIONS } from './migrations-v068.js';
 import { V072_MIGRATIONS } from './migrations-v072.js';
 import { V078_MIGRATIONS } from './migrations-v078.js';
+import { V079_MIGRATIONS } from './migrations-v079.js';
 
 // All migrations — single source of truth
 export const ALL_MIGRATIONS: Migration[] = [
@@ -25,6 +26,7 @@ export const ALL_MIGRATIONS: Migration[] = [
   ...V068_MIGRATIONS,
   ...V072_MIGRATIONS,
   ...V078_MIGRATIONS,
+  ...V079_MIGRATIONS,
 ];
 
 // V062 v9 (episodes_session_summary) ve V066 v14 (episode_inject_log) require episodes table
@@ -33,6 +35,11 @@ export const FTS_DB_MIGRATIONS: Migration[] = ALL_MIGRATIONS.filter(m => !EPISOD
 
 // Init/upgrade migrations — episodes tablosu olan DB (init.ts)
 export const INIT_MIGRATIONS: Migration[] = [
+  ...V050_MIGRATIONS,
+  ...V051_MIGRATIONS,
+  ...V052_MIGRATIONS,
+  ...V053_MIGRATIONS,
+  ...V061_MIGRATIONS,
   ...V062_MIGRATIONS,
   ...V063_MIGRATIONS,
   ...V066_MIGRATIONS,
@@ -40,6 +47,7 @@ export const INIT_MIGRATIONS: Migration[] = [
   ...V068_MIGRATIONS,
   ...V072_MIGRATIONS,
   ...V078_MIGRATIONS,
+  ...V079_MIGRATIONS,
 ];
 
 export const EXPECTED_SCHEMA_VERSION = Math.max(...ALL_MIGRATIONS.map(m => m.version));

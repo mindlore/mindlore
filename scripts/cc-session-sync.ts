@@ -158,37 +158,36 @@ export interface SessionConversion {
   isSubagent: boolean;
 }
 
-export function convertJsonlToMd(jsonlPath: string, projectName: string): SessionConversion {
-  const raw = fs.readFileSync(jsonlPath, 'utf8').replace(/\r\n/g, '\n');
-  const lines = raw.trim().split('\n');
+export interface SessionMeta {
+  date: string;
+  startTime?: string;
+  branch?: string;
+  cwd?: string;
+}
 
-  const meta = extractSessionMeta(lines);
+export function buildSessionMarkdown(
+  messages: JsonLine[],
+  meta: SessionMeta,
+  projectName: string,
+  shortId: string,
+  isSubagent: boolean,
+  sessionId: string = shortId,
+): SessionConversion {
   const slug = projectSlug(projectName);
-  const sessionId = path.basename(jsonlPath, '.jsonl');
-  const isSubagent = sessionId.startsWith('agent-');
-
   const mdParts: string[] = [];
   let userCount = 0;
   let assistantCount = 0;
 
-  for (const line of lines) {
-    let obj: JsonLine;
-    try {
-      // eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- JSON.parse returns unknown
-      obj = JSON.parse(line) as JsonLine;
-    } catch {
-      continue;
-    }
-
+  for (const obj of messages) {
     if (obj.type === 'user' || obj.type === 'assistant') {
-      const content = obj.message?.content;
+      const msgContent = obj.message?.content;
       const role = obj.type === 'user' ? 'User' : 'Assistant';
       const texts: string[] = [];
 
-      if (typeof content === 'string' && content.trim()) {
-        texts.push(content.trim());
-      } else if (Array.isArray(content)) {
-        for (const block of content) {
+      if (typeof msgContent === 'string' && msgContent.trim()) {
+        texts.push(msgContent.trim());
+      } else if (Array.isArray(msgContent)) {
+        for (const block of msgContent) {
           if (block.type === 'text' && block.text?.trim()) {
             texts.push(block.text.trim());
           }
@@ -207,6 +206,7 @@ export function convertJsonlToMd(jsonlPath: string, projectName: string): Sessio
   const frontmatter = [
     '---',
     `type: raw`,
+    `slug: session-${meta.date}-${shortId}`,
     `project: ${slug}`,
     `session_id: ${sessionId}`,
     `date: ${meta.date}`,
@@ -222,6 +222,28 @@ export function convertJsonlToMd(jsonlPath: string, projectName: string): Sessio
 
   const md = frontmatter + mdParts.join('\n');
   return { md, date: meta.date, userCount, assistantCount, isSubagent };
+}
+
+export function convertJsonlToMd(jsonlPath: string, projectName: string): SessionConversion {
+  const raw = fs.readFileSync(jsonlPath, 'utf8').replace(/\r\n/g, '\n');
+  const lines = raw.trim().split('\n');
+
+  const meta = extractSessionMeta(lines);
+  const sessionId = path.basename(jsonlPath, '.jsonl');
+  const isSubagent = sessionId.startsWith('agent-');
+  const shortId = sessionShortId(sessionId);
+
+  const parsedMessages: JsonLine[] = [];
+  for (const line of lines) {
+    try {
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- JSON.parse returns unknown
+      parsedMessages.push(JSON.parse(line) as JsonLine);
+    } catch {
+      continue;
+    }
+  }
+
+  return buildSessionMarkdown(parsedMessages, meta, projectName, shortId, isSubagent, sessionId);
 }
 
 // ── Session Summary ──────────────────────────────────────────────────
