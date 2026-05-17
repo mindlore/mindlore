@@ -6,7 +6,7 @@ import { estimateTokens } from '../scripts/lib/estimator';
 describe('Estimator real-shape calibration (RT-2)', () => {
   const fixturePath = path.join(__dirname, 'fixtures/real-cc-transcript.jsonl');
 
-  test('5MB real transcript estimates within ±20% of 1.25M tokens (Mode A)', () => {
+  test('real transcript estimates within ±20% of expected tokens (direct count, fixture < TAIL_BYTES)', () => {
     if (!fs.existsSync(fixturePath)) {
       console.warn('Fixture missing — RT-2 calibration skipped');
       return;
