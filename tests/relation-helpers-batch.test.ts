@@ -21,7 +21,7 @@ describe('getRelationsForSlugs — batch query', () => {
 
     const original = db.prepare.bind(db);
     let prepareCalls = 0;
-    (db as any).prepare = (sql: string) => { prepareCalls++; return original(sql); };
+    (db as { prepare: typeof original }).prepare = (sql: string) => { prepareCalls++; return original(sql); };
 
     const result = getRelationsForSlugs(db, ['a','b','c','d','e']);
 

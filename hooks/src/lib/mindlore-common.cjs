@@ -10,7 +10,7 @@ const path = require('path');
 const crypto = require('crypto');
 const os = require('os');
 const { EPISODE_KINDS, isValidKind, DB_BUSY_TIMEOUT_MS } = require('./constants.cjs');
-const { safeMkdir, safeWriteFile } = require('./secure-io.cjs');
+
 
 const MINDLORE_DIR = '.mindlore';
 const DB_NAME = 'mindlore.db';

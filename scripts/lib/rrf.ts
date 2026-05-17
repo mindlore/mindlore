@@ -133,7 +133,7 @@ export function computeRRF(
       boosted_count: boostedCount,
       max_recall_boost: Number(maxRecallBoost.toFixed(4)),
       max_relation_boost: Number(maxRelationBoost.toFixed(4)),
-      top_final_score: results.length > 0 ? Number(results[0]!.score.toFixed(4)) : 0,
+      top_final_score: results.length > 0 ? Number((results[0]?.score ?? 0).toFixed(4)) : 0,
     });
   } catch (_e) { /* graceful */ }
 

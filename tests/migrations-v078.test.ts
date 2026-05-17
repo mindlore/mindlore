@@ -29,6 +29,7 @@ describe('V078 migration — symmetric reverse backfill', () => {
     db.prepare(`INSERT INTO mindlore_fts (slug,path,title,content) VALUES ('a','/a','A','x'),('b','/b','B','y')`).run();
     db.prepare(`INSERT INTO mindlore_relations (source_a,source_b,relation_type) VALUES ('a','b','cites'),('a','b','extends'),('a','b','supersedes')`).run();
     V078_MIGRATIONS.forEach(m => m.up(db));
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- better-sqlite3 .get() returns unknown, narrowing to expected row shape
     const count = db.prepare(`SELECT COUNT(*) as c FROM mindlore_relations`).get() as { c: number };
     expect(count.c).toBe(3);
   });
@@ -39,6 +40,7 @@ describe('V078 migration — symmetric reverse backfill', () => {
     db.prepare(`INSERT INTO mindlore_relations (source_a,source_b,relation_type) VALUES ('a','b','contradicts')`).run();
     V078_MIGRATIONS.forEach(m => m.up(db));
     V078_MIGRATIONS.forEach(m => m.up(db));
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- better-sqlite3 .get() returns unknown, narrowing to expected row shape
     const count = db.prepare(`SELECT COUNT(*) as c FROM mindlore_relations`).get() as { c: number };
     expect(count.c).toBe(2);
   });
@@ -48,6 +50,7 @@ describe('V078 migration — symmetric reverse backfill', () => {
     db.prepare(`INSERT INTO mindlore_fts (slug,path,title,content) VALUES ('a','/a','A','x'),('b','/b','B','y')`).run();
     db.prepare(`INSERT INTO mindlore_relations (source_a,source_b,relation_type) VALUES ('a','b','contradicts'),('b','a','contradicts')`).run();
     V078_MIGRATIONS.forEach(m => m.up(db));
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- better-sqlite3 .get() returns unknown, narrowing to expected row shape
     const count = db.prepare(`SELECT COUNT(*) as c FROM mindlore_relations`).get() as { c: number };
     expect(count.c).toBe(2);
   });

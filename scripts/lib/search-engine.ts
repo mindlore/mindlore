@@ -5,6 +5,7 @@ import { correctQuery } from './fuzzy.js';
 import { rerankByProximity } from './proximity.js';
 import { extractSmartSnippet } from './smart-snippet.js';
 import { getRelationsForSlugs } from './relation-helpers.js';
+import { dbAll } from './db-helpers.js';
 import { fixVersionTokens, STOP_WORDS, STOP_WORDS_MIN_LENGTH, TURKISH_WORD_RE, Category } from './constants.js';
 
 export interface SearchOptions {
@@ -113,12 +114,12 @@ export function search(db: Database, query: string, options: SearchOptions): Sea
       recallMap = new Map<string, number>();
       if (candidateSlugs.length > 0) {
         const placeholders = candidateSlugs.map(() => '?').join(',');
-        const rows = db.prepare(`
+        const rows = dbAll<{ slug: string; recall_count: number }>(db, `
           SELECT f.slug, h.recall_count
           FROM file_hashes h
           JOIN mindlore_fts f ON f.path = h.path
           WHERE f.slug IN (${placeholders})
-        `).all(...candidateSlugs) as Array<{ slug: string; recall_count: number }>;
+        `, ...candidateSlugs);
         for (const r of rows) {
           recallMap.set(r.slug, r.recall_count ?? 0);
         }

@@ -82,8 +82,11 @@ describe('Search throttle + cache + recall integration', () => {
     }
 
     expect(cacheHitCount).toBeGreaterThan(0);
+    expect(recallIncrements).toBeGreaterThan(0);
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- better-sqlite3 .get() returns unknown
     const s1Recall = db.prepare('SELECT recall_count FROM file_hashes WHERE path = ?').get('/s1') as { recall_count: number };
     expect(s1Recall.recall_count).toBeGreaterThan(1);
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- better-sqlite3 .get() returns unknown
     const finalCallCount = (db.prepare('SELECT call_count FROM search_throttle WHERE session_id = ?').get(sessionId) as { call_count: number }).call_count;
     expect(finalCallCount).toBe(22);
   });

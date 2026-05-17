@@ -28,7 +28,6 @@ function resolveTelemetryBridge(): string {
 }
 
 function writeTelemetry(entry: object): void {
-  // eslint-disable-next-line @typescript-eslint/no-require-imports
   const { writeTelemetry: bridgeWrite } = require(resolveTelemetryBridge());
   try { bridgeWrite(entry); } catch (_e) { /* graceful */ }
 }
