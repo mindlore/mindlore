@@ -131,7 +131,10 @@ export async function migrateFrontmatter(opts: MigrateOptions): Promise<MigrateR
     try {
       entries = fs.readdirSync(dir, { withFileTypes: true });
     } catch (err: unknown) {
-      if (err instanceof Error && (err as NodeJS.ErrnoException).code === 'ENOENT') return;
+      // Duck-type check (NOT `err instanceof Error`): Jest's VM realm
+      // boundary breaks the prototype chain for native fs errors, so
+      // `instanceof Error` returns false. See: jestjs/jest#2549.
+      if (typeof err === 'object' && err !== null && 'code' in err && (err as { code: unknown }).code === 'ENOENT') return;
       throw err;
     }
     for (const entry of entries) {
