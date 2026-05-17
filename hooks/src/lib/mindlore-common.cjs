@@ -665,39 +665,18 @@ const extractSkeleton = (() => {
   }
 })();
 
-const TELEMETRY_KEEP_LINES = 200;
-
-function _rotateFile(filePath, maxBytes, keepLines) {
-  try {
-    const stat = fs.statSync(filePath);
-    if (stat.size > maxBytes) {
-      const lines = fs.readFileSync(filePath, 'utf8').trim().split('\n');
-      const tmpPath = filePath + '.tmp';
-      safeWriteFile(tmpPath, lines.slice(-keepLines).join('\n') + '\n');
-      fs.renameSync(tmpPath, filePath);
-    }
-  } catch { /* file may not exist yet */ }
-}
-
-let _telDirEnsured = false;
-
-function _writeTelemetry({ hookName, duration_ms, ok, extra }) {
-  try {
-    if (!_telDirEnsured) {
-      safeMkdir(GLOBAL_MINDLORE_DIR);
-      _telDirEnsured = true;
-    }
-    const telPath = path.join(GLOBAL_MINDLORE_DIR, 'telemetry.jsonl');
-    const entry = { ts: new Date().toISOString(), hook: hookName, duration_ms, ok };
-    if (extra && typeof extra === 'object') {
-      for (const key of ['inject_tokens', 'source_tokens', 'injected_tokens', 'full_read_tokens']) {
-        if (typeof extra[key] === 'number') entry[key] = extra[key];
-      }
-    }
-    const line = JSON.stringify(entry) + '\n';
-    _rotateFile(telPath, HOOK_LOG_MAX_BYTES, TELEMETRY_KEEP_LINES);
-    fs.appendFileSync(telPath, line);
-  } catch { /* silent — telemetry must never crash hook */ }
+function _writeTelemetry({ hookName, duration_ms, ok, budget_ms, budget_exceeded, extra }) {
+  const { writeTelemetry } = require('../../scripts/lib/telemetry-bridge.cjs');
+  const entry = {
+    ts: new Date().toISOString(),
+    hook: hookName,
+    duration_ms,
+    ok,
+    budget_ms,
+    budget_exceeded,
+    ...(extra || {}),
+  };
+  try { writeTelemetry(entry); } catch (_e) { /* graceful */ }
 }
 
 async function withTelemetry(hookName, fn) {
