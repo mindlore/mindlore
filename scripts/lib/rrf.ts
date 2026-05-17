@@ -44,9 +44,23 @@ const BM25_RANK_EXPR = 'bm25(mindlore_fts, 1, 1, 1, 5.0, 1, 1) as bm';
 export function computeRRF(
   porterResults: RankedResult[],
   trigramResults: RankedResult[],
-  options: RRFOptions = {},
+  recallMapOrOptions?: Map<string, number> | RRFOptions,
+  relationGraph?: Map<string, Set<string>>,
+  options?: RRFOptions,
 ): RankedResult[] {
-  const k = options.k ?? 60;
+  let recallMap: Map<string, number> | undefined;
+  let relGraph: Map<string, Set<string>> | undefined;
+  let opts: RRFOptions;
+
+  if (recallMapOrOptions instanceof Map) {
+    recallMap = recallMapOrOptions;
+    relGraph = relationGraph;
+    opts = options ?? {};
+  } else {
+    opts = recallMapOrOptions ?? {};
+  }
+
+  const k = opts.k ?? 60;
   const scores = new Map<string, RankedResult>();
 
   for (const list of [porterResults, trigramResults]) {
@@ -61,9 +75,28 @@ export function computeRRF(
     }
   }
 
+  // Multi-Signal boost
+  if (recallMap || relGraph) {
+    const candidateSlugs = new Set(scores.keys());
+    for (const [slug, item] of scores.entries()) {
+      const recallCount = recallMap?.get(slug) ?? 0;
+      const accessBoost = Math.min(1.0, Math.log2(recallCount + 1) / 5);
+      let relationProximity = 0;
+      const neighbors = relGraph?.get(slug);
+      if (neighbors && neighbors.size > 0) {
+        let intersectionCount = 0;
+        for (const n of neighbors) {
+          if (candidateSlugs.has(n)) intersectionCount++;
+        }
+        relationProximity = Math.min(1.0, intersectionCount / 3);
+      }
+      item.score += 0.3 * accessBoost + 0.15 * relationProximity;
+    }
+  }
+
   let results = Array.from(scores.values()).sort((a, b) => b.score - a.score);
 
-  if (options.dedupByPath) {
+  if (opts.dedupByPath) {
     const seen = new Set<string>();
     results = results.filter(r => {
       if (seen.has(r.path)) return false;
@@ -71,6 +104,38 @@ export function computeRRF(
       return true;
     });
   }
+
+  // Telemetry: rrf event log
+  try {
+    const { writeTelemetry } = require('./telemetry-bridge.cjs');
+    let maxRecallBoost = 0;
+    let maxRelationBoost = 0;
+    let boostedCount = 0;
+    if (recallMap || relGraph) {
+      for (const r of results) {
+        const rc = recallMap?.get(r.slug) ?? 0;
+        const ab = Math.min(1.0, Math.log2(rc + 1) / 5) * 0.3;
+        if (ab > maxRecallBoost) maxRecallBoost = ab;
+        const neighbors = relGraph?.get(r.slug);
+        if (neighbors) {
+          let inter = 0;
+          for (const n of neighbors) if (scores.has(n)) inter++;
+          const rp = Math.min(1.0, inter / 3) * 0.15;
+          if (rp > maxRelationBoost) maxRelationBoost = rp;
+        }
+        if (ab > 0 || (neighbors && neighbors.size > 0)) boostedCount++;
+      }
+    }
+    writeTelemetry({
+      ts: new Date().toISOString(),
+      event: 'rrf',
+      result_count: results.length,
+      boosted_count: boostedCount,
+      max_recall_boost: Number(maxRecallBoost.toFixed(4)),
+      max_relation_boost: Number(maxRelationBoost.toFixed(4)),
+      top_final_score: results.length > 0 ? Number(results[0]!.score.toFixed(4)) : 0,
+    });
+  } catch (_e) { /* graceful */ }
 
   return results;
 }

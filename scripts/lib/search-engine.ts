@@ -4,6 +4,7 @@ import { searchPorter, searchTrigram, computeRRF } from './rrf.js';
 import { correctQuery } from './fuzzy.js';
 import { rerankByProximity } from './proximity.js';
 import { extractSmartSnippet } from './smart-snippet.js';
+import { getRelationsForSlugs } from './relation-helpers.js';
 import { fixVersionTokens, STOP_WORDS, STOP_WORDS_MIN_LENGTH, TURKISH_WORD_RE, Category } from './constants.js';
 
 export interface SearchOptions {
@@ -98,11 +99,48 @@ export function search(db: Database, query: string, options: SearchOptions): Sea
   const limit = 20;
 
   function fusedSearch(q: string): ReturnType<typeof computeRRF> {
-    return computeRRF(
-      searchPorter(db, { query: q, limit, project: options.project }),
-      searchTrigram(db, { query: q, limit, project: options.project }),
-      { dedupByPath: true },
-    );
+    const porterResults = searchPorter(db, { query: q, limit, project: options.project });
+    const trigramResults = searchTrigram(db, { query: q, limit, project: options.project });
+
+    const candidateSlugs = Array.from(new Set([
+      ...porterResults.map(r => r.slug),
+      ...trigramResults.map(r => r.slug),
+    ]));
+
+    let recallMap: Map<string, number> | undefined;
+    let relationGraph: Map<string, Set<string>> | undefined;
+    try {
+      recallMap = new Map<string, number>();
+      if (candidateSlugs.length > 0) {
+        const placeholders = candidateSlugs.map(() => '?').join(',');
+        const rows = db.prepare(`
+          SELECT f.slug, h.recall_count
+          FROM file_hashes h
+          JOIN mindlore_fts f ON f.path = h.path
+          WHERE f.slug IN (${placeholders})
+        `).all(...candidateSlugs) as Array<{ slug: string; recall_count: number }>;
+        for (const r of rows) {
+          recallMap.set(r.slug, r.recall_count ?? 0);
+        }
+      }
+
+      const relationsBySlug = getRelationsForSlugs(db, candidateSlugs);
+      relationGraph = new Map<string, Set<string>>();
+      const candidateSet = new Set(candidateSlugs);
+      for (const [slug, rels] of relationsBySlug.entries()) {
+        const neighbors = new Set<string>();
+        for (const r of rels) {
+          if (candidateSet.has(r.source)) neighbors.add(r.source);
+        }
+        relationGraph.set(slug, neighbors);
+      }
+    } catch (_e) {
+      // Graceful fallback when tables/columns are missing
+      recallMap = undefined;
+      relationGraph = undefined;
+    }
+
+    return computeRRF(porterResults, trigramResults, recallMap, relationGraph, { dedupByPath: true });
   }
 
   let fused = fusedSearch(queryStr);
