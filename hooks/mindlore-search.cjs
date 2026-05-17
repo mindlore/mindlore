@@ -604,8 +604,18 @@ var require_rrf = __commonJS({
       return query.replace(/["*(){}[\]^~:-]/g, " ").replace(/\s+/g, " ").trim();
     }
     var BM25_RANK_EXPR = "bm25(mindlore_fts, 1, 1, 1, 5.0, 1, 1) as bm";
-    function computeRRF(porterResults, trigramResults, options = {}) {
-      const k = options.k ?? 60;
+    function computeRRF(porterResults, trigramResults, recallMapOrOptions, relationGraph, options) {
+      let recallMap;
+      let relGraph;
+      let opts;
+      if (recallMapOrOptions instanceof Map) {
+        recallMap = recallMapOrOptions;
+        relGraph = relationGraph;
+        opts = options ?? {};
+      } else {
+        opts = recallMapOrOptions ?? {};
+      }
+      const k = opts.k ?? 60;
       const scores = /* @__PURE__ */ new Map();
       for (const list of [porterResults, trigramResults]) {
         for (const r of list) {
@@ -618,8 +628,37 @@ var require_rrf = __commonJS({
           }
         }
       }
+      let maxRecallBoost = 0;
+      let maxRelationBoost = 0;
+      let boostedCount = 0;
+      if (recallMap || relGraph) {
+        const candidateSlugs = new Set(scores.keys());
+        for (const [slug, item] of scores.entries()) {
+          const recallCount = recallMap?.get(slug) ?? 0;
+          const accessBoost = Math.min(1, Math.log2(recallCount + 1) / 5);
+          const recallContribution = 0.3 * accessBoost;
+          let relationProximity = 0;
+          const neighbors = relGraph?.get(slug);
+          if (neighbors && neighbors.size > 0) {
+            let intersectionCount = 0;
+            for (const n of neighbors) {
+              if (candidateSlugs.has(n))
+                intersectionCount++;
+            }
+            relationProximity = Math.min(1, intersectionCount / 3);
+          }
+          const relationContribution = 0.15 * relationProximity;
+          item.score += recallContribution + relationContribution;
+          if (recallContribution > maxRecallBoost)
+            maxRecallBoost = recallContribution;
+          if (relationContribution > maxRelationBoost)
+            maxRelationBoost = relationContribution;
+          if (recallContribution > 0 || neighbors && neighbors.size > 0)
+            boostedCount++;
+        }
+      }
       let results = Array.from(scores.values()).sort((a, b) => b.score - a.score);
-      if (options.dedupByPath) {
+      if (opts.dedupByPath) {
         const seen = /* @__PURE__ */ new Set();
         results = results.filter((r) => {
           if (seen.has(r.path))
@@ -627,6 +666,19 @@ var require_rrf = __commonJS({
           seen.add(r.path);
           return true;
         });
+      }
+      try {
+        const { writeTelemetry } = require("./telemetry-bridge.cjs");
+        writeTelemetry({
+          ts: (/* @__PURE__ */ new Date()).toISOString(),
+          event: "rrf",
+          result_count: results.length,
+          boosted_count: boostedCount,
+          max_recall_boost: Number(maxRecallBoost.toFixed(4)),
+          max_relation_boost: Number(maxRelationBoost.toFixed(4)),
+          top_final_score: results.length > 0 ? Number((results[0]?.score ?? 0).toFixed(4)) : 0
+        });
+      } catch (_e) {
       }
       return results;
     }
@@ -987,6 +1039,56 @@ var require_smart_snippet = __commonJS({
   }
 });
 
+// dist/scripts/lib/relation-helpers.js
+var require_relation_helpers = __commonJS({
+  "dist/scripts/lib/relation-helpers.js"(exports2) {
+    "use strict";
+    Object.defineProperty(exports2, "__esModule", { value: true });
+    exports2.assertSlugExists = assertSlugExists;
+    exports2.getRelationsForSlug = getRelationsForSlug;
+    exports2.getRelationsForSlugs = getRelationsForSlugs;
+    var constants_js_1 = require_constants();
+    var db_helpers_js_1 = require_db_helpers();
+    function assertSlugExists(db, slug) {
+      const row = (0, db_helpers_js_1.dbGet)(db, "SELECT path, title FROM mindlore_fts WHERE slug = ? LIMIT 1", slug);
+      if (!row)
+        throw new Error(`Source slug "${slug}" not found in knowledge base`);
+      return row;
+    }
+    var RELATIONS_SQL = `
+  SELECT source_b AS source, relation_type, 'outgoing' AS direction
+  FROM mindlore_relations
+  WHERE source_a = ?
+  ORDER BY CASE relation_type ${constants_js_1.PRIORITY_CASE} END
+  LIMIT ?
+`;
+    function getRelationsForSlug(db, slug, limit = constants_js_1.RELATED_OVERFETCH) {
+      return (0, db_helpers_js_1.dbAll)(db, RELATIONS_SQL, slug, limit);
+    }
+    function getRelationsForSlugs(db, slugs) {
+      const result = /* @__PURE__ */ new Map();
+      if (slugs.length === 0)
+        return result;
+      for (const s of slugs)
+        result.set(s, []);
+      const placeholders = slugs.map(() => "?").join(",");
+      const sql = `
+    SELECT source_a AS query_slug, source_b AS source, relation_type, 'outgoing' AS direction
+    FROM mindlore_relations
+    WHERE source_a IN (${placeholders})
+    ORDER BY CASE relation_type ${constants_js_1.PRIORITY_CASE} END
+  `;
+      const rows = (0, db_helpers_js_1.dbAll)(db, sql, ...slugs);
+      for (const row of rows) {
+        const bucket = result.get(row.query_slug);
+        if (bucket)
+          bucket.push({ source: row.source, relation_type: row.relation_type, direction: "outgoing" });
+      }
+      return result;
+    }
+  }
+});
+
 // dist/scripts/lib/search-engine.js
 var require_search_engine = __commonJS({
   "dist/scripts/lib/search-engine.js"(exports2) {
@@ -998,6 +1100,8 @@ var require_search_engine = __commonJS({
     var fuzzy_js_1 = require_fuzzy();
     var proximity_js_1 = require_proximity();
     var smart_snippet_js_1 = require_smart_snippet();
+    var relation_helpers_js_1 = require_relation_helpers();
+    var db_helpers_js_1 = require_db_helpers();
     var constants_js_1 = require_constants();
     function extractKeywords(text, maxKeywords) {
       const keywords = text.replace(constants_js_1.TURKISH_WORD_RE, " ").split(/\s+/).filter((w) => w.length >= constants_js_1.STOP_WORDS_MIN_LENGTH && !constants_js_1.STOP_WORDS.has(w.toLowerCase())).map((w) => w.toLowerCase());
@@ -1056,7 +1160,44 @@ var require_search_engine = __commonJS({
       const queryStr = (0, constants_js_1.fixVersionTokens)(expanded.join(" "));
       const limit = 20;
       function fusedSearch(q) {
-        return (0, rrf_js_1.computeRRF)((0, rrf_js_1.searchPorter)(db, { query: q, limit, project: options.project }), (0, rrf_js_1.searchTrigram)(db, { query: q, limit, project: options.project }), { dedupByPath: true });
+        const porterResults = (0, rrf_js_1.searchPorter)(db, { query: q, limit, project: options.project });
+        const trigramResults = (0, rrf_js_1.searchTrigram)(db, { query: q, limit, project: options.project });
+        const candidateSlugs = Array.from(/* @__PURE__ */ new Set([
+          ...porterResults.map((r) => r.slug),
+          ...trigramResults.map((r) => r.slug)
+        ]));
+        let recallMap;
+        let relationGraph;
+        try {
+          recallMap = /* @__PURE__ */ new Map();
+          if (candidateSlugs.length > 0) {
+            const placeholders = candidateSlugs.map(() => "?").join(",");
+            const rows = (0, db_helpers_js_1.dbAll)(db, `
+          SELECT f.slug, h.recall_count
+          FROM file_hashes h
+          JOIN mindlore_fts f ON f.path = h.path
+          WHERE f.slug IN (${placeholders})
+        `, ...candidateSlugs);
+            for (const r of rows) {
+              recallMap.set(r.slug, r.recall_count ?? 0);
+            }
+          }
+          const relationsBySlug = (0, relation_helpers_js_1.getRelationsForSlugs)(db, candidateSlugs);
+          relationGraph = /* @__PURE__ */ new Map();
+          const candidateSet = new Set(candidateSlugs);
+          for (const [slug, rels] of relationsBySlug.entries()) {
+            const neighbors = /* @__PURE__ */ new Set();
+            for (const r of rels) {
+              if (candidateSet.has(r.source))
+                neighbors.add(r.source);
+            }
+            relationGraph.set(slug, neighbors);
+          }
+        } catch (_e) {
+          recallMap = void 0;
+          relationGraph = void 0;
+        }
+        return (0, rrf_js_1.computeRRF)(porterResults, trigramResults, recallMap, relationGraph, { dedupByPath: true });
       }
       let fused = fusedSearch(queryStr);
       if (fused.length === 0) {
@@ -1265,8 +1406,7 @@ var require_transcript_token_estimator = __commonJS({
     exports2.adaptiveResultCount = adaptiveResultCount;
     var fs2 = __importStar(require("fs"));
     var CHAR_PER_TOKEN = 4;
-    var DEFAULT_TAIL_LINES = 500;
-    var AVG_BYTES_PER_TRANSCRIPT_LINE = 1500;
+    var TAIL_BYTES = 2e6;
     var DEFAULT_CONTEXT_WINDOW = 2e5;
     var cache = /* @__PURE__ */ new Map();
     function isRecord(x) {
@@ -1304,15 +1444,14 @@ var require_transcript_token_estimator = __commonJS({
       }
       return 0;
     }
-    function estimateContextTokens(transcriptPath, opts = {}) {
-      const tail = opts.tailLines ?? DEFAULT_TAIL_LINES;
+    function estimateContextTokens(transcriptPath, _opts = {}) {
       let fd;
       try {
         const st = fs2.statSync(transcriptPath);
         const cached = cache.get(transcriptPath);
         if (cached && cached.mtime === st.mtimeMs)
           return cached.tokens;
-        const readSize = Math.min(st.size, tail * AVG_BYTES_PER_TRANSCRIPT_LINE);
+        const readSize = Math.min(st.size, TAIL_BYTES);
         if (readSize === 0) {
           cache.set(transcriptPath, { mtime: st.mtimeMs, tokens: 0 });
           return 0;
@@ -1446,15 +1585,27 @@ function main() {
         const callCount = throttle.incrementCallCount(sessionId);
         effectiveMax = throttle.getMaxResults(callCount, baseMax);
         if (effectiveMax < sessionEffectiveMax) sessionEffectiveMax = effectiveMax;
+        if (effectiveMax < baseMax) {
+          hookLog("search", "info", `Throttled (call #${callCount}, effectiveMax=${effectiveMax}, baseMax=${baseMax})`);
+        }
         if (effectiveMax === 0) {
-          hookLog("search", "info", `Throttled (call #${callCount})`);
           db.close();
           continue;
         }
+        const cacheT0 = Date.now();
         const cached = cache.get(userMessage);
+        searchMs += Date.now() - cacheT0;
         if (cached) {
           const baseDir2 = path.dirname(dbPath);
-          for (const r of cached.slice(0, effectiveMax)) allResults.push({ ...r, baseDir: baseDir2 });
+          const sliced = cached.slice(0, effectiveMax);
+          for (const r of sliced) allResults.push({ ...r, baseDir: baseDir2 });
+          try {
+            const txn = db.transaction(() => {
+              for (const r of sliced) incrementRecallCount(db, r.path);
+            });
+            txn();
+          } catch (_e) {
+          }
           db.close();
           continue;
         }

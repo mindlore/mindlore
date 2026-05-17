@@ -1,11 +1,9 @@
 #!/usr/bin/env node
 import { spawnSync } from 'child_process';
-import { appendFileSync, existsSync, mkdirSync, renameSync, statSync } from 'fs';
-import { dirname, isAbsolute, join } from 'path';
+import { existsSync } from 'fs';
+import { isAbsolute, join } from 'path';
 import {
   resolveProject,
-  resolveTelemetryPath,
-  TELEMETRY_FILE_ROTATE_BYTES,
   TELEMETRY_OUTPUT_MAX_BYTES,
 } from './constants.js';
 
@@ -23,27 +21,15 @@ function scriptId(scriptPath: string): string {
   return base.replace(/\.(js|cjs|mjs|ts)$/, '');
 }
 
-function rotateIfNeeded(p: string): void {
-  try {
-    const size = statSync(p).size;
-    if (size >= TELEMETRY_FILE_ROTATE_BYTES) {
-      renameSync(p, `${p}.1`);
-    }
-  } catch { /* file may not exist yet; ENOENT is fine */ }
+function resolveTelemetryBridge(): string {
+  const local = join(__dirname, 'telemetry-bridge.cjs');
+  if (existsSync(local)) return local;
+  return join(__dirname, '..', '..', '..', 'scripts', 'lib', 'telemetry-bridge.cjs');
 }
 
 function writeTelemetry(entry: object): void {
-  try {
-    const p = resolveTelemetryPath();
-    const dir = dirname(p);
-    if (!existsSync(dir)) mkdirSync(dir, { recursive: true });
-    rotateIfNeeded(p);
-    appendFileSync(p, JSON.stringify(entry) + '\n');
-  } catch (err) {
-    // telemetry write failure must not break skill execution; surface once to stderr
-    const msg = err instanceof Error ? err.message : String(err);
-    process.stderr.write(`[skill-runner] telemetry write failed: ${msg}\n`);
-  }
+  const { writeTelemetry: bridgeWrite } = require(resolveTelemetryBridge());
+  try { bridgeWrite(entry); } catch (_e) { /* graceful */ }
 }
 
 function main(): void {

@@ -7,6 +7,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Known Issues (v0.7.8)
+- **Fresh installs:** Run `npm run index` (or `npx mindlore index`) once after install to enable Multi-Signal RRF recall ranking. INIT_MIGRATIONS currently skips V050–V061, so `file_hashes.recall_count` column is created via the indexer pass. Existing users are not affected. Fix tracked for v0.7.9.
+
 ## [0.7.7] - 2026-05-17
 
 UX Release + Cleanup Batch. 36 commits, 143 test suites / 929 tests.
