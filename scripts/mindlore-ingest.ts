@@ -7,10 +7,36 @@ import { GLOBAL_MINDLORE_DIR } from './lib/constants.js';
 import { safeMkdir, safeWriteFile } from './lib/secure-io.js';
 import { slugify } from './lib/slugify.js';
 
+function findRepoRoot(start: string): string {
+  let dir = start;
+  while (dir !== path.dirname(dir)) {
+    if (fs.existsSync(path.join(dir, 'package.json'))) return dir;
+    dir = path.dirname(dir);
+  }
+  return start;
+}
+const TEMPLATE_ROOT = path.join(findRepoRoot(__dirname), 'templates', 'source-types');
+
 async function fetchUrl(url: string): Promise<string> {
-  const res = await fetch(url, { redirect: 'follow' });
-  if (!res.ok) throw new Error(`HTTP ${res.status}`);
-  return await res.text();
+  const parsed = new URL(url);
+  const blocked = /^(localhost|127\.|10\.|192\.168\.|169\.254\.|172\.(1[6-9]|2[0-9]|3[01])\.|::1$|fe80:|fc00:)/i;
+  if (blocked.test(parsed.hostname)) {
+    throw new Error(`Blocked URL host: ${parsed.hostname} (private/loopback)`);
+  }
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 30_000);
+  try {
+    const res = await fetch(url, { signal: controller.signal, redirect: 'follow' });
+    if (!res.ok) throw new Error(`HTTP ${res.status} for ${url}`);
+    const contentLength = Number(res.headers.get('content-length') ?? '0');
+    const MAX_BYTES = 10 * 1024 * 1024;
+    if (contentLength > MAX_BYTES) throw new Error(`URL exceeds 10MB cap: ${contentLength} bytes`);
+    const text = await res.text();
+    if (text.length > MAX_BYTES) throw new Error(`URL body exceeds 10MB cap after read`);
+    return text;
+  } finally {
+    clearTimeout(timeout);
+  }
 }
 
 function renderTemplate(templatePath: string, vars: Record<string, unknown>): string {
@@ -31,7 +57,7 @@ async function ingest(input: string, type: string): Promise<{ slug: string; rend
       const html = await fetchUrl(input);
       const ext = await extractUrl(input, html);
       const slug = slugify(ext.title);
-      const rendered = renderTemplate('templates/source-types/url.md', {
+      const rendered = renderTemplate(path.join(TEMPLATE_ROOT, 'url.md'), {
         ...ext,
         slug,
         url: ext.canonical_url,
@@ -40,10 +66,15 @@ async function ingest(input: string, type: string): Promise<{ slug: string; rend
       return { slug, rendered };
     }
     case 'pdf': {
+      const MAX_INGEST_BYTES = 50 * 1024 * 1024;
+      const pdfStat = fs.statSync(input);
+      if (pdfStat.size > MAX_INGEST_BYTES) {
+        throw new Error(`File too large: ${pdfStat.size} bytes (max ${MAX_INGEST_BYTES})`);
+      }
       const buf = fs.readFileSync(input);
       const ext = await extractPdf(buf);
       const slug = slugify(ext.title);
-      const rendered = renderTemplate('templates/source-types/pdf.md', {
+      const rendered = renderTemplate(path.join(TEMPLATE_ROOT, 'pdf.md'), {
         ...ext,
         slug,
         date: ext.ingested_at,
@@ -52,10 +83,15 @@ async function ingest(input: string, type: string): Promise<{ slug: string; rend
       return { slug, rendered };
     }
     case 'file': {
+      const MAX_INGEST_BYTES = 50 * 1024 * 1024;
+      const fileStat = fs.statSync(input);
+      if (fileStat.size > MAX_INGEST_BYTES) {
+        throw new Error(`File too large: ${fileStat.size} bytes (max ${MAX_INGEST_BYTES})`);
+      }
       const content = fs.readFileSync(input, 'utf8');
       const ext = extractFile(input, content);
       const slug = slugify(path.basename(input, path.extname(input)));
-      const rendered = renderTemplate('templates/source-types/file.md', {
+      const rendered = renderTemplate(path.join(TEMPLATE_ROOT, 'file.md'), {
         ...ext,
         slug,
         filePath: ext.file_path,
