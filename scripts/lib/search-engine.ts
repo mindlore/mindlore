@@ -141,7 +141,7 @@ export function search(db: Database, query: string, options: SearchOptions): Sea
       relationGraph = undefined;
     }
 
-    return computeRRF(porterResults, trigramResults, recallMap, relationGraph, { dedupByPath: true });
+    return computeRRF({ porter: porterResults, trigram: trigramResults, recallMap, relationGraph, dedupByPath: true });
   }
 
   let fused = fusedSearch(queryStr);

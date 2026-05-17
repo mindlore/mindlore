@@ -12,7 +12,7 @@ describe('Multi-Signal RRF', () => {
     ];
     const recallMap = new Map([['s1', 0], ['s5', 30]]);
     const relationGraph = new Map<string, Set<string>>([['s1', new Set()], ['s5', new Set()]]);
-    const result = computeRRF(porter, trigram, recallMap, relationGraph);
+    const result = computeRRF({ porter, trigram, recallMap, relationGraph });
     expect(result[0]!.slug).toBe('s5'); // recall 30 boost > recall 0
   });
 
@@ -29,7 +29,7 @@ describe('Multi-Signal RRF', () => {
       ['s2', new Set(['s1'])],
       ['s3', new Set()],         // s3 isolated
     ]);
-    const result = computeRRF(porter, trigram, recallMap, relationGraph);
+    const result = computeRRF({ porter, trigram, recallMap, relationGraph });
     const s1 = result.find(r => r.slug === 's1');
     const s3 = result.find(r => r.slug === 's3');
     expect(s1!.score).toBeGreaterThan(s3!.score);
@@ -43,7 +43,7 @@ describe('Multi-Signal RRF', () => {
     const trigram: RankedResult[] = [];
     const recallMap = new Map([['new', 0], ['old', 30]]);
     const relationGraph = new Map<string, Set<string>>([['new', new Set()], ['old', new Set()]]);
-    const result = computeRRF(porter, trigram, recallMap, relationGraph);
+    const result = computeRRF({ porter, trigram, recallMap, relationGraph });
     const newRes = result.find(r => r.slug === 'new')!;
     const oldRes = result.find(r => r.slug === 'old')!;
     expect(newRes.score).toBeGreaterThan(0);
@@ -58,7 +58,7 @@ describe('Multi-Signal RRF', () => {
     const trigram: RankedResult[] = [];
     const recallMap = new Map([['low', 0], ['max', 1000]]);
     const relationGraph = new Map<string, Set<string>>([['low', new Set()], ['max', new Set()]]);
-    const result = computeRRF(porter, trigram, recallMap, relationGraph);
+    const result = computeRRF({ porter, trigram, recallMap, relationGraph });
     const maxRes = result.find(r => r.slug === 'max')!;
     expect(maxRes.score).toBeGreaterThan(0.3);
   });

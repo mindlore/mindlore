@@ -34,7 +34,8 @@ describe('clean-cache EPERM handling (B4-a)', () => {
         throw err;
       }
       // For v2 and tmpDir cleanup, call real rmSync
-      return (jest.requireActual('fs') as typeof fs).rmSync(p, { recursive: true, force: true });
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- mock callback param
+      return (jest.requireActual('fs') as typeof fs).rmSync(p as string, { recursive: true, force: true });
     });
 
     const result = cleanCacheVersions([v1, v2]);
