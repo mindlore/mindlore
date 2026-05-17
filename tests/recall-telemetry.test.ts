@@ -53,4 +53,23 @@ describe('Recall Telemetry', () => {
     expect(() => incrementRecallCount(db, '/nonexistent.md')).not.toThrow();
     db.close();
   });
+
+  test('cache hit also increments recall_count', () => {
+    const db = new Database(dbPath);
+    db.exec(`
+      INSERT INTO file_hashes (path, hash, last_indexed, recall_count, last_recalled_at)
+      VALUES ('/test/cached.md', 'abc123', '2026-01-01', 0, NULL);
+    `);
+    const { incrementRecallCount } = require('../hooks/lib/mindlore-common.cjs');
+    // Simulate first search (cache miss)
+    incrementRecallCount(db, '/test/cached.md');
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- better-sqlite3 .get() returns unknown, narrowing to expected row shape
+    const before = db.prepare('SELECT recall_count FROM file_hashes WHERE path = ?').get('/test/cached.md') as { recall_count: number };
+    // Simulate cache hit — recall should still increment
+    incrementRecallCount(db, '/test/cached.md');
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- better-sqlite3 .get() returns unknown, narrowing to expected row shape
+    const after = db.prepare('SELECT recall_count FROM file_hashes WHERE path = ?').get('/test/cached.md') as { recall_count: number };
+    expect(after.recall_count).toBe(before.recall_count + 1);
+    db.close();
+  });
 });

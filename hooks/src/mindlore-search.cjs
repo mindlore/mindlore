@@ -110,7 +110,14 @@ function main() {
         const cached = cache.get(userMessage);
         if (cached) {
           const baseDir = path.dirname(dbPath);
-          for (const r of cached.slice(0, effectiveMax)) allResults.push({ ...r, baseDir });
+          const sliced = cached.slice(0, effectiveMax);
+          for (const r of sliced) allResults.push({ ...r, baseDir });
+          try {
+            const txn = db.transaction(() => {
+              for (const r of sliced) incrementRecallCount(db, r.path);
+            });
+            txn();
+          } catch (_e) { /* graceful */ }
           db.close();
           continue;
         }
