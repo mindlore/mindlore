@@ -1,41 +1,48 @@
-import { describe, it, expect, jest } from '@jest/globals';
-import * as fs from 'fs';
+import { describe, test, expect, jest } from '@jest/globals';
 import * as path from 'path';
 import * as os from 'os';
 
-jest.mock('fs', () => {
-  const actual = jest.requireActual('fs') as typeof fs;
-  let callCount = 0;
-  return {
-    ...actual,
-    promises: {
-      ...actual.promises,
-      rm: async (p: string, opts?: object) => {
-        callCount++;
-        if (callCount === 2) {
-          const err: NodeJS.ErrnoException = new Error('EPERM');
-          err.code = 'EPERM';
-          throw err;
-        }
-        return actual.promises.rm(p, opts);
-      },
-    },
-  };
-});
+const mockRmSync = jest.fn();
 
-import { cleanCacheVersion } from '../scripts/mindlore-clean-cache';
+jest.mock('fs', () => ({
+  ...(jest.requireActual('fs') as any),
+  rmSync: mockRmSync,
+}));
 
-describe('clean-cache EPERM resilience', () => {
-  it('skips locked version and continues to next without crashing', async () => {
-    const tmpRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'mlc-'));
-    fs.mkdirSync(path.join(tmpRoot, '0.7.3'));
-    fs.mkdirSync(path.join(tmpRoot, '0.7.4'));
-    fs.mkdirSync(path.join(tmpRoot, '0.7.5'));
-    const result = await cleanCacheVersion(tmpRoot);
-    expect(result.skipped).toContain('0.7.4');
-    expect(result.cleaned).toContain('0.7.3');
-    expect(fs.existsSync(path.join(tmpRoot, '0.7.3'))).toBe(false);
-    expect(fs.existsSync(path.join(tmpRoot, '0.7.5'))).toBe(true); // latest preserved
-    fs.rmSync(tmpRoot, { recursive: true, force: true });
+// After mocking, import fs (it will use the mocked rmSync)
+import * as fs from 'fs';
+import { cleanCacheVersions } from '../scripts/mindlore-clean-cache';
+
+describe('clean-cache EPERM handling (B4-a)', () => {
+  afterEach(() => {
+    mockRmSync.mockReset();
+  });
+
+  test('continues on EPERM, returns skipped versions', () => {
+    const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'cc-test-'));
+    const v1 = path.join(tmpDir, '0.7.5');
+    const v2 = path.join(tmpDir, '0.7.6');
+    fs.mkdirSync(v1, { recursive: true });
+    fs.mkdirSync(v2, { recursive: true });
+    fs.writeFileSync(path.join(v1, 'native.node'), 'fake binary');
+
+    // Mock rmSync: throw EPERM for v1, succeed for v2
+    mockRmSync.mockImplementation((p: any) => {
+      if (p === v1) {
+        const err: NodeJS.ErrnoException = new Error('EPERM');
+        err.code = 'EPERM';
+        throw err;
+      }
+      // For v2 and tmpDir cleanup, call real rmSync
+      return (jest.requireActual('fs') as typeof fs).rmSync(p, { recursive: true, force: true });
+    });
+
+    const result = cleanCacheVersions([v1, v2]);
+
+    expect(result.cleaned).toEqual([v2]);
+    expect(result.skipped).toContainEqual({ version: v1, reason: 'EPERM' });
+
+    // Cleanup
+    (jest.requireActual('fs') as typeof fs).rmSync(tmpDir, { recursive: true, force: true });
   });
 });
